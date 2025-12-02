@@ -2,22 +2,28 @@
 import tkinter as tk
 from tkinter import messagebox
 import random
-
+import re  # <-- để xử lý bỏ (N), (adj)...
 from vocab_store import VocabStore
 
-NUM_CORRECT_TO_EXIT = 3  # số câu đúng cần để thoát
+NUM_CORRECT_TO_EXIT = 5  # số câu đúng cần để thoát
 
 
 class VocabGuardApp:
     def __init__(self, root: tk.Tk):
+        self.practice_frame = None
         self.root = root
         self.root.title("Vocab Guard")
 
-        # full screen
+        # full screen + luôn nằm trên cùng
         self.root.attributes("-fullscreen", True)
+        self.root.attributes("-topmost", True)
 
-        # chặn đóng cửa sổ bằng nút X
+        # chặn đóng cửa sổ bằng nút X + Alt+F4
         self.root.protocol("WM_DELETE_WINDOW", self.on_close)
+        self.root.bind_all("<Alt-F4>", self.disable_alt_f4)
+
+        # nếu mất focus (Alt+Tab ra chỗ khác) thì kéo cửa sổ quay lại
+        self.root.bind("<FocusOut>", self.on_focus_out)
 
         # store quản lý vocab.json
         self.store = VocabStore()
@@ -41,8 +47,11 @@ class VocabGuardApp:
     # ---------- UI chính ----------
 
     def build_ui(self):
-        frame = tk.Frame(self.root)
-        frame.pack(expand=True)
+        # lưu frame chính để sau này pack_forget()
+        self.main_frame = tk.Frame(self.root)
+        self.main_frame.pack(expand=True)
+
+        frame = self.main_frame
 
         self.info_label = tk.Label(
             frame,
@@ -98,10 +107,248 @@ class VocabGuardApp:
         )
         self.exit_button.pack(side=tk.LEFT, padx=10)
 
+        practice_button = tk.Button(
+            btn_frame,
+            text="Đặt câu ví dụ",
+            font=("Arial", 12),
+            command=self.prepare_practice
+        )
+        practice_button.pack(side=tk.LEFT, padx=10)
+
+    def prepare_practice(self):
+        vocab = self.store.all()
+        word_raw = vocab[self.current_index]["en"]
+        self.current_target_word = self.clean_en(word_raw)
+
+        self.show_practice_frame()
+
     def update_progress_label(self):
         self.progress_label.config(
             text=f"Đúng: {self.correct_count} / Mục tiêu: {NUM_CORRECT_TO_EXIT}"
         )
+
+    def show_practice_frame(self):
+        # Ẩn frame quiz
+        self.main_frame.pack_forget()
+
+        # Tạo frame nếu chưa có
+        if self.practice_frame is None:
+            self.practice_frame = tk.Frame(self.root)
+            
+            tk.Label(self.practice_frame,
+                    text=f"Từ cần dùng: {self.current_target_word}",
+                    font=("Arial", 16, "bold")).pack(pady=10)
+
+            tk.Label(self.practice_frame,
+                    text="Hãy đặt 1 câu tiếng Anh sử dụng từ trên:",
+                    font=("Arial", 12)).pack()
+
+            self.practice_input = tk.Text(self.practice_frame, height=4, width=80, font=("Arial", 12))
+            self.practice_input.pack(pady=10)
+
+            self.result_box = tk.Text(self.practice_frame, height=10, width=80,
+                                    font=("Arial", 12), wrap="word")
+            self.result_box.config(state="disabled")
+            self.result_box.pack(pady=10)
+
+            tk.Button(self.practice_frame, text="Chấm câu",
+                    font=("Arial", 14), command=self.grade_sentence).pack(pady=5)
+
+            tk.Button(self.practice_frame, text="Quay về bài học",
+                    font=("Arial", 12), command=self.return_to_quiz).pack(pady=5)
+
+        self.practice_frame.pack(expand=True)
+
+    #----------- AI Window ----------
+    def open_practice_window(self):
+        vocab = self.store.all()
+        if self.current_index is None:
+            return
+
+        word_raw = vocab[self.current_index]["en"]
+        target_word = self.clean_en(word_raw)
+
+        win = tk.Toplevel(self.root)
+        win.title(f"Đặt câu với: {target_word}")
+        win.geometry("600x400")
+        win.grab_set()
+
+        tk.Label(win, text=f"Từ cần dùng: {target_word}", font=("Arial", 14, "bold")).pack(pady=10)
+
+        tk.Label(win, text="Hãy đặt 1 câu tiếng Anh sử dụng từ trên:", font=("Arial", 12)).pack()
+
+        input_box = tk.Text(win, height=4, width=60, font=("Arial", 12))
+        input_box.pack(pady=10)
+
+        result_box = tk.Text(win, font=("Arial", 12), height=10, width=60, wrap="word")
+        result_box.config(state="disabled")  # khóa edit
+        result_box.pack(pady=10)
+
+        def submit_sentence():
+            from ai_teacher import check_sentence
+
+            user_sentence = input_box.get("1.0", "end").strip()
+            if not user_sentence:
+                result_box.config(text="Bạn chưa nhập câu!", fg="red")
+                return
+
+            try:
+                result = check_sentence(target_word, user_sentence)
+            except Exception as e:
+                result_box.config(text=f"Lỗi API: {e}", fg="red")
+                return
+
+            feedback = (
+                f"Đúng ngữ cảnh: {'✔' if result['is_correct_usage'] else '❌'}\n"
+                f"Điểm: {result['score']:.2f}\n\n"
+                f"Nhận xét:\n{result['feedback_vi']}\n\n"
+                f"Gợi ý tốt hơn:\n{result['suggested_sentence']}"
+            )
+
+            result_box.config(state="normal")
+            result_box.delete("1.0", "end")
+            result_box.insert("1.0", feedback)
+            result_box.config(state="disabled")
+
+        tk.Button(win, text="Chấm câu", font=("Arial", 12), command=submit_sentence).pack(pady=5)
+
+        tk.Button(win, text="Đóng", font=("Arial", 12), command=win.destroy).pack(pady=5)
+
+    def grade_sentence(self):
+        from ai_teacher import check_sentence
+
+        user_sentence = self.practice_input.get("1.0", "end").strip()
+        if not user_sentence:
+            return
+        
+        result = check_sentence(self.current_target_word, user_sentence)
+
+        feedback = (
+            f"Đúng ngữ cảnh: {'✔' if result['is_correct_usage'] else '❌'}\n"
+            f"Điểm: {result['score']:.2f}\n\n"
+            f"Nhận xét:\n{result['feedback_vi']}\n\n"
+            f"Gợi ý tốt hơn:\n{result['suggested_sentence']}"
+        )
+        
+        self.result_box.config(state="normal")
+        self.result_box.delete("1.0", "end")
+        self.result_box.insert("1.0", feedback)
+        self.result_box.config(state="disabled")
+
+    def return_to_quiz(self):
+        self.practice_frame.pack_forget()
+        self.main_frame.pack(expand=True)
+
+    # ---------- Chặn/giảm thiểu phím tắt ----------
+    def open_practice_window(self):
+        # TẠM TẮT CHẾ ĐỘ KHÓA MÀN HÌNH
+        self.root.attributes("-topmost", False)
+        self.disable_force_focus = True
+
+        vocab = self.store.all()
+        if self.current_index is None:
+            return
+
+        word_raw = vocab[self.current_index]["en"]
+        target_word = self.clean_en(word_raw)
+
+        win = tk.Toplevel(self.root)
+        win.title(f"Đặt câu với: {target_word}")
+        win.geometry("600x400")
+        win.grab_set()  # khóa focus trong cửa sổ này, không ra desktop được
+
+        # ===== UI =====
+        tk.Label(win, text=f"Từ cần dùng: {target_word}",
+                font=("Arial", 14, "bold")).pack(pady=10)
+
+        tk.Label(win, text="Hãy đặt 1 câu tiếng Anh sử dụng từ trên:",
+                font=("Arial", 12)).pack()
+
+        input_box = tk.Text(win, height=4, width=60, font=("Arial", 12))
+        input_box.pack(pady=10)
+
+        result_box = tk.Text(win, font=("Arial", 12), height=10, width=60, wrap="word")
+        result_box.config(state="disabled")  # khóa edit
+        result_box.pack(pady=10)
+
+        # Submit
+        def submit_sentence():
+            from ai_teacher import check_sentence
+
+            user_sentence = input_box.get("1.0", "end").strip()
+            if not user_sentence:
+                result_box.config(state="normal")
+                return
+
+            try:
+                result = check_sentence(target_word, user_sentence)
+            except Exception as e:
+                result_box.config(text=f"Lỗi API: {e}", fg="red")
+                return
+
+            feedback = (
+                f"Đúng ngữ cảnh: {'✔' if result['is_correct_usage'] else '❌'}\n"
+                f"Điểm: {result['score']:.2f}\n\n"
+                f"Nhận xét:\n{result['feedback_vi']}\n\n"
+                f"Gợi ý tốt hơn:\n{result['suggested_sentence']}"
+            )
+            result_box.config(state="normal")
+            result_box.delete("1.0", "end")
+            result_box.insert("1.0", feedback)
+            result_box.config(state="disabled")
+
+        def close_window():
+            win.destroy()
+            # BẬT LẠI KHÓA MÀN HÌNH
+            self.root.attributes("-topmost", True)
+            self.disable_force_focus = False
+            self.force_focus()  # gọi lại focus nếu bạn muốn
+
+        tk.Button(win, text="Chấm câu", font=("Arial", 12),
+                command=submit_sentence).pack(pady=5)
+
+        tk.Button(win, text="Đóng", font=("Arial", 12),
+                command=close_window).pack(pady=5)
+
+    def disable_alt_f4(self, event=None):
+        # Chặn Alt+F4
+        return "break"
+
+    def on_focus_out(self, event=None):
+        # Nếu người dùng Alt+Tab ra ngoài, kéo app quay lại
+        # (không đảm bảo 100%, nhưng gây "khó chịu" đủ mạnh để họ ở lại học 😈)
+        self.root.after(100, self.force_focus)
+
+    def force_focus(self):
+        if getattr(self, "disable_force_focus", False):
+            return  # đang mở popup -> KHÔNG ép focus
+        try:
+            self.root.attributes("-topmost", True)
+            self.root.focus_force()
+            self.root.lift()
+        except:
+            pass
+
+
+    # ---------- Xử lý chuẩn hóa từ, bỏ (N), (adj)... ----------
+
+    def clean_en(self, s: str) -> str:
+        """
+        Bỏ phần loại từ trong ngoặc ở cuối, ví dụ:
+        'apple (N)' -> 'apple'
+        'go up (phrV)' -> 'go up'
+        """
+        if not s:
+            return ""
+        # remove " ( ... )" ở CUỐI chuỗi
+        s = re.sub(r"\s*\([^)]*\)\s*$", "", s)
+        return s.strip().lower()
+
+    def normalize_answer(self, s: str) -> str:
+        """
+        Chuẩn hóa câu trả lời: trim + lower + bỏ (N), (adj) nếu có.
+        """
+        return self.clean_en(s)
 
     # ---------- Logic chọn câu hỏi, KHÔNG lặp lại câu trước ----------
 
@@ -133,10 +380,6 @@ class VocabGuardApp:
         self.answer_entry.focus()
         self.feedback_label.config(text="")
 
-    @staticmethod
-    def normalize(s: str) -> str:
-        return s.strip().lower()
-
     def check_answer(self, event=None):
         vocab = self.store.all()
         if self.current_index is None or not vocab:
@@ -144,8 +387,11 @@ class VocabGuardApp:
 
         item = vocab[self.current_index]
 
-        user_answer = self.normalize(self.answer_entry.get())
-        correct_answer = self.normalize(item.get("en", ""))
+        # đáp án người dùng (chỉ trim/lower, KHÔNG bỏ (N) để hiển thị lại cho đúng)
+        raw_user_answer = self.answer_entry.get().strip()
+        user_answer = self.normalize_answer(self.answer_entry.get())
+        # đáp án đúng sau khi bỏ (N), (adj)...
+        correct_answer = self.normalize_answer(item.get("en", ""))
 
         if not user_answer:
             self.feedback_label.config(text="Bạn chưa nhập gì cả!", fg="red")
@@ -170,12 +416,31 @@ class VocabGuardApp:
                 )
                 self.next_question()
         else:
+            # hiển thị lại cả câu trả lời sai của bạn + đáp án đúng
+            correct_display = self.clean_en(item.get("en", ""))
             self.feedback_label.config(
-                text=f"SAI. Đáp án đúng là: {item.get('en', '')}",
+                text=(
+                    "SAI.\n"
+                    f"Bạn trả lời: {raw_user_answer or '(trống)'}\n"
+                    f"Đáp án đúng: {correct_display}"
+                ),
                 fg="red",
             )
-            # hỏi câu khác (vẫn tránh lặp câu vừa sai)
-            self.next_question()
+
+            # khóa input một lúc để bạn đọc lại cho kỹ
+            self.answer_entry.config(state="disabled")
+            self.submit_button.config(state="disabled")
+
+            # sau 2500ms (2.5s) thì mở lại và chuyển câu mới
+            self.root.after(3500, self.after_showing_correct_answer)
+
+    def after_showing_correct_answer(self):
+    # mở lại input + nút trả lời, chuyển sang câu hỏi tiếp theo
+        self.answer_entry.config(state="normal")
+        self.submit_button.config(state="normal")
+        self.next_question()
+        self.answer_entry.focus()
+
 
     def emergency_exit(self):
         ok = messagebox.askyesno(
@@ -282,7 +547,6 @@ class VocabGuardApp:
         self.refresh_vocab_listbox()
         self.en_entry.delete(0, tk.END)
         self.vi_entry.delete(0, tk.END)
-        # thay đổi dữ liệu → reset last_index để tránh lỗi index
         self.last_index = None
 
     def update_vocab(self):
