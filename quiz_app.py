@@ -33,13 +33,33 @@ class VocabGuardApp:
             self.root.destroy()
             return
 
+        # ---------- STATE CHUNG CHO QUIZ ----------
         self.correct_count = 0
+        self.total_count = 0              # NEW: tổng số câu đã trả lời
         self.current_index = None
         self.last_index = None  # để tránh lặp lại đúng câu trước đó
 
-        # quản lý cửa sổ từ vựng
+        # ---------- STATE CHO CƠ CHẾ DUOLINGO STYLE ----------
+        vocab = self.store.all()
+        self.total_words = len(vocab)         # NEW: tổng số từ hiện có
+
+        # NEW: danh sách index sẽ được hỏi trong "vòng hiện tại"
+        # (ban đầu là tất cả từ, sau này sẽ thay bằng các từ sai, v.v.)
+        self.remaining_indices = list(range(self.total_words))
+        random.shuffle(self.remaining_indices)
+
+        # NEW: lưu lại các index mà người dùng đã trả lời sai ít nhất 1 lần
+        self.wrong_indices = []
+
+        # NEW: dùng cho chế độ "sai là bị bắt đặt câu ngay"
+        # nếu != None nghĩa là đang bị ép practice từ này
+        self.pending_practice_index = None
+        self.practice_mode = None   # ví dụ: None hoặc "forced_from_quiz"
+
+        # ---------- QUẢN LÝ CỬA SỔ TỪ VỰNG ----------
         self.vocab_window = None
 
+        # ---------- XÂY UI + BẮT ĐẦU QUIZ ----------
         self.build_ui()
         self.update_progress_label()
         self.next_question()
@@ -115,11 +135,37 @@ class VocabGuardApp:
         )
         practice_button.pack(side=tk.LEFT, padx=10)
 
-    def prepare_practice(self):
+    def _setup_practice_for_current_index(self):
         vocab = self.store.all()
+        if self.current_index is None or not vocab:
+            return
         word_raw = vocab[self.current_index]["en"]
         self.current_target_word = self.clean_en(word_raw)
+        # nếu có label hiển thị từ trong practice_frame thì update ở show_practice_frame
+        
+    def prepare_practice(self):
+        """
+        Người dùng tự bấm nút 'Đặt câu ví dụ' (practice tự nguyện).
+        """
+        vocab = self.store.all()
+        if self.current_index is None or not vocab:
+            return
 
+        self.practice_mode = "free"
+        self._setup_practice_for_current_index()
+        self.show_practice_frame()
+
+    def start_forced_practice(self):
+        """
+        Bị ép practice sau khi trả lời SAI trong quiz.
+        Dùng CHÍNH self.current_index (từ vừa sai).
+        """
+        vocab = self.store.all()
+        if self.current_index is None or not vocab:
+            return
+
+        self.practice_mode = "forced_from_quiz"
+        self._setup_practice_for_current_index()
         self.show_practice_frame()
 
     def update_progress_label(self):
@@ -135,29 +181,61 @@ class VocabGuardApp:
         if self.practice_frame is None:
             self.practice_frame = tk.Frame(self.root)
             
-            tk.Label(self.practice_frame,
-                    text=f"Từ cần dùng: {self.current_target_word}",
-                    font=("Arial", 16, "bold")).pack(pady=10)
+            # LƯU label vào thuộc tính để còn update text về sau
+            self.practice_word_label = tk.Label(
+                self.practice_frame,
+                text="",   # set sau
+                font=("Arial", 16, "bold")
+            )
+            self.practice_word_label.pack(pady=10)
 
-            tk.Label(self.practice_frame,
-                    text="Hãy đặt 1 câu tiếng Anh sử dụng từ trên:",
-                    font=("Arial", 12)).pack()
+            tk.Label(
+                self.practice_frame,
+                text="Hãy đặt 1 câu tiếng Anh sử dụng từ trên:",
+                font=("Arial", 12)
+            ).pack()
 
-            self.practice_input = tk.Text(self.practice_frame, height=4, width=80, font=("Arial", 12))
+            self.practice_input = tk.Text(
+                self.practice_frame, height=4, width=80, font=("Arial", 12)
+            )
             self.practice_input.pack(pady=10)
 
-            self.result_box = tk.Text(self.practice_frame, height=10, width=80,
-                                    font=("Arial", 12), wrap="word")
+            self.result_box = tk.Text(
+                self.practice_frame, height=10, width=80,
+                font=("Arial", 12), wrap="word"
+            )
             self.result_box.config(state="disabled")
             self.result_box.pack(pady=10)
 
-            tk.Button(self.practice_frame, text="Chấm câu",
-                    font=("Arial", 14), command=self.grade_sentence).pack(pady=5)
+            tk.Button(
+                self.practice_frame, text="Chấm câu",
+                font=("Arial", 14), command=self.grade_sentence
+            ).pack(pady=5)
 
-            tk.Button(self.practice_frame, text="Quay về bài học",
-                    font=("Arial", 12), command=self.return_to_quiz).pack(pady=5)
+            tk.Button(
+                self.practice_frame, text="Quay về bài học",
+                font=("Arial", 12), command=self.return_to_quiz
+            ).pack(pady=5)
 
+        # ------------- CẬP NHẬT UI MỖI LẦN MỞ PRACTICE -------------
+        # Cập nhật từ cần dùng theo self.current_target_word MỚI
+        self.practice_word_label.config(
+            text=f"Từ cần dùng: {self.current_target_word}"
+        )
+
+        # Xóa input cũ
+        self.practice_input.delete("1.0", "end")
+
+        # Xóa feedback cũ
+        self.result_box.config(state="normal")
+        self.result_box.delete("1.0", "end")
+        self.result_box.config(state="disabled")
+
+        # Hiện frame practice
         self.practice_frame.pack(expand=True)
+
+        # Focus vào ô nhập câu
+        self.practice_input.focus_set()
 
     #----------- AI Window ----------
     def open_practice_window(self):
@@ -219,21 +297,50 @@ class VocabGuardApp:
 
         user_sentence = self.practice_input.get("1.0", "end").strip()
         if not user_sentence:
+            self.result_box.config(state="normal")
+            self.result_box.delete("1.0", "end")
+            self.result_box.insert("1.0", "Bạn chưa nhập câu!")
+            self.result_box.config(state="disabled")
             return
-        
-        result = check_sentence(self.current_target_word, user_sentence)
+
+        try:
+            result = check_sentence(self.current_target_word, user_sentence)
+        except Exception as e:
+            self.result_box.config(state="normal")
+            self.result_box.delete("1.0", "end")
+            self.result_box.insert("1.0", f"Lỗi API: {e}")
+            self.result_box.config(state="disabled")
+            return
+
+        is_correct = bool(result.get("is_correct_usage", False))
+        score = result.get("score", 0.0)
+        feedback_vi = result.get("feedback_vi", "")
+        suggested = result.get("suggested_sentence", "")
 
         feedback = (
-            f"Đúng ngữ cảnh: {'✔' if result['is_correct_usage'] else '❌'}\n"
-            f"Điểm: {result['score']:.2f}\n\n"
-            f"Nhận xét:\n{result['feedback_vi']}\n\n"
-            f"Gợi ý tốt hơn:\n{result['suggested_sentence']}"
+            f"Đúng ngữ cảnh: {'✔' if is_correct else '❌'}\n"
+            f"Điểm: {score:.2f}\n\n"
+            f"Nhận xét:\n{feedback_vi}\n\n"
+            f"Gợi ý tốt hơn:\n{suggested}"
         )
-        
+
         self.result_box.config(state="normal")
         self.result_box.delete("1.0", "end")
         self.result_box.insert("1.0", feedback)
         self.result_box.config(state="disabled")
+
+        # Nếu đây là câu bị phạt và AI chấm ĐÚNG → quay lại quiz + sang câu mới
+        if is_correct and getattr(self, "practice_mode", None) == "forced_from_quiz":
+            self.practice_mode = None
+
+            def _back_to_quiz():
+                self.return_to_quiz()   # ẩn practice_frame, show main_frame
+                self.next_question()    # hỏi câu mới
+
+            self.root.after(1500, _back_to_quiz)
+        else:
+            # free practice hoặc vẫn sai -> ở lại màn practice
+            pass
 
     def return_to_quiz(self):
         self.practice_frame.pack_forget()
@@ -383,15 +490,41 @@ class VocabGuardApp:
             messagebox.showerror("Lỗi", "Không còn từ vựng nào. Hãy thêm từ vựng trước.")
             return
 
-        # chọn index mới khác với last_index (nếu có đủ 2 từ trở lên)
-        if len(vocab) == 1:
-            idx = 0
-        else:
-            while True:
-                idx = random.randrange(len(vocab))
-                if idx != self.last_index:
-                    break
+        # Nếu vocab thay đổi (thêm/xóa từ), reset lại tracking
+        if self.total_words != len(vocab):
+            self.total_words = len(vocab)
+            self.remaining_indices = list(range(self.total_words))
+            random.shuffle(self.remaining_indices)
+            self.wrong_indices = []
 
+        # Nếu đang có từ phải practice ép, không được nhảy câu mới
+        if self.pending_practice_index is not None:
+            return
+
+        # Hết từ trong vòng hiện tại
+        if not self.remaining_indices:
+            if self.wrong_indices:
+                # chuyển sang vòng ôn lại các từ đã sai
+                self.remaining_indices = self.wrong_indices
+                self.wrong_indices = []
+                random.shuffle(self.remaining_indices)
+                self.info_label.config(text="Đang ôn lại các từ bạn đã sai 🔁")
+            else:
+                # Không còn từ sai nữa -> bắt đầu vòng mới với toàn bộ từ
+                self.remaining_indices = list(range(self.total_words))
+                random.shuffle(self.remaining_indices)
+                self.info_label.config(
+                    text=f"Cần trả lời đúng {NUM_CORRECT_TO_EXIT} câu để mở khóa"
+                )
+
+        if not self.remaining_indices:
+            self.question_label.config(text="Không còn từ vựng nào để hỏi.")
+            return
+
+        # Lấy index kế tiếp
+        idx = self.remaining_indices.pop()
+
+        # Giữ lại last_index nếu bạn còn dùng chỗ khác
         self.current_index = idx
         self.last_index = idx
 
@@ -399,11 +532,16 @@ class VocabGuardApp:
         vi = item.get("vi", "")
 
         self.question_label.config(
-            text=f"Từ TIẾNG ANH nào có nghĩa là:\n\n\"{vi}\"\n\n(Hãy gõ tiếng Anh, ví dụ: apple, improve...)"
+            text=(
+                f"Từ TIẾNG ANH nào có nghĩa là:\n\n"
+                f"\"{vi}\"\n\n(Hãy gõ tiếng Anh, ví dụ: apple, improve...)"
+            )
         )
+        self.answer_entry.config(state="normal")
+        self.submit_button.config(state="normal")
         self.answer_entry.delete(0, tk.END)
         self.answer_entry.focus()
-        self.feedback_label.config(text="")
+        self.feedback_label.config(text="", fg="black")
 
     def check_answer(self, event=None):
         vocab = self.store.all()
@@ -412,10 +550,8 @@ class VocabGuardApp:
 
         item = vocab[self.current_index]
 
-        # đáp án người dùng (chỉ trim/lower, KHÔNG bỏ (N) để hiển thị lại cho đúng)
         raw_user_answer = self.answer_entry.get().strip()
         user_answer = self.normalize_answer(self.answer_entry.get())
-        # đáp án đúng sau khi bỏ (N), (adj)...
         correct_answer = self.normalize_answer(item.get("en", ""))
 
         if not user_answer:
@@ -423,13 +559,17 @@ class VocabGuardApp:
             return
 
         if user_answer == correct_answer:
+            # ---------- ĐÚNG ----------
             self.correct_count += 1
             self.update_progress_label()
             remaining = NUM_CORRECT_TO_EXIT - self.correct_count
 
             if remaining <= 0:
                 self.feedback_label.config(
-                    text=f"ĐÚNG! Bạn đã hoàn thành {self.correct_count} / {NUM_CORRECT_TO_EXIT} câu. Mở khóa thành công!",
+                    text=(
+                        f"ĐÚNG! Bạn đã hoàn thành {self.correct_count} / "
+                        f"{NUM_CORRECT_TO_EXIT} câu. Mở khóa thành công!"
+                    ),
                     fg="green",
                 )
                 messagebox.showinfo("Hoàn thành", "Quá giỏi! Bạn đã trả lời đủ số câu.")
@@ -439,33 +579,48 @@ class VocabGuardApp:
                     text=f"ĐÚNG! Bạn đã đúng {self.correct_count} câu. Còn {remaining} câu nữa.",
                     fg="green",
                 )
-                self.next_question()
+                self.root.after(500, self.next_question)
+
         else:
-            # hiển thị lại cả câu trả lời sai của bạn + đáp án đúng
+            # ---------- SAI ----------
             correct_display = self.clean_en(item.get("en", ""))
             self.feedback_label.config(
                 text=(
                     "SAI.\n"
                     f"Bạn trả lời: {raw_user_answer or '(trống)'}\n"
-                    f"Đáp án đúng: {correct_display}"
+                    f"Đáp án đúng: {correct_display}\n\n"
+                    "Bây giờ hãy đặt 1 câu ví dụ với từ này."
                 ),
                 fg="red",
             )
 
-            # khóa input một lúc để bạn đọc lại cho kỹ
+            # ghi nhớ từ sai để vòng sau hỏi lại
+            if self.current_index not in self.wrong_indices:
+                self.wrong_indices.append(self.current_index)
+
+            # đánh dấu đang ở chế độ “bị phạt”
+            self.practice_mode = "forced_from_quiz"
+
+            # khóa input để bắt user đọc kỹ
             self.answer_entry.config(state="disabled")
             self.submit_button.config(state="disabled")
 
-            # sau 2500ms (2.5s) thì mở lại và chuyển câu mới
+            # sau 3.5s thì chuyển sang màn đặt câu cho CHÍNH TỪ ĐANG SAI
             self.root.after(3500, self.after_showing_correct_answer)
 
     def after_showing_correct_answer(self):
-    # mở lại input + nút trả lời, chuyển sang câu hỏi tiếp theo
+        # mở lại input + nút trả lời
         self.answer_entry.config(state="normal")
         self.submit_button.config(state="normal")
-        self.next_question()
-        self.answer_entry.focus()
 
+        # Nếu đang ở chế độ bị phạt -> sang practice
+        if getattr(self, "practice_mode", None) == "forced_from_quiz":
+            self.start_forced_practice()
+        else:
+            # bình thường thì sang câu hỏi tiếp theo
+            self.next_question()
+
+        self.answer_entry.focus()
 
     def emergency_exit(self):
         ok = messagebox.askyesno(
