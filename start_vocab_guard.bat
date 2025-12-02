@@ -1,3 +1,5 @@
 @echo off
-cd /d "D:\English App"
+cd /d "D:\EnglishApp"
 python main.py
+echo.
+pause

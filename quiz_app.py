@@ -332,16 +332,41 @@ class VocabGuardApp:
 
     # ---------- Xử lý chuẩn hóa từ, bỏ (N), (adj)... ----------
 
+
     def clean_en(self, s: str) -> str:
         """
-        Bỏ phần loại từ trong ngoặc ở cuối, ví dụ:
-        'apple (N)' -> 'apple'
-        'go up (phrV)' -> 'go up'
+        Chuẩn hóa phần tiếng Anh:
+        - Bỏ các tag loại từ trong ngoặc: (N), (Adj), (Verb), (phrV), (idiom)...
+        ở BẤT KỲ vị trí nào trong chuỗi.
+        - Bỏ dấu '+' dùng làm ký hiệu cấu trúc.
+        - Đưa về lowercase + gọn khoảng trắng.
+        Ví dụ:
+            'apple (N)'                  -> 'apple'
+            'go up (phrV)'               -> 'go up'
+            'rule out (Verb) + something' -> 'rule out something'
+            'break down (phrv) (N)'      -> 'break down'
         """
         if not s:
             return ""
-        # remove " ( ... )" ở CUỐI chuỗi
+
+        # Chuẩn trước
+        s = s.strip()
+
+        # 1) Bỏ các dấu '+' dùng để mô tả cấu trúc: "verb + object"...
+        #    'rule out (Verb) + something' -> 'rule out (Verb) something'
+        s = re.sub(r"\s*\+\s*", " ", s)
+
+        # 2) Bỏ các (tag) loại từ ở BẤT KỲ vị trí nào
+        #    Bạn có thể thêm/bớt tag trong nhóm dưới đây tùy bộ từ vựng.
+        tag_pattern = r"\s*\((?:n|noun|v|verb|adj|adjective|adv|adverb|phrv|phr\s*verb|idiom|prep|preposition)\)\s*"
+        s = re.sub(tag_pattern, " ", s, flags=re.IGNORECASE)
+
+        # 3) Phòng hờ: nếu vẫn còn ngoặc ở CUỐI chuỗi thì xóa nốt
+        #    (vẫn giữ behavior cũ của bạn)
         s = re.sub(r"\s*\([^)]*\)\s*$", "", s)
+
+        # 4) Gọn khoảng trắng + lowercase
+        s = re.sub(r"\s+", " ", s)
         return s.strip().lower()
 
     def normalize_answer(self, s: str) -> str:
