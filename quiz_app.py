@@ -9,10 +9,14 @@ NUM_CORRECT_TO_EXIT = 10  # số câu đúng cần để thoát
 
 
 class VocabGuardApp:
-    def __init__(self, root: tk.Tk):
+    def __init__(self, root: tk.Tk, on_completed=None, on_request_switch=None):
         self.practice_frame = None
         self.root = root
         self.root.title("Vocab Guard")
+        
+        # CALLBACK (MỚI)
+        self.on_completed = on_completed
+        self.on_request_switch = on_request_switch
 
         # full screen + luôn nằm trên cùng
         self.root.attributes("-fullscreen", True)
@@ -134,6 +138,19 @@ class VocabGuardApp:
             command=self.prepare_practice
         )
         practice_button.pack(side=tk.LEFT, padx=10)
+        # === NÚT MỚI: CHUYỂN SANG READING (chỉ hiện nếu có callback) ===
+        if self.on_request_switch is not None:
+            switch_button = tk.Button(
+                btn_frame,
+                text="Chuyển sang luyện Reading",
+                font=("Arial", 12),
+                command=self.request_switch_to_reading
+            )
+            switch_button.pack(side=tk.LEFT, padx=10)
+
+    def request_switch_to_reading(self):
+        if self.on_request_switch is not None:
+            self.on_request_switch()
 
     def _setup_practice_for_current_index(self):
         vocab = self.store.all()
@@ -583,6 +600,9 @@ class VocabGuardApp:
                     fg="green",
                 )
                 messagebox.showinfo("Hoàn thành", "Quá giỏi! Bạn đã trả lời đủ số câu.")
+                # >>> GỌI CALLBACK HOÀN THÀNH (NẾU CÓ) <<<
+                if self.on_completed is not None:
+                    self.on_completed()
                 self.root.destroy()
             else:
                 self.feedback_label.config(
@@ -633,12 +653,56 @@ class VocabGuardApp:
         self.answer_entry.focus()
 
     def emergency_exit(self):
-        ok = messagebox.askyesno(
-            "Thoát khẩn cấp",
-            "Thoát khẩn cấp chỉ nên dùng khi bị lỗi.\nBạn có chắc chắn muốn thoát không?",
-        )
+        """
+        Thoát khẩn cấp:
+        - Tạm tắt cơ chế ép focus + topmost
+        - Hiện hộp thoại xác nhận thoát
+        - Nếu đồng ý -> đóng app
+        - Nếu không -> khôi phục trạng thái khóa màn hình
+        """
+        # 1) TẠM TẮT FORCE FOCUS + TOPMOST TRƯỚC KHI MỞ MESSAGEBOX
+        #    để tránh trường hợp messagebox bị giấu sau fullscreen.
+        try:
+            self.disable_force_focus = True  # để force_focus() không làm gì nữa
+        except Exception:
+            pass
+
+        try:
+            # hạ topmost xuống, để messagebox tự nổi lên đúng cách
+            self.root.attributes("-topmost", False)
+        except Exception:
+            pass
+
+        # 2) HIỆN HỘP THOẠI XÁC NHẬN
+        try:
+            ok = messagebox.askyesno(
+                "Thoát khẩn cấp",
+                "Thoát khẩn cấp chỉ nên dùng khi bị lỗi.\n"
+                "Bạn có chắc chắn muốn thoát không?",
+                parent=self.root  # ép parent là root hiện tại
+            )
+        except Exception as e:
+            # Nếu vì lý do gì đó messagebox lỗi, ta cho thoát luôn để tránh kẹt
+            print("Lỗi khi hiện messagebox emergency_exit:", e)
+            ok = True
+
+        # 3) XỬ LÝ THEO CÂU TRẢ LỜI
         if ok:
-            self.root.destroy()
+            # Người dùng xác nhận thoát -> destroy cửa sổ
+            try:
+                self.root.destroy()
+            except Exception:
+                pass
+        else:
+            # Người dùng chọn "Không" -> khôi phục trạng thái khóa màn hình
+            try:
+                self.disable_force_focus = False
+            except Exception:
+                pass
+            try:
+                self.root.attributes("-topmost", True)
+            except Exception:
+                pass
 
     def on_close(self):
         # Không làm gì để tránh tắt bằng nút X
