@@ -5,7 +5,7 @@ import random
 import re  # <-- để xử lý bỏ (N), (adj)...
 from vocab_store import VocabStore
 
-NUM_CORRECT_TO_EXIT = 5  # số câu đúng cần để thoát
+NUM_CORRECT_TO_EXIT = 10  # số câu đúng cần để thoát
 
 
 class VocabGuardApp:
@@ -57,8 +57,8 @@ class VocabGuardApp:
         self.practice_mode = None   # ví dụ: None hoặc "forced_from_quiz"
 
         # ---------- QUẢN LÝ CỬA SỔ TỪ VỰNG ----------
-        self.vocab_window = None
-
+        self.vocab_frame = None
+        
         # ---------- XÂY UI + BẮT ĐẦU QUIZ ----------
         self.build_ui()
         self.update_progress_label()
@@ -173,10 +173,21 @@ class VocabGuardApp:
             text=f"Đúng: {self.correct_count} / Mục tiêu: {NUM_CORRECT_TO_EXIT}"
         )
 
-    def show_practice_frame(self):
-        # Ẩn frame quiz
-        self.main_frame.pack_forget()
+    def _show_only(self, frame_to_show):
+        """
+        Ẩn hết các frame khác, chỉ hiển thị frame_to_show.
+        Đảm bảo không bao giờ có trạng thái 'trắng bóc'.
+        """
+        for f in (getattr(self, "main_frame", None),
+                  getattr(self, "practice_frame", None),
+                  getattr(self, "vocab_frame", None)):
+            if f is not None and f is not frame_to_show:
+                f.pack_forget()
 
+        if frame_to_show is not None:
+            frame_to_show.pack(fill=tk.BOTH, expand=True)
+
+    def show_practice_frame(self):
         # Tạo frame nếu chưa có
         if self.practice_frame is None:
             self.practice_frame = tk.Frame(self.root)
@@ -231,8 +242,8 @@ class VocabGuardApp:
         self.result_box.delete("1.0", "end")
         self.result_box.config(state="disabled")
 
-        # Hiện frame practice
-        self.practice_frame.pack(expand=True)
+        # Hiện frame practice, ẩn frame khác
+        self._show_only(self.practice_frame)
 
         # Focus vào ô nhập câu
         self.practice_input.focus_set()
@@ -343,8 +354,7 @@ class VocabGuardApp:
             pass
 
     def return_to_quiz(self):
-        self.practice_frame.pack_forget()
-        self.main_frame.pack(expand=True)
+        self._show_only(self.main_frame)
 
     # ---------- Chặn/giảm thiểu phím tắt ----------
     def open_practice_window(self):
@@ -637,65 +647,68 @@ class VocabGuardApp:
     # ---------- Quản lý từ vựng (UI) ----------
 
     def open_vocab_manager(self):
-        if self.vocab_window is not None and tk.Toplevel.winfo_exists(self.vocab_window):
-            self.vocab_window.lift()
-            return
+        """
+        Mở màn hình quản lý từ vựng dưới dạng frame (không dùng popup).
+        Ẩn main_frame / practice_frame, chỉ hiển thị vocab_frame.
+        """
+        # Tạo frame nếu chưa có
+        if self.vocab_frame is None:
+            self.vocab_frame = tk.Frame(self.root)
 
-        self.vocab_window = tk.Toplevel(self.root)
-        self.vocab_window.title("Quản lý từ vựng")
-        self.vocab_window.geometry("700x400")
-        self.vocab_window.grab_set()
+            left_frame = tk.Frame(self.vocab_frame)
+            left_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=10, pady=10)
 
-        left_frame = tk.Frame(self.vocab_window)
-        left_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=10, pady=10)
+            tk.Label(left_frame, text="Danh sách từ:", font=("Arial", 12, "bold")).pack(anchor="w")
 
-        tk.Label(left_frame, text="Danh sách từ:", font=("Arial", 12, "bold")).pack(anchor="w")
+            list_frame = tk.Frame(left_frame)
+            list_frame.pack(fill=tk.BOTH, expand=True)
 
-        list_frame = tk.Frame(left_frame)
-        list_frame.pack(fill=tk.BOTH, expand=True)
+            self.vocab_listbox = tk.Listbox(list_frame, font=("Arial", 11))
+            self.vocab_listbox.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
 
-        self.vocab_listbox = tk.Listbox(list_frame, font=("Arial", 11))
-        self.vocab_listbox.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+            scrollbar = tk.Scrollbar(list_frame, command=self.vocab_listbox.yview)
+            scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+            self.vocab_listbox.config(yscrollcommand=scrollbar.set)
 
-        scrollbar = tk.Scrollbar(list_frame, command=self.vocab_listbox.yview)
-        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
-        self.vocab_listbox.config(yscrollcommand=scrollbar.set)
+            self.vocab_listbox.bind("<<ListboxSelect>>", self.on_vocab_select)
 
-        self.vocab_listbox.bind("<<ListboxSelect>>", self.on_vocab_select)
+            right_frame = tk.Frame(self.vocab_frame)
+            right_frame.pack(side=tk.RIGHT, fill=tk.Y, padx=10, pady=10)
 
-        right_frame = tk.Frame(self.vocab_window)
-        right_frame.pack(side=tk.RIGHT, fill=tk.Y, padx=10, pady=10)
+            tk.Label(right_frame, text="Tiếng Anh:", font=("Arial", 11)).grid(row=0, column=0, sticky="w")
+            self.en_entry = tk.Entry(right_frame, font=("Arial", 11), width=25)
+            self.en_entry.grid(row=0, column=1, pady=5)
 
-        tk.Label(right_frame, text="Tiếng Anh:", font=("Arial", 11)).grid(row=0, column=0, sticky="w")
-        self.en_entry = tk.Entry(right_frame, font=("Arial", 11), width=25)
-        self.en_entry.grid(row=0, column=1, pady=5)
+            tk.Label(right_frame, text="Tiếng Việt:", font=("Arial", 11)).grid(row=1, column=0, sticky="w")
+            self.vi_entry = tk.Entry(right_frame, font=("Arial", 11), width=25)
+            self.vi_entry.grid(row=1, column=1, pady=5)
 
-        tk.Label(right_frame, text="Tiếng Việt:", font=("Arial", 11)).grid(row=1, column=0, sticky="w")
-        self.vi_entry = tk.Entry(right_frame, font=("Arial", 11), width=25)
-        self.vi_entry.grid(row=1, column=1, pady=5)
+            btn_add = tk.Button(right_frame, text="Thêm mới", command=self.add_vocab)
+            btn_add.grid(row=2, column=0, pady=5, sticky="ew")
 
-        btn_add = tk.Button(right_frame, text="Thêm mới", command=self.add_vocab)
-        btn_add.grid(row=2, column=0, pady=5, sticky="ew")
+            btn_update = tk.Button(right_frame, text="Cập nhật", command=self.update_vocab)
+            btn_update.grid(row=2, column=1, pady=5, sticky="ew")
 
-        btn_update = tk.Button(right_frame, text="Cập nhật", command=self.update_vocab)
-        btn_update.grid(row=2, column=1, pady=5, sticky="ew")
+            btn_delete = tk.Button(right_frame, text="Xóa", command=self.delete_vocab)
+            btn_delete.grid(row=3, column=0, pady=5, sticky="ew")
 
-        btn_delete = tk.Button(right_frame, text="Xóa", command=self.delete_vocab)
-        btn_delete.grid(row=3, column=0, pady=5, sticky="ew")
+            btn_close = tk.Button(right_frame, text="Quay lại luyện từ", command=self.close_vocab_window)
+            btn_close.grid(row=3, column=1, pady=5, sticky="ew")
 
-        btn_close = tk.Button(right_frame, text="Đóng", command=self.close_vocab_window)
-        btn_close.grid(row=3, column=1, pady=5, sticky="ew")
+            note_label = tk.Label(
+                right_frame,
+                text="Tip: Chọn 1 dòng bên trái để sửa.\nThêm/sửa sẽ tự lưu vào vocab.json.",
+                font=("Arial", 9),
+                fg="gray",
+                justify="left",
+            )
+            note_label.grid(row=4, column=0, columnspan=2, pady=10, sticky="w")
 
-        note_label = tk.Label(
-            right_frame,
-            text="Tip: Chọn 1 dòng bên trái để sửa.\nThêm/sửa sẽ tự lưu vào vocab.json.",
-            font=("Arial", 9),
-            fg="gray",
-            justify="left",
-        )
-        note_label.grid(row=4, column=0, columnspan=2, pady=10, sticky="w")
-
+        # Cập nhật danh sách mỗi lần mở
         self.refresh_vocab_listbox()
+
+        # Hiện frame vocab, ẩn frame khác
+        self._show_only(self.vocab_frame)
 
     def refresh_vocab_listbox(self):
         self.vocab_listbox.delete(0, tk.END)
@@ -768,9 +781,8 @@ class VocabGuardApp:
             self.last_index = None
 
     def close_vocab_window(self):
-        if self.vocab_window is not None:
-            self.vocab_window.destroy()
-            self.vocab_window = None
+        # Quay lại màn quiz chính
+        self._show_only(self.main_frame)
 
         if self.store.count() == 0:
             messagebox.showerror("Lỗi", "Không còn từ vựng nào. Hãy thêm từ trước khi tiếp tục.")
