@@ -21,6 +21,24 @@ class StudyMasterApp:
 
         # Chặn đóng root nếu chưa xong cả 2
         self.root.protocol("WM_DELETE_WINDOW", self.on_close_root)
+        # emergency exit
+        self.status_label = tk.Label(
+            self.menu_frame,
+            text="Trạng thái: Chưa hoàn thành phần nào.",
+            font=("Arial", 12),
+            fg="blue"
+        )
+        self.status_label.pack(pady=10)
+
+        # ===== NÚT THOÁT KHẨN CẤP CHO MAIN =====
+        emergency_btn = tk.Button(
+            self.menu_frame,
+            text="Thoát khẩn cấp (tắt toàn bộ ứng dụng)",
+            font=("Arial", 11),
+            command=self.emergency_exit_all
+        )
+        emergency_btn.pack(pady=5)
+
 
     # ---------- UI menu chính ----------
 
@@ -160,6 +178,36 @@ class StudyMasterApp:
                 "Bạn cần hoàn thành cả Luyện Từ Vựng và Luyện Reading trước khi thoát.\n"
                 "Nếu gặp lỗi, hãy dùng nút 'Thoát khẩn cấp' trong từng chế độ."
             )
+    # ---------- Emergency exit toàn bộ app ----------
+    def emergency_exit_all(self):
+        """
+        Thoát khẩn cấp toàn bộ app:
+        - Bỏ qua điều kiện phải hoàn thành đủ 2 phần
+        - Đóng mọi cửa sổ con
+        - Destroy root
+        """
+        ok = messagebox.askyesno(
+            "Thoát khẩn cấp",
+            "Nút này sẽ đóng TOÀN BỘ ứng dụng ngay lập tức,\n"
+            "kể cả khi bạn chưa hoàn thành đủ cả Từ vựng và Reading.\n\n"
+            "Bạn có chắc chắn muốn thoát không?"
+        )
+        if not ok:
+            return
+
+        # Thử đóng các cửa sổ con nếu còn tồn tại
+        for win in (self.vocab_window, self.reading_window):
+            try:
+                if win is not None and win.winfo_exists():
+                    win.destroy()
+            except Exception:
+                pass
+
+        # Đóng cửa sổ chính
+        try:
+            self.root.destroy()
+        except Exception:
+            pass
 
 
 if __name__ == "__main__":

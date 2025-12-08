@@ -585,12 +585,13 @@ class VocabGuardApp:
             self.feedback_label.config(text="Bạn chưa nhập gì cả!", fg="red")
             return
 
+        # ================== TRƯỜNG HỢP TRẢ LỜI ĐÚNG ==================
         if user_answer == correct_answer:
-            # ---------- ĐÚNG ----------
             self.correct_count += 1
             self.update_progress_label()
             remaining = NUM_CORRECT_TO_EXIT - self.correct_count
 
+            # ---- ĐÃ ĐỦ SỐ CÂU CẦN ĐÚNG ----
             if remaining <= 0:
                 self.feedback_label.config(
                     text=(
@@ -599,20 +600,55 @@ class VocabGuardApp:
                     ),
                     fg="green",
                 )
-                messagebox.showinfo("Hoàn thành", "Quá giỏi! Bạn đã trả lời đủ số câu.")
-                # >>> GỌI CALLBACK HOÀN THÀNH (NẾU CÓ) <<<
-                if self.on_completed is not None:
-                    self.on_completed()
-                self.root.destroy()
+
+                # TẠM TẮT CƠ CHẾ KÉO FOCUS + TOPMOST
+                try:
+                    self.disable_force_focus = True
+                except Exception:
+                    pass
+
+                try:
+                    self.root.attributes("-topmost", False)
+                except Exception:
+                    pass
+
+                # Hiện hộp thoại hoàn thành
+                try:
+                    messagebox.showinfo(
+                        "Hoàn thành",
+                        "Quá giỏi! Bạn đã trả lời đủ số câu.",
+                        parent=self.root
+                    )
+                except Exception as e:
+                    print("Lỗi khi hiện messagebox hoàn thành:", e)
+
+                # Nếu sau này bạn có gắn callback on_completed trong main
+                cb = getattr(self, "on_completed", None)
+                if callable(cb):
+                    try:
+                        cb()
+                    except Exception as e:
+                        print("Lỗi khi gọi on_completed:", e)
+
+                # Đóng cửa sổ hiện tại (Tk hoặc Toplevel)
+                try:
+                    self.root.destroy()
+                except Exception:
+                    pass
+
+                return  # kết thúc luôn, không chạy tiếp logic nào nữa
+
+            # ---- ĐÚNG NHƯNG CHƯA ĐỦ SỐ CÂU ----
             else:
                 self.feedback_label.config(
                     text=f"ĐÚNG! Bạn đã đúng {self.correct_count} câu. Còn {remaining} câu nữa.",
                     fg="green",
                 )
+                # Chờ 0.5s rồi sang câu mới như cũ
                 self.root.after(500, self.next_question)
 
+        # ================== TRƯỜNG HỢP TRẢ LỜI SAI ==================
         else:
-            # ---------- SAI ----------
             correct_display = self.clean_en(item.get("en", ""))
             self.feedback_label.config(
                 text=(
