@@ -1,0 +1,87 @@
+{
+  "title": "Music: Language We All Speak",
+  "pdf_file": "passage.pdf",
+
+  "question_groups": [
+
+    {
+      "id": "G1",
+      "type": "matching_heading",
+      "instructions": "Questions 1-5. Choose the correct heading for each section A–E. Write the correct number i–viii.",
+      "sections": ["Section A", "Section B", "Section C", "Section D", "Section E"],
+
+      "headings": [
+        { "code": "i", "text": "Communication in music with animals" },
+        { "code": "ii", "text": "New discoveries on animal music" },
+        { "code": "iii", "text": "Music and language contrasted" },
+        { "code": "iv", "text": "Current research on music" },
+        { "code": "v", "text": "Music is beneficial for infants" },
+        { "code": "vi", "text": "Music transcends cultures" },
+        { "code": "vii", "text": "Look back at some of the historical theories" },
+        { "code": "viii", "text": "Are we genetically designed for music?" }
+      ],
+
+      "answers": ["iii", "vii", "iv", "i", "viii"]
+    },
+
+    {
+      "id": "G2",
+      "type": "matching_person",
+      "instructions": "Questions 6-12. Match each person with the correct statement (A-G).",
+      
+      "items": [
+        { "number": 6, "name": "Steven Pinker" },
+        { "number": 7, "name": "Musicologists" },
+        { "number": 8, "name": "Greek philosopher Pythagoras" },
+        { "number": 9, "name": "Schwartz, Howe, and Purves" },
+        { "number": 10, "name": "Marc Hauser and Josh McDermott" },
+        { "number": 11, "name": "Charles Rosen" },
+        { "number": 12, "name": "Sandra Trehub" }
+      ],
+
+      "statements": [
+        { "code": "A", "text": "Music exists outside of the world it is created in." },
+        { "code": "B", "text": "Music has a universal character despite cultural influences on it." },
+        { "code": "C", "text": "Music is a necessity for humans." },
+        { "code": "D", "text": "Music preference is related to the surrounding influences." },
+        { "code": "E", "text": "He discovered the mathematical basis of music." },
+        { "code": "F", "text": "Music doesn't enjoy the same status of research interest as language." },
+        { "code": "G", "text": "Humans and monkeys have similar traits in perceiving sound." }
+      ],
+
+      "answers": ["F", "B", "E", "D", "G", "A", "C"]
+    },
+
+    {
+      "id": "G3",
+      "type": "multiple_choice_single",
+      "instructions": "Questions 13-14. Choose the correct letter A–D.",
+
+      "questions": [
+        {
+          "number": 13,
+          "prompt": "Why was the study of animal music inconclusive?",
+          "options": [
+            { "key": "A", "text": "Animals don't have the same auditory system as humans" },
+            { "key": "B", "text": "Tests on animal music are limited" },
+            { "key": "C", "text": "Animals can't make up new tunes" },
+            { "key": "D", "text": "There aren't enough tests on a wide range of animals" }
+          ],
+          "answer": "C"
+        },
+
+        {
+          "number": 14,
+          "prompt": "What is the main theme of this passage?",
+          "options": [
+            { "key": "A", "text": "Language and learning" },
+            { "key": "B", "text": "The evolution of music" },
+            { "key": "C", "text": "The role of music in human society" },
+            { "key": "D", "text": "Music for animals" }
+          ],
+          "answer": "C"
+        }
+      ]
+    }
+  ]
+}
