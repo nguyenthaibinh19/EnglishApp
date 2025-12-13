@@ -5,7 +5,7 @@ import random
 import re  # <-- để xử lý bỏ (N), (adj)...
 from vocab_store import VocabStore
 
-NUM_CORRECT_TO_EXIT = 15  # số câu đúng cần để thoát
+NUM_CORRECT_TO_EXIT = 20  # số câu đúng cần để thoát
 
 
 class VocabGuardApp:
