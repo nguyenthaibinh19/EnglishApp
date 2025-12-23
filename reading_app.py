@@ -83,7 +83,8 @@ class ReadingApp:
     def load_random_test(self) -> dict | None:
         """
         Chọn ngẫu nhiên 1 folder con trong self.reading_root
-        chứa file AnswerKey.json. Đọc JSON + PDF trong đó.
+        chứa file AnswerKey.json. Ưu tiên đọc passage từ JSON.
+        Nếu JSON không có 'passage' thì mới fallback sang PDF.
         """
         if not os.path.isdir(self.reading_root):
             messagebox.showerror(
@@ -111,7 +112,7 @@ class ReadingApp:
             messagebox.showerror(
                 "Lỗi dữ liệu",
                 "Không tìm thấy folder nào trong 'Reading/' có AnswerKey.json.\n"
-                "Mỗi bài nên nằm trong 1 folder con, chứa passage.pdf + AnswerKey.json.",
+                "Mỗi bài nên nằm trong 1 folder con, chứa AnswerKey.json (và PDF nếu cần).",
                 parent=self.root,
             )
             self.root.destroy()
@@ -132,23 +133,8 @@ class ReadingApp:
             self.root.destroy()
             return None
 
-        # tên file PDF: ưu tiên field pdf_file, nếu không có thì dùng "passage.pdf"
-        pdf_name = meta.get("pdf_file", "passage.pdf")
-        pdf_path = os.path.join(chosen_folder, pdf_name)
-        if not os.path.exists(pdf_path):
-            messagebox.showerror(
-                "Lỗi dữ liệu",
-                f"Không tìm thấy file PDF '{pdf_name}' trong folder:\n{chosen_folder}",
-                parent=self.root,
-            )
-            self.root.destroy()
-            return None
-
-        passage_text = self.extract_text_from_pdf(pdf_path)
-
         title = meta.get("title", os.path.basename(chosen_folder))
         question_groups = meta.get("question_groups", [])
-
         if not question_groups:
             messagebox.showerror(
                 "Lỗi dữ liệu",
@@ -158,12 +144,32 @@ class ReadingApp:
             self.root.destroy()
             return None
 
+        # 🔥 ƯU TIÊN: nếu JSON có 'passage' thì dùng luôn, KHÔNG cần PDF
+        passage_text = meta.get("passage")
+
+        if passage_text is None:
+            # Fallback: vẫn hỗ trợ kiểu cũ dùng PDF
+            pdf_name = meta.get("pdf_file", "passage.pdf")
+            pdf_path = os.path.join(chosen_folder, pdf_name)
+            if not os.path.exists(pdf_path):
+                messagebox.showerror(
+                    "Lỗi dữ liệu",
+                    f"Không tìm thấy file PDF '{pdf_name}' trong folder:\n{chosen_folder}\n"
+                    "Và AnswerKey.json cũng không có trường 'passage'.",
+                    parent=self.root,
+                )
+                self.root.destroy()
+                return None
+
+            passage_text = self.extract_text_from_pdf(pdf_path)
+
         return {
             "folder": chosen_folder,
             "title": title,
             "passage_text": passage_text,
             "question_groups": question_groups,
         }
+
 
     def extract_text_from_pdf(self, pdf_path: str) -> str:
         """Đọc toàn bộ text từ PDF (đơn giản)."""
