@@ -1,3 +1,6 @@
 __pycache__/
 key.txt
 .env
+cache/
+progress.json
+*.tmp

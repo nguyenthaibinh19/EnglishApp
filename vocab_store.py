@@ -1,58 +1,162 @@
-# vocab_store.py
+"""Kho từ vựng tiếng Hà Lan (vocab.json).
+
+Định dạng mỗi mục:
+    {
+      "nl": "de fiets",          # bắt buộc - từ tiếng Hà Lan (kèm mạo từ nếu là danh từ)
+      "vi": "xe đạp",            # bắt buộc - nghĩa tiếng Việt
+      "alt": ["fiets"],          # tùy chọn - các cách viết khác cũng tính là đúng
+      "example": "Ik ga met de fiets naar school."   # tùy chọn - câu ví dụ
+    }
+
+File cũ dùng khóa "en" vẫn đọc được: khi load sẽ tự đổi thành "nl".
+"""
+
 import json
 import os
 
+import config
+from text_utils import normalize, strip_tags
+
+# Các trường tùy chọn được giữ nguyên khi lưu lại file.
+OPTIONAL_FIELDS = ("alt", "example", "note", "type")
+
 
 class VocabStore:
-    def __init__(self, filename: str = "vocab.json"):
-        # Đảm bảo file nằm cùng thư mục với code
-        base_dir = os.path.dirname(os.path.abspath(__file__))
-        self.filename = os.path.join(base_dir, filename)
-        self.vocab = self._load()
+    def __init__(self, filename: str = None):
+        self.filename = filename or config.VOCAB_FILE
+        self.vocab = []
+        self._needs_migration = False
+        self.load()
 
-    def _load(self):
+    # ---------- Đọc / ghi ----------
+
+    def load(self):
+        self.vocab = []
+        self._needs_migration = False
+
         if not os.path.exists(self.filename):
-            return []
+            return
         try:
             with open(self.filename, "r", encoding="utf-8") as f:
                 data = json.load(f)
-        except json.JSONDecodeError:
-            return []
+        except (json.JSONDecodeError, OSError) as e:
+            print("Không đọc được vocab.json:", e)
+            return
 
-        cleaned = []
-        if isinstance(data, list):
-            for item in data:
-                if isinstance(item, dict) and "en" in item and "vi" in item:
-                    cleaned.append(
-                        {
-                            "en": str(item["en"]),
-                            "vi": str(item["vi"]),
-                        }
-                    )
-        return cleaned
+        if not isinstance(data, list):
+            return
+
+        for item in data:
+            if not isinstance(item, dict):
+                continue
+            word = item.get("nl") or item.get("en")
+            meaning = item.get("vi")
+            if not word or not meaning:
+                continue
+            if "nl" not in item:
+                self._needs_migration = True
+
+            entry = {"nl": str(word).strip(), "vi": str(meaning).strip()}
+            for field in OPTIONAL_FIELDS:
+                if item.get(field):
+                    entry[field] = item[field]
+            self.vocab.append(entry)
+
+        # File còn ở định dạng cũ -> ghi lại một lần cho sạch.
+        if self._needs_migration:
+            self.save()
+            self._needs_migration = False
 
     def save(self):
-        with open(self.filename, "w", encoding="utf-8") as f:
-            json.dump(self.vocab, f, ensure_ascii=False, indent=2)
+        tmp = self.filename + ".tmp"
+        try:
+            with open(tmp, "w", encoding="utf-8") as f:
+                json.dump(self.vocab, f, ensure_ascii=False, indent=2)
+            os.replace(tmp, self.filename)
+        except OSError as e:
+            print("Không ghi được vocab.json:", e)
 
-    # ---------- APIs đơn giản để dùng ở UI ----------
+    # ---------- Truy vấn ----------
 
-    def all(self):
+    def all(self) -> list:
         return self.vocab
 
     def count(self) -> int:
         return len(self.vocab)
 
-    def add(self, en: str, vi: str):
-        self.vocab.append({"en": en, "vi": vi})
+    def get(self, index: int):
+        if 0 <= index < len(self.vocab):
+            return self.vocab[index]
+        return None
+
+    def index_of(self, word: str):
+        """Tìm vị trí của một từ theo dạng đã chuẩn hóa."""
+        target = normalize(word)
+        for i, entry in enumerate(self.vocab):
+            if normalize(entry["nl"]) == target:
+                return i
+        return None
+
+    def find_duplicates(self) -> list:
+        seen = {}
+        dups = []
+        for entry in self.vocab:
+            key = normalize(entry["nl"])
+            if key in seen:
+                dups.append(entry["nl"])
+            seen[key] = True
+        return dups
+
+    # ---------- Thêm / sửa / xóa ----------
+
+    def add(self, nl: str, vi: str, **extra) -> bool:
+        nl, vi = nl.strip(), vi.strip()
+        if not nl or not vi:
+            return False
+        if self.index_of(nl) is not None:
+            return False
+
+        entry = {"nl": nl, "vi": vi}
+        for field in OPTIONAL_FIELDS:
+            if extra.get(field):
+                entry[field] = extra[field]
+        self.vocab.append(entry)
         self.save()
+        return True
 
-    def update(self, index: int, en: str, vi: str):
-        if 0 <= index < len(self.vocab):
-            self.vocab[index] = {"en": en, "vi": vi}
-            self.save()
+    def update(self, index: int, nl: str, vi: str, **extra) -> bool:
+        if not (0 <= index < len(self.vocab)):
+            return False
+        nl, vi = nl.strip(), vi.strip()
+        if not nl or not vi:
+            return False
 
-    def delete(self, index: int):
-        if 0 <= index < len(self.vocab):
-            self.vocab.pop(index)
-            self.save()
+        entry = dict(self.vocab[index])
+        entry["nl"] = nl
+        entry["vi"] = vi
+        for field in OPTIONAL_FIELDS:
+            if field in extra:
+                if extra[field]:
+                    entry[field] = extra[field]
+                else:
+                    entry.pop(field, None)
+        self.vocab[index] = entry
+        self.save()
+        return True
+
+    def delete(self, index: int) -> bool:
+        if not (0 <= index < len(self.vocab)):
+            return False
+        self.vocab.pop(index)
+        self.save()
+        return True
+
+    # ---------- Tiện ích cho phần reading ----------
+
+    def entries_for_keys(self, keys) -> list:
+        """Lấy các mục theo danh sách từ đã chuẩn hóa (dùng chung với progress.json)."""
+        wanted = {normalize(k) for k in keys}
+        return [e for e in self.vocab if normalize(e["nl"]) in wanted]
+
+    def display_list(self) -> list:
+        return [f"{strip_tags(e['nl'])} — {e['vi']}" for e in self.vocab]

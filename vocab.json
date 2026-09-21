@@ -1,0 +1,240 @@
+[
+  {
+    "nl": "de fiets",
+    "vi": "xe đạp",
+    "alt": [
+      "fiets"
+    ],
+    "example": "Ik ga met de fiets naar mijn werk."
+  },
+  {
+    "nl": "het huis",
+    "vi": "ngôi nhà",
+    "example": "Ons huis staat naast een park."
+  },
+  {
+    "nl": "de buurt",
+    "vi": "khu phố, hàng xóm xung quanh",
+    "example": "Het is een rustige buurt."
+  },
+  {
+    "nl": "de afspraak",
+    "vi": "cuộc hẹn",
+    "example": "Ik heb morgen een afspraak bij de dokter."
+  },
+  {
+    "nl": "het werk",
+    "vi": "công việc",
+    "example": "Na het werk ga ik zwemmen."
+  },
+  {
+    "nl": "de winkel",
+    "vi": "cửa hàng",
+    "example": "De winkel is op zondag gesloten."
+  },
+  {
+    "nl": "het geld",
+    "vi": "tiền",
+    "example": "Ik heb niet genoeg geld bij me."
+  },
+  {
+    "nl": "de trein",
+    "vi": "tàu hỏa",
+    "example": "De trein naar Utrecht vertrekt om acht uur."
+  },
+  {
+    "nl": "het weer",
+    "vi": "thời tiết",
+    "example": "Het weer is vandaag erg slecht."
+  },
+  {
+    "nl": "de vriend",
+    "vi": "bạn (nam)",
+    "example": "Mijn vriend woont in Rotterdam."
+  },
+  {
+    "nl": "de keuken",
+    "vi": "nhà bếp",
+    "example": "Zij kookt elke avond in de keuken."
+  },
+  {
+    "nl": "het gesprek",
+    "vi": "cuộc trò chuyện",
+    "example": "Het gesprek duurde een half uur."
+  },
+  {
+    "nl": "de oefening",
+    "vi": "bài tập",
+    "example": "Deze oefening is moeilijk voor mij."
+  },
+  {
+    "nl": "de rekening",
+    "vi": "hóa đơn",
+    "example": "Mag ik de rekening, alstublieft?"
+  },
+  {
+    "nl": "het voorbeeld",
+    "vi": "ví dụ",
+    "example": "Geef me een voorbeeld, alsjeblieft."
+  },
+  {
+    "nl": "werken",
+    "vi": "làm việc",
+    "example": "Ik werk vier dagen per week."
+  },
+  {
+    "nl": "wonen",
+    "vi": "sống, cư trú",
+    "example": "Wij wonen al drie jaar in Amsterdam."
+  },
+  {
+    "nl": "beginnen",
+    "vi": "bắt đầu",
+    "example": "De les begint om negen uur."
+  },
+  {
+    "nl": "proberen",
+    "vi": "thử, cố gắng",
+    "example": "Ik probeer elke dag Nederlands te spreken."
+  },
+  {
+    "nl": "begrijpen",
+    "vi": "hiểu",
+    "example": "Sorry, ik begrijp het niet."
+  },
+  {
+    "nl": "vragen",
+    "vi": "hỏi, yêu cầu",
+    "example": "Mag ik iets vragen?"
+  },
+  {
+    "nl": "betalen",
+    "vi": "trả tiền",
+    "example": "Kan ik met de kaart betalen?"
+  },
+  {
+    "nl": "brengen",
+    "vi": "mang, đưa tới",
+    "example": "Ik breng je naar het station."
+  },
+  {
+    "nl": "blijven",
+    "vi": "ở lại",
+    "example": "Blijf je vanavond thuis?"
+  },
+  {
+    "nl": "kiezen",
+    "vi": "chọn",
+    "example": "Je mag zelf kiezen."
+  },
+  {
+    "nl": "herhalen",
+    "vi": "lặp lại",
+    "example": "Kunt u dat herhalen, alstublieft?"
+  },
+  {
+    "nl": "afspreken",
+    "vi": "hẹn nhau, thỏa thuận",
+    "example": "Zullen we iets afspreken voor zaterdag?"
+  },
+  {
+    "nl": "moeilijk",
+    "vi": "khó",
+    "example": "Nederlands is soms moeilijk."
+  },
+  {
+    "nl": "makkelijk",
+    "vi": "dễ",
+    "alt": [
+      "gemakkelijk"
+    ],
+    "example": "Deze oefening is juist makkelijk."
+  },
+  {
+    "nl": "belangrijk",
+    "vi": "quan trọng",
+    "example": "Dat is een belangrijke vraag."
+  },
+  {
+    "nl": "duur",
+    "vi": "đắt",
+    "example": "Die fiets is te duur voor mij."
+  },
+  {
+    "nl": "goedkoop",
+    "vi": "rẻ",
+    "example": "De markt is goedkoper dan de supermarkt."
+  },
+  {
+    "nl": "druk",
+    "vi": "bận, đông đúc",
+    "example": "Het is heel druk in de trein."
+  },
+  {
+    "nl": "gezellig",
+    "vi": "ấm cúng, vui vẻ dễ chịu",
+    "example": "Het was een gezellige avond."
+  },
+  {
+    "nl": "meteen",
+    "vi": "ngay lập tức",
+    "example": "Ik kom meteen naar je toe."
+  },
+  {
+    "nl": "misschien",
+    "vi": "có lẽ",
+    "example": "Misschien regent het morgen."
+  },
+  {
+    "nl": "altijd",
+    "vi": "luôn luôn",
+    "example": "Hij komt altijd te laat."
+  },
+  {
+    "nl": "bijna",
+    "vi": "gần như, suýt",
+    "example": "Ik ben bijna klaar."
+  },
+  {
+    "nl": "genoeg",
+    "vi": "đủ",
+    "example": "Ik heb genoeg tijd vandaag."
+  },
+  {
+    "nl": "samen",
+    "vi": "cùng nhau",
+    "example": "We doen het samen."
+  },
+  {
+    "nl": "kyken",
+    "vi": "xem"
+  },
+  {
+    "nl": "fietsen",
+    "vi": "bycycling"
+  },
+  {
+    "nl": "wandelen",
+    "vi": "hiking"
+  },
+  {
+    "nl": "tennisen",
+    "vi": "playing tennis"
+  },
+  {
+    "nl": "reizen",
+    "vi": "travel"
+  },
+  {
+    "nl": "boodschappen doen",
+    "vi": "go shopping"
+  },
+  {
+    "nl": "lopen",
+    "vi": "walking"
+  },
+  {
+    "nl": "luisteren",
+    "vi": "listen"
+  }
+]
