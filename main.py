@@ -8,6 +8,8 @@ import tkinter as tk
 from tkinter import messagebox, ttk
 
 import config
+import install
+import setup_wizard
 import ui_common
 from progress import Progress
 from quiz_app import VocabQuizApp
@@ -19,8 +21,6 @@ class StudyMasterApp:
     def __init__(self, root: tk.Tk):
         self.root = root
         self.root.title(config.APP_NAME)
-        self.root.geometry("760x560")
-        self.root.minsize(680, 520)
 
         self.store = VocabStore()
         self.progress = Progress()
@@ -32,9 +32,10 @@ class StudyMasterApp:
 
         self.vocab_window = None
         self.reading_window = None
+        self._menu_hidden = False
 
         ui_common.apply_theme(root)
-        self.root.protocol("WM_DELETE_WINDOW", self._on_close_root)
+        self.guard = ui_common.ScreenGuard(root, on_close_attempt=self._on_close_root)
 
         self._build_ui()
         self._refresh_status()
@@ -44,59 +45,62 @@ class StudyMasterApp:
     # ============================================================
 
     def _build_ui(self):
-        frame = ttk.Frame(self.root, padding=30)
-        frame.pack(fill=tk.BOTH, expand=True)
+        backdrop = ttk.Frame(self.root)
+        backdrop.pack(fill=tk.BOTH, expand=True)
 
-        ttk.Label(frame, text="Nederlands leren", style="Title.TLabel").pack(anchor="w")
+        card = ttk.Frame(backdrop, padding=8)
+        card.place(relx=0.5, rely=0.42, anchor="center")
+
+        ttk.Label(card, text="Nederlands leren", style="Title.TLabel").pack(anchor="w")
         ttk.Label(
-            frame,
+            card,
             text="Hoàn thành cả hai phần dưới đây thì ứng dụng mới cho phép thoát.",
             style="Muted.TLabel",
         ).pack(anchor="w", pady=(4, 20))
 
-        cards = ttk.Frame(frame)
-        cards.pack(fill=tk.X)
+        buttons = ttk.Frame(card)
+        buttons.pack(anchor="w")
 
         self.vocab_button = ttk.Button(
-            cards, text="1. Luyện từ vựng", command=self.open_vocab_section
+            buttons, text="1. Luyện từ vựng", command=self.open_vocab_section
         )
-        self.vocab_button.pack(side=tk.LEFT, ipadx=14, ipady=10)
+        self.vocab_button.pack(side=tk.LEFT, ipadx=18, ipady=12)
 
         self.reading_button = ttk.Button(
-            cards, text="2. Luyện đọc", command=self.open_reading_section
+            buttons, text="2. Luyện đọc", command=self.open_reading_section
         )
-        self.reading_button.pack(side=tk.LEFT, padx=14, ipadx=14, ipady=10)
+        self.reading_button.pack(side=tk.LEFT, padx=14, ipadx=18, ipady=12)
 
-        self.status_label = ttk.Label(frame, text="", style="H2.TLabel", justify="left")
-        self.status_label.pack(anchor="w", pady=(24, 6))
+        self.status_label = ttk.Label(card, text="", style="H2.TLabel", justify="left")
+        self.status_label.pack(anchor="w", pady=(28, 6))
 
-        self.detail_label = ttk.Label(frame, text="", style="Muted.TLabel", justify="left")
+        self.detail_label = ttk.Label(card, text="", style="Muted.TLabel", justify="left")
         self.detail_label.pack(anchor="w")
 
-        ttk.Separator(frame).pack(fill=tk.X, pady=20)
+        ttk.Separator(card).pack(fill=tk.X, pady=20)
 
         ttk.Label(
-            frame,
+            card,
             text=(
                 f"Mục tiêu mỗi ngày: {config.QUIZ_TARGET_CORRECT} câu từ vựng đúng, "
                 f"rồi một bài đọc trình độ {config.READING_LEVEL} do AI viết từ chính "
                 "những từ bạn vừa ôn."
             ),
             style="Muted.TLabel",
-            wraplength=660,
+            wraplength=640,
             justify="left",
         ).pack(anchor="w")
 
         self.warning_label = ttk.Label(
-            frame, text="", style="Muted.TLabel", foreground=ui_common.COLOR_WARN,
-            wraplength=660, justify="left",
+            card, text="", style="Muted.TLabel", foreground=ui_common.COLOR_WARN,
+            wraplength=640, justify="left",
         )
         self.warning_label.pack(anchor="w", pady=8)
 
         ttk.Button(
-            frame, text="Thoát khẩn cấp (đóng toàn bộ ứng dụng)",
+            backdrop, text="Thoát khẩn cấp",
             style="Small.TButton", command=self.emergency_exit_all,
-        ).pack(side=tk.BOTTOM, anchor="e")
+        ).place(relx=1.0, rely=1.0, x=-24, y=-24, anchor="se")
 
     def _refresh_status(self):
         summary = self.progress.summary()
@@ -121,10 +125,13 @@ class StudyMasterApp:
                 "hoặc dùng nút “Quản lý từ vựng” trong phần luyện từ."
             )
         if not config.ai_is_configured():
-            warnings.append(
-                "Chưa có OPENAI_API_KEY trong file .env nên AI sẽ không chấm câu và "
-                "không tự viết bài đọc được."
-            )
+            if config.is_frozen():
+                warnings.append("Chưa có API key. Hãy nhập key ở màn hình cài đặt để AI chấm câu và viết bài đọc.")
+            else:
+                warnings.append(
+                    "Chưa có OPENAI_API_KEY trong file .env nên AI sẽ không chấm câu và "
+                    "không tự viết bài đọc được."
+                )
         self.warning_label.config(text="\n".join(warnings))
 
     # ============================================================
@@ -136,7 +143,9 @@ class StudyMasterApp:
             self.vocab_window.lift()
             return
 
+        self._hide_menu()
         self.vocab_window = tk.Toplevel(self.root)
+        self.vocab_window.bind("<Destroy>", self._on_child_destroy, add="+")
         VocabQuizApp(
             self.vocab_window,
             store=self.store,
@@ -151,7 +160,9 @@ class StudyMasterApp:
             self.reading_window.lift()
             return
 
+        self._hide_menu()
         self.reading_window = tk.Toplevel(self.root)
+        self.reading_window.bind("<Destroy>", self._on_child_destroy, add="+")
         ReadingApp(
             self.reading_window,
             store=self.store,
@@ -160,6 +171,44 @@ class StudyMasterApp:
             on_request_switch=self._switch_to_vocab,
             on_emergency=self.quit_all,
         )
+
+    def _hide_menu(self):
+        """Nhường màn hình cho cửa sổ luyện tập, menu fullscreen không che lên trên."""
+        if self._menu_hidden:
+            return
+        self._menu_hidden = True
+        self.guard.suspend()
+        try:
+            self.root.attributes("-fullscreen", False)
+        except tk.TclError:
+            pass
+        self.root.withdraw()
+
+    def _child_open(self) -> bool:
+        for window in (self.vocab_window, self.reading_window):
+            try:
+                if window is not None and window.winfo_exists():
+                    return True
+            except tk.TclError:
+                continue
+        return False
+
+    def _show_menu(self):
+        if self._child_open() or not self._menu_hidden:
+            return
+        self._menu_hidden = False
+        self.root.deiconify()
+        if self.guard.enabled:
+            try:
+                self.root.attributes("-fullscreen", True)
+            except tk.TclError:
+                pass
+        self.guard.resume()
+
+    def _on_child_destroy(self, event):
+        if event.widget not in (self.vocab_window, self.reading_window):
+            return
+        self.root.after(50, self._show_menu)
 
     def _close_window(self, window):
         if window is not None and window.winfo_exists():
@@ -197,13 +246,14 @@ class StudyMasterApp:
             return
 
         summary = self.progress.summary()
-        messagebox.showinfo(
-            "Klaar voor vandaag!",
-            f"Bạn đã xong cả từ vựng và bài đọc hôm nay.\n\n"
-            f"Số từ đã ôn: {summary['asked_today']}\n"
-            f"Tổng số từ đã thuộc: {summary['known_words']}\n\nTot morgen!",
-            parent=self.root,
-        )
+        with self.guard.suspended():
+            messagebox.showinfo(
+                "Klaar voor vandaag!",
+                f"Bạn đã xong cả từ vựng và bài đọc hôm nay.\n\n"
+                f"Số từ đã ôn: {summary['asked_today']}\n"
+                f"Tổng số từ đã thuộc: {summary['known_words']}\n\nTot morgen!",
+                parent=self.root,
+            )
         self.quit_all()
 
     # ============================================================
@@ -214,15 +264,16 @@ class StudyMasterApp:
         if self.vocab_done and self.reading_done:
             self.quit_all()
             return
-        messagebox.showwarning(
-            "Chưa hoàn thành",
-            "Cần xong cả phần từ vựng và phần đọc trước khi thoát.\n"
-            "Nếu app bị lỗi, hãy dùng nút “Thoát khẩn cấp”.",
-            parent=self.root,
-        )
+        with self.guard.suspended():
+            messagebox.showwarning(
+                "Chưa hoàn thành",
+                "Cần xong cả phần từ vựng và phần đọc trước khi thoát.\n"
+                "Nếu app bị lỗi, hãy dùng nút “Thoát khẩn cấp”.",
+                parent=self.root,
+            )
 
     def emergency_exit_all(self):
-        if ui_common.confirm_developer_exit(self.root):
+        if self.guard.confirm_emergency_exit():
             self.quit_all()
 
     def quit_all(self):
@@ -245,7 +296,9 @@ def run_diagnostics():
 
     print(f"{config.APP_NAME} — kiểm tra môi trường\n")
     print(f"Python  : {sys.version.split()[0]}")
-    print(f"Đường dẫn: {sys.executable}\n")
+    print(f"Đường dẫn: {sys.executable}")
+    print(f"Dữ liệu : {config.data_dir()}")
+    print(f"Bản đóng gói: {'có' if config.is_frozen() else 'không'}\n")
 
     for module, needed_for in (
         ("tkinter", "giao diện"),
@@ -285,7 +338,23 @@ def main():
         run_diagnostics()
         return
 
+    try:
+        stay = install.prepare()
+    except Exception as error:
+        root = tk.Tk()
+        root.withdraw()
+        messagebox.showerror("Dutch Guard", f"Không cài được ứng dụng:\n{error}")
+        root.destroy()
+        return
+    if not stay:
+        return
+
     root = tk.Tk()
+    if config.is_frozen() and not config.is_ready():
+        if not setup_wizard.run(root):
+            root.destroy()
+            return
+
     StudyMasterApp(root)
     root.mainloop()
 

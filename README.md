@@ -1,20 +1,39 @@
 # Dutch Guard
 
-Ứng dụng desktop (Tkinter) ép bản thân học tiếng Hà Lan mỗi ngày. Cửa sổ chạy
+Ứng dụng desktop ép bản thân học tiếng Hà Lan mỗi ngày. Cửa sổ chạy
 toàn màn hình, luôn nằm trên cùng và chỉ cho đóng khi đã xong cả hai phần:
 
 1. **Luyện từ vựng** — nhìn nghĩa tiếng Việt, gõ từ tiếng Hà Lan.
 2. **Luyện đọc** — AI viết một bài đọc mới dựa trên chính những từ bạn vừa ôn
    hôm nay, kèm câu hỏi trắc nghiệm, True/False/Not Given và nối từ.
 
-## Cài đặt
+## Dành cho người dùng
+
+Tải `DutchGuard.exe` (file đính kèm ở mục Releases, không cần cài Python).
+
+1. Mở file đó. Windows có thể báo “Unknown publisher” — bấm **More info**, rồi **Run anyway**.
+2. App tự chép vào `%LOCALAPPDATA%\DutchGuard\` và tự thêm vào Startup.
+3. Lần đầu nhập OpenAI API key. Mật khẩu thoát khẩn cấp là mật khẩu dev đã đóng trong file cài, người dùng không đặt và không xem được mật khẩu đó.
+4. Từ vựng và tiến độ được lưu ở `%APPDATA%\DutchGuard\`, nên cập nhật bản mới không mất dữ liệu.
+
+Từ đó mỗi lần đăng nhập Windows, app tự mở.
+
+## Dành cho người phát triển
 
 ```bash
 pip install -r requirements.txt
 copy .env.example .env      # rồi điền OPENAI_API_KEY
 ```
 
-Chạy bằng `start_dutch_guard.bat` hoặc `python main.py`.
+Chạy bằng `start_dutch_guard.bat` hoặc `python main.py`. Cách này dùng file trong thư mục dự án, không đụng bản cài của người dùng.
+
+Đóng gói file `.exe`:
+
+```bash
+build_exe.bat
+```
+
+File ra ở `dist\DutchGuard.exe`.
 
 ## Thêm từ vựng
 

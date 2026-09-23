@@ -28,8 +28,8 @@ def _get_client():
 
     if not config.ai_is_configured():
         raise AITeacherError(
-            "Chưa có API key. Hãy tạo file .env cạnh main.py với dòng:\n"
-            "OPENAI_API_KEY=sk-..."
+            "Chưa có API key. Bản cài đặt hỏi key ở lần mở đầu; "
+            "khi chạy source thì điền OPENAI_API_KEY trong file .env."
         )
     try:
         from openai import OpenAI

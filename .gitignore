@@ -4,3 +4,6 @@ key.txt
 cache/
 progress.json
 *.tmp
+build/
+dist/
+bundled_secrets.json
