@@ -7,7 +7,7 @@ import random
 from dataclasses import dataclass, field
 
 import config
-from text_utils import display_word, match_answer, strip_tags
+from text_utils import display_word, entry_word, match_answer, strip_tags
 
 
 @dataclass
@@ -81,7 +81,7 @@ class QuizEngine:
         if entry is None:
             return ""
         self.hint_used = True
-        word = strip_tags(entry["nl"])
+        word = strip_tags(entry_word(entry))
         masked = "".join("_" if c.isalpha() else c for c in word[1:])
         return f"{word[0]}{masked}  ({len(word)} ký tự)"
 
@@ -98,7 +98,7 @@ class QuizEngine:
 
     def _weighted_pick(self, total: int) -> int:
         candidates = [i for i in range(total) if i != self._last_index] or [self._last_index]
-        weights = [self.progress.weight(self.store.get(i)["nl"]) for i in candidates]
+        weights = [self.progress.weight(entry_word(self.store.get(i))) for i in candidates]
         return self.rng.choices(candidates, weights=weights, k=1)[0]
 
     # ---------- Chấm câu trả lời ----------
@@ -115,7 +115,7 @@ class QuizEngine:
         # Lỗi chính tả hoặc có xem gợi ý vẫn tính là đúng trong phiên,
         # nhưng không được ghi nhận là đã thuộc từ.
         mastered = verdict == "exact" and not self.hint_used
-        self.progress.record(entry["nl"], correct=mastered)
+        self.progress.record(entry_word(entry), correct=mastered)
 
         if is_correct:
             self.correct_count += 1
@@ -123,7 +123,7 @@ class QuizEngine:
             self.best_streak = max(self.best_streak, self.streak)
         else:
             self.streak = 0
-            word = strip_tags(entry["nl"])
+            word = strip_tags(entry_word(entry))
             if word not in self.session_wrong:
                 self.session_wrong.append(word)
 

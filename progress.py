@@ -18,7 +18,10 @@ def today_key() -> str:
 
 class Progress:
     def __init__(self, filename: str = None):
-        self.filename = filename or config.PROGRESS_FILE
+        if filename is None:
+            config.ensure_language_data()
+            filename = config.progress_path()
+        self.filename = filename
         self.data = self._load()
 
     # ---------- Đọc / ghi ----------

@@ -63,6 +63,8 @@ class ScreenGuard:
         self.enabled = config.LOCK_SCREEN if enabled is None else enabled
         self.on_close_attempt = on_close_attempt
         self._suspend_depth = 0
+        self._combos = []
+        self._refocus_after_id = None
 
         window.protocol("WM_DELETE_WINDOW", self._handle_close_request)
         window.bind("<Alt-F4>", lambda _e: "break")
@@ -89,6 +91,9 @@ class ScreenGuard:
         if not self.enabled or self._suspend_depth:
             return
         try:
+            # Popup của combobox là cửa sổ khác. Kéo focus lúc đó sẽ đóng dropdown ngay.
+            if self.window.grab_current() is not None or self._popdown_visible():
+                return
             # focus_displayof() trả về None khi tiêu điểm đã rời khỏi ứng dụng;
             # nếu focus chỉ nhảy sang widget con thì không cần kéo lại.
             if self.window.focus_displayof() is not None:
@@ -97,17 +102,66 @@ class ScreenGuard:
             return
         self.force_focus()
 
-    def force_focus(self):
+    def _popdown_visible(self) -> bool:
+        for widget in list(self._combos):
+            try:
+                if widget.winfo_exists() and self._popdown_mapped(widget):
+                    return True
+            except tk.TclError:
+                continue
+        return False
+
+    def _popdown_path(self, widget: tk.Widget):
         try:
+            return widget.tk.call("ttk::combobox::PopdownWindow", widget)
+        except tk.TclError:
+            return ""
+
+    def _popdown_mapped(self, widget: tk.Widget) -> bool:
+        path = self._popdown_path(widget)
+        if not path:
+            return False
+        try:
+            return bool(int(widget.tk.call("winfo", "ismapped", path)))
+        except tk.TclError:
+            return False
+
+    def _raise_popdown(self, widget: tk.Widget):
+        path = self._popdown_path(widget)
+        if not path:
+            return
+        try:
+            widget.tk.call("wm", "attributes", path, "-topmost", True)
+            widget.tk.call("raise", path)
+        except tk.TclError:
+            pass
+
+    def force_focus(self):
+        if not self.enabled or self._suspend_depth:
+            return
+        try:
+            # Hộp thoại đang mở thì không được kéo cửa sổ lên đè lên nó.
+            if self.window.grab_current() is not None or self._popdown_visible():
+                return
             self.window.attributes("-topmost", True)
             self.window.lift()
             self.window.focus_force()
         except tk.TclError:
             pass
 
+    def _cancel_refocus(self):
+        if self._refocus_after_id is None:
+            return
+        try:
+            self.window.after_cancel(self._refocus_after_id)
+        except (tk.TclError, ValueError):
+            pass
+        self._refocus_after_id = None
+
     # ---------- Tạm ngưng ----------
 
     def suspend(self):
+        self._cancel_refocus()
         self._suspend_depth += 1
         if self._suspend_depth == 1 and self.enabled:
             try:
@@ -119,7 +173,8 @@ class ScreenGuard:
         self._suspend_depth = max(self._suspend_depth - 1, 0)
         if self._suspend_depth == 0 and self.enabled:
             if refocus:
-                self.window.after(150, self.force_focus)
+                self._cancel_refocus()
+                self._refocus_after_id = self.window.after(150, self.force_focus)
             else:
                 try:
                     self.window.attributes("-topmost", True)
@@ -134,11 +189,47 @@ class ScreenGuard:
         finally:
             self.resume()
 
+    def track_combobox(self, widget: tk.Widget):
+        """Giữ dropdown mở được khi cửa sổ đang topmost.
+
+        Danh sách của combobox là một cửa sổ khác. Kéo focus hoặc bật lại
+        topmost ngay lúc nó mở sẽ làm danh sách đóng hoặc nằm dưới app.
+        """
+        if widget not in self._combos:
+            self._combos.append(widget)
+        if not self.enabled:
+            return
+        widget.bind("<Button-1>", lambda _e, w=widget: self._suspend_for_popdown(w), add="+")
+        widget.bind("<<ComboboxSelected>>", lambda _e: self._resume_if_suspended(), add="+")
+
     def bind_free_focus(self, widget: tk.Widget):
-        """Cho phép widget (combobox, menu...) mở popup mà không bị kéo focus."""
-        widget.bind("<Button-1>", lambda _e: self.suspend(), add="+")
-        widget.bind("<<ComboboxSelected>>", lambda _e: self.resume(), add="+")
-        widget.bind("<FocusOut>", lambda _e: self.resume(refocus=False), add="+")
+        self.track_combobox(widget)
+
+    def _suspend_for_popdown(self, widget: tk.Widget):
+        if self._suspend_depth == 0:
+            self.suspend()
+        self._watch_popdown(widget, 0, False)
+
+    def _watch_popdown(self, widget: tk.Widget, tries: int, seen: bool):
+        try:
+            alive = widget.winfo_exists()
+        except tk.TclError:
+            alive = False
+        if not alive:
+            self._resume_if_suspended()
+            return
+        if self._popdown_mapped(widget):
+            self._raise_popdown(widget)
+            widget.after(50, lambda: self._watch_popdown(widget, tries, True))
+            return
+        if not seen and tries < 12:
+            widget.after(40, lambda: self._watch_popdown(widget, tries + 1, False))
+            return
+        self._resume_if_suspended()
+
+    def _resume_if_suspended(self):
+        if self._suspend_depth:
+            self.resume(refocus=False)
 
     # ---------- Hộp thoại an toàn ----------
 
@@ -237,7 +328,7 @@ def confirm_developer_exit(parent: tk.Misc) -> bool:
         parent,
         "Thoát khẩn cấp",
         "Nhập mật khẩu developer để đóng ứng dụng.\n"
-        "Buổi học hôm nay sẽ không được tính là hoàn thành.",
+        "Lần mở máy này sẽ không được tính là hoàn thành.",
     )
     if entered is None:
         return False

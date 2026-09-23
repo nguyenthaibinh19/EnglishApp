@@ -8,10 +8,11 @@ from tkinter import ttk
 
 import ai_teacher
 import config
+import dictionary
 import ui_common
 from progress import Progress
 from quiz_engine import QuizEngine
-from text_utils import strip_tags
+from text_utils import entry_word, fold_accents, normalize, strip_tags, without_article
 from vocab_store import VocabStore
 
 
@@ -24,9 +25,10 @@ class VocabQuizApp:
         on_completed=None,
         on_request_switch=None,
         on_emergency=None,
+        required=True,
     ):
         self.window = window
-        self.window.title(f"{config.APP_NAME} — Woordenschat")
+        self.window.title(f"{config.APP_NAME} — Từ vựng")
 
         self.store = store or VocabStore()
         self.progress = progress or Progress()
@@ -35,6 +37,7 @@ class VocabQuizApp:
         self.on_completed = on_completed
         self.on_request_switch = on_request_switch
         self.on_emergency = on_emergency
+        self.required = required
 
         self.completed = False
         self.practice_mode = None      # None | "free" | "forced"
@@ -47,8 +50,9 @@ class VocabQuizApp:
         if self.store.count() == 0:
             self.guard.show_error(
                 "Chưa có từ vựng",
-                "vocab.json đang trống.\n\n"
-                'Hãy thêm từ theo mẫu: {"nl": "de fiets", "vi": "xe đạp"}',
+                "Danh sách từ của ngôn ngữ này đang trống.\n\n"
+                "Hãy thêm từ trong phần Quản lý từ vựng, "
+                f"ví dụ: {config.current_language()['sample']}.",
             )
             self.window.destroy()
             return
@@ -85,7 +89,11 @@ class VocabQuizApp:
 
         header = ttk.Frame(view)
         header.pack(fill=tk.X)
-        ttk.Label(header, text="Luyện từ vựng tiếng Hà Lan", style="Title.TLabel").pack(side=tk.LEFT)
+        ttk.Label(
+            header,
+            text=f"Luyện từ vựng {config.current_language()['name_vi']}",
+            style="Title.TLabel",
+        ).pack(side=tk.LEFT)
         self.stats_label = ttk.Label(header, text="", style="Muted.TLabel")
         self.stats_label.pack(side=tk.RIGHT)
 
@@ -100,7 +108,11 @@ class VocabQuizApp:
         body = ttk.Frame(view)
         body.pack(fill=tk.BOTH, expand=True)
 
-        ttk.Label(body, text="Từ tiếng Hà Lan nào có nghĩa là:", style="H2.TLabel").pack(pady=(40, 8))
+        ttk.Label(
+            body,
+            text=f"Từ {config.current_language()['name_vi']} nào có nghĩa là:",
+            style="H2.TLabel",
+        ).pack(pady=(40, 8))
 
         self.question_label = ttk.Label(
             body, text="", font=ui_common.FONT_QUESTION, wraplength=900, justify="center"
@@ -166,7 +178,7 @@ class VocabQuizApp:
             self.question_label.config(text="Kho từ vựng đang trống.")
             return
 
-        self.question_label.config(text=f"“{entry['vi']}”")
+        self.question_label.config(text=f"“{self._learner_meaning(entry)}”")
         self.hint_label.config(text=entry.get("example", ""))
         self.feedback_label.config(text="", foreground="black")
         self.answer_var.set("")
@@ -244,7 +256,7 @@ class VocabQuizApp:
             entry = result.entry
             self.feedback_label.config(
                 text=f"Chưa đúng. Bạn trả lời: {answer}\n"
-                     f"Đáp án: {result.correct_display}  —  {entry.get('vi', '')}",
+                     f"Đáp án: {result.correct_display}  —  {self._learner_meaning(entry)}",
                 foreground=ui_common.COLOR_BAD,
             )
             self._lock_input()
@@ -308,9 +320,9 @@ class VocabQuizApp:
         if self.practice_view is None:
             self.practice_view = self._build_practice_view()
 
-        word = strip_tags(entry["nl"])
+        word = strip_tags(entry_word(entry))
         self.practice_word_label.config(text=word)
-        self.practice_meaning_label.config(text=entry.get("vi", ""))
+        self.practice_meaning_label.config(text=self._learner_meaning(entry))
         self.practice_input.delete("1.0", "end")
         ui_common.set_text(self.practice_result, "")
         self.practice_status.config(text="", foreground=ui_common.COLOR_MUTED)
@@ -334,7 +346,10 @@ class VocabQuizApp:
 
         ttk.Label(
             view,
-            text="Viết một câu tiếng Hà Lan dùng từ trên. AI sẽ sửa ngữ pháp và giải thích bằng tiếng Việt.",
+            text=(
+                f"Viết một câu {config.current_language()['name_vi']} dùng từ trên. "
+                f"AI sẽ sửa ngữ pháp và giải thích bằng {config.native_label()}."
+            ),
             style="H2.TLabel",
         ).pack(pady=(20, 6))
 
@@ -367,8 +382,8 @@ class VocabQuizApp:
             return
 
         entry = self.engine.current_entry or {}
-        word = strip_tags(entry.get("nl", ""))
-        meaning = entry.get("vi", "")
+        word = strip_tags(entry_word(entry))
+        meaning = self._learner_meaning(entry)
 
         self.grade_button.state(["disabled"])
         self.practice_status.config(text="Đang gửi cho AI chấm…", foreground=ui_common.COLOR_MUTED)
@@ -468,9 +483,10 @@ class VocabQuizApp:
 
         self.form_vars = {}
         self.form_entries = {}
+        lang = config.current_language()
         fields = [
-            ("nl", "Tiếng Hà Lan:", "vd: de fiets"),
-            ("vi", "Nghĩa tiếng Việt:", "vd: xe đạp"),
+            ("word", f"{lang['label']}:", f"vd: {lang['sample']}"),
+            ("vi", f"Nghĩa ({config.native_label()}):", "vd: xe đạp"),
             ("alt", "Cách viết khác:", "ngăn nhau bằng dấu |"),
             ("example", "Câu ví dụ:", "không bắt buộc"),
         ]
@@ -499,7 +515,7 @@ class VocabQuizApp:
             right,
             text="Enter để thêm từ mới, hoặc cập nhật từ đang chọn.\n"
                  "Xóa từ phải bấm nút Xóa.\n"
-                 "Mẹo: viết danh từ kèm mạo từ (de/het).",
+                 "Mẹo: viết danh từ kèm mạo từ nếu ngôn ngữ đó có.",
             style="Muted.TLabel",
             justify="left",
         ).grid(row=len(fields) * 2 + 1, column=0, columnspan=2, sticky="w")
@@ -515,7 +531,7 @@ class VocabQuizApp:
             self.word_listbox.activate(0)
             self.word_listbox.see(0)
             self._on_word_selected()
-            self.form_entries["nl"].focus_set()
+            self.form_entries["word"].focus_set()
         return "break"
 
     def _on_manager_enter(self, _event=None):
@@ -527,13 +543,13 @@ class VocabQuizApp:
         return "break"
 
     def _refresh_word_list(self, select_index=None):
-        keyword = self.search_var.get().strip().lower()
+        keyword = fold_accents(normalize(self.search_var.get()))
         self.word_listbox.delete(0, tk.END)
         self._filtered_indices = []
 
         for index, entry in enumerate(self.store.all()):
-            label = f"{strip_tags(entry['nl'])} — {entry['vi']}"
-            if keyword and keyword not in label.lower():
+            label = f"{strip_tags(entry_word(entry))} — {entry['vi']}"
+            if keyword and not self._entry_matches(entry, keyword):
                 continue
             self._filtered_indices.append(index)
             self.word_listbox.insert(tk.END, label)
@@ -549,6 +565,23 @@ class VocabQuizApp:
             self.word_listbox.activate(pos)
             self.word_listbox.see(pos)
 
+    def _learner_meaning(self, entry) -> str:
+        """Nghĩa hiện ra khi làm bài. Tiếng Anh thì lấy từ điển, không dùng chú thích tiếng Việt đã lưu."""
+        stored = (entry.get("vi") or "").strip()
+        if config.native_code() != "en":
+            return stored
+        gloss = dictionary.learner_gloss(entry_word(entry))
+        return gloss or stored
+
+    def _entry_matches(self, entry, keyword: str) -> bool:
+        fields = (
+            entry_word(entry),
+            without_article(normalize(entry_word(entry))),
+            entry.get("vi") or "",
+            " ".join(entry.get("alt") or []),
+        )
+        return any(keyword in fold_accents(normalize(str(field))) for field in fields)
+
     def _selected_store_index(self):
         selection = self.word_listbox.curselection()
         if not selection:
@@ -561,7 +594,7 @@ class VocabQuizApp:
             return
         entry = self.store.get(index) or {}
         alt = entry.get("alt") or []
-        self.form_vars["nl"].set(entry.get("nl", ""))
+        self.form_vars["word"].set(entry_word(entry))
         self.form_vars["vi"].set(entry.get("vi", ""))
         self.form_vars["alt"].set(" | ".join(alt) if isinstance(alt, list) else str(alt))
         self.form_vars["example"].set(entry.get("example", ""))
@@ -569,7 +602,7 @@ class VocabQuizApp:
     def _form_values(self):
         alt_raw = self.form_vars["alt"].get().strip()
         return (
-            self.form_vars["nl"].get().strip(),
+            self.form_vars["word"].get().strip(),
             self.form_vars["vi"].get().strip(),
             {
                 "alt": [a.strip() for a in alt_raw.split("|") if a.strip()],
@@ -578,28 +611,28 @@ class VocabQuizApp:
         )
 
     def _add_word(self):
-        nl, vi, extra = self._form_values()
-        if not nl or not vi:
-            self.guard.show_error("Thiếu dữ liệu", "Cần nhập cả từ tiếng Hà Lan và nghĩa tiếng Việt.")
+        word, vi, extra = self._form_values()
+        if not word or not vi:
+            self.guard.show_error("Thiếu dữ liệu", "Cần nhập cả từ và nghĩa.")
             return
-        if not self.store.add(nl, vi, **extra):
-            self.guard.show_error("Trùng từ", f"“{nl}” đã có trong danh sách.")
+        if not self.store.add(word, vi, **extra):
+            self.guard.show_error("Trùng từ", f"“{word}” đã có trong danh sách.")
             return
         self._clear_form()
         self._refresh_word_list()
-        self.form_entries["nl"].focus_set()
+        self.form_entries["word"].focus_set()
 
     def _update_word(self):
         index = self._selected_store_index()
         if index is None:
             self.guard.show_error("Chưa chọn từ", "Hãy chọn một từ trong danh sách bên trái.")
             return
-        nl, vi, extra = self._form_values()
-        if not self.store.update(index, nl, vi, **extra):
-            self.guard.show_error("Thiếu dữ liệu", "Cần nhập cả từ tiếng Hà Lan và nghĩa tiếng Việt.")
+        word, vi, extra = self._form_values()
+        if not self.store.update(index, word, vi, **extra):
+            self.guard.show_error("Thiếu dữ liệu", "Cần nhập cả từ và nghĩa.")
             return
         self._refresh_word_list(select_index=index)
-        self.form_entries["nl"].focus_set()
+        self.form_entries["word"].focus_set()
 
     def _delete_word(self):
         index = self._selected_store_index()
@@ -610,11 +643,11 @@ class VocabQuizApp:
             self.guard.show_error("Không thể xóa", "Phải giữ lại ít nhất 1 từ để còn làm bài.")
             return
         entry = self.store.get(index)
-        if self.guard.ask_yes_no("Xóa từ", f"Xóa “{entry['nl']} — {entry['vi']}”?"):
+        if self.guard.ask_yes_no("Xóa từ", f"Xóa “{entry_word(entry)} — {entry['vi']}”?"):
             self.store.delete(index)
             self._clear_form()
             self._refresh_word_list()
-            self.form_entries["nl"].focus_set()
+            self.form_entries["word"].focus_set()
 
     def _clear_form(self):
         for var in self.form_vars.values():
@@ -632,6 +665,9 @@ class VocabQuizApp:
     # ============================================================
 
     def _on_close_attempt(self):
+        if self.completed or not self.required:
+            self.window.destroy()
+            return
         self.guard.show_info(
             "Chưa xong",
             f"Cần trả lời đúng {self.engine.target} câu mới đóng được cửa sổ này.\n"

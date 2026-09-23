@@ -8,7 +8,7 @@ import json
 
 import config
 from reading_schema import normalize_test
-from text_utils import strip_tags
+from text_utils import entry_word, strip_tags
 
 _client = None
 
@@ -73,36 +73,46 @@ def _chat_json(system_prompt: str, user_prompt: str, temperature: float = 0.4) -
 # 1) Chấm câu học viên tự đặt
 # ============================================================
 
-_SENTENCE_SYSTEM = """Je bent een geduldige docent Nederlands.
-Học viên là người Việt, trình độ {level}. Học viên vừa đặt một câu tiếng Hà Lan
+_SENTENCE_SYSTEM = """You are a patient {name_en} teacher.
+The learner's native language is {native}. Write feedback_vi in {native} only.
+If {native} is English, do not write Vietnamese anywhere in the JSON.
+Học viên có ngôn ngữ gốc là {native}, trình độ {level}. Học viên vừa đặt một câu {name_vi}
 với một từ mục tiêu.
 
 Nhiệm vụ của bạn:
 1. Kiểm tra học viên dùng từ mục tiêu ĐÚNG NGHĨA và ĐÚNG NGỮ PHÁP hay không
-   (chú ý: thứ tự từ, chia động từ, mạo từ de/het, số nhiều).
-2. Giải thích NGẮN GỌN bằng tiếng Việt, nêu rõ lỗi nếu có.
+   (chú ý: thứ tự từ, chia động từ, mạo từ {articles}, số nhiều).
+2. Giải thích NGẮN GỌN bằng {native}, nêu rõ lỗi nếu có.
 3. Đưa ra câu đã sửa và một câu mẫu tự nhiên hơn dùng đúng từ mục tiêu.
 
 Chỉ trả lời bằng JSON với đúng các khóa sau:
 {{
   "is_correct_usage": true/false,
   "score": số thực từ 0 đến 1,
-  "feedback_vi": "nhận xét tiếng Việt, tối đa 4 câu",
-  "corrected_sentence": "câu tiếng Hà Lan đã sửa",
+  "feedback_vi": "nhận xét bằng {native}, tối đa 4 câu",
+  "corrected_sentence": "câu {name_vi} đã sửa",
   "suggested_sentence": "một câu mẫu khác dùng từ mục tiêu"
 }}"""
 
 
 def check_sentence(target_word: str, user_sentence: str, meaning_vi: str = "") -> dict:
-    """Chấm một câu tiếng Hà Lan do học viên đặt."""
+    """Chấm một câu do học viên đặt trong ngôn ngữ đang học."""
+    profile = config.current_language()
     word = strip_tags(target_word)
     user_prompt = (
+        f"Ngôn ngữ: {profile['name_en']}\n"
         f"Từ mục tiêu: {word}\n"
-        f"Nghĩa tiếng Việt: {meaning_vi or '(không có)'}\n"
+        f"Nghĩa ({config.native_label()}): {meaning_vi or '(không có)'}\n"
         f"Câu của học viên: {user_sentence.strip()}"
     )
     data = _chat_json(
-        _SENTENCE_SYSTEM.format(level=config.READING_LEVEL),
+        _SENTENCE_SYSTEM.format(
+            level=config.READING_LEVEL,
+            name_en=profile["name_en"],
+            name_vi=profile["name_vi"],
+            native=config.native_label(),
+            articles=", ".join(profile["articles"]) or "(không có)",
+        ),
         user_prompt,
         temperature=0.2,
     )
@@ -120,36 +130,40 @@ def check_sentence(target_word: str, user_sentence: str, meaning_vi: str = "") -
 # 2) Sinh bài đọc từ các từ đã học hôm nay
 # ============================================================
 
-_READING_SYSTEM = """Je bent een docent Nederlands die leesteksten schrijft voor
-een Vietnamese student op CEFR-niveau {level}.
+_READING_SYSTEM = """You write reading texts in {name_en} for a student whose native language is {native},
+at CEFR level {level}.
+
+The learner's native language is {native}.
+translation_vi, glossary meanings, instructions, and explanation_vi MUST be written in {native} only.
+If {native} is English, those fields must be English. Do not use Vietnamese in them.
 
 Yêu cầu bài đọc:
-- Viết MỘT đoạn văn tiếng Hà Lan mạch lạc, khoảng {words} từ, chia 3-4 đoạn nhỏ,
+- Viết MỘT đoạn văn {name_vi} mạch lạc, khoảng {words} từ, chia 3-4 đoạn nhỏ,
   văn phong tự nhiên, đời thường, phù hợp trình độ {level}.
 - Bài đọc PHẢI dùng tất cả các từ mục tiêu được cung cấp, dùng đúng ngữ cảnh.
   Có thể chia động từ hoặc đổi số nhiều cho hợp câu.
 - Ngoài các từ mục tiêu, chỉ dùng từ vựng phổ thông ở trình độ {level}.
 
-Yêu cầu câu hỏi (viết đề bằng tiếng Hà Lan, giải thích bằng tiếng Việt):
+Yêu cầu câu hỏi (viết đề bằng {name_vi}, giải thích bằng {native}):
 - 4 câu trắc nghiệm 4 lựa chọn A-D về nội dung bài đọc.
 - 3 câu True / False / Not Given.
-- 1 nhóm nối từ với nghĩa tiếng Việt, gồm ít nhất 5 từ mục tiêu.
+- 1 nhóm nối từ với nghĩa {native}, gồm ít nhất 5 từ mục tiêu.
 - Đánh số câu liên tục từ 1 trở đi, không trùng số.
 - Đáp án phải suy ra được từ bài đọc, không đoán mò.
 
 Chỉ trả lời bằng JSON đúng cấu trúc sau:
 {{
-  "title": "tiêu đề tiếng Hà Lan",
+  "title": "tiêu đề {name_vi}",
   "level": "{level}",
   "passage": "nội dung bài đọc, dùng \\n\\n để ngăn đoạn",
-  "translation_vi": "bản dịch tiếng Việt của toàn bài",
-  "glossary": [{{"nl": "từ", "vi": "nghĩa"}}],
+  "translation_vi": "bản dịch sang {native} của toàn bài",
+  "glossary": [{{"word": "từ", "vi": "nghĩa {native}"}}],
   "question_groups": [
     {{
       "type": "multiple_choice_single",
-      "instructions": "hướng dẫn tiếng Việt",
+      "instructions": "hướng dẫn bằng {native}",
       "questions": [
-        {{"number": 1, "prompt": "câu hỏi tiếng Hà Lan",
+        {{"number": 1, "prompt": "câu hỏi {name_vi}",
           "options": [{{"key": "A", "text": "..."}}, {{"key": "B", "text": "..."}},
                       {{"key": "C", "text": "..."}}, {{"key": "D", "text": "..."}}],
           "answer": "A", "explanation_vi": "giải thích ngắn"}}
@@ -157,17 +171,17 @@ Chỉ trả lời bằng JSON đúng cấu trúc sau:
     }},
     {{
       "type": "true_false_notgiven",
-      "instructions": "hướng dẫn tiếng Việt",
+      "instructions": "hướng dẫn bằng {native}",
       "questions": [
-        {{"number": 5, "prompt": "nhận định tiếng Hà Lan",
+        {{"number": 5, "prompt": "nhận định {name_vi}",
           "answer": "TRUE", "explanation_vi": "giải thích ngắn"}}
       ]
     }},
     {{
       "type": "vocab_matching",
-      "instructions": "hướng dẫn tiếng Việt",
-      "prompts": [{{"number": 8, "text": "từ tiếng Hà Lan"}}],
-      "options": [{{"code": "A", "text": "nghĩa tiếng Việt"}}],
+      "instructions": "hướng dẫn bằng {native}",
+      "prompts": [{{"number": 8, "text": "từ {name_vi}"}}],
+      "options": [{{"code": "A", "text": "nghĩa {native}"}}],
       "answers": ["A"]
     }}
   ]
@@ -175,12 +189,12 @@ Chỉ trả lời bằng JSON đúng cấu trúc sau:
 
 
 def generate_reading(entries: list, level: str = None, passage_words: int = None) -> dict:
-    """Sinh một bài đọc tiếng Hà Lan xoay quanh danh sách từ đã học.
+    """Sinh một bài đọc trong ngôn ngữ đang học, xoay quanh các từ đã ôn.
 
-    `entries` là list các dict {"nl": ..., "vi": ...} lấy từ vocab.json.
-    Trả về dict đã chuẩn hóa theo reading_schema.normalize_test.
+    `entries` là list các dict có khóa word (hoặc nl/en cũ) và vi.
     """
-    words = [e for e in entries if e.get("nl")]
+    profile = config.current_language()
+    words = [e for e in entries if entry_word(e)]
     if not words:
         raise AITeacherError("Chưa có từ nào để tạo bài đọc.")
 
@@ -188,10 +202,16 @@ def generate_reading(entries: list, level: str = None, passage_words: int = None
     passage_words = passage_words or config.READING_PASSAGE_WORDS
 
     word_lines = "\n".join(
-        f"- {strip_tags(e['nl'])} = {e.get('vi', '')}" for e in words
+        f"- {strip_tags(entry_word(e))} = {e.get('vi', '')}" for e in words
     )
-    user_prompt = f"Danh sách {len(words)} từ mục tiêu:\n{word_lines}"
-    system_prompt = _READING_SYSTEM.format(level=level, words=passage_words)
+    user_prompt = f"Ngôn ngữ: {profile['name_en']}\nDanh sách {len(words)} từ mục tiêu:\n{word_lines}"
+    system_prompt = _READING_SYSTEM.format(
+        level=level,
+        words=passage_words,
+        name_en=profile["name_en"],
+        name_vi=profile["name_vi"],
+        native=config.native_label(),
+    )
 
     last_error = None
     for attempt in range(2):
@@ -199,7 +219,7 @@ def generate_reading(entries: list, level: str = None, passage_words: int = None
             data = _chat_json(system_prompt, user_prompt, temperature=0.7 if attempt else 0.5)
             test = normalize_test(data)
             test["source"] = "ai"
-            test["target_words"] = [strip_tags(e["nl"]) for e in words]
+            test["target_words"] = [strip_tags(entry_word(e)) for e in words]
             return test
         except (AITeacherError, ValueError) as e:
             last_error = e

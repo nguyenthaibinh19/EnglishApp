@@ -7,9 +7,12 @@ còn file cài nằm ở %LOCALAPPDATA%\\DutchGuard.
 
 import json
 import os
+import shutil
 import sys
 
 from dotenv import load_dotenv
+
+import languages
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
@@ -69,15 +72,10 @@ def _env_bool(name: str, default: bool) -> bool:
 
 # ---------- Nhận diện ứng dụng ----------
 
-APP_NAME = "Dutch Guard"
-TARGET_LANG_NAME_VI = "tiếng Hà Lan"
-TARGET_LANG_NAME_EN = "Dutch"
+APP_NAME = "Language Guard"
 
 # ---------- Đường dẫn dữ liệu ----------
 
-VOCAB_FILE = os.path.join(data_dir(), "vocab.json")
-PROGRESS_FILE = os.path.join(data_dir(), "progress.json")
-CACHE_DIR = os.path.join(data_dir(), "cache")
 SETTINGS_FILE = os.path.join(data_dir(), "settings.json")
 READING_DIR = os.path.join(resource_dir(), "Reading")
 STARTER_VOCAB_FILE = os.path.join(resource_dir(), "vocab.json")
@@ -88,8 +86,8 @@ if not is_frozen():
 
 # ---------- Luyện từ vựng ----------
 
-# Số câu đúng cần đạt để mở khóa phần từ vựng.
-QUIZ_TARGET_CORRECT = _env_int("QUIZ_TARGET_CORRECT", 30)
+# Số câu đúng cần đạt trong một lần mở app. Lần mở sau tính lại từ đầu.
+QUIZ_TARGET_CORRECT = _env_int("QUIZ_TARGET_CORRECT", 5)
 
 # Sau bao nhiêu câu thì một từ trả lời sai được hỏi lại (kiểu Duolingo).
 WRONG_REQUEUE_AFTER = _env_int("WRONG_REQUEUE_AFTER", 3)
@@ -152,18 +150,169 @@ def _read_settings() -> dict:
     return data if isinstance(data, dict) else {}
 
 
-def save_settings(openai_api_key: str):
-    """Lưu API key của người dùng. Mật khẩu thoát không ghi ra file này."""
+def _write_settings(payload: dict):
     os.makedirs(data_dir(), exist_ok=True)
-    payload = {
-        "openai_api_key": openai_api_key.strip(),
-        "openai_model": OPENAI_MODEL or "gpt-4o-mini",
-    }
     tmp = SETTINGS_FILE + ".tmp"
     with open(tmp, "w", encoding="utf-8") as f:
         json.dump(payload, f, ensure_ascii=False, indent=2)
     os.replace(tmp, SETTINGS_FILE)
+
+
+def save_settings(openai_api_key: str):
+    """Lưu API key của người dùng. Mật khẩu thoát không ghi ra file này."""
+    payload = _read_settings()
+    payload["openai_api_key"] = openai_api_key.strip()
+    payload["openai_model"] = OPENAI_MODEL or "gpt-4o-mini"
+    payload.pop("emergency_password", None)
+    _write_settings(payload)
     reload()
+
+
+def active_code() -> str:
+    code = str(_read_settings().get("language") or "nl").strip().lower()
+    return code if code in languages.LANGUAGES else "nl"
+
+
+def current_language() -> dict:
+    profile = dict(languages.get(active_code()))
+    profile["code"] = active_code()
+    return profile
+
+
+def set_language(code: str) -> str:
+    """Nhớ ngôn ngữ đang mở để luyện. Không đánh dấu lần mở máy này là đã xong."""
+    chosen = code if code in languages.LANGUAGES else "nl"
+    payload = _read_settings()
+    payload["language"] = chosen
+    payload.pop("emergency_password", None)
+    _write_settings(payload)
+    return chosen
+
+
+def study_codes() -> list:
+    """Ngôn ngữ người dùng đã chọn để học. Chỉ những mã này mới bị bắt làm bài."""
+    raw = _read_settings().get("study_languages")
+    chosen = []
+    if isinstance(raw, list):
+        for item in raw:
+            code = str(item).strip().lower()
+            if code in languages.LANGUAGES and code not in chosen:
+                chosen.append(code)
+    if chosen:
+        return chosen
+    return [active_code()]
+
+
+def native_code() -> str:
+    """Ngôn ngữ gốc để dịch nghĩa: vi hoặc en."""
+    code = str(_read_settings().get("native") or "vi").strip().lower()
+    return "en" if code == "en" else "vi"
+
+
+def native_label() -> str:
+    return "English" if native_code() == "en" else "Tiếng Việt"
+
+
+def language_setup_done() -> bool:
+    settings = _read_settings()
+    native = str(settings.get("native") or "").strip().lower()
+    chosen = settings.get("study_languages")
+    return native in ("vi", "en") and isinstance(chosen, list) and bool(chosen)
+
+
+def save_language_choices(native: str, codes) -> list:
+    """Ghi ngôn ngữ gốc và danh sách tiếng cần học sau khi từ điển đã được kiểm tra."""
+    chosen = []
+    for item in codes:
+        code = str(item).strip().lower()
+        if code in languages.LANGUAGES and code not in chosen:
+            chosen.append(code)
+    if not chosen:
+        chosen = ["nl"]
+    payload = _read_settings()
+    payload["native"] = "en" if str(native).strip().lower() == "en" else "vi"
+    payload["study_languages"] = chosen
+    if str(payload.get("language") or "").strip().lower() not in chosen:
+        payload["language"] = chosen[0]
+    payload.pop("emergency_password", None)
+    _write_settings(payload)
+    return chosen
+
+
+def set_native(code: str) -> str:
+    chosen = "en" if str(code).strip().lower() == "en" else "vi"
+    payload = _read_settings()
+    payload["native"] = chosen
+    payload.pop("emergency_password", None)
+    _write_settings(payload)
+    return chosen
+
+
+def set_study_codes(codes) -> list:
+    """Ghi danh sách ngôn ngữ cần học. Luôn giữ ít nhất một ngôn ngữ."""
+    chosen = []
+    for item in codes:
+        code = str(item).strip().lower()
+        if code in languages.LANGUAGES and code not in chosen:
+            chosen.append(code)
+    if not chosen:
+        chosen = [active_code()]
+    payload = _read_settings()
+    payload["study_languages"] = chosen
+    if str(payload.get("language") or "").strip().lower() not in chosen:
+        payload["language"] = chosen[0]
+    payload.pop("emergency_password", None)
+    _write_settings(payload)
+    return chosen
+
+
+def language_dir(code: str = None) -> str:
+    return os.path.join(data_dir(), "languages", code or active_code())
+
+
+def vocab_path(code: str = None) -> str:
+    return os.path.join(language_dir(code), "vocab.json")
+
+
+def progress_path(code: str = None) -> str:
+    return os.path.join(language_dir(code), "progress.json")
+
+
+def cache_dir(code: str = None) -> str:
+    return os.path.join(language_dir(code), "cache")
+
+
+def _starter_file(code: str):
+    specific = os.path.join(resource_dir(), "starters", f"{code}.json")
+    if os.path.isfile(specific):
+        return specific
+    if code == "nl" and os.path.isfile(STARTER_VOCAB_FILE):
+        return STARTER_VOCAB_FILE
+    return None
+
+
+def ensure_language_data():
+    """Tách dữ liệu theo ngôn ngữ và giữ bộ từ Hà Lan đang có."""
+    os.makedirs(language_dir("nl"), exist_ok=True)
+
+    legacy_vocab = os.path.join(data_dir(), "vocab.json")
+    legacy_progress = os.path.join(data_dir(), "progress.json")
+    legacy_cache = os.path.join(data_dir(), "cache")
+    if os.path.isfile(legacy_vocab) and not os.path.isfile(vocab_path("nl")):
+        shutil.copy2(legacy_vocab, vocab_path("nl"))
+    if os.path.isfile(legacy_progress) and not os.path.isfile(progress_path("nl")):
+        shutil.copy2(legacy_progress, progress_path("nl"))
+    if os.path.isdir(legacy_cache) and not os.path.isdir(cache_dir("nl")):
+        shutil.copytree(legacy_cache, cache_dir("nl"))
+
+    for code in languages.codes():
+        dest = vocab_path(code)
+        if os.path.isfile(dest):
+            continue
+        starter = _starter_file(code)
+        os.makedirs(language_dir(code), exist_ok=True)
+        if starter:
+            shutil.copy2(starter, dest)
 
 
 def bundled_password() -> str:

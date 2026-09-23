@@ -20,12 +20,8 @@ def _ps_quote(value: str) -> str:
 
 
 def seed_vocab():
-    """Chép bộ từ mẫu vào AppData nếu người dùng chưa có file riêng."""
-    os.makedirs(config.data_dir(), exist_ok=True)
-    if os.path.exists(config.VOCAB_FILE):
-        return
-    if os.path.exists(config.STARTER_VOCAB_FILE):
-        shutil.copy2(config.STARTER_VOCAB_FILE, config.VOCAB_FILE)
+    """Tạo thư mục từng ngôn ngữ và chép bộ từ mẫu nếu chưa có."""
+    config.ensure_language_data()
 
 
 def register_startup(exe_path: str):

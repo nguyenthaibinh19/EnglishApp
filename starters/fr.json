@@ -1,0 +1,10 @@
+[
+  {"word": "la maison", "vi": "ngôi nhà", "example": "La maison est près du parc."},
+  {"word": "l'ami", "vi": "người bạn", "alt": ["le ami", "l’ami"], "example": "Mon ami habite à Paris."},
+  {"word": "travailler", "vi": "làm việc", "example": "Je travaille quatre jours par semaine."},
+  {"word": "comprendre", "vi": "hiểu", "example": "Désolé, je ne comprends pas."},
+  {"word": "facile", "vi": "dễ", "example": "Cet exercice est facile."},
+  {"word": "important", "vi": "quan trọng", "example": "C'est une question importante."},
+  {"word": "toujours", "vi": "luôn luôn", "example": "Il arrive toujours en retard."},
+  {"word": "ensemble", "vi": "cùng nhau", "example": "Nous le faisons ensemble."}
+]

@@ -42,6 +42,17 @@ check("bỏ tag loại từ", text_utils.match_answer("lopen", tagged)[0] == "ex
 short = {"nl": "kat", "vi": "con mèo"}
 check("từ ngắn không tha lỗi gõ nhầm", text_utils.match_answer("kan", short)[0] == "wrong")
 
+french = {"word": "la maison", "vi": "ngôi nhà"}
+check(
+    "bỏ mạo từ tiếng Pháp",
+    text_utils.match_answer("maison", french, articles=("la", "le"))[0] == "exact",
+)
+school = {"word": "l'école", "vi": "trường học"}
+check(
+    "bỏ mạo từ dính l'",
+    text_utils.match_answer("ecole", school, elisions=("l'",))[0] in ("exact", "near"),
+)
+
 
 # ---------- Kho từ + tiến độ + engine ----------
 
@@ -55,7 +66,7 @@ with open(vocab_path, "w", encoding="utf-8") as f:
 
 store = VocabStore(vocab_path)
 check("đọc được file định dạng cũ", store.count() == 2)
-check("đã đổi khóa en -> nl", "nl" in store.get(0) and "en" not in store.get(0))
+check("đã đổi khóa en -> word", "word" in store.get(0) and "en" not in store.get(0))
 
 store.add("de trein", "tàu hỏa")
 check("thêm từ mới", store.count() == 3)
@@ -74,14 +85,14 @@ check("sai không tăng điểm", result.correct_count == 0)
 
 for _ in range(6):
     current = engine.pick_next()
-    engine.submit(current["nl"])
+    engine.submit(current["word"])
     if engine.finished:
         break
 check("trả lời đúng đủ số câu thì kết thúc", engine.finished, str(engine.session_stats()))
 
 check("ghi nhận từ đã học hôm nay", len(progress.words_studied_today()) >= 1)
 check("từ mới có trọng số cao hơn từ đã thuộc",
-      progress.weight("chưa từng học") > progress.weight(store.get(0)["nl"]))
+      progress.weight("chưa từng học") > progress.weight(store.get(0)["word"]))
 
 
 # ---------- Chuẩn hóa bài đọc ----------
@@ -142,6 +153,44 @@ legacy = {
 legacy_test = normalize_test(legacy)
 check("đọc được AnswerKey.json kiểu cũ", legacy_test["groups"][0]["kind"] == "matching")
 check("giữ số thứ tự câu hỏi cũ", legacy_test["groups"][0]["prompts"][0]["number"] == 5)
+
+import os
+import sqlite3
+import tempfile
+
+import dictionary
+
+keys = dictionary.lookup_keys("de fietsen", "nl")
+check("tra được dạng gốc sau mạo từ và đuôi", "fiets" in keys, str(keys))
+check("tách nghĩa trong từ điển", dictionary.split_glosses(" bicycle | bike | bicycle ") == ["bicycle", "bike"])
+sample = {
+    "responseData": {"translatedText": "xe đạp"},
+    "matches": [
+        {"segment": "fiets", "translation": "xe đạp"},
+        {"segment": "fiets", "translation": "xe đạp"},
+        {"segment": "auto", "translation": "ô tô"},
+    ],
+}
+check(
+    "đọc kết quả từ điển trực tuyến",
+    dictionary.glosses_from_mymemory(sample, "fiets") == ["xe đạp"],
+)
+
+fd, dict_path = tempfile.mkstemp(suffix=".sqlite3")
+os.close(fd)
+connection = sqlite3.connect(dict_path)
+connection.execute("CREATE TABLE simple_translation(written_rep TEXT, trans_list, max_score, rel_importance)")
+connection.execute(
+    "INSERT INTO simple_translation VALUES (?, ?, ?, ?)",
+    ("fiets", "bicycle | bike", 1, 1),
+)
+connection.commit()
+connection.close()
+check(
+    "tra file từ điển theo từ đã chia",
+    dictionary.lookup_wikdict(dict_path, "fietsen", "nl")[:1] == ["bicycle"],
+)
+os.remove(dict_path)
 
 
 print()

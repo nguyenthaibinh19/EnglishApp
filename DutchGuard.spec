@@ -19,6 +19,7 @@ _dll_names = (
     "libbz2.dll",
     "libmpdec-4.dll",
     "zlib.dll",
+    "sqlite3.dll",
 )
 _binaries = [
     (os.path.join(_conda_bin, name), ".")
@@ -32,6 +33,7 @@ a = Analysis(
     binaries=_binaries,
     datas=[
         ("vocab.json", "."),
+        ("starters", "starters"),
         ("Reading", "Reading"),
         ("bundled_secrets.json", "."),
     ],

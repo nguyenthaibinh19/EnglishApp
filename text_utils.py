@@ -38,7 +38,7 @@ def strip_tags(s: str) -> str:
 
 def normalize(s: str) -> str:
     """Đưa chuỗi về dạng chuẩn để so sánh: bỏ tag, lowercase, gọn khoảng trắng."""
-    s = strip_tags(s).lower()
+    s = strip_tags(s).lower().replace("’", "'").replace("`", "'")
     s = _EDGE_PUNCT.sub("", s)
     return re.sub(r"\s+", " ", s).strip()
 
@@ -49,26 +49,52 @@ def fold_accents(s: str) -> str:
     return "".join(c for c in decomposed if not unicodedata.combining(c))
 
 
-def without_article(s: str) -> str:
-    """Bỏ mạo từ đứng đầu: 'de fiets' -> 'fiets'."""
+def entry_word(entry: dict) -> str:
+    """Từ mục tiêu, dù file còn khóa cũ nl/en hay khóa mới word."""
+    if not entry:
+        return ""
+    return str(entry.get("word") or entry.get("nl") or entry.get("en") or "")
+
+
+def _matching_rules(articles=None, elisions=None):
+    if articles is not None or elisions is not None:
+        return articles or (), elisions or ()
+    import config
+    profile = config.current_language()
+    return profile.get("articles") or (), profile.get("elisions") or ()
+
+
+def without_article(s: str, articles=None) -> str:
+    """Bỏ mạo từ đứng đầu: 'de fiets' -> 'fiets', 'the house' -> 'house'."""
+    articles = articles if articles is not None else _matching_rules()[0]
     parts = s.split(" ", 1)
-    if len(parts) == 2 and parts[0] in DUTCH_ARTICLES:
+    if len(parts) == 2 and parts[0] in articles:
         return parts[1].strip()
+    return s
+
+
+def without_elision(s: str, elisions=None) -> str:
+    """Bỏ mạo từ dính: l'école -> école."""
+    elisions = elisions if elisions is not None else _matching_rules()[1]
+    folded = s.replace("’", "'")
+    for prefix in elisions:
+        if folded.lower().startswith(prefix) and len(folded) > len(prefix):
+            return folded[len(prefix):].strip()
     return s
 
 
 def display_word(entry: dict) -> str:
     """Dạng hiển thị đẹp của một từ (giữ nguyên mạo từ, bỏ tag loại từ)."""
-    return strip_tags(entry.get("nl") or entry.get("en") or "")
+    return strip_tags(entry_word(entry))
 
 
-def accepted_forms(entry: dict) -> set:
+def accepted_forms(entry: dict, articles=None, elisions=None) -> set:
     """Tập hợp mọi cách viết được chấp nhận cho một từ.
 
     Bao gồm: dạng đầy đủ, dạng bỏ mạo từ, các đáp án ngăn bằng '|' hoặc '/',
     và các dạng liệt kê trong trường 'alt'.
     """
-    raw_values = [entry.get("nl") or entry.get("en") or ""]
+    raw_values = [entry_word(entry)]
     alt = entry.get("alt") or []
     if isinstance(alt, str):
         alt = [alt]
@@ -81,7 +107,9 @@ def accepted_forms(entry: dict) -> set:
             if not norm:
                 continue
             forms.add(norm)
-            forms.add(without_article(norm))
+            bare = without_elision(without_article(norm, articles), elisions)
+            forms.add(bare)
+            forms.add(without_article(bare, articles))
     return {f for f in forms if f}
 
 
@@ -109,7 +137,7 @@ def levenshtein(a: str, b: str) -> int:
     return previous[-1]
 
 
-def match_answer(user_answer: str, entry: dict, typo_tolerance: int = 1):
+def match_answer(user_answer: str, entry: dict, typo_tolerance: int = 1, articles=None, elisions=None):
     """So khớp câu trả lời với một từ.
 
     Trả về (verdict, best_form) trong đó verdict là:
@@ -118,7 +146,7 @@ def match_answer(user_answer: str, entry: dict, typo_tolerance: int = 1):
       - "wrong": sai
     """
     user = normalize(user_answer)
-    forms = accepted_forms(entry)
+    forms = accepted_forms(entry, articles, elisions)
     if not user or not forms:
         return "wrong", display_word(entry)
 

@@ -23,7 +23,7 @@ def run(root: tk.Tk) -> bool:
     card = ttk.Frame(backdrop, padding=36)
     card.place(relx=0.5, rely=0.5, anchor="center")
 
-    ttk.Label(card, text="Cài đặt Dutch Guard", style="Title.TLabel").pack(anchor="w")
+    ttk.Label(card, text="Cài đặt Language Guard", style="Title.TLabel").pack(anchor="w")
     ttk.Label(
         card,
         text="Nhập OpenAI API key để AI chấm câu và viết bài đọc.\nKey lấy tại platform.openai.com/api-keys.",

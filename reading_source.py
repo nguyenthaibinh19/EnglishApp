@@ -12,7 +12,7 @@ import ai_teacher
 import config
 from progress import today_key
 from reading_schema import normalize_test
-from text_utils import normalize, strip_tags
+from text_utils import entry_word, normalize, strip_tags
 
 
 # ============================================================
@@ -31,7 +31,7 @@ def select_words(store, progress, count: int = None) -> list:
 
     def take(entries):
         for entry in entries:
-            key = normalize(entry["nl"])
+            key = normalize(entry_word(entry))
             if key in seen:
                 continue
             seen.add(key)
@@ -51,7 +51,7 @@ def select_words(store, progress, count: int = None) -> list:
         return chosen
 
     # 3) Bù ngẫu nhiên cho đủ số lượng.
-    pool = [e for e in store.all() if normalize(e["nl"]) not in seen]
+    pool = [e for e in store.all() if normalize(entry_word(e)) not in seen]
     random.shuffle(pool)
     take(pool)
     return chosen
@@ -63,13 +63,13 @@ def select_words(store, progress, count: int = None) -> list:
 
 
 def _cache_key(words: list) -> str:
-    raw = "|".join(sorted(normalize(w["nl"]) for w in words))
+    raw = config.native_code() + "|" + "|".join(sorted(normalize(entry_word(w)) for w in words))
     digest = hashlib.sha1(raw.encode("utf-8")).hexdigest()[:10]
     return f"reading_{today_key()}_{digest}.json"
 
 
 def load_cached(words: list):
-    path = os.path.join(config.CACHE_DIR, _cache_key(words))
+    path = os.path.join(config.cache_dir(), _cache_key(words))
     if not os.path.exists(path):
         return None
     try:
@@ -80,8 +80,8 @@ def load_cached(words: list):
 
 
 def save_cache(test: dict, words: list):
-    os.makedirs(config.CACHE_DIR, exist_ok=True)
-    path = os.path.join(config.CACHE_DIR, _cache_key(words))
+    os.makedirs(config.cache_dir(), exist_ok=True)
+    path = os.path.join(config.cache_dir(), _cache_key(words))
     try:
         with open(path, "w", encoding="utf-8") as f:
             json.dump(test, f, ensure_ascii=False, indent=2)
@@ -169,7 +169,7 @@ def build_test(store, progress, force_new: bool = False) -> dict:
     if words and ai_teacher.is_configured():
         try:
             test = ai_teacher.generate_reading(words)
-            test["target_words"] = [strip_tags(w["nl"]) for w in words]
+            test["target_words"] = [strip_tags(entry_word(w)) for w in words]
             save_cache(test, words)
             return test
         except ai_teacher.AITeacherError as ai_error:
