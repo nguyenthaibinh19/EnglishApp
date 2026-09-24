@@ -34,6 +34,12 @@ class DictionaryError(Exception):
     pass
 
 
+def _msg(vi: str, en: str) -> str:
+    import config
+
+    return config.ui(vi, en)
+
+
 def dict_dir() -> str:
     import config
 
@@ -104,7 +110,7 @@ def lookup_wikdict(path: str, word: str, source: str) -> list:
     try:
         connection = sqlite3.connect(path)
     except sqlite3.Error as error:
-        raise DictionaryError(f"Không mở được từ điển: {error}") from error
+        raise DictionaryError(_msg(f"Không mở được từ điển: {error}", f"Couldn't open the dictionary: {error}")) from error
     try:
         for key in keys:
             rows = connection.execute(
@@ -120,7 +126,7 @@ def lookup_wikdict(path: str, word: str, source: str) -> list:
             if glosses:
                 return glosses[:6]
     except sqlite3.Error as error:
-        raise DictionaryError(f"Không tra được từ điển: {error}") from error
+        raise DictionaryError(_msg(f"Không tra được từ điển: {error}", f"Couldn't look up the dictionary: {error}")) from error
     finally:
         connection.close()
     return []
@@ -155,7 +161,10 @@ def install(source: str, native: str, on_progress=None):
     if native == "vi":
         _install_vietnamese(source, report)
         return
-    raise DictionaryError("Chỉ dịch được sang tiếng Việt hoặc tiếng Anh.")
+    raise DictionaryError(_msg(
+        "Chỉ dịch được sang tiếng Việt hoặc tiếng Anh.",
+        "Translation only works into Vietnamese or English.",
+    ))
 
 
 def remove_pack(source: str, native: str):
@@ -172,6 +181,58 @@ def remove_language(source: str):
     """Xóa mọi gói từ điển của một ngôn ngữ, cả bản tiếng Anh và bản tiếng Việt."""
     for native in ("en", "vi"):
         remove_pack(source, native)
+        phrase = _phrase_path(source, native)
+        if os.path.isfile(phrase):
+            try:
+                os.remove(phrase)
+            except OSError:
+                pass
+
+
+def translate_sentence(text: str, source: str, native: str) -> str:
+    """Dịch một câu sang ngôn ngữ gốc. Kết quả được lưu để lần sau không gọi mạng."""
+    cleaned = " ".join((text or "").split())
+    if len(cleaned) < 2 or source == native:
+        return ""
+    cached = _phrase_get(source, native, cleaned)
+    if cached:
+        return cached
+    glosses = _cloud_glosses(cleaned, source, native)
+    result = glosses[0] if glosses else ""
+    if result:
+        _phrase_put(source, native, cleaned, result)
+    return result
+
+
+def _phrase_path(source: str, native: str) -> str:
+    return os.path.join(dict_dir(), f"{source}-{native}.phrases.sqlite")
+
+
+def _phrase_get(source: str, native: str, text: str) -> str:
+    path = _phrase_path(source, native)
+    if not os.path.isfile(path):
+        return ""
+    connection = sqlite3.connect(path)
+    try:
+        connection.execute("CREATE TABLE IF NOT EXISTS phrase(text TEXT PRIMARY KEY, gloss TEXT)")
+        row = connection.execute("SELECT gloss FROM phrase WHERE text = ?", (text,)).fetchone()
+    finally:
+        connection.close()
+    return (row[0] if row else "") or ""
+
+
+def _phrase_put(source: str, native: str, text: str, gloss: str):
+    path = _phrase_path(source, native)
+    connection = sqlite3.connect(path)
+    try:
+        connection.execute("CREATE TABLE IF NOT EXISTS phrase(text TEXT PRIMARY KEY, gloss TEXT)")
+        connection.execute(
+            "INSERT OR REPLACE INTO phrase(text, gloss) VALUES (?, ?)",
+            (text, gloss),
+        )
+        connection.commit()
+    finally:
+        connection.close()
 
 
 def learner_gloss(word: str, source: str = None) -> str:
@@ -199,7 +260,10 @@ def lookup(word: str, source: str, native: str) -> list:
     if native == "en":
         path = pack_path(source, "en")
         if not os.path.isfile(path):
-            raise DictionaryError("Chưa tải từ điển tiếng Anh cho ngôn ngữ này.")
+            raise DictionaryError(_msg(
+                "Chưa tải từ điển tiếng Anh cho ngôn ngữ này.",
+                "The English dictionary for this language is not downloaded yet.",
+            ))
         return lookup_wikdict(path, word, source)
     if native != "vi":
         return []
@@ -237,20 +301,23 @@ def _install_wikdict(source: str, report):
                         report(min(received / total, 0.9))
     except (urllib.error.URLError, TimeoutError, OSError) as error:
         _discard(temporary)
-        raise DictionaryError(f"Không tải được từ điển: {error}") from error
+        raise DictionaryError(_msg(f"Không tải được từ điển: {error}", f"Couldn't download the dictionary: {error}")) from error
 
     report(0.92)
     try:
         _index_wikdict(temporary)
         word = probe_word(source)
         if word and not lookup_wikdict(temporary, word, source):
-            raise DictionaryError(f"Từ điển đã tải nhưng không tra được từ mẫu “{word}”.")
+            raise DictionaryError(_msg(
+                f"Từ điển đã tải nhưng không tra được từ mẫu “{word}”.",
+                f"The dictionary downloaded, but the sample word “{word}” was not found.",
+            ))
     except DictionaryError:
         _discard(temporary)
         raise
     except sqlite3.Error as error:
         _discard(temporary)
-        raise DictionaryError(f"File từ điển bị lỗi: {error}") from error
+        raise DictionaryError(_msg(f"File từ điển bị lỗi: {error}", f"The dictionary file is damaged: {error}")) from error
 
     os.replace(temporary, destination)
     report(1)
@@ -270,11 +337,17 @@ def _index_wikdict(path: str):
 def _install_vietnamese(source: str, report):
     word = probe_word(source)
     if not word:
-        raise DictionaryError("Không có từ mẫu để kiểm tra từ điển.")
+        raise DictionaryError(_msg(
+            "Không có từ mẫu để kiểm tra từ điển.",
+            "There is no sample word to check this dictionary.",
+        ))
     report(0.3)
     glosses = _cloud_glosses(word, source, "vi")
     if not glosses:
-        raise DictionaryError(f"Không tra được từ mẫu “{word}” sang tiếng Việt.")
+        raise DictionaryError(_msg(
+            f"Không tra được từ mẫu “{word}” sang tiếng Việt.",
+            f"Couldn't translate the sample word “{word}” into Vietnamese.",
+        ))
     _store_cache(source, word, glosses)
     report(1)
 
@@ -293,7 +366,10 @@ def _cached_glosses(path: str, keys: list) -> list:
             if row and row[0]:
                 return split_glosses(row[0])[:6]
     except sqlite3.Error as error:
-        raise DictionaryError(f"Không đọc được từ điển đã lưu: {error}") from error
+        raise DictionaryError(_msg(
+            f"Không đọc được từ điển đã lưu: {error}",
+            f"Couldn't read the saved dictionary: {error}",
+        )) from error
     finally:
         if connection is not None:
             connection.close()
@@ -322,7 +398,10 @@ def _cloud_glosses(word: str, source: str, native: str) -> list:
         with urllib.request.urlopen(request, timeout=25) as response:
             payload = json.loads(response.read().decode("utf-8"))
     except (urllib.error.URLError, TimeoutError, json.JSONDecodeError, OSError) as error:
-        raise DictionaryError(f"Không tra được từ điển trực tuyến: {error}") from error
+        raise DictionaryError(_msg(
+            f"Không tra được từ điển trực tuyến: {error}",
+            f"Online dictionary failed: {error}",
+        )) from error
     return glosses_from_mymemory(payload, word)
 
 
@@ -331,7 +410,10 @@ def glosses_from_mymemory(payload: dict, word: str) -> list:
         return []
     translated = str((payload.get("responseData") or {}).get("translatedText") or "").strip()
     if "MYMEMORY WARNING" in translated.upper():
-        raise DictionaryError("Hết lượt tra từ điển trực tuyến trong hôm nay. Thử lại sau.")
+        raise DictionaryError(_msg(
+            "Hết lượt tra từ điển trực tuyến trong hôm nay. Thử lại sau.",
+            "The online dictionary quota is used up for today. Try again later.",
+        ))
 
     glosses = []
     for match in payload.get("matches") or []:

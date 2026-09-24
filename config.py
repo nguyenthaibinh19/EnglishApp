@@ -213,6 +213,18 @@ def native_label() -> str:
     return "English" if native_code() == "en" else "Tiếng Việt"
 
 
+def ui(vi: str, en: str) -> str:
+    """Chữ trên nút và thông báo, theo ngôn ngữ gốc của người học."""
+    return en if native_code() == "en" else vi
+
+
+def language_name(code: str) -> str:
+    profile = languages.get(code)
+    if native_code() == "en":
+        return profile.get("name_en") or profile.get("label") or code
+    return profile.get("label") or code
+
+
 def language_setup_done() -> bool:
     settings = _read_settings()
     native = str(settings.get("native") or "").strip().lower()

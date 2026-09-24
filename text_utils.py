@@ -164,3 +164,15 @@ def match_answer(user_answer: str, entry: dict, typo_tolerance: int = 1, article
         return "near", best_form
 
     return "wrong", display_word(entry)
+
+
+def sentence_around(passage: str, offset: int) -> str:
+    """Câu chứa vị trí offset, cắt theo dấu chấm hoặc xuống dòng."""
+    text = passage or ""
+    offset = max(0, min(int(offset), len(text)))
+    left = 0
+    for match in re.finditer(r"[.!?…]+[\"'”»)\]]*|\n+", text[:offset]):
+        left = match.end()
+    right = re.search(r"[.!?…]+[\"'”»)\]]*|\n+", text[offset:])
+    end = offset + right.end() if right else len(text)
+    return " ".join(text[left:end].split())

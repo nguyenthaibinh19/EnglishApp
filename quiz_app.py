@@ -28,7 +28,7 @@ class VocabQuizApp:
         required=True,
     ):
         self.window = window
-        self.window.title(f"{config.APP_NAME} — Từ vựng")
+        self.window.title(f"{config.APP_NAME} — {config.ui('Từ vựng', 'Vocabulary')}")
 
         self.store = store or VocabStore()
         self.progress = progress or Progress()
@@ -49,10 +49,15 @@ class VocabQuizApp:
 
         if self.store.count() == 0:
             self.guard.show_error(
-                "Chưa có từ vựng",
-                "Danh sách từ của ngôn ngữ này đang trống.\n\n"
-                "Hãy thêm từ trong phần Quản lý từ vựng, "
-                f"ví dụ: {config.current_language()['sample']}.",
+                config.ui("Chưa có từ vựng", "No vocabulary yet"),
+                config.ui(
+                    "Danh sách từ của ngôn ngữ này đang trống.\n\n"
+                    "Hãy thêm từ trong phần Quản lý từ vựng, "
+                    f"ví dụ: {config.current_language()['sample']}.",
+                    "This language's word list is empty.\n\n"
+                    "Add words in Manage vocabulary, "
+                    f"for example: {config.current_language()['sample']}.",
+                ),
             )
             self.window.destroy()
             return
@@ -91,7 +96,10 @@ class VocabQuizApp:
         header.pack(fill=tk.X)
         ttk.Label(
             header,
-            text=f"Luyện từ vựng {config.current_language()['name_vi']}",
+            text=config.ui(
+                f"Luyện từ vựng {config.current_language()['name_vi']}",
+                f"{config.language_name(config.active_code())} vocabulary",
+            ),
             style="Title.TLabel",
         ).pack(side=tk.LEFT)
         self.stats_label = ttk.Label(header, text="", style="Muted.TLabel")
@@ -110,7 +118,10 @@ class VocabQuizApp:
 
         ttk.Label(
             body,
-            text=f"Từ {config.current_language()['name_vi']} nào có nghĩa là:",
+            text=config.ui(
+                f"Từ {config.current_language()['name_vi']} nào có nghĩa là:",
+                f"Which {config.language_name(config.active_code())} word means:",
+            ),
             style="H2.TLabel",
         ).pack(pady=(40, 8))
 
@@ -138,30 +149,34 @@ class VocabQuizApp:
         buttons = ttk.Frame(view)
         buttons.pack(fill=tk.X, pady=(10, 0))
 
-        self.submit_button = ttk.Button(buttons, text="Trả lời", command=self._submit)
+        self.submit_button = ttk.Button(
+            buttons, text=config.ui("Trả lời", "Submit"), command=self._submit
+        )
         self.submit_button.pack(side=tk.LEFT)
 
-        self.hint_button = ttk.Button(buttons, text="Gợi ý", command=self._show_hint, style="Small.TButton")
+        self.hint_button = ttk.Button(
+            buttons, text=config.ui("Gợi ý", "Hint"), command=self._show_hint, style="Small.TButton"
+        )
         self.hint_button.pack(side=tk.LEFT, padx=6)
 
         ttk.Button(
-            buttons, text="Đặt câu ví dụ", style="Small.TButton",
+            buttons, text=config.ui("Đặt câu ví dụ", "Write a sentence"), style="Small.TButton",
             command=lambda: self._open_practice("free"),
         ).pack(side=tk.LEFT, padx=6)
 
         ttk.Button(
-            buttons, text="Quản lý từ vựng", style="Small.TButton",
+            buttons, text=config.ui("Quản lý từ vựng", "Manage vocabulary"), style="Small.TButton",
             command=self._open_manager,
         ).pack(side=tk.LEFT, padx=6)
 
         if self.on_request_switch is not None:
             ttk.Button(
-                buttons, text="Sang phần đọc", style="Small.TButton",
+                buttons, text=config.ui("Sang phần đọc", "Go to reading"), style="Small.TButton",
                 command=self.on_request_switch,
             ).pack(side=tk.LEFT, padx=6)
 
         ttk.Button(
-            buttons, text="Thoát khẩn cấp", style="Small.TButton",
+            buttons, text=config.ui("Thoát khẩn cấp", "Emergency exit"), style="Small.TButton",
             command=self._emergency_exit,
         ).pack(side=tk.RIGHT)
 
@@ -175,7 +190,7 @@ class VocabQuizApp:
         self._cancel_pending()
         entry = self.engine.pick_next()
         if entry is None:
-            self.question_label.config(text="Kho từ vựng đang trống.")
+            self.question_label.config(text=config.ui("Kho từ vựng đang trống.", "The word list is empty."))
             return
 
         self.question_label.config(text=f"“{self._learner_meaning(entry)}”")
@@ -192,13 +207,21 @@ class VocabQuizApp:
         stats = self.engine.session_stats()
         self.progress_bar.config(value=stats["correct"])
         self.progress_label.config(
-            text=f"Đúng {stats['correct']}/{stats['target']} • "
-                 f"chuỗi đúng liên tiếp: {stats['streak']} • "
-                 f"độ chính xác: {stats['accuracy'] * 100:.0f}%"
+            text=config.ui(
+                f"Đúng {stats['correct']}/{stats['target']} • "
+                f"chuỗi đúng liên tiếp: {stats['streak']} • "
+                f"độ chính xác: {stats['accuracy'] * 100:.0f}%",
+                f"{stats['correct']}/{stats['target']} correct • "
+                f"streak: {stats['streak']} • "
+                f"accuracy: {stats['accuracy'] * 100:.0f}%",
+            )
         )
         today = self.progress.summary()
         self.stats_label.config(
-            text=f"Hôm nay đã ôn {today['asked_today']} từ • đã thuộc {today['known_words']} từ"
+            text=config.ui(
+                f"Hôm nay đã ôn {today['asked_today']} từ • đã thuộc {today['known_words']} từ",
+                f"Reviewed {today['asked_today']} today • {today['known_words']} known",
+            )
         )
 
     def _on_enter(self, _event=None):
@@ -219,7 +242,7 @@ class VocabQuizApp:
     def _show_hint(self):
         hint = self.engine.use_hint()
         if hint:
-            self.hint_label.config(text=f"Gợi ý: {hint}")
+            self.hint_label.config(text=config.ui(f"Gợi ý: {hint}", f"Hint: {hint}"))
             self.answer_entry.focus_set()
 
     def _submit(self):
@@ -227,7 +250,10 @@ class VocabQuizApp:
             return
         answer = self.answer_var.get().strip()
         if not answer:
-            self.feedback_label.config(text="Bạn chưa nhập gì cả.", foreground=ui_common.COLOR_WARN)
+            self.feedback_label.config(
+                text=config.ui("Bạn chưa nhập gì cả.", "Type an answer first."),
+                foreground=ui_common.COLOR_WARN,
+            )
             return
 
         result = self.engine.submit(answer)
@@ -235,7 +261,11 @@ class VocabQuizApp:
 
         if result.verdict == "exact":
             self.feedback_label.config(
-                text=f"Chính xác! {result.correct_display}", foreground=ui_common.COLOR_OK
+                text=config.ui(
+                    f"Chính xác! {result.correct_display}",
+                    f"Correct! {result.correct_display}",
+                ),
+                foreground=ui_common.COLOR_OK,
             )
             if result.finished:
                 self._finish()
@@ -244,7 +274,10 @@ class VocabQuizApp:
 
         elif result.verdict == "near":
             self.feedback_label.config(
-                text=f"Gần đúng — chú ý chính tả.\nViết đúng là: {result.correct_display}",
+                text=config.ui(
+                    f"Gần đúng — chú ý chính tả.\nViết đúng là: {result.correct_display}",
+                    f"Almost — check the spelling.\nCorrect form: {result.correct_display}",
+                ),
                 foreground=ui_common.COLOR_WARN,
             )
             if result.finished:
@@ -255,8 +288,12 @@ class VocabQuizApp:
         else:
             entry = result.entry
             self.feedback_label.config(
-                text=f"Chưa đúng. Bạn trả lời: {answer}\n"
-                     f"Đáp án: {result.correct_display}  —  {self._learner_meaning(entry)}",
+                text=config.ui(
+                    f"Chưa đúng. Bạn trả lời: {answer}\n"
+                    f"Đáp án: {result.correct_display}  —  {self._learner_meaning(entry)}",
+                    f"Not quite. You wrote: {answer}\n"
+                    f"Answer: {result.correct_display}  —  {self._learner_meaning(entry)}",
+                ),
                 foreground=ui_common.COLOR_BAD,
             )
             self._lock_input()
@@ -293,16 +330,21 @@ class VocabQuizApp:
     def _finish(self):
         self.completed = True
         stats = self.engine.session_stats()
-        message = (
+        message = config.ui(
             f"Hoàn thành phần từ vựng!\n\n"
             f"Số câu đã trả lời: {stats['answered']}\n"
             f"Độ chính xác: {stats['accuracy'] * 100:.0f}%\n"
-            f"Chuỗi đúng dài nhất: {stats['best_streak']}"
+            f"Chuỗi đúng dài nhất: {stats['best_streak']}",
+            f"Vocabulary complete!\n\n"
+            f"Answers: {stats['answered']}\n"
+            f"Accuracy: {stats['accuracy'] * 100:.0f}%\n"
+            f"Best streak: {stats['best_streak']}",
         )
         if stats["wrong_words"]:
-            message += "\n\nCần ôn thêm: " + ", ".join(stats["wrong_words"][:8])
+            extra = ", ".join(stats["wrong_words"][:8])
+            message += config.ui(f"\n\nCần ôn thêm: {extra}", f"\n\nReview again: {extra}")
 
-        self.guard.show_info("Goed gedaan!", message)
+        self.guard.show_info(config.ui("Xong phần từ vựng", "Vocabulary complete"), message)
         if callable(self.on_completed):
             self.on_completed()
         self.window.destroy()
@@ -328,7 +370,9 @@ class VocabQuizApp:
         self.practice_status.config(text="", foreground=ui_common.COLOR_MUTED)
         self.grade_button.state(["!disabled"])
         self.back_button.config(
-            text="Bỏ qua, học câu khác" if mode == "forced" else "Quay lại làm bài"
+            text=config.ui("Bỏ qua, học câu khác", "Skip, next word")
+            if mode == "forced"
+            else config.ui("Quay lại làm bài", "Back to the quiz")
         )
 
         self._show(self.practice_view)
@@ -337,7 +381,10 @@ class VocabQuizApp:
     def _build_practice_view(self) -> ttk.Frame:
         view = ttk.Frame(self.container)
 
-        ttk.Label(view, text="Đặt câu với từ này", style="Title.TLabel").pack(anchor="w")
+        ttk.Label(
+            view, text=config.ui("Đặt câu với từ này", "Write a sentence with this word"),
+            style="Title.TLabel",
+        ).pack(anchor="w")
 
         self.practice_word_label = ttk.Label(view, text="", font=ui_common.FONT_QUESTION)
         self.practice_word_label.pack(pady=(16, 2))
@@ -346,9 +393,11 @@ class VocabQuizApp:
 
         ttk.Label(
             view,
-            text=(
+            text=config.ui(
                 f"Viết một câu {config.current_language()['name_vi']} dùng từ trên. "
-                f"AI sẽ sửa ngữ pháp và giải thích bằng {config.native_label()}."
+                f"AI sẽ sửa ngữ pháp và giải thích bằng {config.native_label()}.",
+                f"Write a {config.language_name(config.active_code())} sentence using the word above. "
+                f"The AI will correct the grammar and explain in {config.native_label()}.",
             ),
             style="H2.TLabel",
         ).pack(pady=(20, 6))
@@ -368,9 +417,14 @@ class VocabQuizApp:
 
         buttons = ttk.Frame(view)
         buttons.pack(fill=tk.X)
-        self.grade_button = ttk.Button(buttons, text="Chấm câu (Ctrl+Enter)", command=self._grade_sentence)
+        self.grade_button = ttk.Button(
+            buttons, text=config.ui("Chấm câu (Ctrl+Enter)", "Grade sentence (Ctrl+Enter)"),
+            command=self._grade_sentence,
+        )
         self.grade_button.pack(side=tk.LEFT)
-        self.back_button = ttk.Button(buttons, text="Quay lại làm bài", command=self._leave_practice)
+        self.back_button = ttk.Button(
+            buttons, text=config.ui("Quay lại làm bài", "Back to the quiz"), command=self._leave_practice
+        )
         self.back_button.pack(side=tk.LEFT, padx=8)
 
         return view
@@ -378,7 +432,10 @@ class VocabQuizApp:
     def _grade_sentence(self):
         sentence = self.practice_input.get("1.0", "end").strip()
         if not sentence:
-            self.practice_status.config(text="Bạn chưa viết câu nào.", foreground=ui_common.COLOR_WARN)
+            self.practice_status.config(
+                text=config.ui("Bạn chưa viết câu nào.", "Write a sentence first."),
+                foreground=ui_common.COLOR_WARN,
+            )
             return
 
         entry = self.engine.current_entry or {}
@@ -386,7 +443,10 @@ class VocabQuizApp:
         meaning = self._learner_meaning(entry)
 
         self.grade_button.state(["disabled"])
-        self.practice_status.config(text="Đang gửi cho AI chấm…", foreground=ui_common.COLOR_MUTED)
+        self.practice_status.config(
+            text=config.ui("Đang gửi cho AI chấm…", "Sending to the AI…"),
+            foreground=ui_common.COLOR_MUTED,
+        )
 
         ui_common.run_async(
             self.window,
@@ -399,29 +459,48 @@ class VocabQuizApp:
         self.grade_button.state(["!disabled"])
         ok = result["is_correct_usage"]
         self.practice_status.config(
-            text=f"{'Đúng rồi!' if ok else 'Cần sửa thêm.'} Điểm: {result['score']:.2f}",
+            text=config.ui(
+                f"{'Đúng rồi!' if ok else 'Cần sửa thêm.'} Điểm: {result['score']:.2f}",
+                f"{'Correct!' if ok else 'Needs a fix.'} Score: {result['score']:.2f}",
+            ),
             foreground=ui_common.COLOR_OK if ok else ui_common.COLOR_WARN,
         )
 
         lines = [result["feedback_vi"]]
         if result["corrected_sentence"]:
-            lines.append(f"\nCâu đã sửa:\n{result['corrected_sentence']}")
+            lines.append(config.ui(
+                f"\nCâu đã sửa:\n{result['corrected_sentence']}",
+                f"\nCorrected:\n{result['corrected_sentence']}",
+            ))
         if result["suggested_sentence"]:
-            lines.append(f"\nCâu mẫu khác:\n{result['suggested_sentence']}")
+            lines.append(config.ui(
+                f"\nCâu mẫu khác:\n{result['suggested_sentence']}",
+                f"\nAnother example:\n{result['suggested_sentence']}",
+            ))
         ui_common.set_text(self.practice_result, "\n".join(lines).strip())
 
         if ok and self.practice_mode == "forced":
             self.practice_status.config(
-                text="Đúng rồi! Quay lại bài trong giây lát…", foreground=ui_common.COLOR_OK
+                text=config.ui(
+                    "Đúng rồi! Quay lại bài trong giây lát…",
+                    "Correct! Back to the quiz in a moment…",
+                ),
+                foreground=ui_common.COLOR_OK,
             )
             self.window.after(2000, self._leave_practice)
 
     def _on_sentence_error(self, error: Exception):
         self.grade_button.state(["!disabled"])
-        self.practice_status.config(text="Không chấm được câu.", foreground=ui_common.COLOR_BAD)
+        self.practice_status.config(
+            text=config.ui("Không chấm được câu.", "Couldn't grade the sentence."),
+            foreground=ui_common.COLOR_BAD,
+        )
         ui_common.set_text(
             self.practice_result,
-            f"{error}\n\nBạn vẫn có thể bấm “Bỏ qua” để học tiếp.",
+            config.ui(
+                f"{error}\n\nBạn vẫn có thể bấm “Bỏ qua” để học tiếp.",
+                f"{error}\n\nYou can still press Skip and continue.",
+            ),
         )
 
     def _leave_practice(self):
@@ -445,7 +524,9 @@ class VocabQuizApp:
 
         header = ttk.Frame(view)
         header.pack(fill=tk.X)
-        ttk.Label(header, text="Quản lý từ vựng", style="Title.TLabel").pack(side=tk.LEFT)
+        ttk.Label(
+            header, text=config.ui("Quản lý từ vựng", "Manage vocabulary"), style="Title.TLabel"
+        ).pack(side=tk.LEFT)
         self.manager_count_label = ttk.Label(header, text="", style="Muted.TLabel")
         self.manager_count_label.pack(side=tk.RIGHT)
 
@@ -458,7 +539,7 @@ class VocabQuizApp:
 
         search_row = ttk.Frame(left)
         search_row.pack(fill=tk.X, pady=(0, 6))
-        ttk.Label(search_row, text="Tìm:").pack(side=tk.LEFT)
+        ttk.Label(search_row, text=config.ui("Tìm:", "Search:")).pack(side=tk.LEFT)
         self.search_var = tk.StringVar()
         self.search_var.trace_add("write", lambda *_: self._refresh_word_list())
         self.search_entry = ttk.Entry(search_row, textvariable=self.search_var, font=ui_common.FONT_BODY)
@@ -485,10 +566,10 @@ class VocabQuizApp:
         self.form_entries = {}
         lang = config.current_language()
         fields = [
-            ("word", f"{lang['label']}:", f"vd: {lang['sample']}"),
-            ("vi", f"Nghĩa ({config.native_label()}):", "vd: xe đạp"),
-            ("alt", "Cách viết khác:", "ngăn nhau bằng dấu |"),
-            ("example", "Câu ví dụ:", "không bắt buộc"),
+            ("word", f"{config.language_name(config.active_code())}:", config.ui(f"vd: {lang['sample']}", f"e.g. {lang['sample']}")),
+            ("vi", config.ui(f"Nghĩa ({config.native_label()}):", f"Meaning ({config.native_label()}):"), config.ui("vd: xe đạp", "e.g. bicycle")),
+            ("alt", config.ui("Cách viết khác:", "Other spellings:"), config.ui("ngăn nhau bằng dấu |", "separate with |")),
+            ("example", config.ui("Câu ví dụ:", "Example sentence:"), config.ui("không bắt buộc", "optional")),
         ]
         for row, (key, label, hint) in enumerate(fields):
             ttk.Label(right, text=label).grid(row=row * 2, column=0, sticky="w", pady=(8, 0))
@@ -503,9 +584,9 @@ class VocabQuizApp:
 
         button_row = ttk.Frame(right)
         button_row.grid(row=len(fields) * 2, column=0, columnspan=2, sticky="ew", pady=16)
-        ttk.Button(button_row, text="Thêm mới", command=self._add_word).pack(side=tk.LEFT)
-        ttk.Button(button_row, text="Cập nhật", command=self._update_word).pack(side=tk.LEFT, padx=6)
-        delete_btn = ttk.Button(button_row, text="Xóa", command=self._delete_word)
+        ttk.Button(button_row, text=config.ui("Thêm mới", "Add"), command=self._add_word).pack(side=tk.LEFT)
+        ttk.Button(button_row, text=config.ui("Cập nhật", "Update"), command=self._update_word).pack(side=tk.LEFT, padx=6)
+        delete_btn = ttk.Button(button_row, text=config.ui("Xóa", "Delete"), command=self._delete_word)
         delete_btn.pack(side=tk.LEFT)
         # Enter khi nút Xóa đang focus vẫn là lưu, không phải xóa.
         delete_btn.bind("<Return>", self._on_manager_enter)
@@ -513,14 +594,21 @@ class VocabQuizApp:
 
         ttk.Label(
             right,
-            text="Enter để thêm từ mới, hoặc cập nhật từ đang chọn.\n"
-                 "Xóa từ phải bấm nút Xóa.\n"
-                 "Mẹo: viết danh từ kèm mạo từ nếu ngôn ngữ đó có.",
+            text=config.ui(
+                "Enter để thêm từ mới, hoặc cập nhật từ đang chọn.\n"
+                "Xóa từ phải bấm nút Xóa.\n"
+                "Mẹo: viết danh từ kèm mạo từ nếu ngôn ngữ đó có.",
+                "Press Enter to add a new word, or to update the selected one.\n"
+                "Deleting requires the Delete button.\n"
+                "Tip: include the article when the language uses one.",
+            ),
             style="Muted.TLabel",
             justify="left",
         ).grid(row=len(fields) * 2 + 1, column=0, columnspan=2, sticky="w")
 
-        ttk.Button(view, text="Quay lại làm bài", command=self._close_manager).pack(anchor="w")
+        ttk.Button(
+            view, text=config.ui("Quay lại làm bài", "Back to the quiz"), command=self._close_manager
+        ).pack(anchor="w")
         return view
 
     def _on_manager_search_enter(self, _event=None):
@@ -555,7 +643,10 @@ class VocabQuizApp:
             self.word_listbox.insert(tk.END, label)
 
         self.manager_count_label.config(
-            text=f"Hiển thị {len(self._filtered_indices)}/{self.store.count()} từ"
+            text=config.ui(
+                f"Hiển thị {len(self._filtered_indices)}/{self.store.count()} từ",
+                f"Showing {len(self._filtered_indices)}/{self.store.count()}",
+            )
         )
 
         self.word_listbox.selection_clear(0, tk.END)
@@ -613,10 +704,16 @@ class VocabQuizApp:
     def _add_word(self):
         word, vi, extra = self._form_values()
         if not word or not vi:
-            self.guard.show_error("Thiếu dữ liệu", "Cần nhập cả từ và nghĩa.")
+            self.guard.show_error(
+                config.ui("Thiếu dữ liệu", "Missing fields"),
+                config.ui("Cần nhập cả từ và nghĩa.", "Enter both the word and its meaning."),
+            )
             return
         if not self.store.add(word, vi, **extra):
-            self.guard.show_error("Trùng từ", f"“{word}” đã có trong danh sách.")
+            self.guard.show_error(
+                config.ui("Trùng từ", "Already saved"),
+                config.ui(f"“{word}” đã có trong danh sách.", f"“{word}” is already in the list."),
+            )
             return
         self._clear_form()
         self._refresh_word_list()
@@ -625,11 +722,17 @@ class VocabQuizApp:
     def _update_word(self):
         index = self._selected_store_index()
         if index is None:
-            self.guard.show_error("Chưa chọn từ", "Hãy chọn một từ trong danh sách bên trái.")
+            self.guard.show_error(
+                config.ui("Chưa chọn từ", "No word selected"),
+                config.ui("Hãy chọn một từ trong danh sách bên trái.", "Select a word in the list on the left."),
+            )
             return
         word, vi, extra = self._form_values()
         if not self.store.update(index, word, vi, **extra):
-            self.guard.show_error("Thiếu dữ liệu", "Cần nhập cả từ và nghĩa.")
+            self.guard.show_error(
+                config.ui("Thiếu dữ liệu", "Missing fields"),
+                config.ui("Cần nhập cả từ và nghĩa.", "Enter both the word and its meaning."),
+            )
             return
         self._refresh_word_list(select_index=index)
         self.form_entries["word"].focus_set()
@@ -637,13 +740,25 @@ class VocabQuizApp:
     def _delete_word(self):
         index = self._selected_store_index()
         if index is None:
-            self.guard.show_error("Chưa chọn từ", "Hãy chọn một từ trong danh sách bên trái.")
+            self.guard.show_error(
+                config.ui("Chưa chọn từ", "No word selected"),
+                config.ui("Hãy chọn một từ trong danh sách bên trái.", "Select a word in the list on the left."),
+            )
             return
         if self.store.count() <= 1:
-            self.guard.show_error("Không thể xóa", "Phải giữ lại ít nhất 1 từ để còn làm bài.")
+            self.guard.show_error(
+                config.ui("Không thể xóa", "Can't delete"),
+                config.ui("Phải giữ lại ít nhất 1 từ để còn làm bài.", "Keep at least one word so the quiz can run."),
+            )
             return
         entry = self.store.get(index)
-        if self.guard.ask_yes_no("Xóa từ", f"Xóa “{entry_word(entry)} — {entry['vi']}”?"):
+        if self.guard.ask_yes_no(
+            config.ui("Xóa từ", "Delete word"),
+            config.ui(
+                f"Xóa “{entry_word(entry)} — {entry['vi']}”?",
+                f"Delete “{entry_word(entry)} — {entry['vi']}”?",
+            ),
+        ):
             self.store.delete(index)
             self._clear_form()
             self._refresh_word_list()
@@ -656,7 +771,10 @@ class VocabQuizApp:
     def _close_manager(self):
         self._show(self.quiz_view)
         if self.store.count() == 0:
-            self.guard.show_error("Chưa có từ vựng", "Hãy thêm ít nhất một từ trước khi làm bài.")
+            self.guard.show_error(
+                config.ui("Chưa có từ vựng", "No vocabulary yet"),
+                config.ui("Hãy thêm ít nhất một từ trước khi làm bài.", "Add at least one word before starting."),
+            )
             return
         self._next_question()
 
@@ -669,10 +787,15 @@ class VocabQuizApp:
             self.window.destroy()
             return
         self.guard.show_info(
-            "Chưa xong",
-            f"Cần trả lời đúng {self.engine.target} câu mới đóng được cửa sổ này.\n"
-            f"Hiện tại: {self.engine.correct_count}/{self.engine.target}.\n\n"
-            "Nếu app bị lỗi, hãy dùng nút “Thoát khẩn cấp”.",
+            config.ui("Chưa xong", "Not finished"),
+            config.ui(
+                f"Cần trả lời đúng {self.engine.target} câu mới đóng được cửa sổ này.\n"
+                f"Hiện tại: {self.engine.correct_count}/{self.engine.target}.\n\n"
+                "Nếu app bị lỗi, hãy dùng nút “Thoát khẩn cấp”.",
+                f"Answer {self.engine.target} correctly before this window can close.\n"
+                f"Now: {self.engine.correct_count}/{self.engine.target}.\n\n"
+                "If the app is stuck, use Emergency exit.",
+            ),
         )
 
     def _emergency_exit(self):

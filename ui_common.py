@@ -316,8 +316,11 @@ def confirm_developer_exit(parent: tk.Misc) -> bool:
     if not expected:
         try:
             messagebox.showerror(
-                "Chưa cấu hình",
-                "Chưa đặt EMERGENCY_PASSWORD trong file .env nên không thoát khẩn cấp được.",
+                config.ui("Chưa cấu hình", "Not configured"),
+                config.ui(
+                    "Chưa đặt EMERGENCY_PASSWORD trong file .env nên không thoát khẩn cấp được.",
+                    "EMERGENCY_PASSWORD is not set, so emergency exit cannot run.",
+                ),
                 parent=parent,
             )
         except tk.TclError:
@@ -326,9 +329,13 @@ def confirm_developer_exit(parent: tk.Misc) -> bool:
 
     entered = prompt_password(
         parent,
-        "Thoát khẩn cấp",
-        "Nhập mật khẩu developer để đóng ứng dụng.\n"
-        "Lần mở máy này sẽ không được tính là hoàn thành.",
+        config.ui("Thoát khẩn cấp", "Emergency exit"),
+        config.ui(
+            "Nhập mật khẩu developer để đóng ứng dụng.\n"
+            "Lần mở máy này sẽ không được tính là hoàn thành.",
+            "Enter the developer password to close the app.\n"
+            "This launch will not count as complete.",
+        ),
     )
     if entered is None:
         return False
@@ -337,8 +344,8 @@ def confirm_developer_exit(parent: tk.Misc) -> bool:
     if len(left) != len(right) or not hmac.compare_digest(left, right):
         try:
             messagebox.showerror(
-                "Sai mật khẩu",
-                "Không đúng mật khẩu developer.",
+                config.ui("Sai mật khẩu", "Wrong password"),
+                config.ui("Không đúng mật khẩu developer.", "That is not the developer password."),
                 parent=parent,
             )
         except tk.TclError:

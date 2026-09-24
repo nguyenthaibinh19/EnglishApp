@@ -14,7 +14,7 @@ import reading_source
 import ui_common
 from progress import Progress
 from reading_schema import count_questions
-from text_utils import strip_tags, without_article
+from text_utils import sentence_around, strip_tags, without_article
 from vocab_store import VocabStore
 
 
@@ -30,7 +30,7 @@ class ReadingApp:
         required=True,
     ):
         self.window = window
-        self.window.title(f"{config.APP_NAME} — Đọc")
+        self.window.title(f"{config.APP_NAME} — {config.ui('Đọc', 'Reading')}")
 
         self.store = store or VocabStore()
         self.progress = progress or Progress()
@@ -70,7 +70,10 @@ class ReadingApp:
 
         ttk.Label(
             holder,
-            text=f"Luyện đọc {config.current_language()['name_vi']}",
+            text=config.ui(
+                f"Luyện đọc {config.current_language()['name_vi']}",
+                f"{config.language_name(config.active_code())} reading",
+            ),
             style="Title.TLabel",
         ).pack()
         self.loading_label = ttk.Label(holder, text="", style="H2.TLabel", justify="center")
@@ -110,9 +113,17 @@ class ReadingApp:
 
         word_count = len(reading_source.select_words(self.store, self.progress))
         self.loading_label.config(
-            text=f"Đang soạn bài đọc từ {word_count} từ bạn vừa học…"
+            text=config.ui(
+                f"Đang soạn bài đọc từ {word_count} từ bạn vừa học…",
+                f"Preparing a reading from {word_count} words you just studied…",
+            )
         )
-        self.loading_detail.config(text="AI viết bài mất khoảng 20–40 giây, bạn chờ một chút nhé.")
+        self.loading_detail.config(
+            text=config.ui(
+                "AI viết bài mất khoảng 20–40 giây, bạn chờ một chút nhé.",
+                "The AI needs about 20–40 seconds to write the passage.",
+            )
+        )
         self.loading_bar.start(12)
 
         ui_common.run_async(
@@ -136,18 +147,24 @@ class ReadingApp:
     def _on_test_error(self, error: Exception):
         self._loading = False
         self.loading_bar.stop()
-        self.loading_label.config(text="Chưa tạo được bài đọc")
+        self.loading_label.config(text=config.ui("Chưa tạo được bài đọc", "Couldn't create a reading"))
         self.loading_detail.config(text=str(error))
 
-        ttk.Button(self.loading_buttons, text="Thử lại", command=lambda: self._load_test(True)).pack(
-            side=tk.LEFT, padx=6
-        )
+        ttk.Button(
+            self.loading_buttons,
+            text=config.ui("Thử lại", "Try again"),
+            command=lambda: self._load_test(True),
+        ).pack(side=tk.LEFT, padx=6)
         if self.on_request_switch is not None:
             ttk.Button(
-                self.loading_buttons, text="Sang phần từ vựng", command=self.on_request_switch
+                self.loading_buttons,
+                text=config.ui("Sang phần từ vựng", "Go to vocabulary"),
+                command=self.on_request_switch,
             ).pack(side=tk.LEFT, padx=6)
         ttk.Button(
-            self.loading_buttons, text="Thoát khẩn cấp", command=self._emergency_exit
+            self.loading_buttons,
+            text=config.ui("Thoát khẩn cấp", "Emergency exit"),
+            command=self._emergency_exit,
         ).pack(side=tk.LEFT, padx=6)
 
     # ============================================================
@@ -162,8 +179,15 @@ class ReadingApp:
         ttk.Label(header, text=self.test["title"], style="Title.TLabel").pack(side=tk.LEFT)
 
         badge = self.test.get("level") or config.READING_LEVEL
-        source = "AI soạn theo từ hôm nay" if self.test.get("source") == "ai" else "bài có sẵn"
-        ttk.Label(header, text=f"Trình độ {badge} • {source}", style="Muted.TLabel").pack(side=tk.RIGHT)
+        source = config.ui(
+            "AI soạn theo từ vừa học" if self.test.get("source") == "ai" else "bài có sẵn",
+            "written from words you just studied" if self.test.get("source") == "ai" else "saved passage",
+        )
+        ttk.Label(
+            header,
+            text=config.ui(f"Trình độ {badge} • {source}", f"Level {badge} • {source}"),
+            style="Muted.TLabel",
+        ).pack(side=tk.RIGHT)
 
         if self.test.get("warning"):
             ttk.Label(
@@ -187,13 +211,19 @@ class ReadingApp:
 
         row = ttk.Frame(left)
         row.pack(fill=tk.X)
-        ttk.Label(row, text="Bài đọc", style="H2.TLabel").pack(side=tk.LEFT)
+        ttk.Label(row, text=config.ui("Bài đọc", "Reading"), style="H2.TLabel").pack(side=tk.LEFT)
         ttk.Label(
-            row, text="Bấm một từ để tô sáng, xem nghĩa hoặc thêm vào danh sách",
+            row,
+            text=config.ui(
+                "Bấm một từ trong bài hoặc trong câu hỏi để tô sáng, dịch hoặc lưu.",
+                "Click a word in the passage or the questions to highlight, translate, or save.",
+            ),
             style="Muted.TLabel",
         ).pack(side=tk.LEFT, padx=12)
         self.translation_button = ttk.Button(
-            row, text="Hiện bản dịch & từ khóa", style="Small.TButton",
+            row,
+            text=config.ui("Hiện bản dịch cả bài", "Show full translation"),
+            style="Small.TButton",
             command=self._toggle_translation,
         )
         self.translation_button.pack(side=tk.RIGHT)
@@ -207,7 +237,7 @@ class ReadingApp:
         self.passage_text.config(state="normal")
         self.passage_text.bind("<Key>", self._block_passage_edit)
         self.passage_text.tag_configure("picked", background="#fff3bf")
-        self.passage_text.bind("<Button-1>", self._on_passage_click)
+        self.passage_text.bind("<Button-1>", self._on_word_click)
         self._highlight_target_words()
         self._word_popup = None
 
@@ -228,34 +258,97 @@ class ReadingApp:
                 for g in glossary
                 if g.get("word") or g.get("nl")
             )
-            parts.append(f"Từ khóa trong bài:\n{lines}")
-        return "\n\n".join(parts) or "Bài đọc này không kèm bản dịch."
+            parts.append(config.ui(f"Từ khóa trong bài:\n{lines}", f"Key words:\n{lines}"))
+        return "\n\n".join(parts) or config.ui(
+            "Bài đọc này không kèm bản dịch.",
+            "This passage has no full translation.",
+        )
 
     def _toggle_translation(self):
         self.translation_visible = not self.translation_visible
         if self.translation_visible:
             self.translation_frame.pack(fill=tk.BOTH, expand=False, pady=(0, 4))
-            self.translation_button.config(text="Ẩn bản dịch & từ khóa")
+            self.translation_button.config(text=config.ui("Ẩn bản dịch cả bài", "Hide full translation"))
         else:
             self.translation_frame.pack_forget()
-            self.translation_button.config(text="Hiện bản dịch & từ khóa")
+            self.translation_button.config(text=config.ui("Hiện bản dịch cả bài", "Show full translation"))
 
     def _block_passage_edit(self, event):
         if event.state & 0x4 and event.keysym.lower() in ("c", "a", "insert"):
             return None
         return "break"
 
-    def _on_passage_click(self, event):
-        index = self.passage_text.index(f"@{event.x},{event.y}")
-        start = self.passage_text.index(f"{index} wordstart")
-        end = self.passage_text.index(f"{index} wordend")
-        raw = self.passage_text.get(start, end)
+    def _on_word_click(self, event):
+        widget = event.widget
+        index = widget.index(f"@{event.x},{event.y}")
+        start = widget.index(f"{index} wordstart")
+        end = widget.index(f"{index} wordend")
+        raw = widget.get(start, end)
         word = raw.strip(".,;:!?\"'“”«»()[]{}…")
         if not re.search(r"[^\W\d_]", word, re.UNICODE):
             return
-        self._open_word_popup(word, start, end, event.x_root, event.y_root)
+        self._open_word_popup(widget, word, start, end, index, event.x_root, event.y_root)
 
-    def _open_word_popup(self, word, start, end, x_root, y_root):
+    def _sentence_at(self, widget, index) -> str:
+        """Câu chứa chỗ bấm, cắt theo dấu chấm hoặc xuống dòng."""
+        passage = widget.get("1.0", "end-1c")
+        counted = widget.count("1.0", index, "chars")
+        offset = int(counted[0]) if counted else 0
+        return sentence_around(passage, offset)
+
+    def _prepare_lookup_text(self, parent, content, font, foreground=None):
+        """Ô chữ không sửa được. Bấm một từ thì hiện cùng bảng tô / dịch / lưu như bài đọc."""
+        style = ttk.Style()
+        background = style.lookup("TFrame", "background") or self.window.cget("bg")
+        widget = tk.Text(
+            parent,
+            wrap="word",
+            relief="flat",
+            borderwidth=0,
+            highlightthickness=0,
+            font=font,
+            height=1,
+            padx=2,
+            pady=1,
+            cursor="hand2",
+            background=background,
+            foreground=foreground or "#1a1a1a",
+            insertwidth=0,
+            takefocus=0,
+        )
+        widget.insert("1.0", content or "")
+        widget.tag_configure("picked", background="#fff3bf")
+        widget.bind("<Key>", self._block_passage_edit)
+        widget.bind("<Button-1>", self._on_word_click)
+        widget.bind("<MouseWheel>", self._scroll_questions)
+        widget.bind("<Configure>", lambda _event, box=widget: self._fit_lookup_height(box))
+        return widget
+
+    def _set_lookup_text(self, widget, content):
+        widget.config(state="normal")
+        widget.delete("1.0", "end")
+        if content:
+            widget.insert("1.0", content)
+        self._fit_lookup_height(widget)
+
+    def _fit_lookup_height(self, widget):
+        if widget.winfo_width() <= 20:
+            return
+        last = widget.dlineinfo("end-1c")
+        first = widget.dlineinfo("1.0")
+        if not last or not first or first[3] <= 0:
+            return
+        lines = max(1, int(round((last[1] - first[1]) / first[3])) + 1)
+        if int(widget.cget("height")) != lines:
+            widget.config(height=lines)
+
+    def _scroll_questions(self, event):
+        canvas = getattr(self, "_question_canvas", None)
+        if canvas is not None:
+            canvas.yview_scroll(int(-event.delta / 120), "units")
+        return "break"
+
+    def _open_word_popup(self, widget, word, start, end, index, x_root, y_root):
         if self._word_popup is not None:
             try:
                 if self._word_popup.winfo_exists():
@@ -293,74 +386,133 @@ class ReadingApp:
         body = ttk.Frame(pop, padding=12)
         body.pack()
         ttk.Label(body, text=word, style="H2.TLabel").pack(anchor="w")
-        gloss_label = ttk.Label(
-            body, text="Đang tra từ điển…", wraplength=380, justify="left"
-        )
-        gloss_label.pack(anchor="w", pady=(6, 8))
-        meaning_var = tk.StringVar()
-        ttk.Entry(body, textvariable=meaning_var, width=46, font=ui_common.FONT_BODY).pack(anchor="w")
+        result_label = ttk.Label(body, text="", wraplength=420, justify="left")
+        result_label.pack(anchor="w", pady=(6, 4))
 
-        existing = self.store.index_of(word)
-        saved = ""
-        if existing is not None:
-            entry = self.store.get(existing) or {}
-            saved = (entry.get("vi") or "").strip()
+        meaning_var = tk.StringVar()
+        meaning_row = ttk.Frame(body)
+        ttk.Entry(meaning_row, textvariable=meaning_var, width=48, font=ui_common.FONT_BODY).pack(anchor="w")
+
+        def show_meaning_field():
+            if not meaning_row.winfo_ismapped():
+                meaning_row.pack(anchor="w", pady=(4, 0))
 
         def toggle_highlight():
-            if "picked" in self.passage_text.tag_names(start):
-                self.passage_text.tag_remove("picked", start, end)
+            if "picked" in widget.tag_names(start):
+                widget.tag_remove("picked", start, end)
             else:
-                self.passage_text.tag_add("picked", start, end)
-
-        def add_word():
-            if self.store.index_of(word) is not None:
-                gloss_label.config(text="Từ này đã có trong danh sách.")
-                return
-            if not self.store.add(word, meaning_var.get().strip()):
-                gloss_label.config(text="Cần nhập nghĩa trước khi thêm.")
-                return
-            gloss_label.config(text="Đã thêm vào danh sách từ.")
-
-        buttons = ttk.Frame(body)
-        buttons.pack(anchor="w", pady=(10, 0))
-        ttk.Button(buttons, text="Tô sáng", command=toggle_highlight).pack(side=tk.LEFT, padx=(0, 6))
-        ttk.Button(buttons, text="Thêm vào danh sách từ", command=add_word).pack(side=tk.LEFT, padx=(0, 6))
-        ttk.Button(buttons, text="Đóng", command=close).pack(side=tk.LEFT)
+                widget.tag_add("picked", start, end)
 
         source = config.active_code()
         native = config.native_code()
-        if source != native:
+
+        def translate_word():
+            result_label.config(text=config.ui("Đang dịch từ…", "Translating word…"))
+            show_meaning_field()
+
+            def show(glosses):
+                if closed["done"]:
+                    return
+                self._show_word_glosses(result_label, meaning_var, glosses, source, native)
+
+            def failed(error):
+                if not closed["done"]:
+                    result_label.config(text=str(error))
+
+            ui_common.run_async(
+                pop, lambda: dictionary.lookup(word, source, native), show, failed
+            )
+
+        def translate_sentence():
+            sentence = self._sentence_at(widget, index)
+            if not sentence:
+                result_label.config(text=config.ui("Không thấy câu quanh từ này.", "No sentence around this word."))
+                return
+            result_label.config(text=config.ui("Đang dịch câu…", "Translating sentence…"))
+
+            def show(text):
+                if closed["done"]:
+                    return
+                if text:
+                    result_label.config(text=f"{sentence}\n\n{text}")
+                else:
+                    result_label.config(text=config.ui(
+                        f"Không dịch được câu:\n{sentence}",
+                        f"Couldn't translate:\n{sentence}",
+                    ))
+
+            def failed(error):
+                if not closed["done"]:
+                    result_label.config(text=str(error))
+
             ui_common.run_async(
                 pop,
-                lambda: dictionary.lookup(word, source, native),
-                lambda glosses: None if closed["done"] else self._show_glosses(
-                    gloss_label, meaning_var, glosses, source, native, saved
-                ),
-                lambda error: None if closed["done"] else gloss_label.config(text=str(error)),
+                lambda: dictionary.translate_sentence(sentence, source, native),
+                show,
+                failed,
             )
-        else:
-            self._show_glosses(gloss_label, meaning_var, [], source, native, saved)
+
+        def add_word():
+            show_meaning_field()
+            if self.store.index_of(word) is not None:
+                result_label.config(text=config.ui(
+                    "Từ này đã có trong danh sách.",
+                    "This word is already in your list.",
+                ))
+                return
+            if not meaning_var.get().strip():
+                result_label.config(text=config.ui(
+                    "Hãy dịch từ hoặc tự gõ nghĩa, rồi bấm Lưu.",
+                    "Translate the word or type a meaning, then press Save.",
+                ))
+                return
+            if not self.store.add(word, meaning_var.get().strip()):
+                result_label.config(text=config.ui(
+                    "Chưa lưu được từ này.",
+                    "Couldn't save this word.",
+                ))
+                return
+            result_label.config(text=config.ui(
+                "Đã thêm vào danh sách từ.",
+                "Saved to your word list.",
+            ))
+
+        buttons = ttk.Frame(body)
+        buttons.pack(anchor="w", pady=(8, 0))
+        ttk.Button(buttons, text=config.ui("Tô sáng", "Highlight"), command=toggle_highlight).pack(
+            side=tk.LEFT, padx=(0, 6)
+        )
+        ttk.Button(buttons, text=config.ui("Dịch từ", "Translate word"), command=translate_word).pack(
+            side=tk.LEFT, padx=(0, 6)
+        )
+        ttk.Button(
+            buttons, text=config.ui("Dịch câu", "Translate sentence"), command=translate_sentence
+        ).pack(side=tk.LEFT, padx=(0, 6))
+        ttk.Button(buttons, text=config.ui("Lưu từ", "Save word"), command=add_word).pack(
+            side=tk.LEFT, padx=(0, 6)
+        )
+        ttk.Button(buttons, text=config.ui("Đóng", "Close"), command=close).pack(side=tk.LEFT)
 
         pop.focus_set()
         pop.wait_window()
 
-    def _show_glosses(self, label, meaning_var, glosses, source, native, saved=""):
-        lines = []
+    def _show_word_glosses(self, label, meaning_var, glosses, source, native):
         native_name = "English" if native == "en" else "tiếng Việt"
-        if glosses:
-            lines.append(f"Từ điển ({native_name}):")
-            lines.extend(f"• {item}" for item in glosses)
-            if not meaning_var.get():
-                meaning_var.set(glosses[0])
-        elif source == native:
-            lines.append("Đây là ngôn ngữ gốc, không cần dịch.")
-        else:
-            lines.append(f"Không thấy trong từ điển {native_name}.")
-        if saved:
-            lines.append(f"Trong danh sách của bạn: {saved}")
-            if not meaning_var.get():
-                meaning_var.set(saved)
-        label.config(text="\n".join(lines))
+        if source == native:
+            label.config(text=config.ui(
+                "Đây là ngôn ngữ gốc, không cần dịch.",
+                "This is already your language.",
+            ))
+            return
+        if not glosses:
+            label.config(text=config.ui(
+                f"Không thấy trong từ điển {native_name}.",
+                f"Not in the {native_name} dictionary.",
+            ))
+            return
+        label.config(text="\n".join(f"• {item}" for item in glosses))
+        if not meaning_var.get():
+            meaning_var.set(glosses[0])
 
     def _highlight_target_words(self):
         """Tô đậm các từ mục tiêu để dễ thấy chúng được dùng thế nào."""
@@ -393,9 +545,19 @@ class ReadingApp:
         right.pack(side=tk.RIGHT, fill=tk.BOTH)
         right.pack_propagate(False)
 
-        ttk.Label(right, text="Vragen", style="H2.TLabel").pack(anchor="w")
+        ttk.Label(right, text=config.ui("Câu hỏi", "Questions"), style="H2.TLabel").pack(anchor="w")
+        ttk.Label(
+            right,
+            text=config.ui(
+                "Bấm một từ ở đây cũng tô sáng, dịch hoặc lưu được.",
+                "Click a word here to highlight, translate, or save it too.",
+            ),
+            style="Muted.TLabel",
+            wraplength=480,
+        ).pack(anchor="w")
 
         scroller = ui_common.ScrollableFrame(right)
+        self._question_canvas = scroller.canvas
         scroller.pack(fill=tk.BOTH, expand=True, pady=6)
 
         for group in self.test["groups"]:
@@ -409,17 +571,21 @@ class ReadingApp:
         frame.pack(fill=tk.X, pady=6, padx=4)
 
         if group["instructions"]:
-            ttk.Label(frame, text=group["instructions"], style="Muted.TLabel", wraplength=440).pack(
-                anchor="w", pady=(0, 6)
+            instructions = self._prepare_lookup_text(
+                frame, group["instructions"], ui_common.FONT_SMALL, ui_common.COLOR_MUTED
             )
+            instructions.pack(fill=tk.X, pady=(0, 6))
 
         options_frame = ttk.Frame(frame)
         options_frame.pack(fill=tk.X, pady=(0, 8))
         for option in group["options"]:
-            ttk.Label(
-                options_frame, text=f"{option['code']}. {option['text']}",
-                style="Muted.TLabel", wraplength=430, justify="left",
-            ).pack(anchor="w")
+            option_row = ttk.Frame(options_frame)
+            option_row.pack(fill=tk.X, pady=1)
+            ttk.Label(option_row, text=f"{option['code']}.", width=4).pack(side=tk.LEFT, anchor="n")
+            option_text = self._prepare_lookup_text(
+                option_row, option["text"], ui_common.FONT_SMALL, ui_common.COLOR_MUTED
+            )
+            option_text.pack(side=tk.LEFT, fill=tk.X, expand=True)
 
         codes = [o["code"] for o in group["options"]]
         variables, marks = [], []
@@ -438,7 +604,8 @@ class ReadingApp:
             self.guard.track_combobox(combo)
             variables.append(var)
 
-            ttk.Label(row, text=prompt["text"], wraplength=330, justify="left").pack(side=tk.LEFT)
+            prompt_text = self._prepare_lookup_text(row, prompt["text"], ui_common.FONT_BODY)
+            prompt_text.pack(side=tk.LEFT, fill=tk.X, expand=True)
 
             mark = ttk.Label(row, text="", width=2)
             mark.pack(side=tk.RIGHT)
@@ -459,9 +626,10 @@ class ReadingApp:
         frame.pack(fill=tk.X, pady=6, padx=4)
 
         if group["instructions"]:
-            ttk.Label(frame, text=group["instructions"], style="Muted.TLabel", wraplength=440).pack(
-                anchor="w", pady=(0, 6)
+            instructions = self._prepare_lookup_text(
+                frame, group["instructions"], ui_common.FONT_SMALL, ui_common.COLOR_MUTED
             )
+            instructions.pack(fill=tk.X, pady=(0, 6))
 
         variables, answers, marks, explanations, explain_labels = [], [], [], [], []
 
@@ -471,10 +639,9 @@ class ReadingApp:
 
             title_row = ttk.Frame(block)
             title_row.pack(fill=tk.X)
-            ttk.Label(
-                title_row, text=f"{question['number']}. {question['prompt']}",
-                wraplength=420, justify="left", font=ui_common.FONT_BODY,
-            ).pack(side=tk.LEFT, anchor="w")
+            ttk.Label(title_row, text=f"{question['number']}.", width=4).pack(side=tk.LEFT, anchor="n")
+            prompt_text = self._prepare_lookup_text(title_row, question["prompt"], ui_common.FONT_BODY)
+            prompt_text.pack(side=tk.LEFT, fill=tk.X, expand=True)
 
             mark = ttk.Label(title_row, text="", width=2)
             mark.pack(side=tk.RIGHT)
@@ -482,14 +649,16 @@ class ReadingApp:
 
             var = tk.StringVar()
             for option in question["options"]:
+                option_row = ttk.Frame(block)
+                option_row.pack(fill=tk.X, padx=12)
                 ttk.Radiobutton(
-                    block, text=f"{option['key']}. {option['text']}",
-                    variable=var, value=option["key"],
-                ).pack(anchor="w", padx=18)
+                    option_row, text=option["key"], variable=var, value=option["key"],
+                ).pack(side=tk.LEFT, anchor="n")
+                option_text = self._prepare_lookup_text(option_row, option["text"], ui_common.FONT_BODY)
+                option_text.pack(side=tk.LEFT, fill=tk.X, expand=True)
 
-            explain = ttk.Label(
-                block, text="", style="Muted.TLabel", wraplength=420,
-                justify="left", foreground=ui_common.COLOR_MUTED,
+            explain = self._prepare_lookup_text(
+                block, "", ui_common.FONT_SMALL, ui_common.COLOR_MUTED
             )
             explain_labels.append(explain)
 
@@ -513,24 +682,30 @@ class ReadingApp:
         footer = ttk.Frame(parent)
         footer.pack(fill=tk.X)
 
-        ttk.Button(footer, text="Chấm bài", command=self._check_answers).pack(side=tk.LEFT)
+        ttk.Button(footer, text=config.ui("Chấm bài", "Check answers"), command=self._check_answers).pack(side=tk.LEFT)
         ttk.Button(
-            footer, text="Tạo bài đọc mới", style="Small.TButton",
+            footer, text=config.ui("Tạo bài đọc mới", "New passage"), style="Small.TButton",
             command=lambda: self._load_test(True),
         ).pack(side=tk.LEFT, padx=6)
 
         if self.on_request_switch is not None:
             ttk.Button(
-                footer, text="Sang phần từ vựng", style="Small.TButton",
+                footer, text=config.ui("Sang phần từ vựng", "Go to vocabulary"), style="Small.TButton",
                 command=self.on_request_switch,
             ).pack(side=tk.LEFT, padx=6)
 
         ttk.Button(
-            footer, text="Thoát khẩn cấp", style="Small.TButton", command=self._emergency_exit
+            footer, text=config.ui("Thoát khẩn cấp", "Emergency exit"), style="Small.TButton",
+            command=self._emergency_exit,
         ).pack(side=tk.RIGHT)
 
+        need = f"{config.READING_PASS_RATIO * 100:.0f}%"
         self.feedback_label = ttk.Label(
-            parent, text=f"Cần đúng ít nhất {config.READING_PASS_RATIO * 100:.0f}% số câu để qua phần này.",
+            parent,
+            text=config.ui(
+                f"Cần đúng ít nhất {need} số câu để qua phần này.",
+                f"You need at least {need} correct to pass.",
+            ),
             style="Muted.TLabel", wraplength=1100, justify="left",
         )
         self.feedback_label.pack(fill=tk.X, pady=(8, 0))
@@ -570,23 +745,40 @@ class ReadingApp:
             self.completed = True
             self.progress.mark_reading_done(correct, total)
             self.feedback_label.config(
-                text=f"Đúng {correct}/{total} câu. Qua phần đọc!", foreground=ui_common.COLOR_OK
+                text=config.ui(
+                    f"Đúng {correct}/{total} câu. Qua phần đọc!",
+                    f"{correct}/{total} correct. Reading complete!",
+                ),
+                foreground=ui_common.COLOR_OK,
             )
             self.guard.show_info(
-                "Goed gelezen!",
-                f"Bạn làm đúng {correct}/{total} câu ({ratio * 100:.0f}%).\n"
-                "Phần luyện đọc lần này đã hoàn thành.",
+                config.ui("Xong phần đọc", "Reading complete"),
+                config.ui(
+                    f"Bạn làm đúng {correct}/{total} câu ({ratio * 100:.0f}%).\n"
+                    "Phần luyện đọc lần này đã hoàn thành.",
+                    f"You got {correct}/{total} ({ratio * 100:.0f}%).\n"
+                    "This reading session is complete.",
+                ),
             )
             if callable(self.on_completed):
                 self.on_completed()
             self.window.destroy()
             return
 
-        missing = f", bỏ trống {unanswered} câu" if unanswered else ""
+        missing = (
+            config.ui(f", bỏ trống {unanswered} câu", f", {unanswered} left blank")
+            if unanswered else ""
+        )
+        need = f"{config.READING_PASS_RATIO * 100:.0f}%"
         self.feedback_label.config(
-            text=f"Đúng {correct}/{total} câu ({ratio * 100:.0f}%){missing}. "
-                 f"Cần {config.READING_PASS_RATIO * 100:.0f}% để qua. "
-                 "Các câu sai đã được đánh dấu ✘ kèm giải thích, hãy đọc lại và sửa.",
+            text=config.ui(
+                f"Đúng {correct}/{total} câu ({ratio * 100:.0f}%){missing}. "
+                f"Cần {need} để qua. "
+                "Các câu sai đã được đánh dấu ✘ kèm giải thích, hãy đọc lại và sửa.",
+                f"{correct}/{total} correct ({ratio * 100:.0f}%){missing}. "
+                f"You need {need}. "
+                "Wrong answers are marked ✘. Read the explanation and try again.",
+            ),
             foreground=ui_common.COLOR_BAD,
         )
 
@@ -597,8 +789,8 @@ class ReadingApp:
         explanations = state.get("explanations") or []
         text = explanations[index] if index < len(explanations) else ""
         if revealed and text:
-            labels[index].config(text=f"Gợi ý: {text}")
-            labels[index].pack(anchor="w", padx=18, pady=(2, 0))
+            self._set_lookup_text(labels[index], config.ui(f"Gợi ý: {text}", f"Hint: {text}"))
+            labels[index].pack(fill=tk.X, padx=18, pady=(2, 0))
 
     # ============================================================
     # Thoát
@@ -610,9 +802,13 @@ class ReadingApp:
             return
         total = count_questions(self.test) if self.test else 0
         self.guard.show_info(
-            "Chưa xong",
-            f"Hãy hoàn thành bài đọc ({total} câu) trước khi đóng cửa sổ.\n\n"
-            "Nếu app bị lỗi, hãy dùng nút “Thoát khẩn cấp”.",
+            config.ui("Chưa xong", "Not finished"),
+            config.ui(
+                f"Hãy hoàn thành bài đọc ({total} câu) trước khi đóng cửa sổ.\n\n"
+                "Nếu app bị lỗi, hãy dùng nút “Thoát khẩn cấp”.",
+                f"Finish the reading ({total} questions) before closing.\n\n"
+                "If the app is stuck, use Emergency exit.",
+            ),
         )
 
     def _emergency_exit(self):

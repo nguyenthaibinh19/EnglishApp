@@ -58,21 +58,19 @@ class StudyMasterApp:
         card.place(relx=0.5, rely=0.5, anchor="center")
 
         ttk.Label(card, text=config.APP_NAME, style="Title.TLabel").pack(anchor="w")
-        ttk.Label(
+        self.intro_label = ttk.Label(
             card,
-            text=(
-                f"Mỗi lần mở máy, mỗi ngôn ngữ trong danh sách cần "
-                f"{config.QUIZ_TARGET_CORRECT} câu từ vựng đúng và một bài đọc. "
-                "Tiếng không có trong danh sách thì không phải làm."
-            ),
+            text="",
             style="Muted.TLabel",
             wraplength=760,
             justify="left",
-        ).pack(anchor="w", pady=(8, 14))
+        )
+        self.intro_label.pack(anchor="w", pady=(8, 14))
 
         pickers = ttk.Frame(card)
         pickers.pack(anchor="w", fill=tk.X, pady=(0, 8))
-        ttk.Label(pickers, text="Ngôn ngữ gốc").pack(side=tk.LEFT)
+        self.native_caption = ttk.Label(pickers, text="")
+        self.native_caption.pack(side=tk.LEFT)
         self.native_var = tk.StringVar(value=config.native_label())
         self.native_box = ttk.Combobox(
             pickers,
@@ -85,7 +83,8 @@ class StudyMasterApp:
         self.guard.track_combobox(self.native_box)
         self.native_box.bind("<<ComboboxSelected>>", self._on_native_selected)
 
-        ttk.Label(pickers, text="Thêm ngôn ngữ").pack(side=tk.LEFT)
+        self.add_caption = ttk.Label(pickers, text="")
+        self.add_caption.pack(side=tk.LEFT)
         self.add_var = tk.StringVar()
         self.add_box = ttk.Combobox(pickers, textvariable=self.add_var, state="readonly", width=22)
         self.add_box.pack(side=tk.LEFT, padx=(8, 0))
@@ -110,21 +109,22 @@ class StudyMasterApp:
         )
         self.warning_label.pack(anchor="w", pady=8)
 
-        ttk.Button(
-            backdrop, text="Thoát khẩn cấp",
+        self.emergency_button = ttk.Button(
+            backdrop, text="",
             style="Small.TButton", command=self.emergency_exit_all,
-        ).place(relx=1.0, rely=1.0, x=-24, y=-24, anchor="se")
+        )
+        self.emergency_button.place(relx=1.0, rely=1.0, x=-24, y=-24, anchor="se")
 
     def _code_for_label(self, label: str):
         return next(
-            (code for code, profile in languages.LANGUAGES.items() if profile["label"] == label),
+            (code for code in languages.codes() if config.language_name(code) == label),
             None,
         )
 
     def _refresh_add_box(self):
         selected = set(config.study_codes())
-        labels = [languages.LANGUAGES[code]["label"] for code in languages.codes() if code not in selected]
-        self.add_box.configure(values=labels or ["(đã chọn hết)"])
+        labels = [config.language_name(code) for code in languages.codes() if code not in selected]
+        self.add_box.configure(values=labels or [config.ui("(đã chọn hết)", "(all selected)")])
         self.add_var.set("")
 
     def _build_language_rows(self):
@@ -134,27 +134,26 @@ class StudyMasterApp:
         self.row_buttons = {}
         self._refresh_add_box()
         for code in config.study_codes():
-            profile = languages.LANGUAGES[code]
             row = ttk.Frame(self.lang_list)
             row.pack(fill=tk.X, pady=3)
-            ttk.Label(row, text=profile["label"], width=22).pack(side=tk.LEFT)
+            ttk.Label(row, text=config.language_name(code), width=22).pack(side=tk.LEFT)
 
-            status = ttk.Label(row, text="", style="Muted.TLabel", width=28)
+            status = ttk.Label(row, text="", style="Muted.TLabel", width=36)
             status.pack(side=tk.LEFT, padx=(8, 12))
             self.row_status[code] = status
 
             vocab_button = ttk.Button(
-                row, text="Từ vựng", style="Small.TButton",
+                row, text=config.ui("Từ vựng", "Vocabulary"), style="Small.TButton",
                 command=lambda c=code: self.open_vocab_section(c),
             )
             vocab_button.pack(side=tk.LEFT, padx=4)
             reading_button = ttk.Button(
-                row, text="Đọc", style="Small.TButton",
+                row, text=config.ui("Đọc", "Reading"), style="Small.TButton",
                 command=lambda c=code: self.open_reading_section(c),
             )
             reading_button.pack(side=tk.LEFT, padx=(0, 4))
             remove_button = ttk.Button(
-                row, text="Bỏ", style="Small.TButton",
+                row, text=config.ui("Bỏ", "Remove"), style="Small.TButton",
                 command=lambda c=code: self._remove_language(c),
             )
             remove_button.pack(side=tk.LEFT)
@@ -180,7 +179,7 @@ class StudyMasterApp:
         result = {"ok": False, "error": ""}
         self.guard.suspend()
         dialog = tk.Toplevel(self.root)
-        dialog.title("Tải từ điển")
+        dialog.title(config.ui("Tải từ điển", "Download dictionary"))
         dialog.resizable(False, False)
         try:
             dialog.attributes("-topmost", True)
@@ -188,7 +187,7 @@ class StudyMasterApp:
             pass
         frame = ttk.Frame(dialog, padding=16)
         frame.pack()
-        label = ttk.Label(frame, text="Đang tải từ điển…", wraplength=420)
+        label = ttk.Label(frame, text=config.ui("Đang tải từ điển…", "Downloading the dictionary…"), wraplength=420)
         label.pack(anchor="w")
         bar = ttk.Progressbar(frame, mode="determinate", length=420, maximum=1)
         bar.pack(anchor="w", pady=8)
@@ -196,14 +195,17 @@ class StudyMasterApp:
         def work():
             count = len(pairs)
             for index, (source, native) in enumerate(pairs):
-                name = languages.LANGUAGES[source]["label"]
+                name = config.language_name(source)
 
                 def report(fraction, index=index, name=name):
                     overall = (index + fraction) / max(count, 1)
                     self.root.after(
                         0,
                         lambda name=name, overall=overall: (
-                            label.config(text=f"Đang tải từ điển {name}…"),
+                            label.config(text=config.ui(
+                                f"Đang tải từ điển {name}…",
+                                f"Downloading the {name} dictionary…",
+                            )),
                             bar.config(value=overall),
                         ),
                     )
@@ -225,7 +227,7 @@ class StudyMasterApp:
             except tk.TclError:
                 pass
             self.guard.resume(refocus=False)
-            self.guard.show_error("Không tải được từ điển", str(error))
+            self.guard.show_error(config.ui("Không tải được từ điển", "Dictionary download failed"), str(error))
 
         ui_common.run_async(dialog, work, finish, fail)
         dialog.wait_window()
@@ -240,6 +242,7 @@ class StudyMasterApp:
             self.native_var.set(config.native_label())
             return
         config.set_native(native)
+        self._build_language_rows()
         self._refresh_status()
 
     def _on_add_language(self, _event=None):
@@ -258,8 +261,11 @@ class StudyMasterApp:
         chosen = [item for item in config.study_codes() if item != code]
         if not chosen:
             self.guard.show_info(
-                "Cần ít nhất một ngôn ngữ",
-                "Hãy giữ lại ít nhất một ngôn ngữ. Bỏ khỏi danh sách nghĩa là lần mở máy này không phải học ngôn ngữ đó.",
+                config.ui("Cần ít nhất một ngôn ngữ", "Keep at least one language"),
+                config.ui(
+                    "Hãy giữ lại ít nhất một ngôn ngữ. Bỏ khỏi danh sách nghĩa là lần mở máy này không phải học ngôn ngữ đó.",
+                    "Keep at least one language. Removing a language means you don't study it this launch.",
+                ),
             )
             return
         config.set_study_codes(chosen)
@@ -295,41 +301,71 @@ class StudyMasterApp:
             if label is None:
                 continue
             missing = self._language_pending(code)
+            names = {
+                "từ vựng": config.ui("từ vựng", "vocabulary"),
+                "bài đọc": config.ui("bài đọc", "reading"),
+            }
             if not missing:
                 done_count += 1
-                label.config(text="xong lần này")
+                label.config(text=config.ui("xong lần này", "done this launch"))
             else:
-                label.config(text="còn " + " và ".join(missing))
+                shown = [names.get(item, item) for item in missing]
+                label.config(text=config.ui("còn " + " và ".join(shown), "still " + " and ".join(shown)))
+
+        target = config.QUIZ_TARGET_CORRECT
+        self.intro_label.config(text=config.ui(
+            f"Mỗi lần mở máy, mỗi ngôn ngữ trong danh sách cần "
+            f"{target} câu từ vựng đúng và một bài đọc. "
+            "Tiếng không có trong danh sách thì không phải làm.",
+            f"Each launch, every language in the list needs "
+            f"{target} correct vocabulary answers and one reading. "
+            "Languages that are not listed are skipped.",
+        ))
+        self.native_caption.config(text=config.ui("Ngôn ngữ gốc", "Your language"))
+        self.add_caption.config(text=config.ui("Thêm ngôn ngữ", "Add a language"))
+        self.emergency_button.config(text=config.ui("Thoát khẩn cấp", "Emergency exit"))
 
         self.status_label.config(
-            text=f"Đã xong {done_count}/{len(required)} ngôn ngữ trong lần mở máy này."
+            text=config.ui(
+                f"Đã xong {done_count}/{len(required)} ngôn ngữ trong lần mở máy này.",
+                f"{done_count}/{len(required)} languages done this launch.",
+            )
         )
         self.detail_label.config(
-            text="Thêm tiếng bằng danh sách phía trên. Bỏ một tiếng thì lần này không phải học tiếng đó, và gói từ điển của nó được xóa."
+            text=config.ui(
+                "Thêm tiếng bằng danh sách phía trên. Bỏ một tiếng thì lần này không phải học tiếng đó, và gói từ điển của nó được xóa.",
+                "Add a language from the list above. Removing one skips it this launch and deletes its dictionary.",
+            )
         )
 
         warnings = []
         native = config.native_code()
         for code in required:
             if code != native and not dictionary.is_ready(code, native):
-                warnings.append(
-                    f"Chưa có từ điển {languages.LANGUAGES[code]['label']}. "
-                    "Hãy bỏ rồi thêm lại để tải."
-                )
+                name = config.language_name(code)
+                warnings.append(config.ui(
+                    f"Chưa có từ điển {name}. Hãy bỏ rồi thêm lại để tải.",
+                    f"No {name} dictionary yet. Remove it and add it again to download.",
+                ))
             count = VocabStore(config.vocab_path(code)).count()
             if count == 0:
-                warnings.append(
-                    f"Chưa có từ {languages.LANGUAGES[code]['name_vi']}. "
-                    "Hãy thêm trong phần Quản lý từ vựng."
-                )
+                name = config.language_name(code)
+                warnings.append(config.ui(
+                    f"Chưa có từ {name}. Hãy thêm trong phần Quản lý từ vựng.",
+                    f"No {name} words yet. Add some in Manage vocabulary.",
+                ))
         if not config.ai_is_configured():
             if config.is_frozen():
-                warnings.append("Chưa có API key. Hãy nhập key ở màn hình cài đặt để AI chấm câu và viết bài đọc.")
+                warnings.append(config.ui(
+                    "Chưa có API key. Hãy nhập key ở màn hình cài đặt để AI chấm câu và viết bài đọc.",
+                    "No API key yet. Enter one on the setup screen so the AI can grade sentences and write readings.",
+                ))
             else:
-                warnings.append(
+                warnings.append(config.ui(
                     "Chưa có OPENAI_API_KEY trong file .env nên AI sẽ không chấm câu và "
-                    "không tự viết bài đọc được."
-                )
+                    "không tự viết bài đọc được.",
+                    "OPENAI_API_KEY is missing from .env, so the AI cannot grade sentences or write readings.",
+                ))
         self.warning_label.config(text="\n".join(warnings))
 
     # ============================================================
@@ -454,11 +490,15 @@ class StudyMasterApp:
         if self._menu_hidden and not self._child_open():
             self._show_menu()
 
-        names = ", ".join(languages.LANGUAGES[code]["label"] for code in config.study_codes())
+        names = ", ".join(config.language_name(code) for code in config.study_codes())
         self.guard.show_info(
-            "Xong lần này",
-            f"Đã học: {names}.\n\n"
-            "Lần mở máy sau, các ngôn ngữ đang được tick sẽ cần làm lại.",
+            config.ui("Xong lần này", "Done for this launch"),
+            config.ui(
+                f"Đã học: {names}.\n\n"
+                "Lần mở máy sau, các ngôn ngữ đang được tick sẽ cần làm lại.",
+                f"Studied: {names}.\n\n"
+                "The next time you open the app, the selected languages start again.",
+            ),
         )
         self.quit_all()
 
@@ -474,13 +514,24 @@ class StudyMasterApp:
         for code in config.study_codes():
             missing = self._language_pending(code)
             if missing:
-                lines.append(f"• {languages.LANGUAGES[code]['label']}: {', '.join(missing)}")
+                names = {
+                    "từ vựng": config.ui("từ vựng", "vocabulary"),
+                    "bài đọc": config.ui("bài đọc", "reading"),
+                }
+                shown = ", ".join(names.get(item, item) for item in missing)
+                lines.append(f"• {config.language_name(code)}: {shown}")
         with self.guard.suspended():
             messagebox.showwarning(
-                "Chưa hoàn thành",
-                "Mỗi lần mở máy cần xong từ vựng và bài đọc của các ngôn ngữ đã tick.\n\n"
+                config.ui("Chưa hoàn thành", "Not finished"),
+                config.ui(
+                    "Mỗi lần mở máy cần xong từ vựng và bài đọc của các ngôn ngữ đã tick.\n\n",
+                    "Each launch needs vocabulary and a reading for every selected language.\n\n",
+                )
                 + "\n".join(lines)
-                + "\n\nNếu app bị lỗi, hãy dùng nút “Thoát khẩn cấp”.",
+                + config.ui(
+                    "\n\nNếu app bị lỗi, hãy dùng nút “Thoát khẩn cấp”.",
+                    "\n\nIf the app is stuck, use Emergency exit.",
+                ),
                 parent=self.root,
             )
 

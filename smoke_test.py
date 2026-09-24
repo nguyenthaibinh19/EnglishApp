@@ -193,6 +193,10 @@ check(
 os.remove(dict_path)
 
 
+passage = "De fiets is rood. Het huis is groot!"
+check("dịch đúng câu chứa từ", text_utils.sentence_around(passage, passage.index("huis")) == "Het huis is groot!")
+check("dịch câu đầu", text_utils.sentence_around(passage, 3) == "De fiets is rood.")
+
 print()
 if failures:
     print(f"{len(failures)} kiểm tra thất bại:")
