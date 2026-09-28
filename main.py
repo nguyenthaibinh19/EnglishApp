@@ -40,6 +40,7 @@ class StudyMasterApp:
         self.row_buttons = {}
 
         ui_common.apply_theme(root)
+        self.root.resizable(True, True)
         self.guard = ui_common.ScreenGuard(root, on_close_attempt=self._on_close_root)
 
         self._build_ui()
@@ -317,7 +318,7 @@ class StudyMasterApp:
             f"Mỗi lần mở máy, mỗi ngôn ngữ trong danh sách cần "
             f"{target} câu từ vựng đúng và một bài đọc. "
             "Tiếng không có trong danh sách thì không phải làm.",
-            f"Each launch, every language in the list needs "
+            f"Each time the computer starts, every language in the list needs "
             f"{target} correct vocabulary answers and one reading. "
             "Languages that are not listed are skipped.",
         ))
@@ -357,8 +358,8 @@ class StudyMasterApp:
         if not config.ai_is_configured():
             if config.is_frozen():
                 warnings.append(config.ui(
-                    "Chưa có API key. Hãy nhập key ở màn hình cài đặt để AI chấm câu và viết bài đọc.",
-                    "No API key yet. Enter one on the setup screen so the AI can grade sentences and write readings.",
+                    "Chưa đăng nhập. Hãy đăng nhập để AI chấm câu và viết bài đọc.",
+                    "Not signed in. Sign in so the AI can grade sentences and write readings.",
                 ))
             else:
                 warnings.append(config.ui(
@@ -390,6 +391,7 @@ class StudyMasterApp:
             on_request_switch=self._switch_to_reading,
             on_emergency=self.quit_all,
             required=not self.session[config.active_code()]["vocab"],
+            locked=True,
         )
 
     def open_reading_section(self, code=None):
@@ -410,6 +412,7 @@ class StudyMasterApp:
             on_request_switch=self._switch_to_vocab,
             on_emergency=self.quit_all,
             required=not self.session[config.active_code()]["reading"],
+            locked=True,
         )
 
     def _hide_menu(self):
@@ -449,6 +452,7 @@ class StudyMasterApp:
         if event.widget not in (self.vocab_window, self.reading_window):
             return
         self.root.after(50, self._show_menu)
+        self.root.after(50, self._refresh_status)
 
     def _close_window(self, window):
         if window is not None and window.winfo_exists():
@@ -599,6 +603,92 @@ def run_diagnostics():
           f"bài đọc {'xong' if summary['reading_done'] else 'chưa xong'}")
 
 
+class FreeHome:
+    """Cửa sổ nhỏ khi người dùng tự mở app: chỉ làm bài hoặc thêm từ."""
+
+    def __init__(self, root: tk.Tk):
+        self.root = root
+        self.bank_window = None
+        self.root.title(config.APP_NAME)
+        self.root.geometry("440x280")
+        self.root.minsize(400, 240)
+        self.root.resizable(False, False)
+        ui_common.apply_theme(root)
+        self.root.protocol("WM_DELETE_WINDOW", self.root.destroy)
+
+        card = ttk.Frame(root, padding=28)
+        card.pack(fill=tk.BOTH, expand=True)
+        ttk.Label(card, text=config.APP_NAME, style="Title.TLabel").pack(anchor="w")
+        ttk.Label(
+            card,
+            text=config.ui(
+                "Thêm từ thì đóng được ngay. Làm bài sẽ vào màn hình khóa.",
+                "Adding words can be closed anytime. Study opens the locked screen.",
+            ),
+            style="Muted.TLabel",
+            wraplength=360,
+        ).pack(anchor="w", pady=(10, 22))
+
+        ttk.Button(
+            card, text=config.ui("Làm bài", "Study"), command=self._start_study
+        ).pack(fill=tk.X, pady=4)
+        ttk.Button(
+            card, text=config.ui("Thêm từ", "Add words"), command=self._add_words
+        ).pack(fill=tk.X, pady=4)
+
+    def _start_study(self):
+        self._close_bank()
+        for child in self.root.winfo_children():
+            child.destroy()
+        self.root.resizable(True, True)
+        StudyMasterApp(self.root)
+
+    def _add_words(self):
+        codes = config.study_codes()
+        if len(codes) == 1:
+            self._open_bank(codes[0])
+            return
+        self._choose_language(codes)
+
+    def _choose_language(self, codes):
+        dialog = tk.Toplevel(self.root)
+        dialog.title(config.ui("Chọn ngôn ngữ", "Choose a language"))
+        dialog.resizable(False, False)
+        dialog.transient(self.root)
+        frame = ttk.Frame(dialog, padding=16)
+        frame.pack()
+        ttk.Label(
+            frame, text=config.ui("Thêm từ cho ngôn ngữ nào?", "Add words for which language?")
+        ).pack(anchor="w", pady=(0, 8))
+        for code in codes:
+            ttk.Button(
+                frame,
+                text=config.language_name(code),
+                command=lambda c=code, dialog=dialog: (dialog.destroy(), self._open_bank(c)),
+            ).pack(fill=tk.X, pady=2)
+        dialog.protocol("WM_DELETE_WINDOW", dialog.destroy)
+        dialog.geometry("+%d+%d" % (self.root.winfo_rootx() + 40, self.root.winfo_rooty() + 40))
+
+    def _open_bank(self, code):
+        config.set_language(code)
+        if self.bank_window is not None and self.bank_window.winfo_exists():
+            self.bank_window.lift()
+            return
+        self.bank_window = tk.Toplevel(self.root)
+        VocabQuizApp(
+            self.bank_window,
+            store=VocabStore(),
+            progress=Progress(),
+            required=False,
+            manage_only=True,
+            locked=False,
+        )
+
+    def _close_bank(self):
+        if self.bank_window is not None and self.bank_window.winfo_exists():
+            self.bank_window.destroy()
+
+
 def main():
     import sys
 
@@ -628,7 +718,10 @@ def main():
             root.destroy()
             return
 
-    StudyMasterApp(root)
+    if "--lock" in sys.argv:
+        StudyMasterApp(root)
+    else:
+        FreeHome(root)
     root.mainloop()
 
 

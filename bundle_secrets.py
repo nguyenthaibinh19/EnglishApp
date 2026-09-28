@@ -10,12 +10,17 @@ from dotenv import dotenv_values
 
 
 def main():
-    password = (dotenv_values(".env").get("EMERGENCY_PASSWORD") or "").strip()
+    values = dotenv_values(".env")
+    password = (values.get("EMERGENCY_PASSWORD") or "").strip()
     if not password:
         print("Thieu EMERGENCY_PASSWORD trong .env")
         return 1
+    payload = {"emergency_password": password}
+    server = (values.get("ACCOUNT_SERVER_URL") or "").strip()
+    if server:
+        payload["account_server_url"] = server
     with open("bundled_secrets.json", "w", encoding="utf-8") as handle:
-        json.dump({"emergency_password": password}, handle)
+        json.dump(payload, handle)
     print("Da gan mat khau dev vao ban build.")
     return 0
 

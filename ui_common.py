@@ -67,11 +67,11 @@ class ScreenGuard:
         self._refocus_after_id = None
 
         window.protocol("WM_DELETE_WINDOW", self._handle_close_request)
-        window.bind("<Alt-F4>", lambda _e: "break")
 
         if self.enabled:
             window.attributes("-fullscreen", True)
             window.attributes("-topmost", True)
+            window.bind("<Alt-F4>", lambda _e: "break")
             window.bind("<FocusOut>", self._on_focus_out)
         else:
             window.geometry("1280x820")

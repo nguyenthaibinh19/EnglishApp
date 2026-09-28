@@ -28,6 +28,7 @@ class ReadingApp:
         on_request_switch=None,
         on_emergency=None,
         required=True,
+        locked=True,
     ):
         self.window = window
         self.window.title(f"{config.APP_NAME} — {config.ui('Đọc', 'Reading')}")
@@ -47,7 +48,11 @@ class ReadingApp:
         self._loading = False
 
         ui_common.apply_theme(window)
-        self.guard = ui_common.ScreenGuard(window, on_close_attempt=self._on_close_attempt)
+        self.guard = ui_common.ScreenGuard(
+            window,
+            enabled=config.LOCK_SCREEN if locked else False,
+            on_close_attempt=self._on_close_attempt,
+        )
 
         self.container = ttk.Frame(window, padding=16)
         self.container.pack(fill=tk.BOTH, expand=True)
@@ -308,6 +313,7 @@ class ReadingApp:
             highlightthickness=0,
             font=font,
             height=1,
+            width=12,
             padx=2,
             pady=1,
             cursor="hand2",
@@ -364,7 +370,6 @@ class ReadingApp:
             pop.attributes("-topmost", True)
         except tk.TclError:
             pass
-        pop.geometry(f"+{int(x_root)}+{int(y_root)}")
 
         closed = {"done": False}
 
@@ -386,12 +391,12 @@ class ReadingApp:
         body = ttk.Frame(pop, padding=12)
         body.pack()
         ttk.Label(body, text=word, style="H2.TLabel").pack(anchor="w")
-        result_label = ttk.Label(body, text="", wraplength=420, justify="left")
+        result_label = ttk.Label(body, text="", wraplength=240, justify="left")
         result_label.pack(anchor="w", pady=(6, 4))
 
         meaning_var = tk.StringVar()
         meaning_row = ttk.Frame(body)
-        ttk.Entry(meaning_row, textvariable=meaning_var, width=48, font=ui_common.FONT_BODY).pack(anchor="w")
+        ttk.Entry(meaning_row, textvariable=meaning_var, width=28, font=ui_common.FONT_BODY).pack(anchor="w")
 
         def show_meaning_field():
             if not meaning_row.winfo_ismapped():
@@ -479,22 +484,44 @@ class ReadingApp:
 
         buttons = ttk.Frame(body)
         buttons.pack(anchor="w", pady=(8, 0))
-        ttk.Button(buttons, text=config.ui("Tô sáng", "Highlight"), command=toggle_highlight).pack(
+        row1 = ttk.Frame(buttons)
+        row1.pack(anchor="w")
+        row2 = ttk.Frame(buttons)
+        row2.pack(anchor="w", pady=(6, 0))
+        ttk.Button(row1, text=config.ui("Tô sáng", "Highlight"), command=toggle_highlight).pack(
             side=tk.LEFT, padx=(0, 6)
         )
-        ttk.Button(buttons, text=config.ui("Dịch từ", "Translate word"), command=translate_word).pack(
+        ttk.Button(row1, text=config.ui("Dịch từ", "Translate word"), command=translate_word).pack(
             side=tk.LEFT, padx=(0, 6)
         )
-        ttk.Button(
-            buttons, text=config.ui("Dịch câu", "Translate sentence"), command=translate_sentence
-        ).pack(side=tk.LEFT, padx=(0, 6))
-        ttk.Button(buttons, text=config.ui("Lưu từ", "Save word"), command=add_word).pack(
+        ttk.Button(row1, text=config.ui("Dịch câu", "Translate sentence"), command=translate_sentence).pack(
+            side=tk.LEFT
+        )
+        ttk.Button(row2, text=config.ui("Lưu từ", "Save word"), command=add_word).pack(
             side=tk.LEFT, padx=(0, 6)
         )
-        ttk.Button(buttons, text=config.ui("Đóng", "Close"), command=close).pack(side=tk.LEFT)
+        ttk.Button(row2, text=config.ui("Đóng", "Close"), command=close).pack(side=tk.LEFT)
 
+        self._place_word_popup(pop, x_root, y_root)
         pop.focus_set()
         pop.wait_window()
+
+    def _place_word_popup(self, pop, x_root, y_root):
+        """Đặt bảng tra từ cạnh chỗ bấm, nhưng luôn nằm trọn trong màn hình."""
+        pop.update_idletasks()
+        screen_w = pop.winfo_screenwidth()
+        screen_h = pop.winfo_screenheight()
+        width = max(pop.winfo_reqwidth(), 1)
+        height = max(pop.winfo_reqheight(), 1)
+        x = min(max(0, int(x_root)), max(0, screen_w - width))
+        y = min(max(0, int(y_root)), max(0, screen_h - height))
+        pop.geometry(f"{width}x{height}+{x}+{y}")
+        pop.update_idletasks()
+        width = max(pop.winfo_width(), 1)
+        height = max(pop.winfo_height(), 1)
+        x = min(max(0, pop.winfo_x()), max(0, screen_w - width))
+        y = min(max(0, pop.winfo_y()), max(0, screen_h - height))
+        pop.geometry(f"+{x}+{y}")
 
     def _show_word_glosses(self, label, meaning_var, glosses, source, native):
         native_name = "English" if native == "en" else "tiếng Việt"
@@ -604,12 +631,12 @@ class ReadingApp:
             self.guard.track_combobox(combo)
             variables.append(var)
 
-            prompt_text = self._prepare_lookup_text(row, prompt["text"], ui_common.FONT_BODY)
-            prompt_text.pack(side=tk.LEFT, fill=tk.X, expand=True)
-
-            mark = ttk.Label(row, text="", width=2)
+            mark = ttk.Label(row, text="", width=3, anchor="center")
             mark.pack(side=tk.RIGHT)
             marks.append(mark)
+
+            prompt_text = self._prepare_lookup_text(row, prompt["text"], ui_common.FONT_BODY)
+            prompt_text.pack(side=tk.LEFT, fill=tk.X, expand=True)
 
         self.group_states.append(
             {
@@ -640,12 +667,11 @@ class ReadingApp:
             title_row = ttk.Frame(block)
             title_row.pack(fill=tk.X)
             ttk.Label(title_row, text=f"{question['number']}.", width=4).pack(side=tk.LEFT, anchor="n")
-            prompt_text = self._prepare_lookup_text(title_row, question["prompt"], ui_common.FONT_BODY)
-            prompt_text.pack(side=tk.LEFT, fill=tk.X, expand=True)
-
-            mark = ttk.Label(title_row, text="", width=2)
+            mark = ttk.Label(title_row, text="", width=3, anchor="center")
             mark.pack(side=tk.RIGHT)
             marks.append(mark)
+            prompt_text = self._prepare_lookup_text(title_row, question["prompt"], ui_common.FONT_BODY)
+            prompt_text.pack(side=tk.LEFT, fill=tk.X, expand=True)
 
             var = tk.StringVar()
             for option in question["options"]:

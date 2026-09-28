@@ -1,0 +1,20 @@
+[Unit]
+Description=Language Guard account server
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=guard
+Group=guard
+WorkingDirectory=/opt/language-guard
+Environment=ACCOUNT_BIND=127.0.0.1
+Environment=ACCOUNT_PORT=8765
+ExecStart=/opt/language-guard/venv/bin/python account_server.py serve
+Restart=always
+RestartSec=3
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

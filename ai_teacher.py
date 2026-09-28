@@ -95,22 +95,39 @@ Chỉ trả lời bằng JSON với đúng các khóa sau:
 }}"""
 
 
-def check_sentence(target_word: str, user_sentence: str, meaning_vi: str = "") -> dict:
+def check_sentence(
+    target_word: str,
+    user_sentence: str,
+    meaning_vi: str = "",
+    profile: dict = None,
+    native_label: str = None,
+    level: str = None,
+) -> dict:
     """Chấm một câu do học viên đặt trong ngôn ngữ đang học."""
-    profile = config.current_language()
+    if config.uses_account_server() and profile is None:
+        import account_client
+
+        try:
+            return account_client.grade_sentence(target_word, user_sentence, meaning_vi)
+        except account_client.AccountError as error:
+            raise AITeacherError(str(error)) from error
+
+    profile = profile or config.current_language()
+    native_label = native_label or config.native_label()
+    level = level or config.READING_LEVEL
     word = strip_tags(target_word)
     user_prompt = (
         f"Ngôn ngữ: {profile['name_en']}\n"
         f"Từ mục tiêu: {word}\n"
-        f"Nghĩa ({config.native_label()}): {meaning_vi or '(không có)'}\n"
+        f"Nghĩa ({native_label}): {meaning_vi or '(không có)'}\n"
         f"Câu của học viên: {user_sentence.strip()}"
     )
     data = _chat_json(
         _SENTENCE_SYSTEM.format(
-            level=config.READING_LEVEL,
+            level=level,
             name_en=profile["name_en"],
             name_vi=profile["name_vi"],
-            native=config.native_label(),
+            native=native_label,
             articles=", ".join(profile["articles"]) or "(không có)",
         ),
         user_prompt,
@@ -188,12 +205,27 @@ Chỉ trả lời bằng JSON đúng cấu trúc sau:
 }}"""
 
 
-def generate_reading(entries: list, level: str = None, passage_words: int = None) -> dict:
+def generate_reading(
+    entries: list,
+    level: str = None,
+    passage_words: int = None,
+    profile: dict = None,
+    native_label: str = None,
+) -> dict:
     """Sinh một bài đọc trong ngôn ngữ đang học, xoay quanh các từ đã ôn.
 
     `entries` là list các dict có khóa word (hoặc nl/en cũ) và vi.
     """
-    profile = config.current_language()
+    if config.uses_account_server() and profile is None:
+        import account_client
+
+        try:
+            return account_client.generate_reading(entries)
+        except account_client.AccountError as error:
+            raise AITeacherError(str(error)) from error
+
+    profile = profile or config.current_language()
+    native_label = native_label or config.native_label()
     words = [e for e in entries if entry_word(e)]
     if not words:
         raise AITeacherError("Chưa có từ nào để tạo bài đọc.")
@@ -210,7 +242,7 @@ def generate_reading(entries: list, level: str = None, passage_words: int = None
         words=passage_words,
         name_en=profile["name_en"],
         name_vi=profile["name_vi"],
-        native=config.native_label(),
+        native=native_label,
     )
 
     last_error = None

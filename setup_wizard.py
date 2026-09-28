@@ -1,84 +1,74 @@
-"""Màn hình lần đầu của bản .exe: chỉ hỏi API key.
+"""Lần đầu mở bản cài đặt: đăng nhập tài khoản do dev tạo.
 
-Mật khẩu thoát khẩn cấp do dev đặt trong .env và được đóng vào file .exe.
+API key không nhập ở đây. Key chỉ nằm trên server tài khoản.
 """
 
 import tkinter as tk
 from tkinter import ttk
 
+import account_client
 import config
 import ui_common
 
 
 def run(root: tk.Tk) -> bool:
-    """Hiện form cài đặt phủ kín màn hình. Trả về True nếu đã lưu API key."""
+    """Hiện form đăng nhập. Trả về True nếu đã có phiên làm việc."""
     root.title(config.APP_NAME)
+    root.geometry("480x340")
+    root.minsize(440, 300)
     ui_common.apply_theme(root)
-    guard = ui_common.ScreenGuard(root, on_close_attempt=lambda: None)
 
     done = {"ok": False}
-    backdrop = ttk.Frame(root)
-    backdrop.pack(fill=tk.BOTH, expand=True)
+    card = ttk.Frame(root, padding=28)
+    card.pack(fill=tk.BOTH, expand=True)
 
-    card = ttk.Frame(backdrop, padding=36)
-    card.place(relx=0.5, rely=0.5, anchor="center")
-
-    ttk.Label(card, text="Cài đặt Language Guard", style="Title.TLabel").pack(anchor="w")
+    ttk.Label(card, text=config.ui("Đăng nhập", "Sign in"), style="Title.TLabel").pack(anchor="w")
     ttk.Label(
         card,
-        text="Nhập OpenAI API key để AI chấm câu và viết bài đọc.\nKey lấy tại platform.openai.com/api-keys.",
+        text=config.ui(
+            "Dùng tài khoản do người phát triển tạo. App tự dùng AI, bạn không cần API key.",
+            "Use the account the developer created. The app uses the AI for you. You do not need an API key.",
+        ),
         style="Muted.TLabel",
-        wraplength=460,
+        wraplength=400,
         justify="left",
-    ).pack(anchor="w", pady=(10, 18))
+    ).pack(anchor="w", pady=(10, 16))
 
-    ttk.Label(card, text="OpenAI API key").pack(anchor="w")
-    key_var = tk.StringVar(value=config.OPENAI_API_KEY)
-    key_entry = ttk.Entry(card, textvariable=key_var, show="*", font=ui_common.FONT_BODY, width=48)
-    key_entry.pack(fill=tk.X, pady=(6, 6), ipady=6)
+    ttk.Label(card, text=config.ui("Tên tài khoản", "Username")).pack(anchor="w")
+    user_var = tk.StringVar()
+    user_entry = ttk.Entry(card, textvariable=user_var, font=ui_common.FONT_BODY)
+    user_entry.pack(fill=tk.X, pady=(4, 8), ipady=4)
 
-    show_key = tk.BooleanVar(value=False)
+    ttk.Label(card, text=config.ui("Mật khẩu", "Password")).pack(anchor="w")
+    password_var = tk.StringVar()
+    password_entry = ttk.Entry(card, textvariable=password_var, show="*", font=ui_common.FONT_BODY)
+    password_entry.pack(fill=tk.X, pady=(4, 8), ipady=4)
 
-    def toggle_key():
-        key_entry.config(show="" if show_key.get() else "*")
-
-    ttk.Checkbutton(card, text="Hiện key", variable=show_key, command=toggle_key).pack(anchor="w")
-
-    error_label = ttk.Label(card, text="", foreground=ui_common.COLOR_BAD, wraplength=460, justify="left")
-    error_label.pack(anchor="w", pady=(12, 4))
+    error_label = ttk.Label(card, text="", foreground=ui_common.COLOR_BAD, wraplength=400, justify="left")
+    error_label.pack(anchor="w", pady=(4, 4))
 
     def submit(_event=None):
-        key = key_var.get().strip()
-        if not config.looks_like_api_key(key):
-            error_label.config(text="API key chưa đúng. Key thật bắt đầu bằng sk- và dài hơn 20 ký tự.")
+        username = user_var.get().strip()
+        password = password_var.get()
+        if not username or not password:
+            error_label.config(text=config.ui("Hãy nhập tên tài khoản và mật khẩu.", "Enter a username and password."))
             return
         try:
-            config.save_settings(key)
+            token = account_client.login(username, password)
+            config.save_account(username, token)
+        except account_client.AccountError as error:
+            error_label.config(text=str(error))
+            return
         except OSError as error:
-            error_label.config(text=f"Không lưu được cài đặt: {error}")
+            error_label.config(text=str(error))
             return
         done["ok"] = True
         root.quit()
 
-    def emergency():
-        if guard.confirm_emergency_exit():
-            done["ok"] = False
-            root.quit()
-
-    ttk.Button(card, text="Lưu và bắt đầu", command=submit).pack(anchor="w", pady=(8, 0))
-
-    ttk.Button(
-        backdrop,
-        text="Thoát khẩn cấp",
-        style="Small.TButton",
-        command=emergency,
-    ).place(relx=1.0, rely=1.0, x=-24, y=-24, anchor="se")
-
-    key_entry.focus_set()
+    ttk.Button(card, text=config.ui("Đăng nhập", "Sign in"), command=submit).pack(anchor="w", pady=(8, 0))
+    user_entry.focus_set()
     root.bind("<Return>", submit)
+    root.protocol("WM_DELETE_WINDOW", root.quit)
     root.mainloop()
-    backdrop.destroy()
     root.unbind("<Return>")
-    root.unbind("<FocusOut>")
-    root.unbind("<Alt-F4>")
     return done["ok"]

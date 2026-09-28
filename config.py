@@ -125,6 +125,8 @@ LOCK_SCREEN = _env_bool("LOCK_SCREEN", True)
 OPENAI_API_KEY = ""
 OPENAI_MODEL = "gpt-4o-mini"
 OPENAI_BASE_URL = None
+ACCOUNT_SERVER_URL = "http://127.0.0.1:8765"
+ACCOUNT_TOKEN = ""
 EMERGENCY_PASSWORD = ""
 
 
@@ -158,14 +160,26 @@ def _write_settings(payload: dict):
     os.replace(tmp, SETTINGS_FILE)
 
 
-def save_settings(openai_api_key: str):
-    """Lưu API key của người dùng. Mật khẩu thoát không ghi ra file này."""
+def save_account(username: str, token: str):
+    """Nhớ phiên đăng nhập. Không lưu API key trên máy người học."""
     payload = _read_settings()
-    payload["openai_api_key"] = openai_api_key.strip()
-    payload["openai_model"] = OPENAI_MODEL or "gpt-4o-mini"
+    payload.pop("openai_api_key", None)
     payload.pop("emergency_password", None)
+    payload["account_username"] = username.strip().lower()
+    payload["account_token"] = token.strip()
     _write_settings(payload)
     reload()
+
+
+def account_token() -> str:
+    return ACCOUNT_TOKEN
+
+
+def uses_account_server() -> bool:
+    """Bản cài đặt luôn gọi AI qua tài khoản. Máy dev vẫn dùng key trong .env."""
+    if is_frozen():
+        return bool(ACCOUNT_TOKEN)
+    return bool(ACCOUNT_TOKEN) and not looks_like_api_key(OPENAI_API_KEY)
 
 
 def active_code() -> str:
@@ -342,6 +356,20 @@ def bundled_password() -> str:
     return str(data.get("emergency_password") or "")
 
 
+def bundled_account_server() -> str:
+    path = os.path.join(resource_dir(), "bundled_secrets.json")
+    if not os.path.isfile(path):
+        return ""
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+    except (json.JSONDecodeError, OSError):
+        return ""
+    if not isinstance(data, dict):
+        return ""
+    return str(data.get("account_server_url") or "").strip()
+
+
 def reload():
     """Đọc API key từ settings.json (bản .exe) hoặc .env (lúc dev).
 
@@ -349,17 +377,20 @@ def reload():
     hoặc đóng sẵn trong .exe. Người dùng không được chọn mật khẩu này.
     """
     global OPENAI_API_KEY, OPENAI_MODEL, OPENAI_BASE_URL, EMERGENCY_PASSWORD
+    global ACCOUNT_SERVER_URL, ACCOUNT_TOKEN
 
     if not is_frozen():
         load_dotenv()
 
-    settings = _read_settings() if is_frozen() else {}
-    OPENAI_API_KEY = str(
-        settings.get("openai_api_key")
-        or os.getenv("OPENAI_API_KEY")
-        or os.getenv("vocab_teacher_key")
-        or ""
-    ).strip()
+    settings = _read_settings()
+    if is_frozen():
+        OPENAI_API_KEY = ""
+    else:
+        OPENAI_API_KEY = str(
+            os.getenv("OPENAI_API_KEY")
+            or os.getenv("vocab_teacher_key")
+            or ""
+        ).strip()
     OPENAI_MODEL = str(
         settings.get("openai_model") or os.getenv("OPENAI_MODEL") or "gpt-4o-mini"
     ).strip()
@@ -369,16 +400,28 @@ def reload():
         EMERGENCY_PASSWORD = bundled_password()
     else:
         EMERGENCY_PASSWORD = str(os.getenv("EMERGENCY_PASSWORD") or "")
+    ACCOUNT_SERVER_URL = (
+        bundled_account_server()
+        or str(os.getenv("ACCOUNT_SERVER_URL") or "").strip()
+        or "http://127.0.0.1:8765"
+    )
+    ACCOUNT_TOKEN = str(settings.get("account_token") or "").strip()
 
 
 def ai_is_configured() -> bool:
-    """Có API key thật hay không (bỏ qua giá trị mẫu chép từ .env.example)."""
+    """Có cách gọi AI: key trên máy dev, hoặc phiên đăng nhập của người học."""
+    if uses_account_server():
+        return True
     return looks_like_api_key(OPENAI_API_KEY)
 
 
 def is_ready() -> bool:
-    """Đủ key và mật khẩu thoát khẩn cấp để vào bài học."""
-    return ai_is_configured() and bool(EMERGENCY_PASSWORD)
+    """Bản cài đặt cần đã đăng nhập. Máy dev cần key trong .env."""
+    if not EMERGENCY_PASSWORD:
+        return False
+    if is_frozen():
+        return bool(ACCOUNT_TOKEN)
+    return looks_like_api_key(OPENAI_API_KEY) or bool(ACCOUNT_TOKEN)
 
 
 reload()

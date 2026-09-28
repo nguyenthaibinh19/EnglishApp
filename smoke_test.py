@@ -197,6 +197,21 @@ passage = "De fiets is rood. Het huis is groot!"
 check("dịch đúng câu chứa từ", text_utils.sentence_around(passage, passage.index("huis")) == "Het huis is groot!")
 check("dịch câu đầu", text_utils.sentence_around(passage, 3) == "De fiets is rood.")
 
+import tempfile
+import account_store
+
+folder = tempfile.mkdtemp()
+account_store.add_user("hocvien", "matkhau", folder)
+token = account_store.login("hocvien", "matkhau", folder)
+check("đăng nhập đúng mật khẩu", account_store.user_for_token(token, folder)["username"] == "hocvien")
+try:
+    account_store.login("hocvien", "sai", folder)
+    check("từ chối mật khẩu sai", False)
+except ValueError:
+    check("từ chối mật khẩu sai", True)
+account_store.set_active("hocvien", False, folder)
+check("khóa tài khoản thì hết phiên", account_store.user_for_token(token, folder) is None)
+
 print()
 if failures:
     print(f"{len(failures)} kiểm tra thất bại:")

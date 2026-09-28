@@ -1,0 +1,8 @@
+[Unit]
+Description=Backup Language Guard accounts database
+
+[Service]
+Type=oneshot
+User=guard
+Group=guard
+ExecStart=/opt/language-guard/venv/bin/python /opt/language-guard/deploy/hetzner/backup_accounts.py

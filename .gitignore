@@ -10,3 +10,4 @@ bundled_secrets.json
 languages/
 settings.json
 dicts/
+accounts.db

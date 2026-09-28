@@ -37,6 +37,7 @@ def register_startup(exe_path: str):
         "$shell = New-Object -ComObject WScript.Shell; "
         f"$sc = $shell.CreateShortcut({_ps_quote(link)}); "
         f"$sc.TargetPath = {_ps_quote(exe_path)}; "
+        f"$sc.Arguments = '--lock'; "
         f"$sc.WorkingDirectory = {_ps_quote(os.path.dirname(exe_path))}; "
         "$sc.Description = 'Dutch Guard'; "
         "$sc.WindowStyle = 1; "

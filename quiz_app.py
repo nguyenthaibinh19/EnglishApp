@@ -26,9 +26,15 @@ class VocabQuizApp:
         on_request_switch=None,
         on_emergency=None,
         required=True,
+        manage_only=False,
+        locked=True,
     ):
         self.window = window
-        self.window.title(f"{config.APP_NAME} — {config.ui('Từ vựng', 'Vocabulary')}")
+        self.manage_only = manage_only
+        self.window.title(
+            f"{config.APP_NAME} — "
+            + (config.ui("Kho từ", "Word list") if manage_only else config.ui("Từ vựng", "Vocabulary"))
+        )
 
         self.store = store or VocabStore()
         self.progress = progress or Progress()
@@ -37,7 +43,7 @@ class VocabQuizApp:
         self.on_completed = on_completed
         self.on_request_switch = on_request_switch
         self.on_emergency = on_emergency
-        self.required = required
+        self.required = False if manage_only else required
 
         self.completed = False
         self.practice_mode = None      # None | "free" | "forced"
@@ -45,17 +51,21 @@ class VocabQuizApp:
         self._pending_after_id = None
 
         ui_common.apply_theme(window)
-        self.guard = ui_common.ScreenGuard(window, on_close_attempt=self._on_close_attempt)
+        self.guard = ui_common.ScreenGuard(
+            window,
+            enabled=config.LOCK_SCREEN if locked else False,
+            on_close_attempt=self._on_close_attempt,
+        )
 
-        if self.store.count() == 0:
+        if self.store.count() == 0 and not self.manage_only:
             self.guard.show_error(
                 config.ui("Chưa có từ vựng", "No vocabulary yet"),
                 config.ui(
                     "Danh sách từ của ngôn ngữ này đang trống.\n\n"
-                    "Hãy thêm từ trong phần Quản lý từ vựng, "
+                    "Hãy thêm từ bằng nút Kho từ trên menu, "
                     f"ví dụ: {config.current_language()['sample']}.",
                     "This language's word list is empty.\n\n"
-                    "Add words in Manage vocabulary, "
+                    "Add words with the Word list button on the menu, "
                     f"for example: {config.current_language()['sample']}.",
                 ),
             )
@@ -63,7 +73,10 @@ class VocabQuizApp:
             return
 
         self._build_ui()
-        self._next_question()
+        if self.manage_only:
+            self._open_manager()
+        else:
+            self._next_question()
 
     # ============================================================
     # Dựng giao diện
@@ -72,6 +85,12 @@ class VocabQuizApp:
     def _build_ui(self):
         self.container = ttk.Frame(self.window, padding=20)
         self.container.pack(fill=tk.BOTH, expand=True)
+
+        if self.manage_only:
+            self.quiz_view = None
+            self.practice_view = None
+            self.manager_view = None
+            return
 
         self.quiz_view = self._build_quiz_view()
         self.practice_view = None
@@ -607,7 +626,9 @@ class VocabQuizApp:
         ).grid(row=len(fields) * 2 + 1, column=0, columnspan=2, sticky="w")
 
         ttk.Button(
-            view, text=config.ui("Quay lại làm bài", "Back to the quiz"), command=self._close_manager
+            view,
+            text=config.ui("Đóng", "Close") if self.manage_only else config.ui("Quay lại làm bài", "Back to the quiz"),
+            command=self._close_manager,
         ).pack(anchor="w")
         return view
 
@@ -745,7 +766,7 @@ class VocabQuizApp:
                 config.ui("Hãy chọn một từ trong danh sách bên trái.", "Select a word in the list on the left."),
             )
             return
-        if self.store.count() <= 1:
+        if self.store.count() <= 1 and not self.manage_only:
             self.guard.show_error(
                 config.ui("Không thể xóa", "Can't delete"),
                 config.ui("Phải giữ lại ít nhất 1 từ để còn làm bài.", "Keep at least one word so the quiz can run."),
@@ -769,6 +790,9 @@ class VocabQuizApp:
             var.set("")
 
     def _close_manager(self):
+        if self.manage_only:
+            self.window.destroy()
+            return
         self._show(self.quiz_view)
         if self.store.count() == 0:
             self.guard.show_error(

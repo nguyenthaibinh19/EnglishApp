@@ -1,0 +1,5 @@
+# setup.sh thay TEN_MIEN bằng tên miền thật.
+TEN_MIEN {
+	encode gzip
+	reverse_proxy 127.0.0.1:8765
+}

@@ -1,0 +1,10 @@
+[Unit]
+Description=Daily backup of Language Guard accounts
+
+[Timer]
+OnCalendar=*-*-* 03:15:00
+Persistent=true
+RandomizedDelaySec=20m
+
+[Install]
+WantedBy=timers.target
