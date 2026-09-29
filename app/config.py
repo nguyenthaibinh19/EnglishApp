@@ -1,8 +1,8 @@
-"""Cấu hình chung cho Dutch Guard.
+"""Cấu hình chung cho langstudyguard.
 
 Khi chạy bằng Python (đang sửa code): dữ liệu và .env nằm cạnh source.
-Khi chạy file .exe đã đóng gói: dữ liệu nằm ở %APPDATA%\\DutchGuard,
-còn file cài nằm ở %LOCALAPPDATA%\\DutchGuard.
+Khi chạy file .exe đã đóng gói: dữ liệu nằm ở %APPDATA%\\langstudyguard,
+còn file cài nằm ở %LOCALAPPDATA%\\langstudyguard.
 """
 
 import json
@@ -31,22 +31,43 @@ def resource_dir() -> str:
     return os.path.join(BASE_DIR, "data")
 
 
+def _migrate_user_data(old: str, new: str):
+    """Chép dữ liệu từ thư mục DutchGuard sang langstudyguard, không ghi đè file đã có."""
+    if os.path.normcase(old) == os.path.normcase(new) or not os.path.isdir(old):
+        return
+    os.makedirs(new, exist_ok=True)
+    for name in os.listdir(old):
+        source = os.path.join(old, name)
+        dest = os.path.join(new, name)
+        if os.path.exists(dest):
+            continue
+        try:
+            if os.path.isdir(source):
+                shutil.copytree(source, dest)
+            else:
+                shutil.copy2(source, dest)
+        except OSError:
+            continue
+
+
 def data_dir() -> str:
     """Thư mục người dùng ghi được: từ vựng, tiến độ, cài đặt."""
     if is_frozen():
         root = os.environ.get("APPDATA") or os.path.expanduser("~")
-        return os.path.join(root, "DutchGuard")
+        current = os.path.join(root, "langstudyguard")
+        _migrate_user_data(os.path.join(root, "DutchGuard"), current)
+        return current
     return BASE_DIR
 
 
 def install_dir() -> str:
     """Nơi bản .exe tự chép vào để shortcut Startup không bị gãy."""
     root = os.environ.get("LOCALAPPDATA") or data_dir()
-    return os.path.join(root, "DutchGuard")
+    return os.path.join(root, "langstudyguard")
 
 
 def installed_exe() -> str:
-    return os.path.join(install_dir(), "DutchGuard.exe")
+    return os.path.join(install_dir(), "langstudyguard.exe")
 
 
 def _env_int(name: str, default: int) -> int:
@@ -74,7 +95,9 @@ def _env_bool(name: str, default: bool) -> bool:
 
 # ---------- Nhận diện ứng dụng ----------
 
-APP_NAME = "Language Guard"
+APP_NAME = "langstudyguard"
+APP_VERSION = "1.3.1"
+UPDATE_REPO = "nguyenthaibinh19/EnglishApp"
 
 # ---------- Đường dẫn dữ liệu ----------
 
@@ -284,6 +307,31 @@ def set_native(code: str) -> str:
     payload.pop("emergency_password", None)
     _write_settings(payload)
     return chosen
+
+
+# Phần ngoài từ vựng. Thêm mục vào đây khi có dạng bài mới, ví dụ nghe.
+OPTIONAL_ACTIVITIES = (
+    {"id": "reading", "vi": "Đọc", "en": "Reading"},
+)
+
+
+def activity_enabled(activity_id: str) -> bool:
+    """True khi người dùng tick phần đó. Thiếu cài đặt thì bài đọc vẫn bật."""
+    raw = _read_settings().get("activities")
+    if not isinstance(raw, dict) or activity_id not in raw:
+        return activity_id == "reading"
+    return bool(raw.get(activity_id))
+
+
+def set_activity_enabled(activity_id: str, enabled: bool) -> None:
+    payload = _read_settings()
+    activities = payload.get("activities")
+    if not isinstance(activities, dict):
+        activities = {}
+    activities[str(activity_id)] = bool(enabled)
+    payload["activities"] = activities
+    payload.pop("emergency_password", None)
+    _write_settings(payload)
 
 
 def set_study_codes(codes) -> list:

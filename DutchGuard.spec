@@ -1,5 +1,5 @@
 # -*- mode: python ; coding: utf-8 -*-
-"""Đóng gói Dutch Guard thành một file DutchGuard.exe.
+"""Đóng gói langstudyguard thành một file langstudyguard.exe.
 
 Chạy: python -m PyInstaller DutchGuard.spec --noconfirm
 """
@@ -52,7 +52,7 @@ exe = EXE(
     a.binaries,
     a.datas,
     [],
-    name="DutchGuard",
+    name="langstudyguard",
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,

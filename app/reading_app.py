@@ -28,6 +28,8 @@ class ReadingApp:
         on_completed=None,
         on_request_switch=None,
         on_emergency=None,
+        on_failed=None,
+        on_skip=None,
         required=True,
         locked=True,
     ):
@@ -40,9 +42,12 @@ class ReadingApp:
         self.on_completed = on_completed
         self.on_request_switch = on_request_switch
         self.on_emergency = on_emergency
+        self.on_failed = on_failed
+        self.on_skip = on_skip
         self.required = required
 
         self.completed = False
+        self.load_failed = False
         self.test = None
         self.group_states = []
         self.translation_visible = False
@@ -158,6 +163,9 @@ class ReadingApp:
         if isinstance(error, account_client.SessionExpired) and self._ask_login():
             self._load_test(True)
             return
+        self.load_failed = True
+        if callable(self.on_failed):
+            self.on_failed()
         self.loading_label.config(text=config.ui("Chưa tạo được bài đọc", "Couldn't create a reading"))
         self.loading_detail.config(text=str(error))
 
@@ -166,6 +174,12 @@ class ReadingApp:
             text=config.ui("Thử lại", "Try again"),
             command=lambda: self._load_test(True),
         ).pack(side=tk.LEFT, padx=6)
+        if callable(self.on_skip):
+            ttk.Button(
+                self.loading_buttons,
+                text=config.ui("Kết thúc sớm", "Finish early"),
+                command=self._finish_early,
+            ).pack(side=tk.LEFT, padx=6)
         ttk.Button(
             self.loading_buttons,
             text=config.ui("Sổ từ", "Word list"),
@@ -914,8 +928,16 @@ class ReadingApp:
         except tk.TclError:
             pass
 
+    def _finish_early(self):
+        self.required = False
+        self.load_failed = True
+        if callable(self.on_skip):
+            self.on_skip()
+        else:
+            self.window.destroy()
+
     def _on_close_attempt(self):
-        if self.completed or not self.required:
+        if self.completed or not self.required or self.load_failed:
             self.window.destroy()
             return
         total = count_questions(self.test) if self.test else 0

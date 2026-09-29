@@ -12,12 +12,12 @@ echo Dang lay mat khau dev tu .env ...
 "%PYEXE%" app\bundle_secrets.py
 if errorlevel 1 goto :fail
 
-echo Dang dong goi DutchGuard.exe ...
+echo Dang dong goi langstudyguard.exe ...
 "%PYEXE%" -m PyInstaller DutchGuard.spec --noconfirm
 if errorlevel 1 goto :fail
 
 echo.
-echo Xong: %~dp0dist\DutchGuard.exe
+echo Xong: %~dp0dist\langstudyguard.exe
 exit /b 0
 
 :fail

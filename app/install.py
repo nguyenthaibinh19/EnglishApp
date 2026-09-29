@@ -32,14 +32,20 @@ def register_startup(exe_path: str):
 
     startup = os.path.join(appdata, "Microsoft", "Windows", "Start Menu", "Programs", "Startup")
     os.makedirs(startup, exist_ok=True)
-    link = os.path.join(startup, "Dutch Guard.lnk")
+    old_link = os.path.join(startup, "Dutch Guard.lnk")
+    if os.path.isfile(old_link):
+        try:
+            os.remove(old_link)
+        except OSError:
+            pass
+    link = os.path.join(startup, "langstudyguard.lnk")
     script = (
         "$shell = New-Object -ComObject WScript.Shell; "
         f"$sc = $shell.CreateShortcut({_ps_quote(link)}); "
         f"$sc.TargetPath = {_ps_quote(exe_path)}; "
         f"$sc.Arguments = '--lock'; "
         f"$sc.WorkingDirectory = {_ps_quote(os.path.dirname(exe_path))}; "
-        "$sc.Description = 'Dutch Guard'; "
+        "$sc.Description = 'langstudyguard'; "
         "$sc.WindowStyle = 1; "
         "$sc.Save()"
     )

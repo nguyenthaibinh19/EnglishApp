@@ -1,4 +1,4 @@
-# Dutch Guard
+# langstudyguard
 
 Ứng dụng desktop ép bản thân học tiếng Hà Lan mỗi ngày. Cửa sổ chạy
 toàn màn hình, luôn nằm trên cùng và chỉ cho đóng khi đã xong cả hai phần:
@@ -9,12 +9,12 @@ toàn màn hình, luôn nằm trên cùng và chỉ cho đóng khi đã xong c�
 
 ## Dành cho người dùng
 
-Tải `DutchGuard.exe` (file đính kèm ở mục Releases, không cần cài Python).
+Tải `langstudyguard.exe` (file đính kèm ở mục Releases, không cần cài Python).
 
 1. Mở file đó. Windows có thể báo “Unknown publisher” — bấm **More info**, rồi **Run anyway**.
-2. App tự chép vào `%LOCALAPPDATA%\DutchGuard\` và tự thêm vào Startup.
+2. App tự chép vào `%LOCALAPPDATA%\langstudyguard\` và tự thêm vào Startup.
 3. Lần đầu đăng nhập tài khoản do người phát triển tạo. API key không nằm trong app.
-4. Từ vựng và tiến độ được lưu ở `%APPDATA%\DutchGuard\`, nên cập nhật bản mới không mất dữ liệu.
+4. Từ vựng và tiến độ được lưu ở `%APPDATA%\langstudyguard\`. Bản mới tự tải về và thay file cũ khi người dùng đồng ý. Dữ liệu từ thư mục DutchGuard cũ được chép sang, không bị mất.
 
 Từ đó mỗi lần đăng nhập Windows, app tự mở.
 
@@ -33,7 +33,7 @@ Chạy bằng `start_dutch_guard.bat` hoặc `python main.py`. Cách này dùng 
 build_exe.bat
 ```
 
-File ra ở `dist\DutchGuard.exe`.
+File ra ở `dist\langstudyguard.exe`.
 
 ## Thêm từ vựng
 

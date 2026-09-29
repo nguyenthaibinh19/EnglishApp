@@ -1,7 +1,7 @@
-"""Language Guard — mỗi lần mở máy, học các ngôn ngữ đã chọn.
+"""langstudyguard — mỗi lần mở máy, học các ngôn ngữ đã chọn.
 
-Mỗi ngôn ngữ được tick cần đủ số câu từ vựng đúng và một bài đọc.
-Ngôn ngữ không tick thì không phải làm. Xong hết mới đóng được app.
+Từ vựng luôn bắt buộc. Bài đọc và các phần sau này chỉ bắt khi người dùng tick.
+Xong hết các phần đang bật mới đóng được app.
 """
 
 import tkinter as tk
@@ -36,6 +36,7 @@ class StudyMasterApp:
 
         self.vocab_window = None
         self.reading_window = None
+        self.reading_unavailable = False
         self._menu_hidden = False
         self.row_status = {}
         self.row_buttons = {}
@@ -68,6 +69,37 @@ class StudyMasterApp:
             justify="left",
         )
         self.intro_label.pack(anchor="w", pady=(8, 14))
+
+        activities = ttk.LabelFrame(
+            card, text=config.ui("Phần cần làm", "Parts to study"), padding=8
+        )
+        activities.pack(anchor="w", fill=tk.X, pady=(0, 12))
+        self.vocab_required = tk.IntVar(value=1)
+        ttk.Checkbutton(
+            activities,
+            text=config.ui("Từ vựng (bắt buộc)", "Vocabulary (required)"),
+            variable=self.vocab_required,
+            state="disabled",
+        ).pack(anchor="w")
+        self.activity_vars = {}
+        for activity in config.OPTIONAL_ACTIVITIES:
+            variable = tk.BooleanVar(value=config.activity_enabled(activity["id"]))
+            self.activity_vars[activity["id"]] = variable
+            ttk.Checkbutton(
+                activities,
+                text=config.ui(activity["vi"], activity["en"]),
+                variable=variable,
+                command=lambda activity_id=activity["id"]: self._on_activity_toggled(activity_id),
+            ).pack(anchor="w", pady=(4, 0))
+
+        self.early_button = ttk.Button(
+            card,
+            text=config.ui(
+                "Bài đọc không kết nối được. Kết thúc sớm",
+                "Reading couldn't connect. Finish early",
+            ),
+            command=self._finish_without_reading,
+        )
 
         pickers = ttk.Frame(card)
         pickers.pack(anchor="w", fill=tk.X, pady=(0, 8))
@@ -150,7 +182,10 @@ class StudyMasterApp:
             )
             vocab_button.pack(side=tk.LEFT, padx=4)
             reading_button = ttk.Button(
-                row, text=config.ui("Đọc", "Reading"), style="Small.TButton",
+                row,
+                text=config.ui("Đọc", "Reading"),
+                style="Small.TButton",
+                width=10,
                 command=lambda c=code: self.open_reading_section(c),
             )
             reading_button.pack(side=tk.LEFT, padx=(0, 4))
@@ -160,6 +195,7 @@ class StudyMasterApp:
             )
             remove_button.pack(side=tk.LEFT)
             self.row_buttons[code] = (vocab_button, reading_button)
+            self._sync_reading_button(reading_button)
 
     def _ensure_missing_dictionaries(self):
         try:
@@ -275,13 +311,44 @@ class StudyMasterApp:
         self._build_language_rows()
         self._refresh_status()
 
+    def _sync_reading_button(self, button: ttk.Button):
+        if config.activity_enabled("reading"):
+            button.state(["!disabled"])
+        else:
+            button.state(["disabled"])
+
+    def _sync_reading_buttons(self):
+        for buttons in self.row_buttons.values():
+            reading_button = buttons[1] if len(buttons) > 1 else None
+            if reading_button is not None:
+                self._sync_reading_button(reading_button)
+
+    def _on_activity_toggled(self, activity_id: str):
+        variable = self.activity_vars.get(activity_id)
+        if variable is None:
+            return
+        config.set_activity_enabled(activity_id, bool(variable.get()))
+        if activity_id == "reading" and variable.get():
+            self.reading_unavailable = False
+        if activity_id == "reading":
+            self._sync_reading_buttons()
+        self._refresh_status()
+        if self._all_done():
+            self.root.after(200, self._finish_if_all_done)
+
+    def _vocab_all_done(self) -> bool:
+        return all(
+            self.session.get(code, {}).get("vocab") for code in config.study_codes()
+        )
+
     def _language_pending(self, code: str) -> list:
         state = self.session[code]
         missing = []
         if not state["vocab"]:
             missing.append("từ vựng")
-        if not state["reading"]:
-            missing.append("bài đọc")
+        for activity in config.OPTIONAL_ACTIVITIES:
+            if config.activity_enabled(activity["id"]) and not state.get(activity["id"]):
+                missing.append(activity["id"])
         return missing
 
     def _all_done(self) -> bool:
@@ -303,10 +370,9 @@ class StudyMasterApp:
             if label is None:
                 continue
             missing = self._language_pending(code)
-            names = {
-                "từ vựng": config.ui("từ vựng", "vocabulary"),
-                "bài đọc": config.ui("bài đọc", "reading"),
-            }
+            names = {"từ vựng": config.ui("từ vựng", "vocabulary")}
+            for activity in config.OPTIONAL_ACTIVITIES:
+                names[activity["id"]] = config.ui(activity["vi"].lower(), activity["en"].lower())
             if not missing:
                 done_count += 1
                 label.config(text=config.ui("xong lần này", "done this launch"))
@@ -317,12 +383,21 @@ class StudyMasterApp:
         target = config.QUIZ_TARGET_CORRECT
         self.intro_label.config(text=config.ui(
             f"Mỗi lần mở máy, mỗi ngôn ngữ trong danh sách cần "
-            f"{target} câu từ vựng đúng và một bài đọc. "
-            "Tiếng không có trong danh sách thì không phải làm.",
+            f"{target} câu từ vựng đúng. Tick thêm phần ở khung "
+            "“Phần cần làm” nếu bạn muốn làm thêm trong lần này.",
             f"Each time the computer starts, every language in the list needs "
-            f"{target} correct vocabulary answers and one reading. "
-            "Languages that are not listed are skipped.",
+            f"{target} correct vocabulary answers. Tick extra parts under "
+            "“Parts to study” if you want them this launch.",
         ))
+        if (
+            self.reading_unavailable
+            and config.activity_enabled("reading")
+            and self._vocab_all_done()
+            and not self._all_done()
+        ):
+            self.early_button.pack(anchor="w", pady=(0, 8))
+        else:
+            self.early_button.pack_forget()
         self.native_caption.config(text=config.ui("Ngôn ngữ gốc", "Your language"))
         self.add_caption.config(text=config.ui("Thêm ngôn ngữ", "Add a language"))
         self.emergency_button.config(text=config.ui("Thoát khẩn cấp", "Emergency exit"))
@@ -389,13 +464,15 @@ class StudyMasterApp:
             store=self.store,
             progress=self.progress,
             on_completed=self._on_vocab_completed,
-            on_request_switch=self._switch_to_reading,
+            on_request_switch=self._switch_to_reading if config.activity_enabled("reading") else None,
             on_emergency=self.quit_all,
             required=not self.session[config.active_code()]["vocab"],
             locked=True,
         )
 
     def open_reading_section(self, code=None):
+        if not config.activity_enabled("reading"):
+            return
         if code is not None:
             self._activate(code)
         if self.reading_window is not None and self.reading_window.winfo_exists():
@@ -412,6 +489,8 @@ class StudyMasterApp:
             on_completed=self._on_reading_completed,
             on_request_switch=self._switch_to_vocab,
             on_emergency=self.quit_all,
+            on_failed=self._mark_reading_unavailable,
+            on_skip=self._finish_without_reading if self._vocab_all_done() else None,
             required=not self.session[config.active_code()]["reading"],
             locked=True,
         )
@@ -475,8 +554,10 @@ class StudyMasterApp:
         code = config.active_code()
         self.session[code]["vocab"] = True
         self._refresh_status()
+        if not config.activity_enabled("reading"):
+            self.root.after(200, self._finish_if_all_done)
+            return
         # Chỉ mở đúng một bài đọc của ngôn ngữ vừa học xong.
-        # Không tự mở bài đọc của các ngôn ngữ còn lại.
         self.root.after(200, lambda: self._open_one_reading(code))
 
     def _open_one_reading(self, code: str):
@@ -487,8 +568,26 @@ class StudyMasterApp:
             return
         self.open_reading_section(code)
 
+    def _mark_reading_unavailable(self):
+        self.reading_unavailable = True
+        self._refresh_status()
+
+    def _finish_without_reading(self):
+        """Bỏ phần đọc của lần mở máy này khi không gọi được AI."""
+        if not self._vocab_all_done():
+            self._close_window(self.reading_window)
+            return
+        for code in config.study_codes():
+            state = self.session.setdefault(code, {"vocab": False, "reading": False})
+            state["reading"] = True
+        self.reading_unavailable = False
+        self._close_window(self.reading_window)
+        self._refresh_status()
+        self.root.after(200, self._finish_if_all_done)
+
     def _on_reading_completed(self):
         self.session[config.active_code()]["reading"] = True
+        self.reading_unavailable = False
         self._refresh_status()
         self.root.after(200, self._finish_if_all_done)
 
@@ -523,18 +622,17 @@ class StudyMasterApp:
         for code in config.study_codes():
             missing = self._language_pending(code)
             if missing:
-                names = {
-                    "từ vựng": config.ui("từ vựng", "vocabulary"),
-                    "bài đọc": config.ui("bài đọc", "reading"),
-                }
+                names = {"từ vựng": config.ui("từ vựng", "vocabulary")}
+                for activity in config.OPTIONAL_ACTIVITIES:
+                    names[activity["id"]] = config.ui(activity["vi"].lower(), activity["en"].lower())
                 shown = ", ".join(names.get(item, item) for item in missing)
                 lines.append(f"• {config.language_name(code)}: {shown}")
         with self.guard.suspended():
             messagebox.showwarning(
                 config.ui("Chưa hoàn thành", "Not finished"),
                 config.ui(
-                    "Mỗi lần mở máy cần xong từ vựng và bài đọc của các ngôn ngữ đã tick.\n\n",
-                    "Each launch needs vocabulary and a reading for every selected language.\n\n",
+                    "Mỗi lần mở máy cần xong các phần đang được tick.\n\n",
+                    "Each launch needs every ticked part for the selected languages.\n\n",
                 )
                 + "\n".join(lines)
                 + config.ui(
@@ -707,7 +805,7 @@ def main():
     except Exception as error:
         root = tk.Tk()
         root.withdraw()
-        messagebox.showerror("Dutch Guard", f"Không cài được ứng dụng:\n{error}")
+        messagebox.showerror(config.APP_NAME, f"Không cài được ứng dụng:\n{error}")
         root.destroy()
         return
     if not stay:
@@ -732,6 +830,9 @@ def main():
         StudyMasterApp(root)
     else:
         FreeHome(root)
+    if config.is_frozen():
+        import updater
+        root.after(600, lambda: updater.prompt_if_needed(root))
     root.mainloop()
 
 
