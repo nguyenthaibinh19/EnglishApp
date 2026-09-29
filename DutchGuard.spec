@@ -28,13 +28,13 @@ _binaries = [
 ]
 
 a = Analysis(
-    ["main.py"],
-    pathex=[],
+    ["app/main.py"],
+    pathex=["app"],
     binaries=_binaries,
     datas=[
-        ("vocab.json", "."),
-        ("starters", "starters"),
-        ("Reading", "Reading"),
+        ("data/vocab.json", "."),
+        ("data/starters", "starters"),
+        ("data/Reading", "Reading"),
         ("bundled_secrets.json", "."),
     ],
     hiddenimports=["dotenv"],

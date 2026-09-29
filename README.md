@@ -13,7 +13,7 @@ Tải `DutchGuard.exe` (file đính kèm ở mục Releases, không cần cài P
 
 1. Mở file đó. Windows có thể báo “Unknown publisher” — bấm **More info**, rồi **Run anyway**.
 2. App tự chép vào `%LOCALAPPDATA%\DutchGuard\` và tự thêm vào Startup.
-3. Lần đầu nhập OpenAI API key. Mật khẩu thoát khẩn cấp là mật khẩu dev đã đóng trong file cài, người dùng không đặt và không xem được mật khẩu đó.
+3. Lần đầu đăng nhập tài khoản do người phát triển tạo. API key không nằm trong app.
 4. Từ vựng và tiến độ được lưu ở `%APPDATA%\DutchGuard\`, nên cập nhật bản mới không mất dữ liệu.
 
 Từ đó mỗi lần đăng nhập Windows, app tự mở.
@@ -37,7 +37,7 @@ File ra ở `dist\DutchGuard.exe`.
 
 ## Thêm từ vựng
 
-Sửa trực tiếp `vocab.json`, hoặc dùng nút **Quản lý từ vựng** ngay trong app.
+Sửa từ trong app, hoặc sửa file từ vựng của từng ngôn ngữ trong thư mục dữ liệu. File mẫu nằm ở `data/vocab.json`.
 
 ```json
 {
@@ -73,7 +73,7 @@ ngẫu nhiên) và nhờ AI viết một bài ở trình độ CEFR cấu hình 
 được lưu trong `cache/` theo ngày, nên mở lại không tốn thêm tiền API; bấm
 **Tạo bài đọc mới** nếu muốn bài khác.
 
-Nếu chưa có API key, app sẽ tìm bài tự soạn trong `Reading/<tên bài>/AnswerKey.json`
+Nếu chưa gọi được AI, app sẽ tìm bài tự soạn trong `data/Reading/<tên bài>/AnswerKey.json`
 (hỗ trợ cả định dạng IELTS cũ và đọc passage từ PDF).
 
 ## Cấu hình
@@ -89,21 +89,30 @@ Mọi thứ chỉnh trong `.env`, xem `.env.example`. Đáng chú ý:
 | `LOCK_SCREEN` | 1 | Đặt `0` khi sửa code để cửa sổ không chiếm màn hình |
 | `EMERGENCY_PASSWORD` | (trong `.env`) | Mật khẩu để dùng nút thoát khẩn cấp |
 
-## Cấu trúc mã nguồn
+## Cấu trúc
 
-| File | Vai trò |
+```
+main.py              cách chạy: python main.py
+app/                 toàn bộ code
+data/                từ mẫu, bộ từ khởi đầu, bài đọc soạn sẵn
+deploy/hetzner/      cài server tài khoản lên VPS
+archive/             dữ liệu bản tiếng Anh cũ
+```
+
+| File trong `app/` | Vai trò |
 | --- | --- |
 | `main.py` | Menu chính, điều phối hai phần và điều kiện thoát |
-| `quiz_app.py` | Giao diện luyện từ vựng, đặt câu ví dụ, quản lý từ |
-| `quiz_engine.py` | Logic chọn câu và chấm điểm, không phụ thuộc Tkinter |
+| `config.py` | Đường dẫn, `.env`, ngôn ngữ đang học |
+| `setup_wizard.py` | Đăng nhập tài khoản |
+| `quiz_app.py` | Giao diện luyện từ vựng, đặt câu ví dụ, sổ từ |
+| `quiz_engine.py` | Chọn câu và chấm điểm, không phụ thuộc Tkinter |
 | `reading_app.py` | Giao diện luyện đọc |
 | `reading_source.py` | Chọn từ, gọi AI, cache, nguồn dự phòng |
-| `reading_schema.py` | Quy mọi định dạng câu hỏi về một dạng chuẩn |
-| `ai_teacher.py` | Gọi OpenAI: chấm câu và viết bài đọc |
-| `vocab_store.py` | Đọc/ghi `vocab.json` |
-| `progress.py` | Thống kê từng từ và nhật ký theo ngày |
-| `text_utils.py` | Chuẩn hóa và so khớp đáp án tiếng Hà Lan |
-| `ui_common.py` | Khóa màn hình, chạy AI ở luồng nền, widget dùng chung |
-| `smoke_test.py` | Kiểm tra nhanh phần logic: `python smoke_test.py` |
+| `ai_teacher.py` | Chấm câu và viết bài đọc |
+| `account_server.py` | Server giữ API key |
+| `account_client.py` | App người học gọi server |
+| `dictionary.py` | Tra từ |
+| `ui_common.py` | Khóa màn hình và tiện ích giao diện |
+| `smoke_test.py` | Kiểm tra logic: `python app/smoke_test.py` |
 
 Dữ liệu tiếng Anh của phiên bản cũ được giữ trong `archive/`.

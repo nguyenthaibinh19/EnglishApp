@@ -14,7 +14,9 @@ from dotenv import load_dotenv
 
 import languages
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+# Code nằm trong app/. Dữ liệu người dùng và file mẫu nằm ở thư mục gốc của dự án.
+_HERE = os.path.dirname(os.path.abspath(__file__))
+BASE_DIR = os.path.dirname(_HERE)
 
 
 def is_frozen() -> bool:
@@ -26,7 +28,7 @@ def resource_dir() -> str:
     """Thư mục chứa file đóng kèm (vocab mẫu, bài đọc)."""
     if is_frozen():
         return getattr(sys, "_MEIPASS", BASE_DIR)
-    return BASE_DIR
+    return os.path.join(BASE_DIR, "data")
 
 
 def data_dir() -> str:

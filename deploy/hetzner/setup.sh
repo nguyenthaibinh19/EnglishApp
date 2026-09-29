@@ -30,7 +30,12 @@ FILES=(
 )
 
 for name in "${FILES[@]}"; do
-  if [[ ! -f "${SRC}/${name}" ]]; then
+  if [[ "${name}" == *.py ]]; then
+    if [[ ! -f "${SRC}/app/${name}" ]]; then
+      echo "Thieu ${SRC}/app/${name}"
+      exit 1
+    fi
+  elif [[ ! -f "${SRC}/${name}" ]]; then
     echo "Thieu ${SRC}/${name}"
     exit 1
   fi
@@ -58,7 +63,11 @@ fi
 
 mkdir -p "${APP_DIR}/deploy/hetzner" /var/backups/language-guard
 for name in "${FILES[@]}"; do
-  cp "${SRC}/${name}" "${APP_DIR}/${name}"
+  if [[ "${name}" == *.py ]]; then
+    cp "${SRC}/app/${name}" "${APP_DIR}/${name}"
+  else
+    cp "${SRC}/${name}" "${APP_DIR}/${name}"
+  fi
 done
 cp "${SRC}/deploy/hetzner/backup_accounts.py" "${APP_DIR}/deploy/hetzner/backup_accounts.py"
 cp "${SRC}/deploy/hetzner/language-guard.service" /etc/systemd/system/language-guard.service
