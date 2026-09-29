@@ -211,6 +211,14 @@ except ValueError:
     check("từ chối mật khẩu sai", True)
 account_store.set_active("hocvien", False, folder)
 check("khóa tài khoản thì hết phiên", account_store.user_for_token(token, folder) is None)
+account_store.set_active("hocvien", True, folder)
+account_store.set_password("hocvien", "matkhau2", folder)
+try:
+    account_store.login("hocvien", "matkhau", folder)
+    check("mật khẩu cũ không còn dùng", False)
+except ValueError:
+    check("mật khẩu cũ không còn dùng", True)
+check("đăng nhập bằng mật khẩu mới", account_store.login("hocvien", "matkhau2", folder) != "")
 
 print()
 if failures:

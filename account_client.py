@@ -11,16 +11,23 @@ class AccountError(RuntimeError):
     pass
 
 
-def _post(path: str, payload: dict, token: str = "") -> dict:
+class SessionExpired(AccountError):
+    """Token còn lưu trên máy nhưng server không nhận."""
+
+
+def _post(path: str, payload: dict, token: str = "", timeout: float = None) -> dict:
     url = config.ACCOUNT_SERVER_URL.rstrip("/") + path
-    data = json.dumps(payload).encode("utf-8")
+    body = dict(payload)
+    if token:
+        body["token"] = token
+    data = json.dumps(body).encode("utf-8")
     request = urllib.request.Request(url, data=data, method="POST")
     request.add_header("Content-Type", "application/json")
     request.add_header("User-Agent", "LanguageGuard")
     if token:
         request.add_header("Authorization", "Bearer " + token)
     try:
-        with urllib.request.urlopen(request, timeout=config.OPENAI_TIMEOUT) as response:
+        with urllib.request.urlopen(request, timeout=timeout or config.OPENAI_TIMEOUT) as response:
             body = json.loads(response.read().decode("utf-8"))
     except urllib.error.HTTPError as error:
         detail = error.read().decode("utf-8", errors="replace")
@@ -28,6 +35,9 @@ def _post(path: str, payload: dict, token: str = "") -> dict:
             message = json.loads(detail).get("error") or detail
         except json.JSONDecodeError:
             message = detail or str(error)
+        if error.code == 401:
+            config.clear_account()
+            raise SessionExpired(str(message)) from error
         raise AccountError(str(message)) from error
     except (urllib.error.URLError, TimeoutError, json.JSONDecodeError, OSError) as error:
         raise AccountError(
@@ -43,8 +53,24 @@ def _post(path: str, payload: dict, token: str = "") -> dict:
     return body
 
 
+def session_still_valid() -> bool:
+    """True nếu phiên còn dùng được hoặc server không trả lời.
+
+    Token hết hạn thì xóa, để app hỏi đăng nhập lại thay vì kẹt ở thông báo lỗi.
+    """
+    if not config.account_token():
+        return False
+    try:
+        _post("/api/grade", {}, config.account_token(), timeout=8)
+    except SessionExpired:
+        return False
+    except AccountError:
+        return True
+    return True
+
+
 def login(username: str, password: str) -> str:
-    body = _post("/api/login", {"username": username, "password": password})
+    body = _post("/api/login", {"username": username, "password": password}, timeout=20)
     token = str(body.get("token") or "")
     if not token:
         raise AccountError("Máy chủ không cấp phiên đăng nhập.")

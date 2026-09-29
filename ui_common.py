@@ -26,6 +26,34 @@ COLOR_MUTED = "#5f6368"
 COLOR_ACCENT = "#1e4f9c"
 
 
+def reset_window(window: tk.Misc):
+    """Gỡ giao diện cũ trước khi vẽ màn hình mới trên cùng một cửa sổ.
+
+    Nếu không gỡ, form đăng nhập còn nằm dưới màn hình sau và bị kéo fullscreen,
+    trông như khung hình bị xé. Lần mở lại không dựng lại các form đó nên hết lỗi.
+    """
+    try:
+        window.attributes("-fullscreen", False)
+        window.attributes("-topmost", False)
+    except tk.TclError:
+        pass
+    for child in list(window.winfo_children()):
+        try:
+            child.destroy()
+        except tk.TclError:
+            pass
+    for sequence in ("<Return>", "<KP_Enter>", "<FocusOut>", "<Alt-F4>", "<Escape>"):
+        try:
+            window.unbind(sequence)
+        except tk.TclError:
+            pass
+    try:
+        window.protocol("WM_DELETE_WINDOW", window.destroy)
+        window.resizable(True, True)
+    except tk.TclError:
+        pass
+
+
 def apply_theme(root: tk.Misc):
     """Đồng bộ phông chữ cho toàn bộ widget ttk."""
     style = ttk.Style(root)

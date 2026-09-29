@@ -5,6 +5,7 @@ Chạy server:
 
 Tạo tài khoản (tạm thời chỉ dev tạo, chưa có đăng ký):
     python account_server.py add ten_tai_khoan
+    python account_server.py password ten_tai_khoan
     python account_server.py list
     python account_server.py disable ten_tai_khoan
 """
@@ -55,7 +56,8 @@ class Handler(BaseHTTPRequestHandler):
                 token = account_store.login(str(payload.get("username") or ""), str(payload.get("password") or ""))
                 self._send(200, {"token": token})
                 return
-            user = account_store.user_for_token(_bearer(self.headers.get("Authorization") or ""))
+            token = _bearer(self.headers.get("Authorization") or "") or str(payload.get("token") or "").strip()
+            user = account_store.user_for_token(token)
             if user is None:
                 self._send(401, {"error": "Hãy đăng nhập lại."})
                 return
@@ -161,10 +163,31 @@ def _add():
     return 0
 
 
+def _password():
+    if len(sys.argv) < 3:
+        print("Dung: python account_server.py password ten_tai_khoan")
+        return 1
+    username = sys.argv[2]
+    first = getpass.getpass("Mat khau moi: ")
+    second = getpass.getpass("Nhap lai mat khau moi: ")
+    if first != second:
+        print("Hai lan nhap khong giong nhau.")
+        return 1
+    try:
+        account_store.set_password(username, first)
+    except ValueError as error:
+        print(error)
+        return 1
+    print(f"Da dat mat khau moi cho {username.strip().lower()}.")
+    return 0
+
+
 def main():
     command = sys.argv[1] if len(sys.argv) > 1 else "serve"
     if command == "add":
         return _add()
+    if command == "password":
+        return _password()
     if command == "list":
         for user in account_store.list_users():
             state = "dang mo" if user["active"] else "da khoa"
@@ -183,7 +206,7 @@ def main():
         return 0
     if command == "serve":
         return serve()
-    print("Lenh: serve, add, list, disable")
+    print("Lenh: serve, add, password, list, disable")
     return 1
 
 

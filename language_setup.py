@@ -11,6 +11,7 @@ import ui_common
 
 def run(root: tk.Tk) -> bool:
     """Hỏi ngôn ngữ và tải từ điển. Trả về True khi đã lưu lựa chọn."""
+    ui_common.reset_window(root)
     root.title(config.APP_NAME)
     ui_common.apply_theme(root)
     guard = ui_common.ScreenGuard(root, on_close_attempt=lambda: None)

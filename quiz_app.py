@@ -6,6 +6,7 @@ Ba khung dùng chung một cửa sổ: làm bài, đặt câu ví dụ (AI chấ
 import tkinter as tk
 from tkinter import ttk
 
+import account_client
 import ai_teacher
 import config
 import dictionary
@@ -510,6 +511,16 @@ class VocabQuizApp:
 
     def _on_sentence_error(self, error: Exception):
         self.grade_button.state(["!disabled"])
+        if isinstance(error, account_client.SessionExpired):
+            self.guard.suspend()
+            try:
+                import setup_wizard
+                signed_in = setup_wizard.ask(self.window)
+            finally:
+                self.guard.resume(refocus=False)
+            if signed_in:
+                self._grade_sentence()
+                return
         self.practice_status.config(
             text=config.ui("Không chấm được câu.", "Couldn't grade the sentence."),
             foreground=ui_common.COLOR_BAD,

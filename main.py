@@ -22,6 +22,7 @@ from vocab_store import VocabStore
 
 class StudyMasterApp:
     def __init__(self, root: tk.Tk):
+        ui_common.reset_window(root)
         self.root = root
         self.root.title(config.APP_NAME)
 
@@ -471,24 +472,28 @@ class StudyMasterApp:
     # ============================================================
 
     def _on_vocab_completed(self):
-        self.session[config.active_code()]["vocab"] = True
+        code = config.active_code()
+        self.session[code]["vocab"] = True
         self._refresh_status()
-        self.root.after(200, self._check_all_completed)
+        # Chỉ mở đúng một bài đọc của ngôn ngữ vừa học xong.
+        # Không tự mở bài đọc của các ngôn ngữ còn lại.
+        self.root.after(200, lambda: self._open_one_reading(code))
+
+    def _open_one_reading(self, code: str):
+        if self._child_open():
+            return
+        if self.session.get(code, {}).get("reading"):
+            self._finish_if_all_done()
+            return
+        self.open_reading_section(code)
 
     def _on_reading_completed(self):
         self.session[config.active_code()]["reading"] = True
         self._refresh_status()
-        self.root.after(200, self._check_all_completed)
+        self.root.after(200, self._finish_if_all_done)
 
-    def _check_all_completed(self):
-        pending = self._language_pending(config.active_code())
-        if pending == ["bài đọc"]:
-            self.open_reading_section()
-            return
-        if pending == ["từ vựng"]:
-            self.open_vocab_section()
-            return
-        if not self._all_done():
+    def _finish_if_all_done(self):
+        if self._child_open() or not self._all_done():
             return
 
         if self._menu_hidden and not self._child_open():
@@ -607,6 +612,7 @@ class FreeHome:
     """Cửa sổ nhỏ khi người dùng tự mở app: chỉ làm bài hoặc thêm từ."""
 
     def __init__(self, root: tk.Tk):
+        ui_common.reset_window(root)
         self.root = root
         self.bank_window = None
         self.root.title(config.APP_NAME)
@@ -706,6 +712,10 @@ def main():
         return
     if not stay:
         return
+
+    if config.is_frozen() and config.account_token():
+        import account_client
+        account_client.session_still_valid()
 
     root = tk.Tk()
     if config.is_frozen() and not config.is_ready():

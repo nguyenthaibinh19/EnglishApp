@@ -74,6 +74,29 @@ def list_users(folder: str = None) -> list:
         connection.close()
 
 
+def set_password(username: str, password: str, folder: str = None) -> None:
+    """Đặt mật khẩu mới. Mật khẩu cũ không đọc lại được vì chỉ lưu dạng băm."""
+    name = username.strip().lower()
+    if len(password) < 6:
+        raise ValueError("Mật khẩu cần ít nhất 6 ký tự.")
+    salt = secrets.token_hex(16)
+    connection = connect(folder)
+    try:
+        cursor = connection.execute(
+            "UPDATE users SET password_hash = ?, salt = ? WHERE username = ?",
+            (_hash_password(password, salt), salt, name),
+        )
+        if cursor.rowcount == 0:
+            raise ValueError("Không thấy tài khoản này.")
+        connection.execute(
+            "DELETE FROM sessions WHERE user_id = (SELECT id FROM users WHERE username = ?)",
+            (name,),
+        )
+        connection.commit()
+    finally:
+        connection.close()
+
+
 def set_active(username: str, active: bool, folder: str = None) -> None:
     connection = connect(folder)
     try:

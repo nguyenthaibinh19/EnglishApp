@@ -175,6 +175,16 @@ def account_token() -> str:
     return ACCOUNT_TOKEN
 
 
+def clear_account():
+    """Xóa phiên đăng nhập đã hết hạn. Lần mở sau sẽ hỏi đăng nhập lại."""
+    payload = _read_settings()
+    payload.pop("account_token", None)
+    payload.pop("account_username", None)
+    payload.pop("openai_api_key", None)
+    _write_settings(payload)
+    reload()
+
+
 def uses_account_server() -> bool:
     """Bản cài đặt luôn gọi AI qua tài khoản. Máy dev vẫn dùng key trong .env."""
     if is_frozen():

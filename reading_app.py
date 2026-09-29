@@ -8,6 +8,7 @@ import re
 import tkinter as tk
 from tkinter import ttk
 
+import account_client
 import config
 import dictionary
 import reading_source
@@ -46,6 +47,8 @@ class ReadingApp:
         self.group_states = []
         self.translation_visible = False
         self._loading = False
+        self._bank = None
+        self._bank_suspended = False
 
         ui_common.apply_theme(window)
         self.guard = ui_common.ScreenGuard(
@@ -152,6 +155,9 @@ class ReadingApp:
     def _on_test_error(self, error: Exception):
         self._loading = False
         self.loading_bar.stop()
+        if isinstance(error, account_client.SessionExpired) and self._ask_login():
+            self._load_test(True)
+            return
         self.loading_label.config(text=config.ui("Chưa tạo được bài đọc", "Couldn't create a reading"))
         self.loading_detail.config(text=str(error))
 
@@ -159,6 +165,11 @@ class ReadingApp:
             self.loading_buttons,
             text=config.ui("Thử lại", "Try again"),
             command=lambda: self._load_test(True),
+        ).pack(side=tk.LEFT, padx=6)
+        ttk.Button(
+            self.loading_buttons,
+            text=config.ui("Sổ từ", "Word list"),
+            command=self._open_word_bank,
         ).pack(side=tk.LEFT, padx=6)
         if self.on_request_switch is not None:
             ttk.Button(
@@ -396,11 +407,8 @@ class ReadingApp:
 
         meaning_var = tk.StringVar()
         meaning_row = ttk.Frame(body)
+        meaning_row.pack(anchor="w", pady=(4, 0))
         ttk.Entry(meaning_row, textvariable=meaning_var, width=28, font=ui_common.FONT_BODY).pack(anchor="w")
-
-        def show_meaning_field():
-            if not meaning_row.winfo_ismapped():
-                meaning_row.pack(anchor="w", pady=(4, 0))
 
         def toggle_highlight():
             if "picked" in widget.tag_names(start):
@@ -413,7 +421,6 @@ class ReadingApp:
 
         def translate_word():
             result_label.config(text=config.ui("Đang dịch từ…", "Translating word…"))
-            show_meaning_field()
 
             def show(glosses):
                 if closed["done"]:
@@ -457,30 +464,55 @@ class ReadingApp:
                 failed,
             )
 
-        def add_word():
-            show_meaning_field()
+        def remember(meaning: str) -> bool:
             if self.store.index_of(word) is not None:
                 result_label.config(text=config.ui(
                     "Từ này đã có trong danh sách.",
                     "This word is already in your list.",
                 ))
-                return
-            if not meaning_var.get().strip():
-                result_label.config(text=config.ui(
-                    "Hãy dịch từ hoặc tự gõ nghĩa, rồi bấm Lưu.",
-                    "Translate the word or type a meaning, then press Save.",
-                ))
-                return
-            if not self.store.add(word, meaning_var.get().strip()):
+                return True
+            if not self.store.add(word, meaning):
                 result_label.config(text=config.ui(
                     "Chưa lưu được từ này.",
                     "Couldn't save this word.",
                 ))
-                return
+                return False
             result_label.config(text=config.ui(
                 "Đã thêm vào danh sách từ.",
                 "Saved to your word list.",
             ))
+            return True
+
+        def add_word():
+            if self.store.index_of(word) is not None:
+                remember("")
+                return
+            meaning = meaning_var.get().strip()
+            if meaning:
+                remember(meaning)
+                return
+            result_label.config(text=config.ui("Đang tìm nghĩa để lưu…", "Looking up a meaning to save…"))
+
+            def show(glosses):
+                if closed["done"]:
+                    return
+                self._show_word_glosses(result_label, meaning_var, glosses, source, native)
+                found = meaning_var.get().strip()
+                if found:
+                    remember(found)
+                else:
+                    result_label.config(text=config.ui(
+                        "Không thấy nghĩa. Hãy gõ nghĩa vào ô rồi bấm Lưu.",
+                        "No meaning found. Type one in the box, then press Save.",
+                    ))
+
+            def failed(error):
+                if not closed["done"]:
+                    result_label.config(text=str(error))
+
+            ui_common.run_async(
+                pop, lambda: dictionary.lookup(word, source, native), show, failed
+            )
 
         buttons = ttk.Frame(body)
         buttons.pack(anchor="w", pady=(8, 0))
@@ -507,21 +539,29 @@ class ReadingApp:
         pop.wait_window()
 
     def _place_word_popup(self, pop, x_root, y_root):
-        """Đặt bảng tra từ cạnh chỗ bấm, nhưng luôn nằm trọn trong màn hình."""
-        pop.update_idletasks()
+        """Đặt bảng tra từ cạnh chỗ bấm. Không ép kích thước, để nút Lưu không bị cắt."""
         screen_w = pop.winfo_screenwidth()
         screen_h = pop.winfo_screenheight()
-        width = max(pop.winfo_reqwidth(), 1)
-        height = max(pop.winfo_reqheight(), 1)
-        x = min(max(0, int(x_root)), max(0, screen_w - width))
-        y = min(max(0, int(y_root)), max(0, screen_h - height))
-        pop.geometry(f"{width}x{height}+{x}+{y}")
-        pop.update_idletasks()
-        width = max(pop.winfo_width(), 1)
-        height = max(pop.winfo_height(), 1)
-        x = min(max(0, pop.winfo_x()), max(0, screen_w - width))
-        y = min(max(0, pop.winfo_y()), max(0, screen_h - height))
-        pop.geometry(f"+{x}+{y}")
+
+        def clamp(_event=None):
+            try:
+                if not pop.winfo_exists():
+                    return
+            except tk.TclError:
+                return
+            pop.update_idletasks()
+            width = max(pop.winfo_width(), pop.winfo_reqwidth(), 1)
+            height = max(pop.winfo_height(), pop.winfo_reqheight(), 1)
+            if width < 80 or height < 60:
+                return
+            x = min(max(0, pop.winfo_x()), max(0, screen_w - width))
+            y = min(max(0, pop.winfo_y()), max(0, screen_h - height))
+            if pop.winfo_x() != x or pop.winfo_y() != y:
+                pop.geometry(f"+{x}+{y}")
+
+        pop.geometry(f"+{int(x_root)}+{int(y_root)}")
+        pop.bind("<Map>", lambda _event: pop.after(30, clamp), add="+")
+        pop.after(30, clamp)
 
     def _show_word_glosses(self, label, meaning_var, glosses, source, native):
         native_name = "English" if native == "en" else "tiếng Việt"
@@ -713,6 +753,10 @@ class ReadingApp:
             footer, text=config.ui("Tạo bài đọc mới", "New passage"), style="Small.TButton",
             command=lambda: self._load_test(True),
         ).pack(side=tk.LEFT, padx=6)
+        ttk.Button(
+            footer, text=config.ui("Sổ từ", "Word list"), style="Small.TButton",
+            command=self._open_word_bank,
+        ).pack(side=tk.LEFT, padx=6)
 
         if self.on_request_switch is not None:
             ttk.Button(
@@ -821,6 +865,54 @@ class ReadingApp:
     # ============================================================
     # Thoát
     # ============================================================
+
+    def _ask_login(self) -> bool:
+        self.guard.suspend()
+        try:
+            import setup_wizard
+            return setup_wizard.ask(self.window)
+        finally:
+            self.guard.resume(refocus=False)
+
+    def _open_word_bank(self):
+        """Mở sổ từ mà không đóng bài đọc."""
+        if self._bank is not None:
+            try:
+                if self._bank.winfo_exists():
+                    self._bank.lift()
+                    return
+            except tk.TclError:
+                pass
+        self.guard.suspend()
+        self._bank_suspended = True
+        bank = tk.Toplevel(self.window)
+        self._bank = bank
+        try:
+            bank.attributes("-topmost", True)
+        except tk.TclError:
+            pass
+
+        def release(event):
+            if event.widget is not bank or not self._bank_suspended:
+                return
+            self._bank_suspended = False
+            self.guard.resume(refocus=False)
+
+        bank.bind("<Destroy>", release)
+        from quiz_app import VocabQuizApp
+        VocabQuizApp(
+            bank,
+            store=self.store,
+            progress=self.progress,
+            manage_only=True,
+            locked=False,
+            required=False,
+        )
+        try:
+            if bank.winfo_exists():
+                bank.lift()
+        except tk.TclError:
+            pass
 
     def _on_close_attempt(self):
         if self.completed or not self.required:
