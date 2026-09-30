@@ -500,7 +500,7 @@ class StudyMasterApp:
         if self._menu_hidden:
             return
         self._menu_hidden = True
-        self.guard.suspend()
+        self.guard.suspend(leave_fullscreen=False)
         try:
             self.root.attributes("-fullscreen", False)
         except tk.TclError:
@@ -832,7 +832,9 @@ def main():
         FreeHome(root)
     if config.is_frozen():
         import updater
-        root.after(600, lambda: updater.prompt_if_needed(root))
+        # Chờ desktop ổn định rồi mới hỏi cập nhật — tránh tranh focus lúc login.
+        delay = 3500 if "--lock" in sys.argv else 800
+        root.after(delay, lambda: updater.prompt_if_needed(root))
     root.mainloop()
 
 

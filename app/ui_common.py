@@ -2,6 +2,7 @@
 
 import hmac
 import threading
+import time
 import tkinter as tk
 from contextlib import contextmanager
 from tkinter import messagebox, ttk
@@ -84,7 +85,19 @@ class ScreenGuard:
             messagebox.askyesno(...)
 
     Đặt LOCK_SCREEN=0 trong .env để tắt hẳn khi đang dev.
+
+    Lưu ý Windows: gọi focus_force() khi người dùng đang bấm chuột sẽ nuốt
+    click (nút không phản hồi, kể cả thoát khẩn cấp). Vì vậy guard chỉ lift/
+    topmost khi thật sự mất focus, và bỏ qua trong lúc đang bấm chuột.
     """
+
+    # Trì hoãn kéo lại cửa sổ: đủ lâu để click kịp hoàn tất, đủ ngắn để
+    # app khác không nằm trên quá lâu.
+    _REFOCUS_DELAY_MS = 450
+    # Sau mỗi lần bấm chuột, không được kéo focus trong khoảng này.
+    _CLICK_GRACE_MS = 700
+    # Lúc máy vừa đăng nhập, Windows và app khác tranh focus rất nhiều.
+    _STARTUP_QUIET_MS = 2500
 
     def __init__(self, window: tk.Misc, enabled: bool = None, on_close_attempt=None):
         self.window = window
@@ -92,7 +105,17 @@ class ScreenGuard:
         self.on_close_attempt = on_close_attempt
         self._suspend_depth = 0
         self._combos = []
-        self._refocus_after_id = None
+        self._refocus_after_ids = set()
+        self._pointer_down = False
+        self._quiet_until = 0.0
+        self._was_fullscreen = False
+        self._fullscreen_released = False
+
+        # Cho updater / hộp thoại bên ngoài tạm ngưng guard của cửa sổ này.
+        try:
+            window._screen_guard = self
+        except (tk.TclError, AttributeError):
+            pass
 
         window.protocol("WM_DELETE_WINDOW", self._handle_close_request)
 
@@ -101,6 +124,10 @@ class ScreenGuard:
             window.attributes("-topmost", True)
             window.bind("<Alt-F4>", lambda _e: "break")
             window.bind("<FocusOut>", self._on_focus_out)
+            # Theo dõi chuột trên toàn app để không gọi focus_force giữa lúc click.
+            window.bind_all("<ButtonPress-1>", self._on_pointer_down, add="+")
+            window.bind_all("<ButtonRelease-1>", self._on_pointer_up, add="+")
+            self._mark_quiet(self._STARTUP_QUIET_MS)
         else:
             window.geometry("1280x820")
 
@@ -112,14 +139,45 @@ class ScreenGuard:
 
     # ---------- Giữ focus ----------
 
-    def _on_focus_out(self, _event=None):
-        self.window.after(120, self._maybe_refocus)
+    def _mark_quiet(self, ms: int):
+        self._quiet_until = max(self._quiet_until, time.monotonic() + ms / 1000.0)
 
-    def _maybe_refocus(self):
+    def _in_quiet_period(self) -> bool:
+        return time.monotonic() < self._quiet_until
+
+    def _on_pointer_down(self, _event=None):
+        self._pointer_down = True
+        self._mark_quiet(self._CLICK_GRACE_MS)
+        self._cancel_refocus()
+
+    def _on_pointer_up(self, _event=None):
+        self._pointer_down = False
+        self._mark_quiet(self._CLICK_GRACE_MS)
+
+    def _on_focus_out(self, _event=None):
         if not self.enabled or self._suspend_depth:
             return
+        # Hủy lịch cũ rồi hẹn lại — tránh xếp chồng hàng chục lần force_focus.
+        self._cancel_refocus()
+        self._schedule_refocus(self._REFOCUS_DELAY_MS)
+
+    def _schedule_refocus(self, delay_ms: int):
         try:
-            # Popup của combobox là cửa sổ khác. Kéo focus lúc đó sẽ đóng dropdown ngay.
+            after_id = self.window.after(delay_ms, self._maybe_refocus)
+        except tk.TclError:
+            return
+        self._refocus_after_ids.add(after_id)
+
+    def _maybe_refocus(self):
+        self._refocus_after_ids.clear()
+        if not self.enabled or self._suspend_depth:
+            return
+        if self._pointer_down or self._in_quiet_period():
+            # Người dùng đang tương tác — thử lại sau, đừng cướp click.
+            self._schedule_refocus(self._CLICK_GRACE_MS)
+            return
+        try:
+            # Popup của combobox / hộp thoại đang grab thì không kéo focus.
             if self.window.grab_current() is not None or self._popdown_visible():
                 return
             # focus_displayof() trả về None khi tiêu điểm đã rời khỏi ứng dụng;
@@ -167,51 +225,73 @@ class ScreenGuard:
     def force_focus(self):
         if not self.enabled or self._suspend_depth:
             return
+        if self._pointer_down or self._in_quiet_period():
+            return
         try:
             # Hộp thoại đang mở thì không được kéo cửa sổ lên đè lên nó.
             if self.window.grab_current() is not None or self._popdown_visible():
                 return
             self.window.attributes("-topmost", True)
             self.window.lift()
-            self.window.focus_force()
+            # Không gọi focus_force() — trên Windows nó hủy click đang diễn ra,
+            # khiến mọi nút (kể cả thoát khẩn cấp) gần như không bấm được.
+            # topmost + lift đủ để giữ app phía trên; widget nhận focus khi
+            # người dùng bấm bình thường.
+            if self.window.focus_displayof() is None:
+                try:
+                    self.window.focus_set()
+                except tk.TclError:
+                    pass
         except tk.TclError:
             pass
 
     def _cancel_refocus(self):
-        if self._refocus_after_id is None:
-            return
-        try:
-            self.window.after_cancel(self._refocus_after_id)
-        except (tk.TclError, ValueError):
-            pass
-        self._refocus_after_id = None
+        pending = list(self._refocus_after_ids)
+        self._refocus_after_ids.clear()
+        for after_id in pending:
+            try:
+                self.window.after_cancel(after_id)
+            except (tk.TclError, ValueError):
+                pass
 
     # ---------- Tạm ngưng ----------
 
-    def suspend(self):
+    def suspend(self, leave_fullscreen: bool = True):
         self._cancel_refocus()
         self._suspend_depth += 1
         if self._suspend_depth == 1 and self.enabled:
             try:
                 self.window.attributes("-topmost", False)
+                # Combobox chỉ cần tắt topmost. Hộp thoại mật khẩu / cập nhật
+                # phải thoát fullscreen, không thì dialog bị che và không bấm được.
+                if leave_fullscreen:
+                    self._was_fullscreen = bool(self.window.attributes("-fullscreen"))
+                    if self._was_fullscreen:
+                        self.window.attributes("-fullscreen", False)
+                        self.window.state("zoomed")
+                        self._fullscreen_released = True
             except tk.TclError:
                 pass
 
     def resume(self, refocus: bool = True):
         self._suspend_depth = max(self._suspend_depth - 1, 0)
         if self._suspend_depth == 0 and self.enabled:
+            try:
+                if self._fullscreen_released:
+                    self.window.attributes("-fullscreen", True)
+                    self._fullscreen_released = False
+                self.window.attributes("-topmost", True)
+            except tk.TclError:
+                pass
+            # Cho người dùng một khoảng yên sau hộp thoại, tránh tranh focus.
+            self._mark_quiet(self._CLICK_GRACE_MS)
             if refocus:
                 self._cancel_refocus()
-                self._refocus_after_id = self.window.after(150, self.force_focus)
-            else:
-                try:
-                    self.window.attributes("-topmost", True)
-                except tk.TclError:
-                    pass
+                self._schedule_refocus(self._REFOCUS_DELAY_MS)
 
     @contextmanager
-    def suspended(self):
-        self.suspend()
+    def suspended(self, leave_fullscreen: bool = True):
+        self.suspend(leave_fullscreen=leave_fullscreen)
         try:
             yield
         finally:
@@ -235,7 +315,7 @@ class ScreenGuard:
 
     def _suspend_for_popdown(self, widget: tk.Widget):
         if self._suspend_depth == 0:
-            self.suspend()
+            self.suspend(leave_fullscreen=False)
         self._watch_popdown(widget, 0, False)
 
     def _watch_popdown(self, widget: tk.Widget, tries: int, seen: bool):

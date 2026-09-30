@@ -111,26 +111,43 @@ def _set_topmost(window, enabled: bool):
         pass
 
 
+def _active_guard(window: tk.Misc):
+    guard = getattr(window, "_screen_guard", None)
+    if guard is not None and getattr(guard, "enabled", False):
+        return guard
+    return None
+
+
 def _offer(window, tag: str, url: str):
-    was_topmost = False
+    guard = _active_guard(window)
+    if guard is not None:
+        guard.suspend(leave_fullscreen=True)
+    else:
+        _set_topmost(window, False)
+
+    agreed = False
     try:
-        was_topmost = bool(window.attributes("-topmost"))
+        agreed = bool(
+            messagebox.askyesno(
+                config.APP_NAME,
+                config.ui(
+                    f"Đã có bản {tag}.\n\nBấm Có để tải và thay bản đang chạy. App sẽ mở lại sau khi cài xong.",
+                    f"Version {tag} is available.\n\nChoose Yes to download it and replace this copy. The app restarts when the install finishes.",
+                ),
+                parent=window,
+            )
+        )
     except tk.TclError:
-        pass
-    _set_topmost(window, False)
-    agreed = messagebox.askyesno(
-        config.APP_NAME,
-        config.ui(
-            f"Đã có bản {tag}.\n\nBấm Có để tải và thay bản đang chạy. App sẽ mở lại sau khi cài xong.",
-            f"Version {tag} is available.\n\nChoose Yes to download it and replace this copy. The app restarts when the install finishes.",
-        ),
-        parent=window,
-    )
+        agreed = False
+
     if not agreed:
-        if was_topmost:
+        if guard is not None:
+            guard.resume(refocus=False)
+        else:
             _set_topmost(window, True)
         return
-    _download_and_restart(window, url, was_topmost)
+    # Giữ suspend trong lúc tải; app sẽ thoát sau khi cài xong.
+    _download_and_restart(window, url, restore_topmost=(guard is None))
 
 
 def _download_and_restart(window, url: str, restore_topmost: bool):
