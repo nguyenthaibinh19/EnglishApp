@@ -16,6 +16,9 @@ from tkinter import messagebox, ttk
 import config
 import ui_common
 
+# Bản onefile thường ~28 MB. Nhỏ hơn mức này gần như chắc là HTML lỗi / tải dở.
+_MIN_EXE_BYTES = 8 * 1024 * 1024
+
 
 def parse_version(value: str) -> tuple:
     numbers = []
@@ -56,10 +59,11 @@ def _latest_release() -> dict:
     return payload
 
 
-def _asset_url(release: dict) -> str:
+def _pick_asset(release: dict) -> tuple:
+    """Trả về (download_url, expected_size) của file .exe phù hợp."""
     assets = release.get("assets") or []
-    preferred = ""
-    fallback = ""
+    preferred = None
+    fallback = None
     for asset in assets:
         if not isinstance(asset, dict):
             continue
@@ -67,11 +71,16 @@ def _asset_url(release: dict) -> str:
         url = str(asset.get("browser_download_url") or "")
         if not name.lower().endswith(".exe") or not url:
             continue
+        size = int(asset.get("size") or 0)
+        item = (url, size)
         if name.lower() == "langstudyguard.exe":
-            preferred = url
-        elif not fallback:
-            fallback = url
-    return preferred or fallback
+            preferred = item
+        elif fallback is None:
+            fallback = item
+    chosen = preferred or fallback
+    if not chosen:
+        return "", 0
+    return chosen
 
 
 def prompt_if_needed(window: tk.Misc):
@@ -82,10 +91,10 @@ def prompt_if_needed(window: tk.Misc):
         tag = str(release.get("tag_name") or "")
         if not is_newer(tag, config.APP_VERSION):
             return None
-        url = _asset_url(release)
+        url, size = _pick_asset(release)
         if not url:
             return None
-        return tag, url
+        return tag, url, size
 
     def show(found):
         if not found:
@@ -95,8 +104,8 @@ def prompt_if_needed(window: tk.Misc):
                 return
         except tk.TclError:
             return
-        tag, url = found
-        _offer(window, tag, url)
+        tag, url, size = found
+        _offer(window, tag, url, size)
 
     def failed(_error):
         return
@@ -118,7 +127,7 @@ def _active_guard(window: tk.Misc):
     return None
 
 
-def _offer(window, tag: str, url: str):
+def _offer(window, tag: str, url: str, expected_size: int = 0):
     guard = _active_guard(window)
     if guard is not None:
         guard.suspend(leave_fullscreen=True)
@@ -147,10 +156,88 @@ def _offer(window, tag: str, url: str):
             _set_topmost(window, True)
         return
     # Giữ suspend trong lúc tải; app sẽ thoát sau khi cài xong.
-    _download_and_restart(window, url, restore_topmost=(guard is None))
+    _download_and_restart(window, url, restore_topmost=(guard is None), expected_size=expected_size)
 
 
-def _download_and_restart(window, url: str, restore_topmost: bool):
+def _download_release(url: str, expected_size: int = 0) -> str:
+    """Tải exe về thư mục tạm, kiểm tra kích thước và chữ ký PE trước khi trả path."""
+    folder = tempfile.gettempdir()
+    final_path = os.path.join(folder, "langstudyguard-update.exe")
+    partial_path = final_path + ".partial"
+    if os.path.isfile(partial_path):
+        try:
+            os.remove(partial_path)
+        except OSError:
+            pass
+
+    request = urllib.request.Request(
+        url,
+        headers={
+            "User-Agent": "langstudyguard",
+            "Accept": "application/octet-stream",
+        },
+    )
+    with urllib.request.urlopen(request, timeout=180) as response, open(partial_path, "wb") as handle:
+        # GitHub đôi khi không gửi Content-Length; ưu tiên size từ API release.
+        header_size = response.headers.get("Content-Length")
+        declared = expected_size or (int(header_size) if header_size and header_size.isdigit() else 0)
+        written = 0
+        while True:
+            chunk = response.read(1024 * 256)
+            if not chunk:
+                break
+            handle.write(chunk)
+            written += len(chunk)
+        handle.flush()
+        os.fsync(handle.fileno())
+
+    if written < _MIN_EXE_BYTES:
+        try:
+            os.remove(partial_path)
+        except OSError:
+            pass
+        raise OSError(
+            config.ui(
+                f"File tải về quá nhỏ ({written} byte). Có thể mạng bị cắt hoặc GitHub trả trang lỗi.",
+                f"Downloaded file is too small ({written} bytes). The network may have dropped or GitHub returned an error page.",
+            )
+        )
+    if declared and abs(written - declared) > 1024:
+        try:
+            os.remove(partial_path)
+        except OSError:
+            pass
+        raise OSError(
+            config.ui(
+                f"File tải về không đủ ({written}/{declared} byte). Hãy thử lại.",
+                f"Download incomplete ({written}/{declared} bytes). Please try again.",
+            )
+        )
+
+    with open(partial_path, "rb") as handle:
+        magic = handle.read(2)
+    if magic != b"MZ":
+        try:
+            os.remove(partial_path)
+        except OSError:
+            pass
+        raise OSError(
+            config.ui(
+                "File tải về không phải file .exe hợp lệ.",
+                "The downloaded file is not a valid .exe.",
+            )
+        )
+
+    if os.path.isfile(final_path):
+        try:
+            os.remove(final_path)
+        except OSError:
+            pass
+    os.replace(partial_path, final_path)
+    return final_path
+
+
+def _download_and_restart(window, url: str, restore_topmost: bool, expected_size: int = 0):
     dialog = tk.Toplevel(window)
     dialog.title(config.APP_NAME)
     dialog.resizable(False, False)
@@ -169,15 +256,7 @@ def _download_and_restart(window, url: str, restore_topmost: bool):
     dialog.update_idletasks()
 
     def work():
-        path = os.path.join(tempfile.gettempdir(), "langstudyguard-update.exe")
-        request = urllib.request.Request(url, headers={"User-Agent": "langstudyguard"})
-        with urllib.request.urlopen(request, timeout=120) as response, open(path, "wb") as handle:
-            while True:
-                chunk = response.read(1024 * 256)
-                if not chunk:
-                    break
-                handle.write(chunk)
-        return path
+        return _download_release(url, expected_size)
 
     def ok(path):
         try:
@@ -217,6 +296,13 @@ def _swap_and_restart(downloaded: str):
     """Thoát app, rồi để PowerShell ghi đè file exe đang chạy và mở lại."""
     destination = config.installed_exe() if config.is_frozen() else os.path.abspath(sys.executable)
     os.makedirs(os.path.dirname(destination), exist_ok=True)
+    if not os.path.isfile(downloaded) or os.path.getsize(downloaded) < _MIN_EXE_BYTES:
+        raise OSError(
+            config.ui(
+                "File cập nhật bị thiếu hoặc quá nhỏ.",
+                "The update file is missing or too small.",
+            )
+        )
     script = os.path.join(tempfile.gettempdir(), "langstudyguard-update.ps1")
     with open(script, "w", encoding="utf-8") as handle:
         handle.write(
@@ -224,17 +310,38 @@ def _swap_and_restart(downloaded: str):
             "$source = $args[1]\n"
             "$destination = $args[2]\n"
             "Wait-Process -Id $processId -ErrorAction SilentlyContinue\n"
-            "$deadline = (Get-Date).AddSeconds(30)\n"
+            "Start-Sleep -Milliseconds 800\n"
+            "$deadline = (Get-Date).AddSeconds(45)\n"
+            "$copied = $false\n"
             "do {\n"
             "  try {\n"
             "    Copy-Item -LiteralPath $source -Destination $destination -Force -ErrorAction Stop\n"
+            "    $copied = $true\n"
             "    break\n"
             "  } catch {\n"
             "    if ((Get-Date) -gt $deadline) { throw }\n"
-            "    Start-Sleep -Milliseconds 400\n"
+            "    Start-Sleep -Milliseconds 500\n"
             "  }\n"
             "} while ($true)\n"
-            "Start-Process -FilePath $destination\n"
+            "if (-not $copied) { throw 'Copy failed' }\n"
+            "$destSize = (Get-Item -LiteralPath $destination).Length\n"
+            "$srcSize = (Get-Item -LiteralPath $source).Length\n"
+            "if ($destSize -ne $srcSize) { throw \"Size mismatch: $destSize vs $srcSize\" }\n"
+            "Unblock-File -LiteralPath $destination -ErrorAction SilentlyContinue\n"
+            "# Chờ Defender / antivirus nhả file trước khi mở.\n"
+            "Start-Sleep -Seconds 2\n"
+            "$started = $false\n"
+            "foreach ($delay in 0, 1500, 3000) {\n"
+            "  if ($delay -gt 0) { Start-Sleep -Milliseconds $delay }\n"
+            "  try {\n"
+            "    Start-Process -FilePath $destination -ErrorAction Stop\n"
+            "    $started = $true\n"
+            "    break\n"
+            "  } catch {\n"
+            "    continue\n"
+            "  }\n"
+            "}\n"
+            "if (-not $started) { throw 'Could not start updated app' }\n"
             "Remove-Item -LiteralPath $source -Force -ErrorAction SilentlyContinue\n"
             "Remove-Item -LiteralPath $MyInvocation.MyCommand.Path -Force -ErrorAction SilentlyContinue\n"
         )

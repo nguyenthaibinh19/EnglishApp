@@ -201,9 +201,9 @@ import tempfile
 import account_store
 import updater
 
-check("bản mới hơn thì cần cập nhật", updater.is_newer("v1.4.0", "1.3.0"))
-check("cùng bản thì không cập nhật", not updater.is_newer("v1.3.0", "1.3.0"))
-check("bản cũ hơn thì không cập nhật", not updater.is_newer("v1.2.0", "1.3.0"))
+check("bản mới hơn thì cần cập nhật", updater.is_newer("v1.4.0", "1.3.3"))
+check("cùng bản thì không cập nhật", not updater.is_newer("v1.3.3", "1.3.3"))
+check("bản cũ hơn thì không cập nhật", not updater.is_newer("v1.3.2", "1.3.3"))
 
 folder = tempfile.mkdtemp()
 account_store.add_user("hocvien", "matkhau", folder)
