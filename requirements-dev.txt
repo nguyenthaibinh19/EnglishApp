@@ -1,0 +1,2 @@
+# Dev/test only — không đưa vào PyInstaller / production exe.
+pytest>=8.0

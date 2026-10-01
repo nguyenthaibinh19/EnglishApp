@@ -19,12 +19,22 @@ FONT_BODY = ("Segoe UI", 12)
 FONT_SMALL = ("Segoe UI", 10)
 FONT_QUESTION = ("Segoe UI", 26, "bold")
 FONT_ANSWER = ("Segoe UI", 20)
+FONT_PAGE = ("Segoe UI", 18, "bold")
+FONT_METRIC = ("Segoe UI", 16, "bold")
 
 COLOR_OK = "#1a7f37"
 COLOR_BAD = "#c62828"
 COLOR_WARN = "#b26a00"
 COLOR_MUTED = "#5f6368"
 COLOR_ACCENT = "#1e4f9c"
+COLOR_BG = "#f4f6f8"
+COLOR_CARD = "#ffffff"
+COLOR_BORDER = "#dde1e6"
+
+# Dashboard spacing
+PAD_PAGE = 28
+PAD_CARD = 16
+GAP_SECTION = 16
 
 
 def reset_window(window: tk.Misc):
@@ -68,6 +78,17 @@ def apply_theme(root: tk.Misc):
     style.configure("Title.TLabel", font=FONT_TITLE)
     style.configure("H2.TLabel", font=FONT_H2)
     style.configure("Muted.TLabel", font=FONT_SMALL, foreground=COLOR_MUTED)
+    style.configure("Page.TLabel", font=FONT_PAGE)
+    style.configure("Metric.TLabel", font=FONT_METRIC, foreground=COLOR_ACCENT)
+    style.configure("CardTitle.TLabel", font=FONT_H2)
+    style.configure(
+        "Primary.TButton",
+        font=("Segoe UI", 12, "bold"),
+        padding=(14, 10),
+    )
+    style.configure("Secondary.TButton", font=FONT_BODY, padding=6)
+    style.configure("Card.TLabelframe", padding=PAD_CARD)
+    style.configure("Card.TLabelframe.Label", font=FONT_H2)
     return style
 
 

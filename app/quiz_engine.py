@@ -4,10 +4,12 @@ Nhờ vậy có thể chạy thử bằng script mà không cần mở cửa s�
 Chọn từ / trọng số ủy thác cho scheduler; ghi nhận tiến độ vẫn qua Progress.
 """
 
+import os
 import random
 from dataclasses import dataclass, field
 
 import config
+from attempt_history import AttemptHistory, LearningAttempt, utc_now_iso
 from scheduler import VocabScheduler
 from text_utils import display_word, entry_word, match_answer, strip_tags
 
@@ -28,12 +30,35 @@ class AnswerResult:
 class QuizEngine:
     """Chấm câu trả lời và điều khiển phiên; lịch hỏi từ nằm ở VocabScheduler."""
 
-    def __init__(self, store, progress, target: int = None, rng: random.Random = None):
+    def __init__(
+        self,
+        store,
+        progress,
+        target: int = None,
+        rng: random.Random = None,
+        attempt_history: AttemptHistory = None,
+        language_code: str = None,
+        apply_due_filter: bool = True,
+    ):
         self.store = store
         self.progress = progress
         self.target = target if target is not None else config.QUIZ_TARGET_CORRECT
         self.rng = rng or random.Random()
-        self.scheduler = VocabScheduler(progress, rng=self.rng)
+        self.apply_due_filter = apply_due_filter
+        self.scheduler = VocabScheduler(
+            progress, rng=self.rng, apply_due_filter=apply_due_filter
+        )
+        self.language_code = language_code
+        if attempt_history is not None:
+            self.attempt_history = attempt_history
+        else:
+            # Cùng thư mục với progress.json → tests dùng tmp_path không đụng AppData.
+            attempts_file = os.path.join(
+                os.path.dirname(progress.filename) or ".", "attempts.jsonl"
+            )
+            self.attempt_history = AttemptHistory(
+                attempts_file, language_code=language_code
+            )
 
         self.correct_count = 0
         self.answered = 0
@@ -93,7 +118,15 @@ class QuizEngine:
         # Lỗi chính tả hoặc có xem gợi ý vẫn tính là đúng trong phiên,
         # nhưng không được ghi nhận là đã thuộc từ.
         mastered = verdict == "exact" and not self.hint_used
-        self.progress.record(entry_word(entry), correct=mastered)
+        word = entry_word(entry)
+        self.progress.record(word, correct=mastered)
+        self._record_attempt(
+            user_answer=user_answer,
+            entry=entry,
+            word=word,
+            correct=mastered,
+            verdict=verdict,
+        )
 
         if is_correct:
             self.correct_count += 1
@@ -121,6 +154,29 @@ class QuizEngine:
             streak=self.streak,
             finished=self.finished,
         )
+
+    def _record_attempt(
+        self,
+        user_answer: str,
+        entry: dict,
+        word: str,
+        correct: bool,
+        verdict: str,
+    ) -> None:
+        """Ghi lịch sử với cùng quyết định đúng/sai như Progress.record."""
+        code = self.language_code or config.active_code()
+        attempt = LearningAttempt(
+            timestamp=utc_now_iso(),
+            language_code=code,
+            word=word,
+            user_answer=user_answer,
+            expected_answer=display_word(entry) or word,
+            correct=correct,
+            verdict=verdict,
+            hint_used=bool(self.hint_used),
+            prompt=str(entry.get("vi") or ""),
+        )
+        self.attempt_history.record(attempt)
 
     # ---------- Thông tin hiển thị ----------
 

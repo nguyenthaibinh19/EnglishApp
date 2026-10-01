@@ -1,8 +1,8 @@
-"""Lịch chọn từ vựng: trọng số và thứ tự hỏi tiếp theo.
+"""Lịch chọn từ vựng: due filter (SRS v2) + trọng số + requeue trong phiên.
 
-Tách khỏi progress.py để progress chỉ lo lưu trạng thái, còn quyết định
-“hỏi từ nào tiếp” nằm ở đây. Thuật toán hiện tại (weighted / requeue) giữ
-nguyên hành vi — chưa phải SM-2 hay FSRS.
+Tách:
+  long-term  → srs.is_due / due candidate filtering
+  session    → weighted pick among candidates + in-session requeue
 
 Không import Tkinter. Không ghi progress khi chỉ tính trọng số / chọn từ.
 """
@@ -11,8 +11,9 @@ from __future__ import annotations
 
 import random
 from datetime import date, datetime
-from typing import Any, Optional
+from typing import Any, List, Optional
 
+from srs import due_priority_key, ensure_utc, is_due, utc_now
 from text_utils import entry_word
 
 
@@ -25,10 +26,12 @@ def accuracy_from_stats(stats: dict) -> float:
 
 
 def compute_weight(stats: dict, today: Optional[date] = None) -> float:
-    """Trọng số SRS hiện tại: từ mới / hay sai cao hơn; streak cao thì thấp hơn.
+    """Trọng số chọn trong phiên: từ mới / hay sai cao hơn; streak cao thì thấp hơn.
 
     Công thức giữ nguyên từ Progress.weight (trước khi tách module).
     """
+    from srs import parse_utc
+
     if today is None:
         today = date.today()
 
@@ -43,24 +46,70 @@ def compute_weight(stats: dict, today: Optional[date] = None) -> float:
 
     last_seen = stats.get("last_seen")
     if last_seen:
-        try:
-            days_ago = (today - datetime.fromisoformat(str(last_seen)).date()).days
+        parsed = parse_utc(last_seen)
+        if parsed is not None:
+            days_ago = (today - parsed.date()).days
             weight *= 1.0 + min(days_ago, 14) * 0.15
-        except ValueError:
-            pass
     return max(weight, 0.15)
 
 
+def due_candidate_indices(
+    store: Any,
+    progress: Any,
+    *,
+    now: Optional[datetime] = None,
+    apply_due_filter: bool = True,
+) -> List[int]:
+    """Indices eligible for selection.
+
+    When ``apply_due_filter`` is True (normal quiz):
+      1. due / unseen / legacy-unscheduled words
+      2. if none, all words sorted by soonest due (never empty if store non-empty)
+
+    When False (Practice Mistakes): every index in the (already filtered) store.
+    """
+    total = store.count() if store is not None else 0
+    if total <= 0:
+        return []
+    if not apply_due_filter:
+        return list(range(total))
+
+    now = ensure_utc(now or utc_now())
+    due: List[int] = []
+    not_due: List[tuple] = []
+    for index in range(total):
+        entry = store.get(index)
+        word = entry_word(entry) if entry else ""
+        stats = progress.word_stats(word, create=False) if word else None
+        if is_due(stats, now):
+            due.append(index)
+        else:
+            not_due.append((due_priority_key(stats, now), index))
+    if due:
+        return due
+    # Fallback: nearest upcoming first, but keep all so the quiz can still run.
+    not_due.sort(key=lambda item: item[0])
+    return [index for _, index in not_due] or list(range(total))
+
+
 class VocabScheduler:
-    """Chọn index từ trong kho theo trọng số progress + hàng chờ hỏi lại trong phiên.
+    """Chọn index: session requeue → due candidates → weighted pick.
 
     Session state (requeue, last index) sống ở đây. Progress chỉ được đọc khi
-    tính trọng số; gọi pick_next không ghi file.
+    tính trọng số / due; gọi pick_next không ghi file.
     """
 
-    def __init__(self, progress: Any, rng: Optional[random.Random] = None):
+    def __init__(
+        self,
+        progress: Any,
+        rng: Optional[random.Random] = None,
+        apply_due_filter: bool = True,
+        now_provider=None,
+    ):
         self.progress = progress
         self.rng = rng or random.Random()
+        self.apply_due_filter = apply_due_filter
+        self.now_provider = now_provider or utc_now
         self._last_index: Optional[int] = None
         self._requeue: list[tuple[int, int]] = []  # (due_after_answered, index)
 
@@ -69,7 +118,12 @@ class VocabScheduler:
         stats = self.progress.word_stats(word, create=False)
         return compute_weight(stats)
 
-    def pick_next_index(self, store: Any, answered: int) -> Optional[int]:
+    def pick_next_index(
+        self,
+        store: Any,
+        answered: int,
+        now: Optional[datetime] = None,
+    ) -> Optional[int]:
         """Chọn index tiếp theo. None nếu kho rỗng. Không mutate progress."""
         total = store.count()
         if total == 0:
@@ -78,14 +132,25 @@ class VocabScheduler:
 
         index = self._pop_due_requeue(total, answered)
         if index is None:
-            index = self._weighted_pick(store, total)
+            candidates = due_candidate_indices(
+                store,
+                self.progress,
+                now=now or self.now_provider(),
+                apply_due_filter=self.apply_due_filter,
+            )
+            index = self._weighted_pick(store, candidates)
 
         self._last_index = index
         return index
 
-    def pick_next(self, store: Any, answered: int) -> Optional[dict]:
+    def pick_next(
+        self,
+        store: Any,
+        answered: int,
+        now: Optional[datetime] = None,
+    ) -> Optional[dict]:
         """Chọn entry tiếp theo. Trả về None nếu kho rỗng. Không mutate progress."""
-        index = self.pick_next_index(store, answered)
+        index = self.pick_next_index(store, answered, now=now)
         if index is None:
             return None
         return store.get(index)
@@ -108,12 +173,12 @@ class VocabScheduler:
             return index
         return None
 
-    def _weighted_pick(self, store: Any, total: int) -> int:
-        candidates = [i for i in range(total) if i != self._last_index] or (
-            [self._last_index] if self._last_index is not None else [0]
-        )
+    def _weighted_pick(self, store: Any, candidates: List[int]) -> int:
+        if not candidates:
+            return 0
+        filtered = [i for i in candidates if i != self._last_index] or list(candidates)
         weights = [
             self.weight_for(entry_word(store.get(i)))
-            for i in candidates
+            for i in filtered
         ]
-        return self.rng.choices(candidates, weights=weights, k=1)[0]
+        return self.rng.choices(filtered, weights=weights, k=1)[0]

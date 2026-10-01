@@ -14,25 +14,34 @@ import language_setup
 import languages
 import setup_wizard
 import ui_common
+from daily_study import plan_for_language
 from progress import Progress
 from quiz_app import VocabQuizApp
 from reading_app import ReadingApp
+from study_session import (
+    KIND_READING,
+    KIND_VOCABULARY,
+    STATUS_UNAVAILABLE,
+    StudySession,
+    build_study_session,
+)
 from vocab_store import VocabStore
 
 
 class StudyMasterApp:
-    def __init__(self, root: tk.Tk):
+    def __init__(self, root: tk.Tk, on_finished=None):
         ui_common.reset_window(root)
         self.root = root
         self.root.title(config.APP_NAME)
+        self.on_finished = on_finished
+        self._force_exit = False
 
         self.store = VocabStore()
         self.progress = Progress()
 
-        # Mỗi lần mở app tính lại từ đầu, không cộng dồn các lần mở trong ngày.
-        self.session = {
-            code: {"vocab": False, "reading": False} for code in languages.codes()
-        }
+        # Session Runner v1: one StudySession per study language (from DailyStudyPlan).
+        self.sessions: dict[str, StudySession] = {}
+        self._rebuild_sessions()
 
         self.vocab_window = None
         self.reading_window = None
@@ -48,6 +57,36 @@ class StudyMasterApp:
         self._build_ui()
         self._refresh_status()
         self.root.after(300, self._ensure_missing_dictionaries)
+
+    def _rebuild_sessions(self):
+        """(Re)build StudySession objects for current study languages from plans."""
+        next_sessions: dict[str, StudySession] = {}
+        for code in config.study_codes():
+            previous = self.sessions.get(code)
+            plan = plan_for_language(code)
+            session = build_study_session(plan)
+            if previous is not None:
+                # Preserve completed vocabulary across reading toggle rebuilds.
+                if previous.vocabulary_complete() and session.has_activity(KIND_VOCABULARY):
+                    session.complete(KIND_VOCABULARY)
+                if previous.has_activity(KIND_READING) and session.has_activity(KIND_READING):
+                    prior = previous.status(KIND_READING)
+                    if prior == "completed":
+                        session.complete(KIND_READING)
+                    elif prior == "skipped":
+                        session.skip(KIND_READING)
+                    elif prior == STATUS_UNAVAILABLE:
+                        session.mark_unavailable(KIND_READING)
+            next_sessions[code] = session
+        self.sessions = next_sessions
+
+    def _session_for(self, code: str = None) -> StudySession:
+        code = code or config.active_code()
+        session = self.sessions.get(code)
+        if session is None:
+            session = build_study_session(plan_for_language(code))
+            self.sessions[code] = session
+        return session
 
     # ============================================================
     # Giao diện
@@ -291,7 +330,7 @@ class StudyMasterApp:
         if not self._ensure_dictionary([(code, config.native_code())]):
             return
         config.set_study_codes(list(config.study_codes()) + [code])
-        self.session.setdefault(code, {"vocab": False, "reading": False})
+        self.sessions[code] = build_study_session(plan_for_language(code))
         self._build_language_rows()
         self._refresh_status()
 
@@ -308,6 +347,7 @@ class StudyMasterApp:
             return
         config.set_study_codes(chosen)
         dictionary.remove_language(code)
+        self.sessions.pop(code, None)
         self._build_language_rows()
         self._refresh_status()
 
@@ -327,10 +367,12 @@ class StudyMasterApp:
         variable = self.activity_vars.get(activity_id)
         if variable is None:
             return
-        config.set_activity_enabled(activity_id, bool(variable.get()))
-        if activity_id == "reading" and variable.get():
-            self.reading_unavailable = False
+        enabled = bool(variable.get())
+        config.set_activity_enabled(activity_id, enabled)
         if activity_id == "reading":
+            self.reading_unavailable = False
+            for session in self.sessions.values():
+                session.set_optional_enabled(KIND_READING, enabled)
             self._sync_reading_buttons()
         self._refresh_status()
         if self._all_done():
@@ -338,29 +380,33 @@ class StudyMasterApp:
 
     def _vocab_all_done(self) -> bool:
         return all(
-            self.session.get(code, {}).get("vocab") for code in config.study_codes()
+            self._session_for(code).vocabulary_complete()
+            for code in config.study_codes()
         )
 
     def _language_pending(self, code: str) -> list:
-        state = self.session[code]
+        session = self._session_for(code)
         missing = []
-        if not state["vocab"]:
+        if session.has_activity(KIND_VOCABULARY) and not session.vocabulary_complete():
             missing.append("từ vựng")
-        for activity in config.OPTIONAL_ACTIVITIES:
-            if config.activity_enabled(activity["id"]) and not state.get(activity["id"]):
-                missing.append(activity["id"])
+        if session.has_activity(KIND_READING) and not session.is_resolved(KIND_READING):
+            missing.append("reading")
         return missing
 
     def _all_done(self) -> bool:
-        return all(not self._language_pending(code) for code in config.study_codes())
+        return all(
+            self._session_for(code).can_finish for code in config.study_codes()
+        )
 
     def _activate(self, code: str):
         if code not in config.study_codes():
             config.set_study_codes(list(config.study_codes()) + [code])
+            self.sessions[code] = build_study_session(plan_for_language(code))
             self._build_language_rows()
         config.set_language(code)
         self.store = VocabStore()
         self.progress = Progress()
+        self._session_for(code)
 
     def _refresh_status(self):
         required = config.study_codes()
@@ -390,7 +436,13 @@ class StudyMasterApp:
             "“Parts to study” if you want them this launch.",
         ))
         if (
-            self.reading_unavailable
+            (
+                self.reading_unavailable
+                or any(
+                    self._session_for(code).status(KIND_READING) == STATUS_UNAVAILABLE
+                    for code in config.study_codes()
+                )
+            )
             and config.activity_enabled("reading")
             and self._vocab_all_done()
             and not self._all_done()
@@ -452,6 +504,22 @@ class StudyMasterApp:
     def open_vocab_section(self, code=None):
         if code is not None:
             self._activate(code)
+        else:
+            code = config.active_code()
+            self._activate(code)
+        session = self._session_for(code)
+        if not session.has_activity(KIND_VOCABULARY):
+            self.guard.show_info(
+                config.ui("Chưa có từ vựng", "No vocabulary yet"),
+                config.ui(
+                    "Ngôn ngữ này chưa có từ để luyện trong lần này.",
+                    "This language has no vocabulary to practice this launch.",
+                ),
+            )
+            return
+        if session.vocabulary_complete():
+            # Already done — allow review with required=False.
+            pass
         if self.vocab_window is not None and self.vocab_window.winfo_exists():
             self.vocab_window.lift()
             return
@@ -459,6 +527,8 @@ class StudyMasterApp:
         self._hide_menu()
         self.vocab_window = tk.Toplevel(self.root)
         self.vocab_window.bind("<Destroy>", self._on_child_destroy, add="+")
+        if not session.vocabulary_complete():
+            session.start(KIND_VOCABULARY)
         VocabQuizApp(
             self.vocab_window,
             store=self.store,
@@ -466,8 +536,10 @@ class StudyMasterApp:
             on_completed=self._on_vocab_completed,
             on_request_switch=self._switch_to_reading if config.activity_enabled("reading") else None,
             on_emergency=self.quit_all,
-            required=not self.session[config.active_code()]["vocab"],
+            required=not session.vocabulary_complete(),
             locked=True,
+            target=session.planned_vocab_count,
+            language_code=code,
         )
 
     def open_reading_section(self, code=None):
@@ -475,6 +547,12 @@ class StudyMasterApp:
             return
         if code is not None:
             self._activate(code)
+        else:
+            code = config.active_code()
+            self._activate(code)
+        session = self._session_for(code)
+        if not session.has_activity(KIND_READING):
+            return
         if self.reading_window is not None and self.reading_window.winfo_exists():
             self.reading_window.lift()
             return
@@ -482,6 +560,8 @@ class StudyMasterApp:
         self._hide_menu()
         self.reading_window = tk.Toplevel(self.root)
         self.reading_window.bind("<Destroy>", self._on_child_destroy, add="+")
+        if not session.is_resolved(KIND_READING):
+            session.start(KIND_READING)
         ReadingApp(
             self.reading_window,
             store=self.store,
@@ -491,7 +571,7 @@ class StudyMasterApp:
             on_emergency=self.quit_all,
             on_failed=self._mark_reading_unavailable,
             on_skip=self._finish_without_reading if self._vocab_all_done() else None,
-            required=not self.session[config.active_code()]["reading"],
+            required=not session.is_resolved(KIND_READING),
             locked=True,
         )
 
@@ -552,41 +632,63 @@ class StudyMasterApp:
 
     def _on_vocab_completed(self):
         code = config.active_code()
-        self.session[code]["vocab"] = True
+        session = self._session_for(code)
+        session.complete(KIND_VOCABULARY)
         self._refresh_status()
-        if not config.activity_enabled("reading"):
-            self.root.after(200, self._finish_if_all_done)
+        nxt = session.next_activity()
+        if nxt is not None and nxt.kind == KIND_READING:
+            self.root.after(200, lambda: self._open_one_reading(code))
             return
-        # Chỉ mở đúng một bài đọc của ngôn ngữ vừa học xong.
-        self.root.after(200, lambda: self._open_one_reading(code))
+        self.root.after(200, self._finish_if_all_done)
 
     def _open_one_reading(self, code: str):
         if self._child_open():
             return
-        if self.session.get(code, {}).get("reading"):
+        session = self._session_for(code)
+        if session.is_resolved(KIND_READING):
+            self._finish_if_all_done()
+            return
+        if not session.has_activity(KIND_READING):
             self._finish_if_all_done()
             return
         self.open_reading_section(code)
 
     def _mark_reading_unavailable(self):
+        session = self._session_for(config.active_code())
+        if session.has_activity(KIND_READING):
+            try:
+                session.mark_unavailable(KIND_READING)
+            except Exception:
+                pass
         self.reading_unavailable = True
         self._refresh_status()
+        if self._all_done():
+            self.root.after(200, self._finish_if_all_done)
 
     def _finish_without_reading(self):
-        """Bỏ phần đọc của lần mở máy này khi không gọi được AI."""
+        """Bỏ phần đọc của lần mở máy này khi không gọi được AI / người dùng skip."""
         if not self._vocab_all_done():
             self._close_window(self.reading_window)
             return
         for code in config.study_codes():
-            state = self.session.setdefault(code, {"vocab": False, "reading": False})
-            state["reading"] = True
+            session = self._session_for(code)
+            if session.has_activity(KIND_READING) and not session.is_resolved(KIND_READING):
+                try:
+                    session.skip(KIND_READING)
+                except Exception:
+                    try:
+                        session.mark_unavailable(KIND_READING)
+                    except Exception:
+                        pass
         self.reading_unavailable = False
         self._close_window(self.reading_window)
         self._refresh_status()
         self.root.after(200, self._finish_if_all_done)
 
     def _on_reading_completed(self):
-        self.session[config.active_code()]["reading"] = True
+        session = self._session_for(config.active_code())
+        if session.has_activity(KIND_READING):
+            session.complete(KIND_READING)
         self.reading_unavailable = False
         self._refresh_status()
         self.root.after(200, self._finish_if_all_done)
@@ -599,12 +701,29 @@ class StudyMasterApp:
             self._show_menu()
 
         names = ", ".join(config.language_name(code) for code in config.study_codes())
+        lines = []
+        for code in config.study_codes():
+            session = self._session_for(code)
+            parts = []
+            if session.has_activity(KIND_VOCABULARY):
+                parts.append(config.ui("Từ vựng ✓", "Vocabulary ✓"))
+            if session.has_activity(KIND_READING):
+                st = session.status(KIND_READING)
+                if st == "completed":
+                    parts.append(config.ui("Đọc ✓", "Reading ✓"))
+                elif st == "skipped":
+                    parts.append(config.ui("Đọc: bỏ qua", "Reading: skipped"))
+                elif st == STATUS_UNAVAILABLE:
+                    parts.append(config.ui("Đọc: không dùng được", "Reading: unavailable"))
+            if parts:
+                lines.append(f"{config.language_name(code)} — " + ", ".join(parts))
+        detail = "\n".join(lines) if lines else names
         self.guard.show_info(
             config.ui("Xong lần này", "Done for this launch"),
             config.ui(
-                f"Đã học: {names}.\n\n"
+                f"Đã học hôm nay:\n{detail}\n\n"
                 "Lần mở máy sau, các ngôn ngữ đang được tick sẽ cần làm lại.",
-                f"Studied: {names}.\n\n"
+                f"Today's study:\n{detail}\n\n"
                 "The next time you open the app, the selected languages start again.",
             ),
         )
@@ -644,6 +763,7 @@ class StudyMasterApp:
 
     def emergency_exit_all(self):
         if self.guard.confirm_emergency_exit():
+            self._force_exit = True
             self.quit_all()
 
     def quit_all(self):
@@ -653,6 +773,18 @@ class StudyMasterApp:
                 self._close_window(window)
             except tk.TclError:
                 pass
+        # FreeHome dashboard: return and refresh plan. Lock/boot mode: exit app.
+        if callable(self.on_finished) and not self._force_exit:
+            try:
+                self.guard.enabled = False
+            except Exception:
+                pass
+            try:
+                ui_common.reset_window(self.root)
+            except tk.TclError:
+                pass
+            self.on_finished()
+            return
         try:
             self.root.destroy()
         except tk.TclError:
@@ -706,95 +838,10 @@ def run_diagnostics():
           f"bài đọc {'xong' if summary['reading_done'] else 'chưa xong'}")
 
 
-class FreeHome:
-    """Cửa sổ nhỏ khi người dùng tự mở app: chỉ làm bài hoặc thêm từ."""
-
-    def __init__(self, root: tk.Tk):
-        ui_common.reset_window(root)
-        self.root = root
-        self.bank_window = None
-        self.root.title(config.APP_NAME)
-        self.root.geometry("440x280")
-        self.root.minsize(400, 240)
-        self.root.resizable(False, False)
-        ui_common.apply_theme(root)
-        self.root.protocol("WM_DELETE_WINDOW", self.root.destroy)
-
-        card = ttk.Frame(root, padding=28)
-        card.pack(fill=tk.BOTH, expand=True)
-        ttk.Label(card, text=config.APP_NAME, style="Title.TLabel").pack(anchor="w")
-        ttk.Label(
-            card,
-            text=config.ui(
-                "Thêm từ thì đóng được ngay. Làm bài sẽ vào màn hình khóa.",
-                "Adding words can be closed anytime. Study opens the locked screen.",
-            ),
-            style="Muted.TLabel",
-            wraplength=360,
-        ).pack(anchor="w", pady=(10, 22))
-
-        ttk.Button(
-            card, text=config.ui("Làm bài", "Study"), command=self._start_study
-        ).pack(fill=tk.X, pady=4)
-        ttk.Button(
-            card, text=config.ui("Thêm từ", "Add words"), command=self._add_words
-        ).pack(fill=tk.X, pady=4)
-
-    def _start_study(self):
-        self._close_bank()
-        for child in self.root.winfo_children():
-            child.destroy()
-        self.root.resizable(True, True)
-        StudyMasterApp(self.root)
-
-    def _add_words(self):
-        codes = config.study_codes()
-        if len(codes) == 1:
-            self._open_bank(codes[0])
-            return
-        self._choose_language(codes)
-
-    def _choose_language(self, codes):
-        dialog = tk.Toplevel(self.root)
-        dialog.title(config.ui("Chọn ngôn ngữ", "Choose a language"))
-        dialog.resizable(False, False)
-        dialog.transient(self.root)
-        frame = ttk.Frame(dialog, padding=16)
-        frame.pack()
-        ttk.Label(
-            frame, text=config.ui("Thêm từ cho ngôn ngữ nào?", "Add words for which language?")
-        ).pack(anchor="w", pady=(0, 8))
-        for code in codes:
-            ttk.Button(
-                frame,
-                text=config.language_name(code),
-                command=lambda c=code, dialog=dialog: (dialog.destroy(), self._open_bank(c)),
-            ).pack(fill=tk.X, pady=2)
-        dialog.protocol("WM_DELETE_WINDOW", dialog.destroy)
-        dialog.geometry("+%d+%d" % (self.root.winfo_rootx() + 40, self.root.winfo_rooty() + 40))
-
-    def _open_bank(self, code):
-        config.set_language(code)
-        if self.bank_window is not None and self.bank_window.winfo_exists():
-            self.bank_window.lift()
-            return
-        self.bank_window = tk.Toplevel(self.root)
-        VocabQuizApp(
-            self.bank_window,
-            store=VocabStore(),
-            progress=Progress(),
-            required=False,
-            manage_only=True,
-            locked=False,
-        )
-
-    def _close_bank(self):
-        if self.bank_window is not None and self.bank_window.winfo_exists():
-            self.bank_window.destroy()
-
-
 def main():
     import sys
+
+    from home_app import FreeHome
 
     if "--check" in sys.argv:
         run_diagnostics()

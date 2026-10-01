@@ -367,6 +367,11 @@ def progress_path(code: str = None) -> str:
     return os.path.join(language_dir(code), "progress.json")
 
 
+def attempts_path(code: str = None) -> str:
+    """Nhật ký từng lần trả lời từ vựng (JSONL), tách khỏi progress.json."""
+    return os.path.join(language_dir(code), "attempts.jsonl")
+
+
 def cache_dir(code: str = None) -> str:
     return os.path.join(language_dir(code), "cache")
 

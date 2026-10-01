@@ -14,7 +14,7 @@ import ui_common
 from progress import Progress
 from quiz_engine import QuizEngine
 from text_utils import entry_word, fold_accents, normalize, strip_tags, without_article
-from vocab_store import VocabStore
+from vocab_store import ReadOnlyVocabView, VocabStore
 
 
 class VocabQuizApp:
@@ -29,22 +29,51 @@ class VocabQuizApp:
         required=True,
         manage_only=False,
         locked=True,
+        allow_manage: bool = True,
+        quiz_entries=None,
+        target: int = None,
+        language_code: str = None,
+        on_closed=None,
+        window_title: str = None,
     ):
         self.window = window
         self.manage_only = manage_only
+        self.allow_manage = bool(allow_manage) and not manage_only and quiz_entries is None
+        self.language_code = language_code
+        self.on_closed = on_closed
+        self._closed_notified = False
+
+        if quiz_entries is not None:
+            self.store = ReadOnlyVocabView(quiz_entries)
+            self.allow_manage = False
+        else:
+            self.store = store or VocabStore()
+
+        default_title = (
+            config.ui("Kho từ", "Word list")
+            if manage_only
+            else config.ui("Từ vựng", "Vocabulary")
+        )
         self.window.title(
-            f"{config.APP_NAME} — "
-            + (config.ui("Kho từ", "Word list") if manage_only else config.ui("Từ vựng", "Vocabulary"))
+            f"{config.APP_NAME} — " + (window_title if window_title else default_title)
         )
 
-        self.store = store or VocabStore()
         self.progress = progress or Progress()
-        self.engine = QuizEngine(self.store, self.progress)
+        # Practice Mistakes (quiz_entries) must ignore long-term due dates.
+        apply_due_filter = quiz_entries is None
+        self.engine = QuizEngine(
+            self.store,
+            self.progress,
+            target=target,
+            language_code=language_code,
+            apply_due_filter=apply_due_filter,
+        )
 
         self.on_completed = on_completed
-        self.on_request_switch = on_request_switch
+        # Quiz-only subset must not jump to reading or open Manage.
+        self.on_request_switch = None if quiz_entries is not None else on_request_switch
         self.on_emergency = on_emergency
-        self.required = False if manage_only else required
+        self.required = False if manage_only or quiz_entries is not None else required
 
         self.completed = False
         self.practice_mode = None      # None | "free" | "forced"
@@ -72,6 +101,8 @@ class VocabQuizApp:
             )
             self.window.destroy()
             return
+
+        self.window.bind("<Destroy>", self._on_window_destroy, add="+")
 
         self._build_ui()
         if self.manage_only:
@@ -184,10 +215,11 @@ class VocabQuizApp:
             command=lambda: self._open_practice("free"),
         ).pack(side=tk.LEFT, padx=6)
 
-        ttk.Button(
-            buttons, text=config.ui("Quản lý từ vựng", "Manage vocabulary"), style="Small.TButton",
-            command=self._open_manager,
-        ).pack(side=tk.LEFT, padx=6)
+        if self.allow_manage:
+            ttk.Button(
+                buttons, text=config.ui("Quản lý từ vựng", "Manage vocabulary"), style="Small.TButton",
+                command=self._open_manager,
+            ).pack(side=tk.LEFT, padx=6)
 
         if self.on_request_switch is not None:
             ttk.Button(
@@ -543,6 +575,8 @@ class VocabQuizApp:
     # ============================================================
 
     def _open_manager(self):
+        if not self.allow_manage and not self.manage_only:
+            return
         if self.manager_view is None:
             self.manager_view = self._build_manager_view()
         self._refresh_word_list()
@@ -816,6 +850,18 @@ class VocabQuizApp:
     # ============================================================
     # Thoát
     # ============================================================
+
+    def _on_window_destroy(self, event=None):
+        if event is not None and event.widget is not self.window:
+            return
+        if self._closed_notified:
+            return
+        self._closed_notified = True
+        if callable(self.on_closed):
+            try:
+                self.on_closed()
+            except Exception:
+                pass
 
     def _on_close_attempt(self):
         if self.completed or not self.required:

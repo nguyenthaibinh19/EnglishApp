@@ -163,3 +163,64 @@ class VocabStore:
 
     def display_list(self) -> list:
         return [f"{strip_tags(e['word'])} — {e['vi']}" for e in self.vocab]
+
+
+class ReadOnlyVocabView:
+    """In-memory, read-only vocabulary for quiz-only sessions.
+
+    QuizEngine/VocabScheduler only need ``count`` / ``get`` / ``all``.
+    Mutating methods are no-ops that refuse to touch any vocab.json.
+    """
+
+    def __init__(self, entries):
+        self.filename = None
+        self.vocab = []
+        for item in entries or []:
+            if not isinstance(item, dict):
+                continue
+            word = entry_word(item)
+            meaning = item.get("vi")
+            if not word or not meaning:
+                continue
+            entry = {"word": str(word).strip(), "vi": str(meaning).strip()}
+            for field in OPTIONAL_FIELDS:
+                if item.get(field):
+                    entry[field] = item[field]
+            self.vocab.append(entry)
+
+    def all(self) -> list:
+        return self.vocab
+
+    def count(self) -> int:
+        return len(self.vocab)
+
+    def get(self, index: int):
+        if 0 <= index < len(self.vocab):
+            return self.vocab[index]
+        return None
+
+    def index_of(self, word: str):
+        target = normalize(word)
+        for i, entry in enumerate(self.vocab):
+            if normalize(entry["word"]) == target:
+                return i
+        return None
+
+    def entries_for_keys(self, keys) -> list:
+        wanted = {normalize(k) for k in keys}
+        return [e for e in self.vocab if normalize(e["word"]) in wanted]
+
+    def display_list(self) -> list:
+        return [f"{strip_tags(e['word'])} — {e['vi']}" for e in self.vocab]
+
+    def save(self):
+        return None
+
+    def add(self, word: str, vi: str, **extra) -> bool:
+        return False
+
+    def update(self, index: int, word: str, vi: str, **extra) -> bool:
+        return False
+
+    def delete(self, index: int) -> bool:
+        return False

@@ -2,6 +2,8 @@
 
 Dữ liệu nằm ở progress.json, tách khỏi vocab.json để bạn có thể sửa tay danh
 sách từ vựng mà không sợ mất lịch sử học.
+
+Phase 8: mỗi từ có thể thêm due_at / interval_days (SRS v2). Thiếu = tương thích.
 """
 
 import json
@@ -14,6 +16,16 @@ from text_utils import normalize
 
 def today_key() -> str:
     return date.today().isoformat()
+
+
+def _default_word_stats() -> dict:
+    return {
+        "seen": 0,
+        "correct": 0,
+        "wrong": 0,
+        "streak": 0,
+        "last_seen": None,
+    }
 
 
 class Progress:
@@ -59,7 +71,7 @@ class Progress:
         key = normalize(word)
         stats = self.data["words"].get(key)
         if stats is None:
-            stats = {"seen": 0, "correct": 0, "wrong": 0, "streak": 0, "last_seen": None}
+            stats = _default_word_stats()
             if create:
                 self.data["words"][key] = stats
         return stats
@@ -80,11 +92,24 @@ class Progress:
 
     # ---------- Ghi nhận câu trả lời ----------
 
-    def record(self, word: str, correct: bool, autosave: bool = True):
+    def record(
+        self,
+        word: str,
+        correct: bool,
+        autosave: bool = True,
+        reviewed_at: datetime = None,
+    ):
+        """Ghi counters/streak và SRS due_at trong một lần.
+
+        ``correct`` = mastered (exact + không gợi ý), cùng nghĩa AttemptHistory.
+        """
+        from srs import apply_review_to_stats, ensure_utc, to_utc_iso, utc_now
+
+        reviewed_at = ensure_utc(reviewed_at or utc_now())
         key = normalize(word)
         stats = self.word_stats(word, create=True)
         stats["seen"] += 1
-        stats["last_seen"] = datetime.now().isoformat(timespec="seconds")
+        stats["last_seen"] = to_utc_iso(reviewed_at)
         if correct:
             stats["correct"] += 1
             stats["streak"] += 1
@@ -92,13 +117,14 @@ class Progress:
             stats["wrong"] += 1
             stats["streak"] = 0
 
+        apply_review_to_stats(stats, mastered=correct, reviewed_at=reviewed_at)
+
         day = self.data["days"].setdefault(
             today_key(), {"asked": [], "correct": [], "wrong": [], "reading_done": False}
         )
         for bucket in ("asked", "correct" if correct else "wrong"):
             if key not in day[bucket]:
                 day[bucket].append(key)
-        # Trả lời đúng ở lần sau thì gỡ khỏi danh sách sai của ngày hôm đó.
         if correct and key in day["wrong"]:
             day["wrong"].remove(key)
 
@@ -128,7 +154,7 @@ class Progress:
     def weakest_words(self, limit: int = 10) -> list:
         """Những từ có tỉ lệ đúng thấp nhất, dùng khi hôm nay học chưa đủ từ."""
         scored = [
-            (key, stats["correct"] / stats["seen"] if stats["seen"] else 0.0, stats["wrong"])
+            (key, stats["correct"] / stats["seen"] if stats.get("seen") else 0.0, stats["wrong"])
             for key, stats in self.data["words"].items()
             if stats.get("seen")
         ]
