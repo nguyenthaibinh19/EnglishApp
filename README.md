@@ -9,12 +9,12 @@ toàn màn hình, luôn nằm trên cùng và chỉ cho đóng khi đã xong c�
 
 ## Dành cho người dùng
 
-Tải `langstudyguard.exe` (file đính kèm ở mục Releases, không cần cài Python).
+Tải `langstudyguard.zip` ở mục Releases (không cần cài Python). Giải nén rồi mở `langstudyguard.exe` bên trong.
 
-1. Mở file đó. Windows có thể báo “Unknown publisher” — bấm **More info**, rồi **Run anyway**.
+1. Windows/Edge ít cảnh báo hơn khi tải file zip thay vì exe trần. Nếu vẫn hỏi, chọn Keep / Run anyway.
 2. App tự chép vào `%LOCALAPPDATA%\langstudyguard\` và tự thêm vào Startup.
 3. Lần đầu đăng nhập tài khoản do người phát triển tạo. API key không nằm trong app.
-4. Từ vựng và tiến độ được lưu ở `%APPDATA%\langstudyguard\`. Bản mới tự tải về và thay file cũ khi người dùng đồng ý. Dữ liệu từ thư mục DutchGuard cũ được chép sang, không bị mất.
+4. Từ vựng và tiến độ được lưu ở `%APPDATA%\langstudyguard\`. Bản mới tự tải về (ưu tiên file zip) và thay file cũ khi người dùng đồng ý. Dữ liệu từ thư mục DutchGuard cũ được chép sang, không bị mất.
 
 Từ đó mỗi lần đăng nhập Windows, app tự mở.
 
@@ -33,7 +33,7 @@ Chạy bằng `start_dutch_guard.bat` hoặc `python main.py`. Cách này dùng 
 build_exe.bat
 ```
 
-File ra ở `dist\langstudyguard.exe`.
+File ra ở `dist\langstudyguard.exe` và `dist\langstudyguard.zip`. Khi phát hành trên GitHub, đính kèm **zip** (người dùng tải zip này).
 
 ## Thêm từ vựng
 

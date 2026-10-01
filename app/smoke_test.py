@@ -201,9 +201,18 @@ import tempfile
 import account_store
 import updater
 
-check("bản mới hơn thì cần cập nhật", updater.is_newer("v1.4.0", "1.3.3"))
-check("cùng bản thì không cập nhật", not updater.is_newer("v1.3.3", "1.3.3"))
-check("bản cũ hơn thì không cập nhật", not updater.is_newer("v1.3.2", "1.3.3"))
+check("bản mới hơn thì cần cập nhật", updater.is_newer("v1.4.0", "1.3.4"))
+check("cùng bản thì không cập nhật", not updater.is_newer("v1.3.4", "1.3.4"))
+check("bản cũ hơn thì không cập nhật", not updater.is_newer("v1.3.3", "1.3.4"))
+url, size, kind = updater._pick_asset(
+    {
+        "assets": [
+            {"name": "langstudyguard.exe", "browser_download_url": "https://example/e", "size": 10},
+            {"name": "langstudyguard.zip", "browser_download_url": "https://example/z", "size": 9},
+        ]
+    }
+)
+check("ưu tiên tải zip hơn exe", kind == "zip" and url.endswith("/z"))
 
 folder = tempfile.mkdtemp()
 account_store.add_user("hocvien", "matkhau", folder)

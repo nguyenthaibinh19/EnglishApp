@@ -18,6 +18,8 @@ import ui_common
 
 # Bản onefile thường ~28 MB. Nhỏ hơn mức này gần như chắc là HTML lỗi / tải dở.
 _MIN_EXE_BYTES = 8 * 1024 * 1024
+# Zip chứa exe; nhỏ hơn mức này gần như không phải bản phát hành thật.
+_MIN_ZIP_BYTES = 5 * 1024 * 1024
 
 
 def parse_version(value: str) -> tuple:
@@ -60,27 +62,38 @@ def _latest_release() -> dict:
 
 
 def _pick_asset(release: dict) -> tuple:
-    """Trả về (download_url, expected_size) của file .exe phù hợp."""
+    """Trả về (download_url, expected_size, kind) — ưu tiên zip, rồi exe."""
     assets = release.get("assets") or []
-    preferred = None
-    fallback = None
+    zip_preferred = None
+    zip_fallback = None
+    exe_preferred = None
+    exe_fallback = None
     for asset in assets:
         if not isinstance(asset, dict):
             continue
-        name = str(asset.get("name") or "")
+        name = str(asset.get("name") or "").lower()
         url = str(asset.get("browser_download_url") or "")
-        if not name.lower().endswith(".exe") or not url:
+        if not url:
             continue
         size = int(asset.get("size") or 0)
         item = (url, size)
-        if name.lower() == "langstudyguard.exe":
-            preferred = item
-        elif fallback is None:
-            fallback = item
-    chosen = preferred or fallback
-    if not chosen:
-        return "", 0
-    return chosen
+        if name.endswith(".zip"):
+            if name == "langstudyguard.zip":
+                zip_preferred = item
+            elif zip_fallback is None:
+                zip_fallback = item
+        elif name.endswith(".exe"):
+            if name == "langstudyguard.exe":
+                exe_preferred = item
+            elif exe_fallback is None:
+                exe_fallback = item
+    if zip_preferred or zip_fallback:
+        url, size = zip_preferred or zip_fallback
+        return url, size, "zip"
+    if exe_preferred or exe_fallback:
+        url, size = exe_preferred or exe_fallback
+        return url, size, "exe"
+    return "", 0, ""
 
 
 def prompt_if_needed(window: tk.Misc):
@@ -91,10 +104,10 @@ def prompt_if_needed(window: tk.Misc):
         tag = str(release.get("tag_name") or "")
         if not is_newer(tag, config.APP_VERSION):
             return None
-        url, size = _pick_asset(release)
+        url, size, kind = _pick_asset(release)
         if not url:
             return None
-        return tag, url, size
+        return tag, url, size, kind
 
     def show(found):
         if not found:
@@ -104,8 +117,8 @@ def prompt_if_needed(window: tk.Misc):
                 return
         except tk.TclError:
             return
-        tag, url, size = found
-        _offer(window, tag, url, size)
+        tag, url, size, kind = found
+        _offer(window, tag, url, size, kind)
 
     def failed(_error):
         return
@@ -127,7 +140,7 @@ def _active_guard(window: tk.Misc):
     return None
 
 
-def _offer(window, tag: str, url: str, expected_size: int = 0):
+def _offer(window, tag: str, url: str, expected_size: int = 0, kind: str = "exe"):
     guard = _active_guard(window)
     if guard is not None:
         guard.suspend(leave_fullscreen=True)
@@ -156,13 +169,68 @@ def _offer(window, tag: str, url: str, expected_size: int = 0):
             _set_topmost(window, True)
         return
     # Giữ suspend trong lúc tải; app sẽ thoát sau khi cài xong.
-    _download_and_restart(window, url, restore_topmost=(guard is None), expected_size=expected_size)
+    _download_and_restart(
+        window, url, restore_topmost=(guard is None), expected_size=expected_size, kind=kind
+    )
 
 
-def _download_release(url: str, expected_size: int = 0) -> str:
-    """Tải exe về thư mục tạm, kiểm tra kích thước và chữ ký PE trước khi trả path."""
+def _assert_exe(path: str) -> None:
+    if not os.path.isfile(path) or os.path.getsize(path) < _MIN_EXE_BYTES:
+        raise OSError(
+            config.ui(
+                "File .exe trong bản cập nhật bị thiếu hoặc quá nhỏ.",
+                "The .exe inside the update is missing or too small.",
+            )
+        )
+    with open(path, "rb") as handle:
+        if handle.read(2) != b"MZ":
+            raise OSError(
+                config.ui(
+                    "File tải về không phải file .exe hợp lệ.",
+                    "The downloaded file is not a valid .exe.",
+                )
+            )
+
+
+def _extract_exe_from_zip(zip_path: str, dest_exe: str) -> str:
+    import zipfile
+
+    with zipfile.ZipFile(zip_path, "r") as archive:
+        names = [name for name in archive.namelist() if name.lower().endswith(".exe")]
+        if not names:
+            raise OSError(
+                config.ui(
+                    "File zip không chứa langstudyguard.exe.",
+                    "The zip file does not contain langstudyguard.exe.",
+                )
+            )
+        preferred = next(
+            (name for name in names if os.path.basename(name).lower() == "langstudyguard.exe"),
+            names[0],
+        )
+        if os.path.isfile(dest_exe):
+            try:
+                os.remove(dest_exe)
+            except OSError:
+                pass
+        with archive.open(preferred) as source, open(dest_exe, "wb") as target:
+            while True:
+                chunk = source.read(1024 * 256)
+                if not chunk:
+                    break
+                target.write(chunk)
+            target.flush()
+            os.fsync(target.fileno())
+    _assert_exe(dest_exe)
+    return dest_exe
+
+
+def _download_release(url: str, expected_size: int = 0, kind: str = "exe") -> str:
+    """Tải zip hoặc exe về thư mục tạm; luôn trả về đường dẫn file .exe sẵn sàng cài."""
     folder = tempfile.gettempdir()
-    final_path = os.path.join(folder, "langstudyguard-update.exe")
+    kind = (kind or "exe").lower()
+    suffix = ".zip" if kind == "zip" else ".exe"
+    final_path = os.path.join(folder, f"langstudyguard-update{suffix}")
     partial_path = final_path + ".partial"
     if os.path.isfile(partial_path):
         try:
@@ -178,7 +246,6 @@ def _download_release(url: str, expected_size: int = 0) -> str:
         },
     )
     with urllib.request.urlopen(request, timeout=180) as response, open(partial_path, "wb") as handle:
-        # GitHub đôi khi không gửi Content-Length; ưu tiên size từ API release.
         header_size = response.headers.get("Content-Length")
         declared = expected_size or (int(header_size) if header_size and header_size.isdigit() else 0)
         written = 0
@@ -191,7 +258,8 @@ def _download_release(url: str, expected_size: int = 0) -> str:
         handle.flush()
         os.fsync(handle.fileno())
 
-    if written < _MIN_EXE_BYTES:
+    minimum = _MIN_ZIP_BYTES if kind == "zip" else _MIN_EXE_BYTES
+    if written < minimum:
         try:
             os.remove(partial_path)
         except OSError:
@@ -214,30 +282,24 @@ def _download_release(url: str, expected_size: int = 0) -> str:
             )
         )
 
-    with open(partial_path, "rb") as handle:
-        magic = handle.read(2)
-    if magic != b"MZ":
-        try:
-            os.remove(partial_path)
-        except OSError:
-            pass
-        raise OSError(
-            config.ui(
-                "File tải về không phải file .exe hợp lệ.",
-                "The downloaded file is not a valid .exe.",
-            )
-        )
-
     if os.path.isfile(final_path):
         try:
             os.remove(final_path)
         except OSError:
             pass
     os.replace(partial_path, final_path)
+
+    if kind == "zip":
+        exe_path = os.path.join(folder, "langstudyguard-update.exe")
+        return _extract_exe_from_zip(final_path, exe_path)
+
+    _assert_exe(final_path)
     return final_path
 
 
-def _download_and_restart(window, url: str, restore_topmost: bool, expected_size: int = 0):
+def _download_and_restart(
+    window, url: str, restore_topmost: bool, expected_size: int = 0, kind: str = "exe"
+):
     dialog = tk.Toplevel(window)
     dialog.title(config.APP_NAME)
     dialog.resizable(False, False)
@@ -256,7 +318,7 @@ def _download_and_restart(window, url: str, restore_topmost: bool, expected_size
     dialog.update_idletasks()
 
     def work():
-        return _download_release(url, expected_size)
+        return _download_release(url, expected_size, kind)
 
     def ok(path):
         try:
