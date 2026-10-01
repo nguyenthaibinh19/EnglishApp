@@ -1,14 +1,12 @@
-"""Chuẩn hóa và so khớp câu trả lời tiếng Hà Lan.
+"""Chuẩn hóa và so khớp câu trả lời cho ngôn ngữ đang học.
 
-Toàn bộ logic so sánh đáp án nằm ở đây để phần giao diện không phải biết gì về
-mạo từ, dấu phụ hay tag loại từ.
+So sánh đáp án nằm ở đây để phần giao diện không phải biết về mạo từ,
+dấu phụ hay tag loại từ. Danh sách mạo từ / elision lấy từ profile
+StudyLanguage (qua config.current_language), không hard-code một tiếng.
 """
 
 import re
 import unicodedata
-
-# Mạo từ tiếng Hà Lan: khi học viên gõ thiếu "de/het/een" vẫn tính là đúng.
-DUTCH_ARTICLES = ("de", "het", "een", "'t")
 
 # Tag loại từ có thể xuất hiện trong vocab.json: "fiets (de)", "lopen (ww)"...
 _POS_TAG = re.compile(

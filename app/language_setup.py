@@ -71,7 +71,7 @@ def run(root: tk.Tk) -> bool:
 
     def refresh_add_box():
         labels = [
-            languages.LANGUAGES[code]["label"]
+            languages.resolve_language(code).label
             for code in languages.codes()
             if code not in chosen
         ]
@@ -89,7 +89,7 @@ def run(root: tk.Tk) -> bool:
         for code in chosen:
             row = ttk.Frame(chosen_frame)
             row.pack(anchor="w", fill=tk.X, pady=2)
-            ttk.Label(row, text=languages.LANGUAGES[code]["label"], width=24).pack(side=tk.LEFT)
+            ttk.Label(row, text=languages.resolve_language(code).label, width=24).pack(side=tk.LEFT)
 
             def remove(code=code):
                 if code in chosen:
@@ -102,7 +102,7 @@ def run(root: tk.Tk) -> bool:
     def on_add(_event=None):
         label = add_var.get()
         code = next(
-            (item for item, profile in languages.LANGUAGES.items() if profile["label"] == label),
+            (lang.code for lang in languages.iter_languages() if lang.label == label),
             None,
         )
         if code and code not in chosen:
@@ -149,7 +149,7 @@ def run(root: tk.Tk) -> bool:
         def work():
             count = len(missing)
             for index, (source, native) in enumerate(missing):
-                label = languages.LANGUAGES[source]["label"]
+                label = languages.resolve_language(source).label
 
                 def report(fraction, index=index, label=label):
                     overall = (index + fraction) / count

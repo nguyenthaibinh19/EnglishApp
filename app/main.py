@@ -701,7 +701,7 @@ def run_diagnostics():
         f"bài đọc trình độ {config.READING_LEVEL}"
     )
     print("Gốc    : " + config.native_label())
-    print("Học    : " + ", ".join(languages.LANGUAGES[code]["label"] for code in config.study_codes()))
+    print("Học    : " + ", ".join(languages.resolve_language(code).label for code in config.study_codes()))
     print(f"Hôm nay : đã ôn {summary['asked_today']} từ, "
           f"bài đọc {'xong' if summary['reading_done'] else 'chưa xong'}")
 

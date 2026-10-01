@@ -12,6 +12,7 @@ from progress import Progress
 from quiz_engine import QuizEngine
 from reading_schema import count_questions, normalize_test
 from vocab_store import VocabStore
+import languages
 
 failures = []
 
@@ -21,6 +22,35 @@ def check(label, condition, detail=""):
     if not condition:
         failures.append(f"{label} {detail}")
     print(f"[{status}] {label}{(' - ' + detail) if detail and not condition else ''}")
+
+
+# ---------- Registry ngôn ngữ học ----------
+
+EXPECTED_CODES = ["nl", "en", "fr", "de", "es", "it", "pt"]
+check("registry đủ 7 mã học", languages.codes() == EXPECTED_CODES)
+check("default study code vẫn là nl", languages.default_study_code() == "nl")
+check("get_language('fr') trả về StudyLanguage", languages.get_language("fr").code == "fr")
+check("get_language mã lạ là None", languages.get_language("xx") is None)
+check("is_supported_language từ chối mã lạ", not languages.is_supported_language("xx"))
+check(
+    "resolve_language mã lạ fallback default",
+    languages.resolve_language("xx").code == languages.default_study_code(),
+)
+check(
+    "get() mã lạ vẫn trả profile default (tương thích)",
+    languages.get("xx")["name_en"] == languages.default_language().name_en,
+)
+nl = languages.get_language("nl")
+check("nl articles còn de/het/een", "de" in nl.articles and "het" in nl.articles)
+fr = languages.get_language("fr")
+check("fr elisions còn l'", "l'" in fr.elisions)
+check("registry không trộn native vi", "vi" not in languages.codes())
+import config as _config
+check("native_code tách khỏi study codes", _config.native_code() in ("vi", "en"))
+check(
+    "LANGUAGES mapping cũ còn label",
+    languages.LANGUAGES["de"]["label"] == languages.get_language("de").label,
+)
 
 
 # ---------- So khớp đáp án ----------
@@ -93,6 +123,84 @@ check("trả lời đúng đủ số câu thì kết thúc", engine.finished, st
 check("ghi nhận từ đã học hôm nay", len(progress.words_studied_today()) >= 1)
 check("từ mới có trọng số cao hơn từ đã thuộc",
       progress.weight("chưa từng học") > progress.weight(store.get(0)["word"]))
+
+
+# ---------- Scheduler (tách khỏi persistence) ----------
+
+import copy
+import scheduler as vocab_scheduler
+
+# Từ mới / chưa thấy
+unseen = {"seen": 0, "correct": 0, "wrong": 0, "streak": 0, "last_seen": None}
+# Hay sai
+weak = {"seen": 10, "correct": 2, "wrong": 8, "streak": 0, "last_seen": "2026-10-01T12:00:00"}
+# Đã thuộc (streak cao)
+strong = {"seen": 10, "correct": 10, "wrong": 0, "streak": 5, "last_seen": "2026-10-01T12:00:00"}
+# Cùng accuracy/streak nhưng lâu chưa gặp
+stale = {"seen": 10, "correct": 10, "wrong": 0, "streak": 5, "last_seen": "2026-09-01T12:00:00"}
+today = __import__("datetime").date(2026, 10, 1)
+
+check(
+    "scheduler: từ mới trọng số cao hơn từ thuộc",
+    vocab_scheduler.compute_weight(unseen, today) > vocab_scheduler.compute_weight(strong, today),
+)
+check(
+    "scheduler: từ hay sai trọng số cao hơn từ thuộc",
+    vocab_scheduler.compute_weight(weak, today) > vocab_scheduler.compute_weight(strong, today),
+)
+check(
+    "scheduler: streak cao làm giảm trọng số",
+    vocab_scheduler.compute_weight(
+        {"seen": 5, "correct": 5, "wrong": 0, "streak": 5, "last_seen": None}, today
+    )
+    < vocab_scheduler.compute_weight(
+        {"seen": 5, "correct": 5, "wrong": 0, "streak": 0, "last_seen": None}, today
+    ),
+)
+check(
+    "scheduler: từ lâu chưa gặp tăng lại trọng số",
+    vocab_scheduler.compute_weight(stale, today) > vocab_scheduler.compute_weight(strong, today),
+)
+
+# Chọn từ không được ghi progress
+sched_dir = tempfile.mkdtemp()
+sched_vocab = os.path.join(sched_dir, "vocab.json")
+sched_progress = os.path.join(sched_dir, "progress.json")
+with open(sched_vocab, "w", encoding="utf-8") as f:
+    f.write(
+        '[{"word": "alpha", "vi": "a"}, {"word": "beta", "vi": "b"}, '
+        '{"word": "gamma", "vi": "c"}]'
+    )
+with open(sched_progress, "w", encoding="utf-8") as f:
+    f.write(
+        '{"version": 2, "words": {"alpha": {"seen": 4, "correct": 4, "wrong": 0, '
+        '"streak": 4, "last_seen": "2026-10-01T10:00:00"}}, "days": {}}'
+    )
+before_progress = open(sched_progress, encoding="utf-8").read()
+sched_store = VocabStore(sched_vocab)
+sched_prog = Progress(sched_progress)
+snapshot = copy.deepcopy(sched_prog.data)
+chooser = vocab_scheduler.VocabScheduler(sched_prog, rng=random.Random(1))
+picked = chooser.pick_next(sched_store, answered=0)
+check("scheduler: pick_next trả về entry", picked is not None and "word" in picked)
+check("scheduler: pick_next không đổi data trong bộ nhớ", sched_prog.data == snapshot)
+check(
+    "scheduler: pick_next không ghi đĩa",
+    open(sched_progress, encoding="utf-8").read() == before_progress,
+)
+# Progress.weight vẫn tương thích và trùng compute_weight
+check(
+    "progress.weight ủy thác cùng công thức scheduler",
+    abs(
+        sched_prog.weight("alpha")
+        - vocab_scheduler.compute_weight(sched_prog.word_stats("alpha"))
+    )
+    < 1e-9,
+)
+# File progress cũ (version 2) vẫn load
+legacy = Progress(sched_progress)
+check("progress.json cũ vẫn load được", legacy.data.get("version") == 2)
+check("progress.json cũ còn thống kê từ", "alpha" in legacy.data["words"])
 
 
 # ---------- Chuẩn hóa bài đọc ----------
@@ -233,6 +341,77 @@ try:
 except ValueError:
     check("mật khẩu cũ không còn dùng", True)
 check("đăng nhập bằng mật khẩu mới", account_store.login("hocvien", "matkhau2", folder) != "")
+
+# ---------- AI provider boundary (không gọi mạng / OpenAI) ----------
+
+import ai_teacher
+from ai.base import AIError, AIProvider, GradeRequest, GradeResult, ReadingRequest
+from ai.service import AIService, set_service
+
+
+class FakeProvider(AIProvider):
+    def __init__(self):
+        self.grade_calls = []
+        self.reading_calls = []
+
+    def grade_answer(self, request: GradeRequest) -> GradeResult:
+        self.grade_calls.append(request)
+        return GradeResult(
+            is_correct_usage=True,
+            score=0.9,
+            feedback_vi=f"ok:{request.study_language.code}",
+            corrected_sentence=request.user_sentence,
+            suggested_sentence="sample",
+        )
+
+    def generate_reading(self, request: ReadingRequest) -> dict:
+        self.reading_calls.append(request)
+        return {
+            "title": "Fake",
+            "level": request.level,
+            "passage": "Hallo.",
+            "source": "ai",
+            "target_words": ["hallo"],
+            "groups": [],
+            "study_code": request.study_language.code if request.study_language else "",
+        }
+
+
+fake = FakeProvider()
+set_service(AIService(provider=fake))
+try:
+    graded = ai_teacher.check_sentence(
+        "fiets",
+        "Ik heb een fiets.",
+        "xe đạp",
+        profile={"code": "nl", "name_en": "Dutch", "name_vi": "tiếng Hà Lan", "articles": (), "elisions": ()},
+        native_label="Tiếng Việt",
+        level="A2",
+    )
+    check("facade chấm câu qua provider", graded["is_correct_usage"] is True)
+    check("facade không cần OpenAI SDK", graded["feedback_vi"].startswith("ok:"))
+    check("StudyLanguage tới AI layer", fake.grade_calls[0].study_language.code == "nl")
+    check(
+        "grade request mang câu học viên",
+        fake.grade_calls[0].user_sentence == "Ik heb een fiets.",
+    )
+
+    reading = ai_teacher.generate_reading(
+        [{"word": "hallo", "vi": "xin chào"}],
+        profile={"code": "de"},
+        native_label="English",
+        level="A2",
+        passage_words=80,
+    )
+    check("facade sinh bài đọc qua provider", reading.get("source") == "ai")
+    check("reading nhận StudyLanguage de", fake.reading_calls[0].study_language.code == "de")
+    check(
+        "thay provider không đụng quiz/reading business API",
+        callable(ai_teacher.check_sentence) and callable(ai_teacher.generate_reading),
+    )
+    check("AITeacherError alias AIError", ai_teacher.AITeacherError is AIError)
+finally:
+    set_service(None)
 
 print()
 if failures:

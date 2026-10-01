@@ -1,4 +1,4 @@
-"""Màn hình luyện từ vựng tiếng Hà Lan.
+"""Màn hình luyện từ vựng cho ngôn ngữ đang học.
 
 Ba khung dùng chung một cửa sổ: làm bài, đặt câu ví dụ (AI chấm) và quản lý từ vựng.
 """

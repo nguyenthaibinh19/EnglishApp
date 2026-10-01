@@ -65,29 +65,18 @@ class Progress:
         return stats
 
     def accuracy(self, word: str) -> float:
-        stats = self.word_stats(word)
-        if not stats["seen"]:
-            return 0.0
-        return stats["correct"] / stats["seen"]
+        from scheduler import accuracy_from_stats
+
+        return accuracy_from_stats(self.word_stats(word))
 
     def weight(self, word: str) -> float:
-        """Trọng số khi bốc câu hỏi: từ mới và từ hay sai được ưu tiên."""
-        stats = self.word_stats(word)
-        if not stats["seen"]:
-            return 4.0
+        """Tương thích ngược: ủy thác cho scheduler.compute_weight.
 
-        weight = 1.0 + 4.0 * (1.0 - self.accuracy(word))
-        # Từ đã thuộc (đúng liên tiếp nhiều lần) thì giãn ra cho đỡ nhàm.
-        weight /= 1.0 + 0.6 * min(stats["streak"], 5)
+        Không đổi công thức. Không tạo bản ghi mới khi chỉ đọc trọng số.
+        """
+        from scheduler import compute_weight
 
-        last_seen = stats.get("last_seen")
-        if last_seen:
-            try:
-                days_ago = (date.today() - datetime.fromisoformat(last_seen).date()).days
-                weight *= 1.0 + min(days_ago, 14) * 0.15
-            except ValueError:
-                pass
-        return max(weight, 0.15)
+        return compute_weight(self.word_stats(word))
 
     # ---------- Ghi nhận câu trả lời ----------
 

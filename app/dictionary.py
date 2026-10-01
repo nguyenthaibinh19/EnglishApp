@@ -55,17 +55,17 @@ def pack_path(source: str, native: str) -> str:
 
 
 def probe_word(source: str) -> str:
-    profile = languages.get(source)
-    text = normalize(profile.get("sample") or "")
-    text = without_elision(without_article(text, profile.get("articles")), profile.get("elisions"))
+    lang = languages.resolve_language(source)
+    text = normalize(lang.sample or "")
+    text = without_elision(without_article(text, lang.articles), lang.elisions)
     return text.split(" ")[0] if text else ""
 
 
 def lookup_keys(word: str, source: str) -> list:
     """Các dạng để tra: nguyên từ, bỏ mạo từ, bỏ dấu, rồi mới đến dạng gốc."""
-    profile = languages.get(source)
-    articles = profile.get("articles") or ()
-    elisions = profile.get("elisions") or ()
+    lang = languages.resolve_language(source)
+    articles = lang.articles or ()
+    elisions = lang.elisions or ()
     forms = []
 
     def add(value: str):

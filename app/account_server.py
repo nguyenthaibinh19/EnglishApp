@@ -87,6 +87,7 @@ class Handler(BaseHTTPRequestHandler):
 
 def _profile(payload: dict) -> dict:
     code = str(payload.get("language") or "").strip().lower()
+    # get() fallback sang ngôn ngữ mặc định nếu mã lạ — giữ hành vi cũ.
     profile = dict(languages.get(code) or {})
     if not profile:
         raise ValueError("Ngôn ngữ không được hỗ trợ.")

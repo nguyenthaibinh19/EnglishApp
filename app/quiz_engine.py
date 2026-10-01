@@ -1,12 +1,14 @@
 """Logic của phần luyện từ vựng, tách hẳn khỏi giao diện Tkinter.
 
 Nhờ vậy có thể chạy thử bằng script mà không cần mở cửa sổ.
+Chọn từ / trọng số ủy thác cho scheduler; ghi nhận tiến độ vẫn qua Progress.
 """
 
 import random
 from dataclasses import dataclass, field
 
 import config
+from scheduler import VocabScheduler
 from text_utils import display_word, entry_word, match_answer, strip_tags
 
 
@@ -24,13 +26,14 @@ class AnswerResult:
 
 
 class QuizEngine:
-    """Chọn câu hỏi theo trọng số SRS và chấm câu trả lời."""
+    """Chấm câu trả lời và điều khiển phiên; lịch hỏi từ nằm ở VocabScheduler."""
 
     def __init__(self, store, progress, target: int = None, rng: random.Random = None):
         self.store = store
         self.progress = progress
         self.target = target if target is not None else config.QUIZ_TARGET_CORRECT
         self.rng = rng or random.Random()
+        self.scheduler = VocabScheduler(progress, rng=self.rng)
 
         self.correct_count = 0
         self.answered = 0
@@ -39,8 +42,6 @@ class QuizEngine:
         self.current_index = None
         self.hint_used = False
 
-        self._last_index = None
-        self._requeue = []        # [(hỏi lại sau câu thứ n, index)]
         self.session_wrong = []   # các từ đã sai trong phiên này
 
     # ---------- Trạng thái ----------
@@ -61,18 +62,11 @@ class QuizEngine:
 
     def pick_next(self):
         """Chọn từ tiếp theo, trả về entry (hoặc None nếu kho từ rỗng)."""
-        total = self.store.count()
-        if total == 0:
-            self.current_index = None
-            return None
-
-        index = self._pop_due_requeue(total)
-        if index is None:
-            index = self._weighted_pick(total)
-
-        self._last_index = index
+        index = self.scheduler.pick_next_index(self.store, self.answered)
         self.current_index = index
         self.hint_used = False
+        if index is None:
+            return None
         return self.store.get(index)
 
     def use_hint(self) -> str:
@@ -84,22 +78,6 @@ class QuizEngine:
         word = strip_tags(entry_word(entry))
         masked = "".join("_" if c.isalpha() else c for c in word[1:])
         return f"{word[0]}{masked}  ({len(word)} ký tự)"
-
-    def _pop_due_requeue(self, total: int):
-        """Lấy từ đã sai và đã tới lượt hỏi lại."""
-        for position, (due_at, index) in enumerate(self._requeue):
-            if due_at > self.answered or index >= total:
-                continue
-            if index == self._last_index and total > 1:
-                continue
-            self._requeue.pop(position)
-            return index
-        return None
-
-    def _weighted_pick(self, total: int) -> int:
-        candidates = [i for i in range(total) if i != self._last_index] or [self._last_index]
-        weights = [self.progress.weight(entry_word(self.store.get(i))) for i in candidates]
-        return self.rng.choices(candidates, weights=weights, k=1)[0]
 
     # ---------- Chấm câu trả lời ----------
 
@@ -128,9 +106,9 @@ class QuizEngine:
                 self.session_wrong.append(word)
 
         # Sai hẳn, sai chính tả hoặc đã xem gợi ý đều được xếp lịch hỏi lại.
-        if not mastered:
+        if not mastered and self.current_index is not None:
             delay = config.WRONG_REQUEUE_AFTER if not is_correct else config.WRONG_REQUEUE_AFTER * 2
-            self._requeue.append((self.answered + delay, self.current_index))
+            self.scheduler.schedule_requeue(self.current_index, self.answered, delay)
 
         return AnswerResult(
             verdict=verdict,

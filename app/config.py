@@ -218,19 +218,22 @@ def uses_account_server() -> bool:
 
 
 def active_code() -> str:
-    code = str(_read_settings().get("language") or "nl").strip().lower()
-    return code if code in languages.LANGUAGES else "nl"
+    code = str(_read_settings().get("language") or languages.default_study_code()).strip().lower()
+    return code if languages.is_supported_language(code) else languages.default_study_code()
 
 
 def current_language() -> dict:
-    profile = dict(languages.get(active_code()))
-    profile["code"] = active_code()
-    return profile
+    lang = languages.resolve_language(active_code())
+    return lang.as_profile(include_code=True)
 
 
 def set_language(code: str) -> str:
     """Nhớ ngôn ngữ đang mở để luyện. Không đánh dấu lần mở máy này là đã xong."""
-    chosen = code if code in languages.LANGUAGES else "nl"
+    chosen = (
+        str(code).strip().lower()
+        if languages.is_supported_language(code)
+        else languages.default_study_code()
+    )
     payload = _read_settings()
     payload["language"] = chosen
     payload.pop("emergency_password", None)
@@ -245,7 +248,7 @@ def study_codes() -> list:
     if isinstance(raw, list):
         for item in raw:
             code = str(item).strip().lower()
-            if code in languages.LANGUAGES and code not in chosen:
+            if languages.is_supported_language(code) and code not in chosen:
                 chosen.append(code)
     if chosen:
         return chosen
@@ -253,7 +256,7 @@ def study_codes() -> list:
 
 
 def native_code() -> str:
-    """Ngôn ngữ gốc để dịch nghĩa: vi hoặc en."""
+    """Ngôn ngữ gốc / UI (vi|en) — khác với study language."""
     code = str(_read_settings().get("native") or "vi").strip().lower()
     return "en" if code == "en" else "vi"
 
@@ -268,10 +271,10 @@ def ui(vi: str, en: str) -> str:
 
 
 def language_name(code: str) -> str:
-    profile = languages.get(code)
+    lang = languages.resolve_language(code)
     if native_code() == "en":
-        return profile.get("name_en") or profile.get("label") or code
-    return profile.get("label") or code
+        return lang.name_en or lang.label or code
+    return lang.label or code
 
 
 def language_setup_done() -> bool:
@@ -286,10 +289,10 @@ def save_language_choices(native: str, codes) -> list:
     chosen = []
     for item in codes:
         code = str(item).strip().lower()
-        if code in languages.LANGUAGES and code not in chosen:
+        if languages.is_supported_language(code) and code not in chosen:
             chosen.append(code)
     if not chosen:
-        chosen = ["nl"]
+        chosen = [languages.default_study_code()]
     payload = _read_settings()
     payload["native"] = "en" if str(native).strip().lower() == "en" else "vi"
     payload["study_languages"] = chosen
@@ -339,7 +342,7 @@ def set_study_codes(codes) -> list:
     chosen = []
     for item in codes:
         code = str(item).strip().lower()
-        if code in languages.LANGUAGES and code not in chosen:
+        if languages.is_supported_language(code) and code not in chosen:
             chosen.append(code)
     if not chosen:
         chosen = [active_code()]
@@ -372,24 +375,26 @@ def _starter_file(code: str):
     specific = os.path.join(resource_dir(), "starters", f"{code}.json")
     if os.path.isfile(specific):
         return specific
-    if code == "nl" and os.path.isfile(STARTER_VOCAB_FILE):
+    # Legacy: starter Hà Lan từng nằm ở data/vocab.json thay vì starters/nl.json.
+    if code == languages.default_study_code() and os.path.isfile(STARTER_VOCAB_FILE):
         return STARTER_VOCAB_FILE
     return None
 
 
 def ensure_language_data():
-    """Tách dữ liệu theo ngôn ngữ và giữ bộ từ Hà Lan đang có."""
-    os.makedirs(language_dir("nl"), exist_ok=True)
+    """Tạo thư mục từng ngôn ngữ học; chuyển dữ liệu root cũ sang languages/nl."""
+    default = languages.default_study_code()
+    os.makedirs(language_dir(default), exist_ok=True)
 
     legacy_vocab = os.path.join(data_dir(), "vocab.json")
     legacy_progress = os.path.join(data_dir(), "progress.json")
     legacy_cache = os.path.join(data_dir(), "cache")
-    if os.path.isfile(legacy_vocab) and not os.path.isfile(vocab_path("nl")):
-        shutil.copy2(legacy_vocab, vocab_path("nl"))
-    if os.path.isfile(legacy_progress) and not os.path.isfile(progress_path("nl")):
-        shutil.copy2(legacy_progress, progress_path("nl"))
-    if os.path.isdir(legacy_cache) and not os.path.isdir(cache_dir("nl")):
-        shutil.copytree(legacy_cache, cache_dir("nl"))
+    if os.path.isfile(legacy_vocab) and not os.path.isfile(vocab_path(default)):
+        shutil.copy2(legacy_vocab, vocab_path(default))
+    if os.path.isfile(legacy_progress) and not os.path.isfile(progress_path(default)):
+        shutil.copy2(legacy_progress, progress_path(default))
+    if os.path.isdir(legacy_cache) and not os.path.isdir(cache_dir(default)):
+        shutil.copytree(legacy_cache, cache_dir(default))
 
     for code in languages.codes():
         dest = vocab_path(code)
