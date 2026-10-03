@@ -13,9 +13,6 @@ import config
 import ui_common
 from daily_study import plan_for_language
 from home_viewmodel import HomeViewModel, build_home_view_model
-from progress import Progress
-from quiz_app import VocabQuizApp
-from vocab_store import VocabStore
 
 
 class FreeHome:
@@ -118,7 +115,7 @@ class FreeHome:
             row1,
             text=config.ui("Kho từ", "Vocabulary"),
             style="Secondary.TButton",
-            command=self._add_words,
+            command=self._open_vocabulary,
         ).pack(side=tk.LEFT, expand=True, fill=tk.X, padx=(0, 6))
         ttk.Button(
             row1,
@@ -257,10 +254,17 @@ class FreeHome:
             return
         self._choose_language(codes, mode="active")
 
+    def _open_vocabulary(self):
+        codes = config.study_codes()
+        if len(codes) == 1:
+            self._open_bank(codes[0], focus_add=False)
+            return
+        self._choose_language(codes, mode="vocabulary")
+
     def _add_words(self):
         codes = config.study_codes()
         if len(codes) == 1:
-            self._open_bank(codes[0])
+            self._open_bank(codes[0], focus_add=True)
             return
         self._choose_language(codes, mode="bank")
 
@@ -324,6 +328,10 @@ class FreeHome:
             prompt = config.ui(
                 "Đặt ngôn ngữ đang học?", "Set the active study language?"
             )
+        elif mode == "vocabulary":
+            prompt = config.ui(
+                "Xem kho từ ngôn ngữ nào?", "Vocabulary for which language?"
+            )
         else:
             prompt = config.ui(
                 "Thêm từ cho ngôn ngữ nào?", "Add words for which language?"
@@ -340,10 +348,15 @@ class FreeHome:
                     dialog.destroy(),
                     self._set_active_language(c),
                 )
+            elif mode == "vocabulary":
+                action = lambda c=code, dialog=dialog: (
+                    dialog.destroy(),
+                    self._open_bank(c, focus_add=False),
+                )
             else:
                 action = lambda c=code, dialog=dialog: (
                     dialog.destroy(),
-                    self._open_bank(c),
+                    self._open_bank(c, focus_add=True),
                 )
             ttk.Button(
                 frame, text=config.language_name(code), command=action
@@ -366,20 +379,23 @@ class FreeHome:
         MistakeBookApp(self.mistake_window, language_code=code)
         self.mistake_window.bind("<Destroy>", lambda _e: self.root.after(80, self.refresh), add="+")
 
-    def _open_bank(self, code):
+    def _open_bank(self, code, focus_add: bool = False):
+        from vocabulary_app import VocabularyLibraryApp
+
         config.set_language(code)
         self.refresh()
         if self.bank_window is not None and self.bank_window.winfo_exists():
             self.bank_window.lift()
+            app = getattr(self, "_library_app", None)
+            if focus_add and app is not None:
+                try:
+                    app.open_add_dialog()
+                except tk.TclError:
+                    pass
             return
         self.bank_window = tk.Toplevel(self.root)
-        VocabQuizApp(
-            self.bank_window,
-            store=VocabStore(),
-            progress=Progress(),
-            required=False,
-            manage_only=True,
-            locked=False,
+        self._library_app = VocabularyLibraryApp(
+            self.bank_window, language_code=code, focus_add=focus_add
         )
         self.bank_window.bind("<Destroy>", lambda _e: self.root.after(80, self.refresh), add="+")
 

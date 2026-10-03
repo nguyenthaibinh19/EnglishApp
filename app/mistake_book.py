@@ -10,6 +10,8 @@ Quy tắc v1 (deterministic):
   ``attention_count`` = tổng số lần non-mastered trong toàn bộ lịch sử từ đó
   (không chỉ kể từ lần mastery gần nhất).
 
+Phase 13: nhóm theo ``vocab_id`` khi có; legacy unresolved → normalize(word).
+
 Không import Tkinter. Không sửa attempts.jsonl.
 """
 
@@ -20,6 +22,7 @@ from typing import Iterable, List, Optional
 
 from attempt_history import AttemptHistory, LearningAttempt
 from text_utils import entry_word, normalize
+from vocab_identity import entry_id
 
 
 # Status keys derived only from existing verdict / hint_used.
@@ -39,6 +42,7 @@ class MistakeSummary:
     last_hint_used: bool
     last_timestamp: str
     language_code: str = ""
+    vocab_id: str = ""
 
 
 def attention_status(verdict: str, hint_used: bool) -> str:
@@ -50,22 +54,30 @@ def attention_status(verdict: str, hint_used: bool) -> str:
     return STATUS_WRONG
 
 
+def _attempt_group_key(attempt: LearningAttempt) -> str:
+    vid = str(attempt.vocab_id or "").strip()
+    if vid:
+        return f"id:{vid}"
+    key = normalize(attempt.word)
+    return f"word:{key}" if key else ""
+
+
 def summarize_mistakes(
     attempts: Iterable[LearningAttempt],
     language_code: Optional[str] = None,
 ) -> List[MistakeSummary]:
     """Aggregate non-mastered attention items from an attempt sequence.
 
-    Groups by normalized ``word``. Filters by ``language_code`` when given.
+    Groups by vocab_id when present, else normalized ``word``.
+    Filters by ``language_code`` when given.
     Sort: newest ``last_timestamp`` first, then higher ``attention_count``,
     then ``word`` ascending for stability.
     """
-    # Preserve insertion order within each group via list append.
     groups: dict[str, list[LearningAttempt]] = {}
     for attempt in attempts:
         if language_code is not None and attempt.language_code != language_code:
             continue
-        key = normalize(attempt.word)
+        key = _attempt_group_key(attempt)
         if not key:
             continue
         groups.setdefault(key, []).append(attempt)
@@ -87,6 +99,7 @@ def summarize_mistakes(
                 last_hint_used=bool(latest.hint_used),
                 last_timestamp=latest.timestamp,
                 language_code=latest.language_code,
+                vocab_id=str(latest.vocab_id or ""),
             )
         )
 
@@ -112,33 +125,55 @@ def resolve_practice_entries(
 ) -> List[dict]:
     """Map Mistake Book rows → full vocab entries for the current language.
 
-    - Prefer the first VocabStore row whose normalized word matches (same as
-      ``VocabStore.index_of`` — duplicate headwords are a known limitation).
-    - Skip summaries with no matching vocab entry (deleted words stay in history).
-    - Returns shallow-copied entry dicts; does not invent incomplete entries.
+    Prefer stable ``vocab_id`` match. Legacy summaries without ID fall back to
+    first normalized-word match (Phase 7 behavior).
+    Skip summaries with no matching vocab entry (deleted words stay in history).
+    Returns shallow-copied entry dicts including ``id`` when present.
     """
+    by_id: dict[str, dict] = {}
     by_key: dict[str, dict] = {}
     for entry in vocab_entries or []:
         if not isinstance(entry, dict):
             continue
-        key = normalize(entry_word(entry))
-        if not key or key in by_key:
-            continue  # first match wins for duplicates
         if not entry.get("vi"):
             continue
-        by_key[key] = entry
+        vid = entry_id(entry)
+        if vid and vid not in by_id:
+            by_id[vid] = entry
+        key = normalize(entry_word(entry))
+        if key and key not in by_key:
+            by_key[key] = entry
 
     resolved: List[dict] = []
-    seen: set[str] = set()
+    seen_ids: set[str] = set()
+    seen_keys: set[str] = set()
     for summary in summaries or []:
-        key = normalize(summary.word)
-        if not key or key in seen:
-            continue
-        entry = by_key.get(key)
+        entry = None
+        vid = str(getattr(summary, "vocab_id", "") or "").strip()
+        if vid and vid in by_id:
+            if vid in seen_ids:
+                continue
+            entry = by_id[vid]
+            seen_ids.add(vid)
+        else:
+            key = normalize(summary.word)
+            if not key or key in seen_keys:
+                continue
+            entry = by_key.get(key)
+            if entry is None:
+                continue
+            seen_keys.add(key)
+            # Also mark id so we don't practice the same row twice via mixed keys.
+            eid = entry_id(entry)
+            if eid:
+                seen_ids.add(eid)
+
         if entry is None:
             continue
-        seen.add(key)
         copy = {"word": str(entry_word(entry)).strip(), "vi": str(entry["vi"]).strip()}
+        eid = entry_id(entry)
+        if eid:
+            copy["id"] = eid
         for field in ("alt", "example", "note", "type"):
             if entry.get(field):
                 copy[field] = entry[field]
@@ -166,9 +201,6 @@ def _timestamp_sort_key(value: str) -> float:
     text = str(value or "").strip()
     if not text:
         return 0.0
-    # Prefer lexical ISO-8601 ordering (UTC offsets included).
-    # Map to ordinal-ish float via char codes only if needed — lexical is enough
-    # when all timestamps use the same Phase 5 format.
     try:
         from datetime import datetime
 

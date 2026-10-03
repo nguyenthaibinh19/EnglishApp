@@ -246,9 +246,24 @@ def test_plan_construction_performs_no_writes(tmp_path):
     vocab = tmp_path / "vocab.json"
     progress_path = tmp_path / "progress.json"
     attempts = tmp_path / "attempts.jsonl"
-    vocab.write_text(json.dumps([{"word": "a", "vi": "1"}]), encoding="utf-8")
+    # Pre-assign stable id so VocabStore load does not need an identity rewrite.
+    vocab.write_text(
+        json.dumps(
+            [{"id": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa", "word": "a", "vi": "1"}]
+        ),
+        encoding="utf-8",
+    )
     progress_path.write_text(
-        json.dumps({"version": 2, "words": {}, "days": {}}), encoding="utf-8"
+        json.dumps(
+            {
+                "version": 3,
+                "identity": "vocab_id",
+                "words": {},
+                "days": {},
+                "legacy_index": {"a": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"},
+            }
+        ),
+        encoding="utf-8",
     )
     before_v = vocab.read_text(encoding="utf-8")
     before_p = progress_path.read_text(encoding="utf-8")

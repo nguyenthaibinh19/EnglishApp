@@ -4,7 +4,7 @@ Progress giữ trạng thái tổng hợp cho scheduler.
 AttemptHistory giữ lịch sử từng lần trả lời — phục vụ Mistake Book / phân tích sau này.
 
 Định dạng: JSON Lines (một object JSON mỗi dòng) tại languages/{code}/attempts.jsonl.
-Thiếu file = lịch sử rỗng; không cần migrate.
+Phase 13: thêm ``vocab_id`` (ổn định); ``word`` vẫn là snapshot chính tả lúc trả lời.
 """
 
 from __future__ import annotations
@@ -16,6 +16,7 @@ from datetime import datetime, timezone
 from typing import Iterator, List, Optional
 
 import config
+from vocab_identity import is_vocab_id
 
 
 def utc_now_iso() -> str:
@@ -28,6 +29,7 @@ class LearningAttempt:
     """Một lần trả lời từ vựng đã chốt đúng/sai.
 
     ``correct`` phải khớp quyết định gửi vào Progress.record (exact + không dùng gợi ý).
+    ``vocab_id`` là identity ổn định; ``word`` là snapshot hiển thị lịch sử.
     """
 
     timestamp: str
@@ -40,12 +42,16 @@ class LearningAttempt:
     verdict: str = "wrong"  # "exact" | "near" | "wrong"
     hint_used: bool = False
     prompt: str = ""  # nghĩa hiển thị (thường là vi)
+    vocab_id: str = ""  # Phase 13; empty if unresolved legacy
 
 
 def _attempt_from_dict(raw: dict) -> Optional[LearningAttempt]:
     if not isinstance(raw, dict):
         return None
     try:
+        vocab_id = str(raw.get("vocab_id") or "").strip()
+        if vocab_id and not is_vocab_id(vocab_id):
+            vocab_id = ""
         return LearningAttempt(
             timestamp=str(raw.get("timestamp") or ""),
             language_code=str(raw.get("language_code") or ""),
@@ -56,6 +62,7 @@ def _attempt_from_dict(raw: dict) -> Optional[LearningAttempt]:
             verdict=str(raw.get("verdict") or "wrong"),
             hint_used=bool(raw.get("hint_used")),
             prompt=str(raw.get("prompt") or ""),
+            vocab_id=vocab_id,
         )
     except (TypeError, ValueError):
         return None
@@ -74,7 +81,9 @@ class AttemptHistory:
 
     def record(self, attempt: LearningAttempt) -> None:
         """Ghi thêm một attempt. Lỗi I/O cục bộ không làm hỏng phiên học."""
-        line = json.dumps(asdict(attempt), ensure_ascii=False) + "\n"
+        payload = asdict(attempt)
+        # Keep JSON compact: omit empty vocab_id only? Prefer always include for clarity.
+        line = json.dumps(payload, ensure_ascii=False) + "\n"
         directory = os.path.dirname(self.filename)
         try:
             if directory:

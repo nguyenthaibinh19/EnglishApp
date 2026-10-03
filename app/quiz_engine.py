@@ -119,13 +119,17 @@ class QuizEngine:
         # nhưng không được ghi nhận là đã thuộc từ.
         mastered = verdict == "exact" and not self.hint_used
         word = entry_word(entry)
-        self.progress.record(word, correct=mastered)
+        from vocab_identity import entry_id
+
+        vocab_id = entry_id(entry)
+        self.progress.record(word, correct=mastered, vocab_id=vocab_id or None)
         self._record_attempt(
             user_answer=user_answer,
             entry=entry,
             word=word,
             correct=mastered,
             verdict=verdict,
+            vocab_id=vocab_id,
         )
 
         if is_correct:
@@ -162,6 +166,7 @@ class QuizEngine:
         word: str,
         correct: bool,
         verdict: str,
+        vocab_id: str = "",
     ) -> None:
         """Ghi lịch sử với cùng quyết định đúng/sai như Progress.record."""
         code = self.language_code or config.active_code()
@@ -175,6 +180,7 @@ class QuizEngine:
             verdict=verdict,
             hint_used=bool(self.hint_used),
             prompt=str(entry.get("vi") or ""),
+            vocab_id=vocab_id or "",
         )
         self.attempt_history.record(attempt)
 

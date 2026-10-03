@@ -7,7 +7,8 @@ from progress import Progress
 
 def test_new_progress_defaults(empty_progress_file):
     progress = Progress(str(empty_progress_file))
-    assert progress.data["version"] == 2
+    assert progress.data["version"] == 3
+    assert progress.data.get("identity") == "vocab_id"
     assert progress.data["words"] == {}
     assert progress.data["days"] == {}
 

@@ -26,6 +26,7 @@ from typing import Any, List, Mapping, Optional, Sequence
 from mistake_book import MistakeSummary, load_mistake_summaries
 from srs import is_due, is_future, is_new, utc_now
 from text_utils import entry_word, normalize
+from vocab_identity import entry_id
 
 
 @dataclass(frozen=True)
@@ -52,7 +53,8 @@ def build_daily_study_plan(
 ) -> DailyStudyPlan:
     """Pure planner: no I/O, no writes.
 
-    ``progress_words`` is the Progress.data['words'] mapping (normalized keys).
+    ``progress_words`` is Progress.data['words'] (vocab_id keys after Phase 13;
+    legacy normalized-word keys still work as fallback).
     """
     now = now or utc_now()
     due = 0
@@ -64,10 +66,17 @@ def build_daily_study_plan(
         if not isinstance(entry, dict):
             continue
         key = normalize(entry_word(entry))
-        if not key or key in seen_keys:
+        vid = entry_id(entry)
+        identity = vid or key
+        if not identity or identity in seen_keys:
             continue
-        seen_keys.add(key)
-        stats = progress_words.get(key) if progress_words else None
+        seen_keys.add(identity)
+        stats = None
+        if progress_words:
+            if vid and vid in progress_words:
+                stats = progress_words.get(vid)
+            elif key:
+                stats = progress_words.get(key)
         if is_new(stats):
             new += 1
         elif is_due(stats, now):

@@ -97,8 +97,8 @@ def test_pick_next_does_not_mutate_progress(tmp_path):
         ),
         encoding="utf-8",
     )
+    store = VocabStore(str(vocab))  # identity migration may rewrite progress once
     before = progress_path.read_text(encoding="utf-8")
-    store = VocabStore(str(vocab))
     progress = Progress(str(progress_path))
     snapshot = copy.deepcopy(progress.data)
     chooser = scheduler.VocabScheduler(progress, rng=random.Random(1))

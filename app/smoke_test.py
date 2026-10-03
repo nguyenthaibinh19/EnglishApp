@@ -176,8 +176,8 @@ with open(sched_progress, "w", encoding="utf-8") as f:
         '{"version": 2, "words": {"alpha": {"seen": 4, "correct": 4, "wrong": 0, '
         '"streak": 4, "last_seen": "2026-10-01T10:00:00"}}, "days": {}}'
     )
+sched_store = VocabStore(sched_vocab)  # identity migration may rewrite once on load
 before_progress = open(sched_progress, encoding="utf-8").read()
-sched_store = VocabStore(sched_vocab)
 sched_prog = Progress(sched_progress)
 snapshot = copy.deepcopy(sched_prog.data)
 chooser = vocab_scheduler.VocabScheduler(sched_prog, rng=random.Random(1))
@@ -197,10 +197,16 @@ check(
     )
     < 1e-9,
 )
-# File progress cũ (version 2) vẫn load
+# Progress cũ (version 2, keyed by word) migrate/load vẫn giữ thống kê
 legacy = Progress(sched_progress)
-check("progress.json cũ vẫn load được", legacy.data.get("version") == 2)
-check("progress.json cũ còn thống kê từ", "alpha" in legacy.data["words"])
+check(
+    "progress.json cũ vẫn load được",
+    int(legacy.data.get("version") or 0) >= 2,
+)
+check(
+    "progress.json cũ còn thống kê từ",
+    legacy.word_stats("alpha").get("seen") == 4,
+)
 
 
 # ---------- Chuẩn hóa bài đọc ----------

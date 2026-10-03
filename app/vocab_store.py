@@ -2,13 +2,15 @@
 
 Định dạng mỗi mục:
     {
-      "word": "de fiets",        # bắt buộc - từ tiếng đang học (kèm mạo từ nếu là danh từ)
-      "vi": "xe đạp",            # bắt buộc - nghĩa tiếng Việt
-      "alt": ["fiets"],          # tùy chọn - các cách viết khác cũng tính là đúng
-      "example": "Ik ga met de fiets naar school."
+      "id": "b3db8f73-...",   # ổn định (UUID), Phase 13
+      "word": "de fiets",     # bắt buộc - từ tiếng đang học
+      "vi": "xe đạp",         # bắt buộc - nghĩa
+      "alt": ["fiets"],       # tùy chọn
+      "example": "..."
     }
 
 File cũ dùng khóa "nl" hoặc "en" vẫn đọc được và được ghi lại thành "word".
+Thiếu ``id`` được gán khi load (migration idempotent).
 """
 
 import json
@@ -16,6 +18,13 @@ import os
 
 import config
 from text_utils import entry_word, normalize, strip_tags
+from vocab_identity import (
+    assign_missing_ids,
+    ensure_language_identity,
+    entry_id,
+    is_vocab_id,
+    new_vocab_id,
+)
 
 # Các trường tùy chọn được giữ nguyên khi lưu lại file.
 OPTIONAL_FIELDS = ("alt", "example", "note", "type")
@@ -60,13 +69,39 @@ class VocabStore:
                 self._needs_migration = True
 
             entry = {"word": str(word).strip(), "vi": str(meaning).strip()}
+            vid = entry_id(item)
+            if vid:
+                entry["id"] = vid
+            else:
+                self._needs_migration = True
             for field in OPTIONAL_FIELDS:
                 if item.get(field):
                     entry[field] = item[field]
             self.vocab.append(entry)
 
-        # File còn ở định dạng cũ -> ghi lại một lần cho sạch.
+        # Assign IDs + migrate sibling progress/attempts once (idempotent).
+        try:
+            migrated = ensure_language_identity(
+                self.filename, vocab_entries=self.vocab
+            )
+            # Reload IDs from migration result (same order).
+            if migrated and len(migrated) == len(self.vocab):
+                for index, source in enumerate(migrated):
+                    vid = entry_id(source)
+                    if vid:
+                        self.vocab[index]["id"] = vid
+            elif self._needs_migration:
+                self.vocab, _ = assign_missing_ids(self.vocab)
+                self.save()
+        except OSError as e:
+            print("Migration identity thất bại — giữ file gốc:", e)
+            # Still ensure in-memory IDs so the session can run; do not save half state.
+            self.vocab, _ = assign_missing_ids(self.vocab)
+            return
+
         if self._needs_migration:
+            # Legacy nl/en → word rewrite already covered by ensure when IDs missing;
+            # if only key rename, persist cleaned entries.
             self.save()
             self._needs_migration = False
 
@@ -75,6 +110,8 @@ class VocabStore:
         try:
             with open(tmp, "w", encoding="utf-8") as f:
                 json.dump(self.vocab, f, ensure_ascii=False, indent=2)
+                f.flush()
+                os.fsync(f.fileno())
             os.replace(tmp, self.filename)
         except OSError as e:
             print("Không ghi được vocab.json:", e)
@@ -92,8 +129,26 @@ class VocabStore:
             return self.vocab[index]
         return None
 
+    def get_by_id(self, vocab_id: str):
+        target = str(vocab_id or "").strip()
+        if not target:
+            return None
+        for entry in self.vocab:
+            if entry_id(entry) == target:
+                return entry
+        return None
+
+    def index_of_id(self, vocab_id: str):
+        target = str(vocab_id or "").strip()
+        if not target:
+            return None
+        for i, entry in enumerate(self.vocab):
+            if entry_id(entry) == target:
+                return i
+        return None
+
     def index_of(self, word: str):
-        """Tìm vị trí của một từ theo dạng đã chuẩn hóa."""
+        """Tìm vị trí của một từ theo dạng đã chuẩn hóa (duplicate policy)."""
         target = normalize(word)
         for i, entry in enumerate(self.vocab):
             if normalize(entry["word"]) == target:
@@ -119,7 +174,7 @@ class VocabStore:
         if self.index_of(word) is not None:
             return False
 
-        entry = {"word": word, "vi": vi}
+        entry = {"id": new_vocab_id(), "word": word, "vi": vi}
         for field in OPTIONAL_FIELDS:
             if extra.get(field):
                 entry[field] = extra[field]
@@ -135,8 +190,14 @@ class VocabStore:
             return False
 
         entry = dict(self.vocab[index])
+        # Preserve stable ID — never regenerate on edit/rename.
+        existing_id = entry_id(entry)
         entry["word"] = word
         entry["vi"] = vi
+        if existing_id:
+            entry["id"] = existing_id
+        else:
+            entry["id"] = new_vocab_id()
         for field in OPTIONAL_FIELDS:
             if field in extra:
                 if extra[field]:
@@ -157,9 +218,23 @@ class VocabStore:
     # ---------- Tiện ích cho phần reading ----------
 
     def entries_for_keys(self, keys) -> list:
-        """Lấy các mục theo danh sách từ đã chuẩn hóa (dùng chung với progress.json)."""
-        wanted = {normalize(k) for k in keys}
-        return [e for e in self.vocab if normalize(e["word"]) in wanted]
+        """Lấy mục theo vocab_id hoặc normalized word (progress day keys)."""
+        wanted_ids = set()
+        wanted_words = set()
+        for key in keys or ():
+            text = str(key)
+            if is_vocab_id(text):
+                wanted_ids.add(text)
+            else:
+                wanted_words.add(normalize(text))
+        result = []
+        for entry in self.vocab:
+            vid = entry_id(entry)
+            if vid and vid in wanted_ids:
+                result.append(entry)
+            elif normalize(entry["word"]) in wanted_words:
+                result.append(entry)
+        return result
 
     def display_list(self) -> list:
         return [f"{strip_tags(e['word'])} — {e['vi']}" for e in self.vocab]
@@ -170,6 +245,7 @@ class ReadOnlyVocabView:
 
     QuizEngine/VocabScheduler only need ``count`` / ``get`` / ``all``.
     Mutating methods are no-ops that refuse to touch any vocab.json.
+    Preserves ``id`` for Progress/Attempt recording.
     """
 
     def __init__(self, entries):
@@ -183,6 +259,9 @@ class ReadOnlyVocabView:
             if not word or not meaning:
                 continue
             entry = {"word": str(word).strip(), "vi": str(meaning).strip()}
+            vid = entry_id(item)
+            if vid:
+                entry["id"] = vid
             for field in OPTIONAL_FIELDS:
                 if item.get(field):
                     entry[field] = item[field]
@@ -199,6 +278,15 @@ class ReadOnlyVocabView:
             return self.vocab[index]
         return None
 
+    def get_by_id(self, vocab_id: str):
+        target = str(vocab_id or "").strip()
+        if not target:
+            return None
+        for entry in self.vocab:
+            if entry_id(entry) == target:
+                return entry
+        return None
+
     def index_of(self, word: str):
         target = normalize(word)
         for i, entry in enumerate(self.vocab):
@@ -207,8 +295,20 @@ class ReadOnlyVocabView:
         return None
 
     def entries_for_keys(self, keys) -> list:
-        wanted = {normalize(k) for k in keys}
-        return [e for e in self.vocab if normalize(e["word"]) in wanted]
+        wanted_ids = set()
+        wanted_words = set()
+        for key in keys or ():
+            text = str(key)
+            if is_vocab_id(text):
+                wanted_ids.add(text)
+            else:
+                wanted_words.add(normalize(text))
+        return [
+            e
+            for e in self.vocab
+            if (entry_id(e) and entry_id(e) in wanted_ids)
+            or normalize(e["word"]) in wanted_words
+        ]
 
     def display_list(self) -> list:
         return [f"{strip_tags(e['word'])} — {e['vi']}" for e in self.vocab]

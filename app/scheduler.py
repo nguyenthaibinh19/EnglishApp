@@ -15,6 +15,7 @@ from typing import Any, List, Optional
 
 from srs import due_priority_key, ensure_utc, is_due, utc_now
 from text_utils import entry_word
+from vocab_identity import entry_id
 
 
 def accuracy_from_stats(stats: dict) -> float:
@@ -79,8 +80,7 @@ def due_candidate_indices(
     not_due: List[tuple] = []
     for index in range(total):
         entry = store.get(index)
-        word = entry_word(entry) if entry else ""
-        stats = progress.word_stats(word, create=False) if word else None
+        stats = _stats_for_entry(progress, entry) if entry else None
         if is_due(stats, now):
             due.append(index)
         else:
@@ -113,9 +113,12 @@ class VocabScheduler:
         self._last_index: Optional[int] = None
         self._requeue: list[tuple[int, int]] = []  # (due_after_answered, index)
 
-    def weight_for(self, word: str) -> float:
+    def weight_for(self, word: str = None, *, vocab_id: str = None, entry: dict = None) -> float:
         """Đọc thống kê từ progress (create=False) rồi tính trọng số — không save."""
-        stats = self.progress.word_stats(word, create=False)
+        if entry is not None:
+            stats = _stats_for_entry(self.progress, entry)
+        else:
+            stats = self.progress.word_stats(word, create=False, vocab_id=vocab_id)
         return compute_weight(stats)
 
     def pick_next_index(
@@ -178,7 +181,15 @@ class VocabScheduler:
             return 0
         filtered = [i for i in candidates if i != self._last_index] or list(candidates)
         weights = [
-            self.weight_for(entry_word(store.get(i)))
+            self.weight_for(entry=store.get(i))
             for i in filtered
         ]
         return self.rng.choices(filtered, weights=weights, k=1)[0]
+
+
+def _stats_for_entry(progress: Any, entry: Optional[dict]) -> dict:
+    if not entry:
+        return {}
+    vid = entry_id(entry)
+    word = entry_word(entry)
+    return progress.word_stats(word, create=False, vocab_id=vid or None)
