@@ -92,7 +92,7 @@ ListeningApp (Tk adapter) ← StudyMaster / StudySession
 - Activity launch is transactional (`ui_common.launch_toplevel_app`): constructor failure destroys the partial Toplevel and must not leave a blank orphan or hidden root.
 - StudyMaster keeps the parent root mapped during child activities; parent uses `pause_enforcement` (not fullscreen release) while a child ScreenGuard is active. Avoid withdraw/deiconify.
 - `ScreenGuard.pause_enforcement` / `enforcement_paused` stop focus/topmost fighting without changing fullscreen/state/geometry. `release_display` is the rare heavy path (e.g. updater).
-- Micro-popups that would still flash as `Toplevel` under lock (Reading word actions) may use an in-window overlay Frame.
+- Micro-popups that would still flash as `Toplevel` under lock (Reading word actions) may use an in-window overlay Frame and must **not** pause ScreenGuard enforcement.
 - `reset_window` restores `state("normal")` on real page/root transitions only — not micro-navigation.
 - Utility windows should use `transient(parent)` / `open_owned_popup` rather than appearing as independent app restarts.
 

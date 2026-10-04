@@ -145,7 +145,7 @@ class StudyMasterApp:
                 "Bài đọc không kết nối được. Kết thúc sớm",
                 "Reading couldn't connect. Finish early",
             ),
-            command=self._finish_without_reading,
+            command=self._skip_reading,
         )
 
         pickers = ttk.Frame(card)
@@ -629,7 +629,7 @@ class StudyMasterApp:
                 on_request_switch=self._switch_to_vocab,
                 on_emergency=self.quit_all,
                 on_failed=self._mark_reading_unavailable,
-                on_skip=self._finish_without_reading if self._vocab_all_done() else None,
+                on_skip=self._skip_reading,
                 required=False,
                 locked=True,
             )
@@ -839,7 +839,9 @@ class StudyMasterApp:
         self.root.after(200, self._finish_if_all_done)
 
     def _mark_reading_unavailable(self):
-        session = self._session_for(config.active_code())
+        """Mark Reading unavailable for the active study language only."""
+        code = config.active_code()
+        session = self._session_for(code)
         if session.has_activity(KIND_READING):
             try:
                 session.mark_unavailable(KIND_READING)
@@ -847,28 +849,24 @@ class StudyMasterApp:
                 pass
         self.reading_unavailable = True
         self._refresh_status()
-        if self._all_done():
-            self.root.after(200, self._finish_if_all_done)
+        self._advance_after_reading(code)
 
-    def _finish_without_reading(self):
-        """Bỏ phần đọc của lần mở máy này khi không gọi được AI / người dùng skip."""
-        if not self._vocab_all_done():
-            self._close_window(self.reading_window)
-            return
-        for code in config.study_codes():
-            session = self._session_for(code)
-            if session.has_activity(KIND_READING) and not session.is_resolved(KIND_READING):
+    def _skip_reading(self):
+        """Skip Reading for the active study language only."""
+        code = config.active_code()
+        session = self._session_for(code)
+        if session.has_activity(KIND_READING) and not session.is_resolved(KIND_READING):
+            try:
+                session.skip(KIND_READING)
+            except Exception:
                 try:
-                    session.skip(KIND_READING)
+                    session.mark_unavailable(KIND_READING)
                 except Exception:
-                    try:
-                        session.mark_unavailable(KIND_READING)
-                    except Exception:
-                        pass
+                    pass
         self.reading_unavailable = False
         self._close_window(self.reading_window)
         self._refresh_status()
-        self.root.after(200, self._finish_if_all_done)
+        self._advance_after_reading(code)
 
     def _on_reading_completed(self):
         code = config.active_code()

@@ -129,7 +129,7 @@ def test_suspend_default_is_lightweight():
     guard.resume(refocus=False)
 
 
-def test_reading_word_popup_uses_overlay_not_toplevel_suspend():
+def test_reading_word_popup_uses_overlay_without_pausing_screenguard():
     import inspect
 
     from reading_app import ReadingApp
@@ -138,7 +138,8 @@ def test_reading_word_popup_uses_overlay_not_toplevel_suspend():
     assert "tk.Toplevel" not in src
     assert "release_display" not in src
     assert "leave_fullscreen=True" not in src
-    assert "pause_enforcement" in src
+    assert "pause_enforcement" not in src
+    assert "resume_enforcement" not in src
     assert "place" in inspect.getsource(ReadingApp._place_word_overlay)
 
 

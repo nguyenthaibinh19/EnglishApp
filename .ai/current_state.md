@@ -103,7 +103,7 @@ python -m pytest
 python app/smoke_test.py
 ```
 
-**Baseline snapshot (not a permanent invariant):** after Phase 17A.1 lifecycle stabilization, **260 pytest tests passing**; smoke test all checks pass.
+**Baseline snapshot (not a permanent invariant):** after Phase 17A final safety patch, **267 pytest tests passing**; smoke test all checks pass.
 
 ## Current development position
 
@@ -119,4 +119,4 @@ Completed: Phase 17A.1 — Window Lifecycle Stabilization
 Next: Phase 17B — production / local Listening audio provider
 ```
 
-Listening is optional (settings default **off**). Production has no TTS yet. ScreenGuard splits `pause_enforcement` (owned popups / activity hand-off) from rare `release_display` (updater). Reading word actions use an in-window overlay. Progress Dashboard is unchanged (no Listening analytics in 17A). AI enrichment remains advisory (draft → Apply).
+Listening is optional (settings default **off**). Production has no TTS yet. ScreenGuard splits `pause_enforcement` (owned popups / activity hand-off) from rare `release_display` (updater). Reading word actions use an in-window overlay that keeps lock enforcement active. Optional Reading skip/unavailable is per active study language (same as Listening). Progress Dashboard is unchanged (no Listening analytics in 17A). AI enrichment remains advisory (draft → Apply).

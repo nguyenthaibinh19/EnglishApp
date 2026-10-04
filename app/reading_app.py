@@ -388,10 +388,7 @@ class ReadingApp:
             except tk.TclError:
                 pass
 
-        # Pause focus fighting only; do not leave fullscreen / zoom / withdraw.
-        self.guard.pause_enforcement()
-
-        # Overlay Frame inside the Reading window (no Toplevel = no WM flash).
+        # In-window Frame: keep ScreenGuard enforcement fully active (no pause).
         pop = tk.Frame(
             self.window,
             bg=ui_common.COLOR_CARD,
@@ -416,7 +413,6 @@ class ReadingApp:
                     pop.destroy()
             except tk.TclError:
                 pass
-            self.guard.resume_enforcement(refocus=False)
 
         pop.bind("<Destroy>", lambda event: close() if event.widget is pop else None)
         pop.bind("<Escape>", close)
@@ -949,11 +945,23 @@ class ReadingApp:
         self.load_failed = True
         if callable(self.on_skip):
             self.on_skip()
+        elif callable(self.on_failed):
+            self.on_failed()
         else:
             self.window.destroy()
 
     def _on_close_attempt(self):
-        if self.completed or not self.required or self.load_failed:
+        if self.completed:
+            self.window.destroy()
+            return
+        # Optional Reading: unresolved close → skip (align with Listening).
+        if not self.required or self.load_failed:
+            if callable(self.on_skip):
+                self.on_skip()
+                return
+            if callable(self.on_failed):
+                self.on_failed()
+                return
             self.window.destroy()
             return
         total = count_questions(self.test) if self.test else 0
