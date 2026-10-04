@@ -95,7 +95,9 @@ def grade_sentence(word: str, sentence: str, meaning: str) -> dict:
 
 def generate_reading(entries: list) -> dict:
     profile = config.current_language()
-    words = [{"word": item.get("word") or item.get("nl") or item.get("en") or "", "vi": item.get("vi") or ""} for item in entries]
+    from vocabulary_model import wire_meaning_as_vi
+
+    words = wire_meaning_as_vi(entries)
     return _post(
         "/api/reading",
         {

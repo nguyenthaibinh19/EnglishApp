@@ -335,7 +335,7 @@ def test_practice_resolves_by_id():
     resolved = resolve_practice_entries([summary], vocab)
     assert len(resolved) == 1
     assert resolved[0]["id"] == id_b
-    assert resolved[0]["vi"] == "finance"
+    assert resolved[0]["meaning"] == "finance"
 
 
 def test_rename_preserves_progress_attempts_mistakes_detail(tmp_path):

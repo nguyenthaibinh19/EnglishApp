@@ -23,6 +23,7 @@ from typing import Iterable, List, Optional
 from attempt_history import AttemptHistory, LearningAttempt
 from text_utils import entry_word, normalize
 from vocab_identity import entry_id
+from vocabulary_model import entry_meaning, normalize_entry_dict
 
 
 # Status keys derived only from existing verdict / hint_used.
@@ -135,7 +136,7 @@ def resolve_practice_entries(
     for entry in vocab_entries or []:
         if not isinstance(entry, dict):
             continue
-        if not entry.get("vi"):
+        if not entry_meaning(entry):
             continue
         vid = entry_id(entry)
         if vid and vid not in by_id:
@@ -170,13 +171,9 @@ def resolve_practice_entries(
 
         if entry is None:
             continue
-        copy = {"word": str(entry_word(entry)).strip(), "vi": str(entry["vi"]).strip()}
-        eid = entry_id(entry)
-        if eid:
-            copy["id"] = eid
-        for field in ("alt", "example", "note", "type"):
-            if entry.get(field):
-                copy[field] = entry[field]
+        copy = normalize_entry_dict(entry, assign_id=False)
+        if copy is None:
+            continue
         resolved.append(copy)
     return resolved
 

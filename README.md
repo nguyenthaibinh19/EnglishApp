@@ -1,9 +1,10 @@
 # langstudyguard
 
-Ứng dụng desktop ép bản thân học tiếng Hà Lan mỗi ngày. Cửa sổ chạy
-toàn màn hình, luôn nằm trên cùng và chỉ cho đóng khi đã xong cả hai phần:
+Ứng dụng desktop ép bản thân học ngoại ngữ mỗi ngày (7 ngôn ngữ học:
+Hà Lan, Anh, Pháp, Đức, Tây Ban Nha, Ý, Bồ Đào Nha). Cửa sổ chạy
+toàn màn hình, luôn nằm trên cùng và chỉ cho đóng khi đã xong phần bắt buộc:
 
-1. **Luyện từ vựng** — nhìn nghĩa tiếng Việt, gõ từ tiếng Hà Lan.
+1. **Luyện từ vựng** — nhìn nghĩa (ngôn ngữ giao diện), gõ từ đang học.
 2. **Luyện đọc** — AI viết một bài đọc mới dựa trên chính những từ bạn vừa ôn
    hôm nay, kèm câu hỏi trắc nghiệm, True/False/Not Given và nối từ.
 
@@ -19,6 +20,8 @@ Tải `langstudyguard.zip` ở mục Releases (không cần cài Python). Giải
 Từ đó mỗi lần đăng nhập Windows, app tự mở.
 
 ## Dành cho người phát triển
+
+Developer / AI project memory: see [`.ai/README.md`](.ai/README.md).
 
 ```bash
 pip install -r requirements.txt
@@ -41,23 +44,23 @@ Sửa từ trong app, hoặc sửa file từ vựng của từng ngôn ngữ tro
 
 ```json
 {
-  "nl": "de fiets",
-  "vi": "xe đạp",
-  "alt": ["rijwiel"],
+  "id": "b3db8f73-1111-2222-3333-444444444444",
+  "word": "de fiets",
+  "meaning": "xe đạp",
+  "alternatives": ["rijwiel"],
   "example": "Ik ga met de fiets naar mijn werk."
 }
 ```
 
-Chỉ `nl` và `vi` là bắt buộc. Vài điều tiện lợi khi làm bài:
+`id` (UUID ổn định), `word` và `meaning` là các trường chính. Vài điều tiện lợi khi làm bài:
 
-- Danh từ nên viết kèm mạo từ (`de`/`het`), nhưng gõ thiếu mạo từ vẫn tính đúng.
-- `alt` liệt kê các cách viết khác cũng được chấp nhận.
+- Danh từ nên viết kèm mạo từ (ví dụ `de`/`het` tiếng Hà Lan), nhưng gõ thiếu mạo từ vẫn tính đúng.
+- `alternatives` liệt kê các cách viết khác cũng được chấp nhận.
 - Sai một ký tự hoặc thiếu dấu (`een` vs `één`) được tính là đúng nhưng có nhắc
   chính tả, và từ đó sẽ bị hỏi lại trong phiên.
 - Tag loại từ trong ngoặc như `lopen (ww)` được bỏ qua khi so đáp án.
 
-File `vocab.json` định dạng cũ dùng khóa `en` vẫn đọc được — lần chạy đầu tiên
-app sẽ tự đổi sang `nl`.
+File cũ dùng khóa `vi` / `alt` / `nl` / `en` vẫn đọc được và được chuẩn hóa khi load.
 
 ## Cách app chọn câu hỏi
 

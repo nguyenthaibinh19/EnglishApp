@@ -9,6 +9,7 @@ import config
 import ui_common
 from progress import Progress
 from text_utils import entry_word, normalize
+from vocabulary_model import entry_alternatives, entry_example, entry_meaning
 from vocabulary_library import (
     FILTER_ALL,
     FILTER_ATTENTION,
@@ -259,13 +260,13 @@ class VocabularyLibraryApp:
 
         vars_map = {
             "word": tk.StringVar(value=entry_word(entry) if entry else ""),
-            "vi": tk.StringVar(value=(entry or {}).get("vi", "")),
-            "alt": tk.StringVar(value=" | ".join((entry or {}).get("alt") or [])),
-            "example": tk.StringVar(value=(entry or {}).get("example", "")),
+            "meaning": tk.StringVar(value=entry_meaning(entry) if entry else ""),
+            "alt": tk.StringVar(value=" | ".join(entry_alternatives(entry) if entry else [])),
+            "example": tk.StringVar(value=entry_example(entry) if entry else ""),
         }
         labels = [
             ("word", config.ui("Từ:", "Word:")),
-            ("vi", config.ui("Nghĩa:", "Meaning:")),
+            ("meaning", config.ui("Nghĩa:", "Meaning:")),
             ("alt", config.ui("Cách viết khác (|):", "Other spellings (|):")),
             ("example", config.ui("Câu ví dụ:", "Example:")),
         ]
@@ -283,11 +284,11 @@ class VocabularyLibraryApp:
 
         def save():
             word = vars_map["word"].get().strip()
-            vi = vars_map["vi"].get().strip()
+            meaning = vars_map["meaning"].get().strip()
             alt = [a.strip() for a in vars_map["alt"].get().split("|") if a.strip()]
             example = vars_map["example"].get().strip()
-            extra = {"alt": alt, "example": example}
-            if not word or not vi:
+            extra = {"alternatives": alt, "example": example}
+            if not word or not meaning:
                 status.config(
                     text=config.ui(
                         "Cần có từ và nghĩa.", "Word and meaning are required."
@@ -295,7 +296,7 @@ class VocabularyLibraryApp:
                 )
                 return
             if mode == "add":
-                if not self.store.add(word, vi, **extra):
+                if not self.store.add(word, meaning, **extra):
                     status.config(
                         text=config.ui(
                             "Từ đã tồn tại (sau chuẩn hóa) hoặc không lưu được.",
@@ -304,7 +305,7 @@ class VocabularyLibraryApp:
                     )
                     return
             else:
-                if not self.store.update(store_index, word, vi, **extra):
+                if not self.store.update(store_index, word, meaning, **extra):
                     status.config(
                         text=config.ui("Không lưu được.", "Could not save.")
                     )
@@ -370,6 +371,15 @@ class WordDetailApp:
 
         ttk.Label(root, text=detail.word, style="Page.TLabel").pack(anchor="w")
         ttk.Label(root, text=detail.prompt, style="H2.TLabel").pack(anchor="w", pady=(4, 8))
+        if getattr(detail, "part_of_speech", ""):
+            ttk.Label(
+                root,
+                text=config.ui(
+                    f"Loại từ: {detail.part_of_speech}",
+                    f"Part of speech: {detail.part_of_speech}",
+                ),
+                style="Muted.TLabel",
+            ).pack(anchor="w")
         if detail.alt:
             ttk.Label(
                 root,
@@ -379,7 +389,46 @@ class WordDetailApp:
                 ),
                 style="Muted.TLabel",
             ).pack(anchor="w")
-        if detail.example:
+        if getattr(detail, "pronunciation_ipa", ""):
+            ttk.Label(
+                root,
+                text=config.ui(
+                    f"Phát âm: /{detail.pronunciation_ipa}/",
+                    f"Pronunciation: /{detail.pronunciation_ipa}/",
+                ),
+                style="Muted.TLabel",
+            ).pack(anchor="w", pady=(4, 0))
+        form_items = getattr(detail, "forms", ()) or ()
+        if form_items:
+            form_labels = {
+                "plural": config.ui("Số nhiều", "Plural"),
+                "past": config.ui("Quá khứ", "Past"),
+                "past_participle": config.ui("Quá khứ phân từ", "Past participle"),
+                "comparative": config.ui("So sánh hơn", "Comparative"),
+                "superlative": config.ui("So sánh nhất", "Superlative"),
+            }
+            lines = [
+                f"{form_labels.get(name, name)}: {value}"
+                for name, value in form_items
+                if value
+            ]
+            if lines:
+                ttk.Label(
+                    root,
+                    text=config.ui("Dạng từ", "Forms") + " — " + " · ".join(lines),
+                    style="Muted.TLabel",
+                    wraplength=460,
+                ).pack(anchor="w", pady=(4, 0))
+        detail_examples = getattr(detail, "examples", ()) or ()
+        if detail_examples:
+            for item in detail_examples:
+                line = item.text
+                if getattr(item, "meaning", ""):
+                    line = f"{item.text} — {item.meaning}"
+                ttk.Label(
+                    root, text=line, style="Muted.TLabel", wraplength=460
+                ).pack(anchor="w", pady=(4, 0))
+        elif detail.example:
             ttk.Label(
                 root, text=detail.example, style="Muted.TLabel", wraplength=460
             ).pack(anchor="w", pady=(4, 0))
@@ -568,14 +617,14 @@ class WordDetailApp:
         frame.pack()
         vars_map = {
             "word": tk.StringVar(value=self.detail.word),
-            "vi": tk.StringVar(value=self.detail.prompt),
+            "meaning": tk.StringVar(value=self.detail.prompt),
             "alt": tk.StringVar(value=" | ".join(self.detail.alt)),
             "example": tk.StringVar(value=self.detail.example),
         }
         for row, (key, label) in enumerate(
             [
                 ("word", config.ui("Từ:", "Word:")),
-                ("vi", config.ui("Nghĩa:", "Meaning:")),
+                ("meaning", config.ui("Nghĩa:", "Meaning:")),
                 ("alt", config.ui("Cách viết khác (|):", "Other spellings (|):")),
                 ("example", config.ui("Câu ví dụ:", "Example:")),
             ]
@@ -587,13 +636,17 @@ class WordDetailApp:
 
         def save():
             word = vars_map["word"].get().strip()
-            vi = vars_map["vi"].get().strip()
+            meaning = vars_map["meaning"].get().strip()
             alt = [a.strip() for a in vars_map["alt"].get().split("|") if a.strip()]
             example = vars_map["example"].get().strip()
-            if not word or not vi:
+            if not word or not meaning:
                 return
             if self.store.update(
-                self.detail.store_index, word, vi, alt=alt, example=example
+                self.detail.store_index,
+                word,
+                meaning,
+                alternatives=alt,
+                example=example,
             ):
                 dialog.destroy()
                 if callable(self.on_changed):

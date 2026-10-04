@@ -12,6 +12,7 @@ import config
 from attempt_history import AttemptHistory, LearningAttempt, utc_now_iso
 from scheduler import VocabScheduler
 from text_utils import display_word, entry_word, match_answer, strip_tags
+from vocabulary_model import entry_meaning
 
 
 @dataclass
@@ -179,7 +180,7 @@ class QuizEngine:
             correct=correct,
             verdict=verdict,
             hint_used=bool(self.hint_used),
-            prompt=str(entry.get("vi") or ""),
+            prompt=entry_meaning(entry),
             vocab_id=vocab_id or "",
         )
         self.attempt_history.record(attempt)

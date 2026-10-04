@@ -39,8 +39,8 @@ def test_resolve_maps_to_full_vocab_entries():
     summaries = [_summary("de fiets"), _summary("het huis")]
     entries = resolve_practice_entries(summaries, vocab)
     assert len(entries) == 2
-    assert entries[0]["alt"] == ["fiets"]
-    assert entries[0]["example"] == "Ik fiets."
+    assert entries[0]["alternatives"] == ["fiets"]
+    assert entries[0]["examples"] == [{"text": "Ik fiets."}]
     assert entries[1]["word"] == "het huis"
 
 
@@ -58,7 +58,7 @@ def test_resolve_duplicate_headword_takes_first():
     ]
     entries = resolve_practice_entries([_summary("bank")], vocab)
     assert len(entries) == 1
-    assert entries[0]["vi"] == "ngân hàng"
+    assert entries[0]["meaning"] == "ngân hàng"
 
 
 def test_practice_target_capped_by_subset_size():

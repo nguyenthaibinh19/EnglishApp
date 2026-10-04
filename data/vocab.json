@@ -1,240 +1,400 @@
 [
   {
-    "nl": "de fiets",
-    "vi": "xe đạp",
-    "alt": [
+    "word": "de fiets",
+    "meaning": "xe đạp",
+    "alternatives": [
       "fiets"
     ],
-    "example": "Ik ga met de fiets naar mijn werk."
+    "examples": [
+      {
+        "text": "Ik ga met de fiets naar mijn werk."
+      }
+    ]
   },
   {
-    "nl": "het huis",
-    "vi": "ngôi nhà",
-    "example": "Ons huis staat naast een park."
+    "word": "het huis",
+    "meaning": "ngôi nhà",
+    "examples": [
+      {
+        "text": "Ons huis staat naast een park."
+      }
+    ]
   },
   {
-    "nl": "de buurt",
-    "vi": "khu phố, hàng xóm xung quanh",
-    "example": "Het is een rustige buurt."
+    "word": "de buurt",
+    "meaning": "khu phố, hàng xóm xung quanh",
+    "examples": [
+      {
+        "text": "Het is een rustige buurt."
+      }
+    ]
   },
   {
-    "nl": "de afspraak",
-    "vi": "cuộc hẹn",
-    "example": "Ik heb morgen een afspraak bij de dokter."
+    "word": "de afspraak",
+    "meaning": "cuộc hẹn",
+    "examples": [
+      {
+        "text": "Ik heb morgen een afspraak bij de dokter."
+      }
+    ]
   },
   {
-    "nl": "het werk",
-    "vi": "công việc",
-    "example": "Na het werk ga ik zwemmen."
+    "word": "het werk",
+    "meaning": "công việc",
+    "examples": [
+      {
+        "text": "Na het werk ga ik zwemmen."
+      }
+    ]
   },
   {
-    "nl": "de winkel",
-    "vi": "cửa hàng",
-    "example": "De winkel is op zondag gesloten."
+    "word": "de winkel",
+    "meaning": "cửa hàng",
+    "examples": [
+      {
+        "text": "De winkel is op zondag gesloten."
+      }
+    ]
   },
   {
-    "nl": "het geld",
-    "vi": "tiền",
-    "example": "Ik heb niet genoeg geld bij me."
+    "word": "het geld",
+    "meaning": "tiền",
+    "examples": [
+      {
+        "text": "Ik heb niet genoeg geld bij me."
+      }
+    ]
   },
   {
-    "nl": "de trein",
-    "vi": "tàu hỏa",
-    "example": "De trein naar Utrecht vertrekt om acht uur."
+    "word": "de trein",
+    "meaning": "tàu hỏa",
+    "examples": [
+      {
+        "text": "De trein naar Utrecht vertrekt om acht uur."
+      }
+    ]
   },
   {
-    "nl": "het weer",
-    "vi": "thời tiết",
-    "example": "Het weer is vandaag erg slecht."
+    "word": "het weer",
+    "meaning": "thời tiết",
+    "examples": [
+      {
+        "text": "Het weer is vandaag erg slecht."
+      }
+    ]
   },
   {
-    "nl": "de vriend",
-    "vi": "bạn (nam)",
-    "example": "Mijn vriend woont in Rotterdam."
+    "word": "de vriend",
+    "meaning": "bạn (nam)",
+    "examples": [
+      {
+        "text": "Mijn vriend woont in Rotterdam."
+      }
+    ]
   },
   {
-    "nl": "de keuken",
-    "vi": "nhà bếp",
-    "example": "Zij kookt elke avond in de keuken."
+    "word": "de keuken",
+    "meaning": "nhà bếp",
+    "examples": [
+      {
+        "text": "Zij kookt elke avond in de keuken."
+      }
+    ]
   },
   {
-    "nl": "het gesprek",
-    "vi": "cuộc trò chuyện",
-    "example": "Het gesprek duurde een half uur."
+    "word": "het gesprek",
+    "meaning": "cuộc trò chuyện",
+    "examples": [
+      {
+        "text": "Het gesprek duurde een half uur."
+      }
+    ]
   },
   {
-    "nl": "de oefening",
-    "vi": "bài tập",
-    "example": "Deze oefening is moeilijk voor mij."
+    "word": "de oefening",
+    "meaning": "bài tập",
+    "examples": [
+      {
+        "text": "Deze oefening is moeilijk voor mij."
+      }
+    ]
   },
   {
-    "nl": "de rekening",
-    "vi": "hóa đơn",
-    "example": "Mag ik de rekening, alstublieft?"
+    "word": "de rekening",
+    "meaning": "hóa đơn",
+    "examples": [
+      {
+        "text": "Mag ik de rekening, alstublieft?"
+      }
+    ]
   },
   {
-    "nl": "het voorbeeld",
-    "vi": "ví dụ",
-    "example": "Geef me een voorbeeld, alsjeblieft."
+    "word": "het voorbeeld",
+    "meaning": "ví dụ",
+    "examples": [
+      {
+        "text": "Geef me een voorbeeld, alsjeblieft."
+      }
+    ]
   },
   {
-    "nl": "werken",
-    "vi": "làm việc",
-    "example": "Ik werk vier dagen per week."
+    "word": "werken",
+    "meaning": "làm việc",
+    "examples": [
+      {
+        "text": "Ik werk vier dagen per week."
+      }
+    ]
   },
   {
-    "nl": "wonen",
-    "vi": "sống, cư trú",
-    "example": "Wij wonen al drie jaar in Amsterdam."
+    "word": "wonen",
+    "meaning": "sống, cư trú",
+    "examples": [
+      {
+        "text": "Wij wonen al drie jaar in Amsterdam."
+      }
+    ]
   },
   {
-    "nl": "beginnen",
-    "vi": "bắt đầu",
-    "example": "De les begint om negen uur."
+    "word": "beginnen",
+    "meaning": "bắt đầu",
+    "examples": [
+      {
+        "text": "De les begint om negen uur."
+      }
+    ]
   },
   {
-    "nl": "proberen",
-    "vi": "thử, cố gắng",
-    "example": "Ik probeer elke dag Nederlands te spreken."
+    "word": "proberen",
+    "meaning": "thử, cố gắng",
+    "examples": [
+      {
+        "text": "Ik probeer elke dag Nederlands te spreken."
+      }
+    ]
   },
   {
-    "nl": "begrijpen",
-    "vi": "hiểu",
-    "example": "Sorry, ik begrijp het niet."
+    "word": "begrijpen",
+    "meaning": "hiểu",
+    "examples": [
+      {
+        "text": "Sorry, ik begrijp het niet."
+      }
+    ]
   },
   {
-    "nl": "vragen",
-    "vi": "hỏi, yêu cầu",
-    "example": "Mag ik iets vragen?"
+    "word": "vragen",
+    "meaning": "hỏi, yêu cầu",
+    "examples": [
+      {
+        "text": "Mag ik iets vragen?"
+      }
+    ]
   },
   {
-    "nl": "betalen",
-    "vi": "trả tiền",
-    "example": "Kan ik met de kaart betalen?"
+    "word": "betalen",
+    "meaning": "trả tiền",
+    "examples": [
+      {
+        "text": "Kan ik met de kaart betalen?"
+      }
+    ]
   },
   {
-    "nl": "brengen",
-    "vi": "mang, đưa tới",
-    "example": "Ik breng je naar het station."
+    "word": "brengen",
+    "meaning": "mang, đưa tới",
+    "examples": [
+      {
+        "text": "Ik breng je naar het station."
+      }
+    ]
   },
   {
-    "nl": "blijven",
-    "vi": "ở lại",
-    "example": "Blijf je vanavond thuis?"
+    "word": "blijven",
+    "meaning": "ở lại",
+    "examples": [
+      {
+        "text": "Blijf je vanavond thuis?"
+      }
+    ]
   },
   {
-    "nl": "kiezen",
-    "vi": "chọn",
-    "example": "Je mag zelf kiezen."
+    "word": "kiezen",
+    "meaning": "chọn",
+    "examples": [
+      {
+        "text": "Je mag zelf kiezen."
+      }
+    ]
   },
   {
-    "nl": "herhalen",
-    "vi": "lặp lại",
-    "example": "Kunt u dat herhalen, alstublieft?"
+    "word": "herhalen",
+    "meaning": "lặp lại",
+    "examples": [
+      {
+        "text": "Kunt u dat herhalen, alstublieft?"
+      }
+    ]
   },
   {
-    "nl": "afspreken",
-    "vi": "hẹn nhau, thỏa thuận",
-    "example": "Zullen we iets afspreken voor zaterdag?"
+    "word": "afspreken",
+    "meaning": "hẹn nhau, thỏa thuận",
+    "examples": [
+      {
+        "text": "Zullen we iets afspreken voor zaterdag?"
+      }
+    ]
   },
   {
-    "nl": "moeilijk",
-    "vi": "khó",
-    "example": "Nederlands is soms moeilijk."
+    "word": "moeilijk",
+    "meaning": "khó",
+    "examples": [
+      {
+        "text": "Nederlands is soms moeilijk."
+      }
+    ]
   },
   {
-    "nl": "makkelijk",
-    "vi": "dễ",
-    "alt": [
+    "word": "makkelijk",
+    "meaning": "dễ",
+    "alternatives": [
       "gemakkelijk"
     ],
-    "example": "Deze oefening is juist makkelijk."
+    "examples": [
+      {
+        "text": "Deze oefening is juist makkelijk."
+      }
+    ]
   },
   {
-    "nl": "belangrijk",
-    "vi": "quan trọng",
-    "example": "Dat is een belangrijke vraag."
+    "word": "belangrijk",
+    "meaning": "quan trọng",
+    "examples": [
+      {
+        "text": "Dat is een belangrijke vraag."
+      }
+    ]
   },
   {
-    "nl": "duur",
-    "vi": "đắt",
-    "example": "Die fiets is te duur voor mij."
+    "word": "duur",
+    "meaning": "đắt",
+    "examples": [
+      {
+        "text": "Die fiets is te duur voor mij."
+      }
+    ]
   },
   {
-    "nl": "goedkoop",
-    "vi": "rẻ",
-    "example": "De markt is goedkoper dan de supermarkt."
+    "word": "goedkoop",
+    "meaning": "rẻ",
+    "examples": [
+      {
+        "text": "De markt is goedkoper dan de supermarkt."
+      }
+    ]
   },
   {
-    "nl": "druk",
-    "vi": "bận, đông đúc",
-    "example": "Het is heel druk in de trein."
+    "word": "druk",
+    "meaning": "bận, đông đúc",
+    "examples": [
+      {
+        "text": "Het is heel druk in de trein."
+      }
+    ]
   },
   {
-    "nl": "gezellig",
-    "vi": "ấm cúng, vui vẻ dễ chịu",
-    "example": "Het was een gezellige avond."
+    "word": "gezellig",
+    "meaning": "ấm cúng, vui vẻ dễ chịu",
+    "examples": [
+      {
+        "text": "Het was een gezellige avond."
+      }
+    ]
   },
   {
-    "nl": "meteen",
-    "vi": "ngay lập tức",
-    "example": "Ik kom meteen naar je toe."
+    "word": "meteen",
+    "meaning": "ngay lập tức",
+    "examples": [
+      {
+        "text": "Ik kom meteen naar je toe."
+      }
+    ]
   },
   {
-    "nl": "misschien",
-    "vi": "có lẽ",
-    "example": "Misschien regent het morgen."
+    "word": "misschien",
+    "meaning": "có lẽ",
+    "examples": [
+      {
+        "text": "Misschien regent het morgen."
+      }
+    ]
   },
   {
-    "nl": "altijd",
-    "vi": "luôn luôn",
-    "example": "Hij komt altijd te laat."
+    "word": "altijd",
+    "meaning": "luôn luôn",
+    "examples": [
+      {
+        "text": "Hij komt altijd te laat."
+      }
+    ]
   },
   {
-    "nl": "bijna",
-    "vi": "gần như, suýt",
-    "example": "Ik ben bijna klaar."
+    "word": "bijna",
+    "meaning": "gần như, suýt",
+    "examples": [
+      {
+        "text": "Ik ben bijna klaar."
+      }
+    ]
   },
   {
-    "nl": "genoeg",
-    "vi": "đủ",
-    "example": "Ik heb genoeg tijd vandaag."
+    "word": "genoeg",
+    "meaning": "đủ",
+    "examples": [
+      {
+        "text": "Ik heb genoeg tijd vandaag."
+      }
+    ]
   },
   {
-    "nl": "samen",
-    "vi": "cùng nhau",
-    "example": "We doen het samen."
+    "word": "samen",
+    "meaning": "cùng nhau",
+    "examples": [
+      {
+        "text": "We doen het samen."
+      }
+    ]
   },
   {
-    "nl": "kyken",
-    "vi": "xem"
+    "word": "kyken",
+    "meaning": "xem"
   },
   {
-    "nl": "fietsen",
-    "vi": "bycycling"
+    "word": "fietsen",
+    "meaning": "bycycling"
   },
   {
-    "nl": "wandelen",
-    "vi": "hiking"
+    "word": "wandelen",
+    "meaning": "hiking"
   },
   {
-    "nl": "tennisen",
-    "vi": "playing tennis"
+    "word": "tennisen",
+    "meaning": "playing tennis"
   },
   {
-    "nl": "reizen",
-    "vi": "travel"
+    "word": "reizen",
+    "meaning": "travel"
   },
   {
-    "nl": "boodschappen doen",
-    "vi": "go shopping"
+    "word": "boodschappen doen",
+    "meaning": "go shopping"
   },
   {
-    "nl": "lopen",
-    "vi": "walking"
+    "word": "lopen",
+    "meaning": "walking"
   },
   {
-    "nl": "luisteren",
-    "vi": "listen"
+    "word": "luisteren",
+    "meaning": "listen"
   }
 ]

@@ -13,6 +13,14 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 from text_utils import entry_word, normalize
 
+
+def _entry_has_meaning(item: dict) -> bool:
+    if not isinstance(item, dict):
+        return False
+    if str(item.get("meaning") or "").strip():
+        return True
+    return bool(str(item.get("vi") or "").strip())
+
 PROGRESS_IDENTITY_VERSION = 3
 IDENTITY_MARKER = "vocab_id"
 
@@ -294,7 +302,7 @@ def _load_vocab_list(path: str) -> List[dict]:
         return []
     result = []
     for item in data:
-        if isinstance(item, dict) and entry_word(item) and item.get("vi"):
+        if isinstance(item, dict) and entry_word(item) and _entry_has_meaning(item):
             result.append(dict(item))
     return result
 

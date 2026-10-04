@@ -249,7 +249,7 @@ def test_plan_construction_performs_no_writes(tmp_path):
     # Pre-assign stable id so VocabStore load does not need an identity rewrite.
     vocab.write_text(
         json.dumps(
-            [{"id": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa", "word": "a", "vi": "1"}]
+            [{"id": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa", "word": "a", "meaning": "1"}]
         ),
         encoding="utf-8",
     )

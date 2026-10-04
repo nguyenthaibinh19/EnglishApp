@@ -1,16 +1,20 @@
 """Kho từ vựng của ngôn ngữ đang học.
 
-Định dạng mỗi mục:
+Định dạng canonical (Phase 14 + 15A):
     {
-      "id": "b3db8f73-...",   # ổn định (UUID), Phase 13
-      "word": "de fiets",     # bắt buộc - từ tiếng đang học
-      "vi": "xe đạp",         # bắt buộc - nghĩa
-      "alt": ["fiets"],       # tùy chọn
-      "example": "..."
+      "id": "b3db8f73-...",
+      "word": "de fiets",
+      "meaning": "xe đạp",
+      "alternatives": ["fiets"],
+      "examples": [{"text": "...", "meaning": "..."}],
+      "pronunciation": {"ipa": "..."},
+      "forms": {"plural": "..."},
+      "note": "...",
+      "part_of_speech": "noun"
     }
 
-File cũ dùng khóa "nl" hoặc "en" vẫn đọc được và được ghi lại thành "word".
-Thiếu ``id`` được gán khi load (migration idempotent).
+Legacy ``vi`` / ``alt`` / ``type`` / ``nl`` / ``en`` / ``example`` vẫn đọc được
+và được ghi lại thành canonical khi load (idempotent).
 """
 
 import json
@@ -25,9 +29,16 @@ from vocab_identity import (
     is_vocab_id,
     new_vocab_id,
 )
-
-# Các trường tùy chọn được giữ nguyên khi lưu lại file.
-OPTIONAL_FIELDS = ("alt", "example", "note", "type")
+from vocabulary_model import (
+    entry_meaning,
+    needs_schema_migration,
+    normalize_alternatives,
+    normalize_entry_dict,
+    normalize_examples,
+    normalize_forms,
+    normalize_part_of_speech,
+    normalize_pronunciation,
+)
 
 
 class VocabStore:
@@ -61,51 +72,53 @@ class VocabStore:
         for item in data:
             if not isinstance(item, dict):
                 continue
-            word = entry_word(item)
-            meaning = item.get("vi")
-            if not word or not meaning:
+            if needs_schema_migration(item) or not entry_id(item):
+                self._needs_migration = True
+            normalized = normalize_entry_dict(item, assign_id=False)
+            if normalized is None:
                 continue
-            if "word" not in item:
+            if not entry_id(normalized):
                 self._needs_migration = True
+            self.vocab.append(normalized)
 
-            entry = {"word": str(word).strip(), "vi": str(meaning).strip()}
-            vid = entry_id(item)
-            if vid:
-                entry["id"] = vid
-            else:
-                self._needs_migration = True
-            for field in OPTIONAL_FIELDS:
-                if item.get(field):
-                    entry[field] = item[field]
-            self.vocab.append(entry)
+        # Lexical schema rewrite before identity sibling migration.
+        if self._needs_migration:
+            self.vocab, _ = assign_missing_ids(self.vocab)
+            # Ensure every row is fully canonical before save.
+            cleaned = []
+            for item in self.vocab:
+                row = normalize_entry_dict(item, assign_id=True)
+                if row:
+                    cleaned.append(row)
+            self.vocab = cleaned
+            if not self._save_atomic():
+                # Keep in-memory canonical rows; do not claim disk migrated.
+                self.vocab, _ = assign_missing_ids(
+                    [normalize_entry_dict(x, assign_id=True) or x for x in self.vocab]
+                )
+                return
+            self._needs_migration = False
 
         # Assign IDs + migrate sibling progress/attempts once (idempotent).
         try:
             migrated = ensure_language_identity(
                 self.filename, vocab_entries=self.vocab
             )
-            # Reload IDs from migration result (same order).
             if migrated and len(migrated) == len(self.vocab):
                 for index, source in enumerate(migrated):
                     vid = entry_id(source)
                     if vid:
                         self.vocab[index]["id"] = vid
-            elif self._needs_migration:
-                self.vocab, _ = assign_missing_ids(self.vocab)
-                self.save()
+            else:
+                self.vocab, id_changed = assign_missing_ids(self.vocab)
+                if id_changed:
+                    self.save()
         except OSError as e:
             print("Migration identity thất bại — giữ file gốc:", e)
-            # Still ensure in-memory IDs so the session can run; do not save half state.
             self.vocab, _ = assign_missing_ids(self.vocab)
             return
 
-        if self._needs_migration:
-            # Legacy nl/en → word rewrite already covered by ensure when IDs missing;
-            # if only key rename, persist cleaned entries.
-            self.save()
-            self._needs_migration = False
-
-    def save(self):
+    def _save_atomic(self) -> bool:
         tmp = self.filename + ".tmp"
         try:
             with open(tmp, "w", encoding="utf-8") as f:
@@ -113,8 +126,18 @@ class VocabStore:
                 f.flush()
                 os.fsync(f.fileno())
             os.replace(tmp, self.filename)
+            return True
         except OSError as e:
             print("Không ghi được vocab.json:", e)
+            try:
+                if os.path.exists(tmp):
+                    os.remove(tmp)
+            except OSError:
+                pass
+            return False
+
+    def save(self):
+        self._save_atomic()
 
     # ---------- Truy vấn ----------
 
@@ -167,46 +190,121 @@ class VocabStore:
 
     # ---------- Thêm / sửa / xóa ----------
 
-    def add(self, word: str, vi: str, **extra) -> bool:
-        word, vi = word.strip(), vi.strip()
-        if not word or not vi:
+    def add(self, word: str, meaning: str = None, **extra) -> bool:
+        """Add a word. ``meaning`` is canonical; legacy kwarg ``vi`` accepted."""
+        if meaning is None and "vi" in extra:
+            meaning = extra.pop("vi")
+        word = (word or "").strip()
+        meaning = (meaning or "").strip()
+        if not word or not meaning:
             return False
         if self.index_of(word) is not None:
             return False
 
-        entry = {"id": new_vocab_id(), "word": word, "vi": vi}
-        for field in OPTIONAL_FIELDS:
-            if extra.get(field):
-                entry[field] = extra[field]
+        payload = {
+            "id": new_vocab_id(),
+            "word": word,
+            "meaning": meaning,
+        }
+        payload.update(self._optional_from_extra(extra))
+        entry = normalize_entry_dict(payload, assign_id=True)
+        if entry is None:
+            return False
         self.vocab.append(entry)
         self.save()
         return True
 
-    def update(self, index: int, word: str, vi: str, **extra) -> bool:
+    def update(self, index: int, word: str, meaning: str = None, **extra) -> bool:
         if not (0 <= index < len(self.vocab)):
             return False
-        word, vi = word.strip(), vi.strip()
-        if not word or not vi:
+        if meaning is None and "vi" in extra:
+            meaning = extra.pop("vi")
+        word = (word or "").strip()
+        meaning = (meaning or "").strip()
+        if not word or not meaning:
             return False
 
-        entry = dict(self.vocab[index])
-        # Preserve stable ID — never regenerate on edit/rename.
-        existing_id = entry_id(entry)
-        entry["word"] = word
-        entry["vi"] = vi
+        existing_id = entry_id(self.vocab[index])
+        payload = dict(self.vocab[index])
+        payload["word"] = word
+        payload["meaning"] = meaning
+        if existing_id:
+            payload["id"] = existing_id
+        # Clear legacy keys so save stays canonical.
+        payload.pop("vi", None)
+        payload.pop("alt", None)
+        payload.pop("type", None)
+        payload.pop("nl", None)
+        payload.pop("en", None)
+
+        optionals = self._optional_from_extra(extra, clearing=True)
+        for field_name in (
+            "alternatives",
+            "examples",
+            "note",
+            "part_of_speech",
+            "pronunciation",
+            "forms",
+        ):
+            if field_name in optionals:
+                if optionals[field_name]:
+                    payload[field_name] = optionals[field_name]
+                else:
+                    payload.pop(field_name, None)
+            elif field_name in extra and not extra[field_name]:
+                payload.pop(field_name, None)
+        # Never keep legacy single-string example after update.
+        payload.pop("example", None)
+
+        # Support legacy kw names in extra for call sites still using alt/type/example.
+        entry = normalize_entry_dict(payload, assign_id=True)
+        if entry is None:
+            return False
         if existing_id:
             entry["id"] = existing_id
-        else:
-            entry["id"] = new_vocab_id()
-        for field in OPTIONAL_FIELDS:
-            if field in extra:
-                if extra[field]:
-                    entry[field] = extra[field]
-                else:
-                    entry.pop(field, None)
         self.vocab[index] = entry
         self.save()
         return True
+
+    def _optional_from_extra(self, extra: dict, clearing: bool = False) -> dict:
+        out = {}
+        if not extra:
+            return out
+        if "alternatives" in extra or "alt" in extra:
+            alts = normalize_alternatives(
+                extra["alternatives"] if "alternatives" in extra else extra.get("alt")
+            )
+            if alts or clearing:
+                out["alternatives"] = alts
+        if "examples" in extra or "example" in extra:
+            if "examples" in extra:
+                examples = normalize_examples(extra.get("examples"))
+            else:
+                # Legacy editor/API still passes a single example string.
+                examples = normalize_examples(extra.get("example"))
+            if examples or clearing:
+                out["examples"] = [item.to_storage_dict() for item in examples]
+        if "note" in extra:
+            text = str(extra.get("note") or "").strip()
+            if text or clearing:
+                out["note"] = text
+        if "part_of_speech" in extra or "type" in extra:
+            pos = str(extra.get("part_of_speech") or "").strip()
+            if not pos and "type" in extra:
+                pos = normalize_part_of_speech(extra.get("type"))
+            if pos or clearing:
+                out["part_of_speech"] = pos
+        if "pronunciation" in extra:
+            pronunciation = normalize_pronunciation(extra.get("pronunciation"))
+            data = pronunciation.to_storage_dict()
+            if data or clearing:
+                out["pronunciation"] = data or {}
+        if "forms" in extra:
+            forms = normalize_forms(extra.get("forms"))
+            data = forms.to_storage_dict()
+            if data or clearing:
+                out["forms"] = data or {}
+        return out
 
     def delete(self, index: int) -> bool:
         if not (0 <= index < len(self.vocab)):
@@ -237,15 +335,15 @@ class VocabStore:
         return result
 
     def display_list(self) -> list:
-        return [f"{strip_tags(e['word'])} — {e['vi']}" for e in self.vocab]
+        return [
+            f"{strip_tags(e['word'])} — {entry_meaning(e)}" for e in self.vocab
+        ]
 
 
 class ReadOnlyVocabView:
     """In-memory, read-only vocabulary for quiz-only sessions.
 
-    QuizEngine/VocabScheduler only need ``count`` / ``get`` / ``all``.
-    Mutating methods are no-ops that refuse to touch any vocab.json.
-    Preserves ``id`` for Progress/Attempt recording.
+    Preserves canonical fields + ``id`` for Progress/Attempt recording.
     """
 
     def __init__(self, entries):
@@ -254,18 +352,12 @@ class ReadOnlyVocabView:
         for item in entries or []:
             if not isinstance(item, dict):
                 continue
-            word = entry_word(item)
-            meaning = item.get("vi")
-            if not word or not meaning:
+            normalized = normalize_entry_dict(item, assign_id=False)
+            if normalized is None:
                 continue
-            entry = {"word": str(word).strip(), "vi": str(meaning).strip()}
-            vid = entry_id(item)
-            if vid:
-                entry["id"] = vid
-            for field in OPTIONAL_FIELDS:
-                if item.get(field):
-                    entry[field] = item[field]
-            self.vocab.append(entry)
+            # Keep existing id when present; do not invent ids for ephemeral views
+            # unless the source already had one (Practice Mistakes copies include id).
+            self.vocab.append(normalized)
 
     def all(self) -> list:
         return self.vocab
@@ -311,15 +403,17 @@ class ReadOnlyVocabView:
         ]
 
     def display_list(self) -> list:
-        return [f"{strip_tags(e['word'])} — {e['vi']}" for e in self.vocab]
+        return [
+            f"{strip_tags(e['word'])} — {entry_meaning(e)}" for e in self.vocab
+        ]
 
     def save(self):
         return None
 
-    def add(self, word: str, vi: str, **extra) -> bool:
+    def add(self, word: str, meaning: str = None, **extra) -> bool:
         return False
 
-    def update(self, index: int, word: str, vi: str, **extra) -> bool:
+    def update(self, index: int, word: str, meaning: str = None, **extra) -> bool:
         return False
 
     def delete(self, index: int) -> bool:

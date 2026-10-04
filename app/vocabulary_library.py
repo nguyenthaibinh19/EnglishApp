@@ -15,6 +15,17 @@ from mistake_book import MistakeSummary, summarize_mistakes
 from srs import is_due, is_new, parse_utc, utc_now
 from text_utils import entry_word, fold_accents, normalize, strip_tags
 from vocab_identity import entry_id
+from vocabulary_model import (
+    VocabularyExample,
+    entry_alternatives,
+    entry_example,
+    entry_example_texts,
+    entry_examples,
+    entry_forms,
+    entry_meaning,
+    entry_part_of_speech,
+    entry_pronunciation,
+)
 
 
 RECENT_ATTEMPT_LIMIT = 8
@@ -61,6 +72,10 @@ class VocabularyDetail:
     needs_attention: bool
     attention_count: int
     recent_attempts: Tuple[LearningAttempt, ...]
+    part_of_speech: str = ""
+    examples: Tuple[VocabularyExample, ...] = ()
+    pronunciation_ipa: str = ""
+    forms: Tuple[Tuple[str, str], ...] = ()
 
 
 def _stats_for(
@@ -109,7 +124,7 @@ def build_vocabulary_items(
         if not isinstance(entry, dict):
             continue
         word = strip_tags(entry_word(entry))
-        prompt = str(entry.get("vi") or "").strip()
+        prompt = entry_meaning(entry)
         if not word or not prompt:
             continue
         key = normalize(entry_word(entry))
@@ -178,8 +193,8 @@ def _matches_search(item: VocabularyListItem, entry: Optional[dict], needle: str
     fields = [item.word, item.prompt]
     if entry:
         fields.append(entry_word(entry))
-        fields.append(" ".join(entry.get("alt") or []))
-        fields.append(str(entry.get("example") or ""))
+        fields.append(" ".join(entry_alternatives(entry)))
+        fields.extend(entry_example_texts(entry))
     return any(needle in fold_accents(normalize(str(field))) for field in fields)
 
 
@@ -239,9 +254,10 @@ def build_vocabulary_detail(
     else:
         needs = key in attention_by_word
         attention_count = attention_by_word.get(key, 0)
-    alt = entry.get("alt") or []
-    if not isinstance(alt, list):
-        alt = [str(alt)]
+    alt = tuple(entry_alternatives(entry))
+    examples = tuple(entry_examples(entry))
+    pronunciation = entry_pronunciation(entry)
+    forms = tuple(entry_forms(entry).as_dict().items())
     rate = (mastered / seen) if seen else None
     recent = recent_attempts_for_word(
         attempts,
@@ -255,9 +271,9 @@ def build_vocabulary_detail(
         vocab_id=vid,
         language_code=language_code,
         word=word,
-        prompt=str(entry.get("vi") or "").strip(),
-        alt=tuple(str(a) for a in alt if a),
-        example=str(entry.get("example") or "").strip(),
+        prompt=entry_meaning(entry),
+        alt=alt,
+        example=entry_example(entry),
         seen=seen,
         mastered_count=mastered,
         non_mastered_count=wrong,
@@ -270,6 +286,10 @@ def build_vocabulary_detail(
         needs_attention=needs,
         attention_count=attention_count,
         recent_attempts=tuple(recent),
+        part_of_speech=entry_part_of_speech(entry),
+        examples=examples,
+        pronunciation_ipa=pronunciation.ipa,
+        forms=forms,
     )
 
 

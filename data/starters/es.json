@@ -1,10 +1,74 @@
 [
-  {"word": "la casa", "vi": "ngôi nhà", "example": "La casa está junto al parque."},
-  {"word": "el amigo", "vi": "người bạn", "example": "Mi amigo vive en Madrid."},
-  {"word": "trabajar", "vi": "làm việc", "example": "Trabajo cuatro días por semana."},
-  {"word": "entender", "vi": "hiểu", "example": "Perdón, no entiendo."},
-  {"word": "fácil", "vi": "dễ", "example": "Este ejercicio es fácil."},
-  {"word": "importante", "vi": "quan trọng", "example": "Esa es una pregunta importante."},
-  {"word": "siempre", "vi": "luôn luôn", "example": "Él siempre llega tarde."},
-  {"word": "juntos", "vi": "cùng nhau", "example": "Lo hacemos juntos."}
+  {
+    "word": "la casa",
+    "meaning": "ngôi nhà",
+    "examples": [
+      {
+        "text": "La casa está junto al parque."
+      }
+    ]
+  },
+  {
+    "word": "el amigo",
+    "meaning": "người bạn",
+    "examples": [
+      {
+        "text": "Mi amigo vive en Madrid."
+      }
+    ]
+  },
+  {
+    "word": "trabajar",
+    "meaning": "làm việc",
+    "examples": [
+      {
+        "text": "Trabajo cuatro días por semana."
+      }
+    ]
+  },
+  {
+    "word": "entender",
+    "meaning": "hiểu",
+    "examples": [
+      {
+        "text": "Perdón, no entiendo."
+      }
+    ]
+  },
+  {
+    "word": "fácil",
+    "meaning": "dễ",
+    "examples": [
+      {
+        "text": "Este ejercicio es fácil."
+      }
+    ]
+  },
+  {
+    "word": "importante",
+    "meaning": "quan trọng",
+    "examples": [
+      {
+        "text": "Esa es una pregunta importante."
+      }
+    ]
+  },
+  {
+    "word": "siempre",
+    "meaning": "luôn luôn",
+    "examples": [
+      {
+        "text": "Él siempre llega tarde."
+      }
+    ]
+  },
+  {
+    "word": "juntos",
+    "meaning": "cùng nhau",
+    "examples": [
+      {
+        "text": "Lo hacemos juntos."
+      }
+    ]
+  }
 ]

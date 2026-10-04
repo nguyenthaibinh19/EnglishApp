@@ -246,7 +246,9 @@ class VocabQuizApp:
             return
 
         self.question_label.config(text=f"“{self._learner_meaning(entry)}”")
-        self.hint_label.config(text=entry.get("example", ""))
+        from vocabulary_model import entry_example
+
+        self.hint_label.config(text=entry_example(entry))
         self.feedback_label.config(text="", foreground="black")
         self.answer_var.set("")
         self.answer_entry.state(["!disabled"])
@@ -724,18 +726,22 @@ class VocabQuizApp:
 
     def _learner_meaning(self, entry) -> str:
         """Nghĩa hiện ra khi làm bài. Tiếng Anh thì lấy từ điển, không dùng chú thích tiếng Việt đã lưu."""
-        stored = (entry.get("vi") or "").strip()
+        from vocabulary_model import entry_meaning
+
+        stored = entry_meaning(entry)
         if config.native_code() != "en":
             return stored
         gloss = dictionary.learner_gloss(entry_word(entry))
         return gloss or stored
 
     def _entry_matches(self, entry, keyword: str) -> bool:
+        from vocabulary_model import entry_alternatives, entry_meaning
+
         fields = (
             entry_word(entry),
             without_article(normalize(entry_word(entry))),
-            entry.get("vi") or "",
-            " ".join(entry.get("alt") or []),
+            entry_meaning(entry),
+            " ".join(entry_alternatives(entry)),
         )
         return any(keyword in fold_accents(normalize(str(field))) for field in fields)
 
@@ -749,12 +755,14 @@ class VocabQuizApp:
         index = self._selected_store_index()
         if index is None:
             return
+        from vocabulary_model import entry_alternatives, entry_example, entry_meaning
+
         entry = self.store.get(index) or {}
-        alt = entry.get("alt") or []
+        alt = entry_alternatives(entry)
         self.form_vars["word"].set(entry_word(entry))
-        self.form_vars["vi"].set(entry.get("vi", ""))
-        self.form_vars["alt"].set(" | ".join(alt) if isinstance(alt, list) else str(alt))
-        self.form_vars["example"].set(entry.get("example", ""))
+        self.form_vars["vi"].set(entry_meaning(entry))
+        self.form_vars["alt"].set(" | ".join(alt))
+        self.form_vars["example"].set(entry_example(entry))
 
     def _form_values(self):
         alt_raw = self.form_vars["alt"].get().strip()
@@ -762,7 +770,7 @@ class VocabQuizApp:
             self.form_vars["word"].get().strip(),
             self.form_vars["vi"].get().strip(),
             {
-                "alt": [a.strip() for a in alt_raw.split("|") if a.strip()],
+                "alternatives": [a.strip() for a in alt_raw.split("|") if a.strip()],
                 "example": self.form_vars["example"].get().strip(),
             },
         )

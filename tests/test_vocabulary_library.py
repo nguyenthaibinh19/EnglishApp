@@ -225,6 +225,7 @@ def test_progress_fields_map_in_detail():
     assert detail.is_due is False
     assert detail.alt == ("rijwiel",)
     assert detail.example == "Ik fiets."
+    assert detail.examples[0].text == "Ik fiets."
 
 
 def test_recent_attempts_newest_first_and_limit():
@@ -393,4 +394,4 @@ def test_store_index_preserved_for_safe_edit(tmp_path):
     assert items[0].word == "alpha" and items[0].store_index == 1
     assert items[1].word == "beta" and items[1].store_index == 0
     assert store.update(items[0].store_index, "alpha", "a2")
-    assert store.get(1)["vi"] == "a2"
+    assert store.get(1)["meaning"] == "a2"

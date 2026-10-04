@@ -93,7 +93,11 @@ def accepted_forms(entry: dict, articles=None, elisions=None) -> set:
     và các dạng liệt kê trong trường 'alt'.
     """
     raw_values = [entry_word(entry)]
-    alt = entry.get("alt") or []
+    # Phase 14: prefer canonical ``alternatives``; legacy ``alt`` still accepted.
+    if "alternatives" in (entry or {}):
+        alt = entry.get("alternatives") or []
+    else:
+        alt = entry.get("alt") or []
     if isinstance(alt, str):
         alt = [alt]
     raw_values.extend(alt)
