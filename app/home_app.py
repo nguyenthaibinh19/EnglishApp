@@ -23,6 +23,7 @@ class FreeHome:
         self.root = root
         self.bank_window = None
         self.mistake_window = None
+        self.progress_window = None
         self._plan = None
         self._view: HomeViewModel | None = None
 
@@ -127,16 +128,24 @@ class FreeHome:
         row2.pack(fill=tk.X, pady=(8, 2))
         ttk.Button(
             row2,
-            text=config.ui("Thêm từ", "Add words"),
+            text=config.ui("Tiến độ", "Progress"),
             style="Secondary.TButton",
-            command=self._add_words,
+            command=self._open_progress,
         ).pack(side=tk.LEFT, expand=True, fill=tk.X, padx=(0, 6))
         ttk.Button(
             row2,
+            text=config.ui("Thêm từ", "Add words"),
+            style="Secondary.TButton",
+            command=self._add_words,
+        ).pack(side=tk.LEFT, expand=True, fill=tk.X, padx=(6, 0))
+        row3 = ttk.Frame(quick)
+        row3.pack(fill=tk.X, pady=(8, 2))
+        ttk.Button(
+            row3,
             text=config.ui("Cài đặt học", "Study settings"),
             style="Secondary.TButton",
             command=self._open_settings,
-        ).pack(side=tk.LEFT, expand=True, fill=tk.X, padx=(6, 0))
+        ).pack(side=tk.LEFT, expand=True, fill=tk.X)
 
         ttk.Label(
             shell,
@@ -275,6 +284,13 @@ class FreeHome:
             return
         self._choose_language(codes, mode="mistakes")
 
+    def _open_progress(self):
+        codes = config.study_codes()
+        if len(codes) == 1:
+            self._show_progress(codes[0])
+            return
+        self._choose_language(codes, mode="progress")
+
     def _open_settings(self):
         dialog = tk.Toplevel(self.root)
         dialog.title(config.ui("Cài đặt học", "Study settings"))
@@ -324,6 +340,10 @@ class FreeHome:
             prompt = config.ui(
                 "Xem sổ lỗi ngôn ngữ nào?", "Mistake Book for which language?"
             )
+        elif mode == "progress":
+            prompt = config.ui(
+                "Xem tiến độ ngôn ngữ nào?", "Progress for which language?"
+            )
         elif mode == "active":
             prompt = config.ui(
                 "Đặt ngôn ngữ đang học?", "Set the active study language?"
@@ -342,6 +362,11 @@ class FreeHome:
                 action = lambda c=code, dialog=dialog: (
                     dialog.destroy(),
                     self._show_mistake_book(c),
+                )
+            elif mode == "progress":
+                action = lambda c=code, dialog=dialog: (
+                    dialog.destroy(),
+                    self._show_progress(c),
                 )
             elif mode == "active":
                 action = lambda c=code, dialog=dialog: (
@@ -378,6 +403,19 @@ class FreeHome:
         self.mistake_window = tk.Toplevel(self.root)
         MistakeBookApp(self.mistake_window, language_code=code)
         self.mistake_window.bind("<Destroy>", lambda _e: self.root.after(80, self.refresh), add="+")
+
+    def _show_progress(self, code):
+        from progress_app import ProgressApp
+
+        config.set_language(code)
+        self.refresh()
+        if self.progress_window is not None and self.progress_window.winfo_exists():
+            self.progress_window.destroy()
+        self.progress_window = tk.Toplevel(self.root)
+        ProgressApp(self.progress_window, language_code=code)
+        self.progress_window.bind(
+            "<Destroy>", lambda _e: self.root.after(80, self.refresh), add="+"
+        )
 
     def _open_bank(self, code, focus_add: bool = False):
         from vocabulary_app import VocabularyLibraryApp

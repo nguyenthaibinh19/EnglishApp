@@ -36,6 +36,17 @@ example   (legacy string — migrate to examples[])
 
 Legacy fields may remain supported for **reading/migration** only. New writes use canonical fields. Enrichment fields do not affect answer matching. See [ADR-010](decisions/ADR-010-vocabulary-model-v2.md), [ADR-011](decisions/ADR-011-vocabulary-enrichment-model.md).
 
+## Enrichment never silently overwrites
+
+```text
+External enrichment must NEVER silently overwrite canonical vocabulary data.
+```
+
+- Suggestions arrive as ephemeral `EnrichmentDraft`.
+- Learners review and explicitly apply selected fields.
+- Missing draft fields must not clear existing canonical values.
+- See [ADR-012](decisions/ADR-012-enrichment-review-before-apply.md).
+
 ## Progress / SRS
 
 - Progress state follows vocabulary ID (progress.json v3).
@@ -65,6 +76,7 @@ Near answers and hint-assisted exact answers are **non-mastered**. Do not casual
 
 - Production AI credentials stay server-side.
 - Never embed the server OpenAI API key into the frozen desktop executable, settings, logs, or test fixtures.
+- AI vocabulary enrichment is advisory only (draft → review → Apply); see [ADR-013](decisions/ADR-013-ai-vocabulary-enrichment.md).
 
 ## Reading optionality
 

@@ -2,7 +2,7 @@
 
 > First file a new agent should read. Keep this concise and update when phases complete.
 
-**Snapshot date context:** after Phase 15A (Vocabulary Enrichment Data Model).
+**Snapshot date context:** after Phase 16 (Learning Progress Dashboard v1).
 
 ## Product
 
@@ -47,7 +47,7 @@ VocabularyEntry
 AI path:
 
 ```text
-quiz / reading / account_server
+quiz / reading / vocab enrich / account_server
         ↓
    ai_teacher facade
         ↓
@@ -58,7 +58,14 @@ quiz / reading / account_server
  OpenAIProvider   (future: StudyGuardAIProvider, LocalModelProvider)
 ```
 
-Major UI surfaces: Home Dashboard, Vocabulary Library + Word Detail, Mistake Book, study session (quiz + optional reading).
+Production vocab enrichment:
+
+```text
+Word Detail → AccountServerVocabularyEnrichmentProvider
+    → account /api/enrich → AIService → EnrichmentDraft → review → Apply
+```
+
+Major UI surfaces: Home Dashboard, Progress Dashboard, Vocabulary Library + Word Detail, Mistake Book, study session (quiz + optional reading).
 
 ## Persistence (local, per study language)
 
@@ -79,11 +86,13 @@ alternatives?, part_of_speech?, note?,
 examples?, pronunciation?, forms?
 ```
 
-Enrichment (Phase 15A — storage only, not auto-filled):
+Enrichment storage + draft/review + production AI provider:
 
 - `examples`: `[{text, meaning?}, ...]`
-- `pronunciation`: `{ipa}` when present
+- `pronunciation`: `{ipa}` when present (storage only; AI v1 does **not** generate IPA)
 - `forms`: subset of `plural` / `past` / `past_participle` / `comparative` / `superlative`
+- `EnrichmentDraft` is ephemeral; AI proposes POS/forms/examples; learner must Apply
+- Production path: authenticated `/api/enrich` on the account server
 
 Legacy read still supported: `vi`, `alt`, `type`, `nl`, `en`, string `example`. New writes use canonical fields. Account HTTP wire may still send `vi` — that is **not** the local canonical field.
 
@@ -94,7 +103,7 @@ python -m pytest
 python app/smoke_test.py
 ```
 
-**Baseline snapshot (not a permanent invariant):** after Phase 15A, **177 pytest tests passing**; smoke test all checks pass.
+**Baseline snapshot (not a permanent invariant):** after Phase 16, **223 pytest tests passing**; smoke test all checks pass.
 
 ## Current development position
 
@@ -102,7 +111,10 @@ python app/smoke_test.py
 Completed: Phase 14 — Vocabulary Model v2
 Completed: Phase 14.5 — Project Memory Foundation
 Completed: Phase 15A — Vocabulary Enrichment Data Model
-Next: Phase 15B — enrichment providers / review flow (not started)
+Completed: Phase 15B — Vocabulary Enrichment Draft & Review Foundation
+Completed: Phase 15C — Production AI Vocabulary Enrichment v1
+Completed: Phase 16 — Learning Progress Dashboard v1
+Next: dictionary / pronunciation providers; optional orchestration with AI
 ```
 
-Phase 15A adds storage/domain capability only. It does **not** automatically enrich vocabulary.
+Progress Dashboard is derived read-only analytics over VocabStore / Progress / AttemptHistory / MistakeBook (no new persistence). AI enrichment remains advisory (draft → Apply).

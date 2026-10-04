@@ -228,12 +228,15 @@ class VocabularyLibraryApp:
         if self.detail_window is not None and self.detail_window.winfo_exists():
             self.detail_window.destroy()
         self.detail_window = tk.Toplevel(self.window)
+        from vocabulary_enrichment import resolve_production_enrichment_provider
+
         WordDetailApp(
             self.detail_window,
             detail=detail,
             store=self.store,
             language_code=self.language_code,
             on_changed=self._on_detail_changed,
+            enrichment_provider=resolve_production_enrichment_provider(),
         )
 
     def _on_detail_changed(self):
@@ -339,6 +342,7 @@ class WordDetailApp:
         store: VocabStore,
         language_code: str,
         on_changed=None,
+        enrichment_provider=None,
     ):
         self.window = window
         self.detail = detail
@@ -346,6 +350,10 @@ class WordDetailApp:
         self.language_code = language_code
         self.on_changed = on_changed
         self.practice_window = None
+        # Enrich is shown only when a real provider is configured (AI ready).
+        self.enrichment_provider = enrichment_provider
+        self._enriching = False
+        self._enrich_button = None
 
         self.window.title(f"{config.APP_NAME} — {detail.word}")
         ui_common.apply_theme(window)
@@ -497,6 +505,16 @@ class WordDetailApp:
             style="Secondary.TButton",
             command=self._edit,
         ).pack(side=tk.LEFT, padx=6)
+        if self.enrichment_provider is not None:
+            self._enrich_button = ttk.Button(
+                actions,
+                text=config.ui("Làm giàu", "Enrich"),
+                style="Secondary.TButton",
+                command=self._enrich,
+            )
+            self._enrich_button.pack(side=tk.LEFT, padx=6)
+            if self._enriching:
+                self._enrich_button.state(["disabled"])
         ttk.Button(
             actions,
             text=config.ui("Xóa", "Delete"),
@@ -604,6 +622,101 @@ class WordDetailApp:
             mistake_summaries=summaries,
         )
         self._build_body()
+
+    def _enrich(self, draft=None):
+        """Request AI draft (async) then open Phase 15B review dialog."""
+        entry = self.store.get(self.detail.store_index)
+        if not entry:
+            return
+        from vocab_identity import entry_id
+        from vocabulary_enrichment import EnrichmentRequest, VocabularyEnrichmentService
+        from vocabulary_model import entry_part_of_speech
+
+        if draft is not None:
+            self._open_enrichment_review(entry, draft)
+            return
+
+        if self.enrichment_provider is None or self._enriching:
+            return
+
+        request = EnrichmentRequest(
+            vocab_id=str(entry_id(entry) or self.detail.vocab_id or ""),
+            word=str(entry.get("word") or ""),
+            meaning=entry_meaning(entry),
+            study_language=self.language_code,
+            native_language=config.native_code(),
+            part_of_speech=entry_part_of_speech(entry),
+        )
+        service = VocabularyEnrichmentService(self.enrichment_provider)
+        self._enriching = True
+        if self._enrich_button is not None:
+            self._enrich_button.state(["disabled"])
+
+        def work():
+            return service.request_draft(request)
+
+        def on_success(result_draft):
+            self._enriching = False
+            if self._enrich_button is not None:
+                try:
+                    self._enrich_button.state(["!disabled"])
+                except tk.TclError:
+                    pass
+            if not result_draft.has_suggestions():
+                messagebox.showinfo(
+                    config.ui("Làm giàu từ", "Enrichment"),
+                    config.ui(
+                        "Không có gợi ý cho từ này.",
+                        "No suggestions for this word.",
+                    ),
+                )
+                return
+            current = self.store.get(self.detail.store_index) or entry
+            self._open_enrichment_review(current, result_draft)
+
+        def on_error(error):
+            self._enriching = False
+            if self._enrich_button is not None:
+                try:
+                    self._enrich_button.state(["!disabled"])
+                except tk.TclError:
+                    pass
+            message = str(error) if str(error) else config.ui(
+                "Không làm giàu được từ này.",
+                "Couldn't enrich this word.",
+            )
+            messagebox.showerror(
+                config.ui("Làm giàu từ", "Enrichment"),
+                message,
+            )
+
+        ui_common.run_async(self.window, work, on_success, on_error)
+
+    def _open_enrichment_review(self, entry: dict, draft):
+        from enrichment_review_app import open_enrichment_review
+        from vocabulary_enrichment import apply_enrichment
+
+        def on_apply(selection):
+            current = self.store.get(self.detail.store_index)
+            if not current:
+                return
+            updates = apply_enrichment(current, draft, selection)
+            if updates:
+                ok = self.store.update(
+                    self.detail.store_index,
+                    str(current.get("word") or ""),
+                    entry_meaning(current),
+                    **updates,
+                )
+                if not ok:
+                    return
+            if callable(self.on_changed):
+                self.on_changed()
+            self._refresh_from_disk()
+
+        open_enrichment_review(
+            self.window, entry=entry, draft=draft, on_apply=on_apply
+        )
 
     def _edit(self):
         entry = self.store.get(self.detail.store_index)

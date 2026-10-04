@@ -6,6 +6,8 @@ from ai.base import (
     GradeRequest,
     GradeResult,
     ReadingRequest,
+    VocabularyEnrichmentAIRequest,
+    VocabularyEnrichmentAIResult,
 )
 from ai.service import AIService, get_service, set_service
 
@@ -16,6 +18,8 @@ __all__ = [
     "GradeRequest",
     "GradeResult",
     "ReadingRequest",
+    "VocabularyEnrichmentAIRequest",
+    "VocabularyEnrichmentAIResult",
     "get_service",
     "set_service",
 ]

@@ -6,7 +6,16 @@ from typing import Optional
 
 import config
 import languages
-from ai.base import AIError, AIProvider, GradeRequest, GradeResult, ReadingRequest
+from ai.base import (
+    AIError,
+    AIProvider,
+    GradeRequest,
+    GradeResult,
+    ReadingRequest,
+    VocabularyEnrichmentAIRequest,
+    VocabularyEnrichmentAIResult,
+    sanitize_enrichment_ai_payload,
+)
 from ai.openai_provider import OpenAIProvider
 
 _service: Optional["AIService"] = None
@@ -96,6 +105,37 @@ class AIService:
             passage_words=passage_words or config.READING_PASSAGE_WORDS,
         )
         return self.provider.generate_reading(request)
+
+    def enrich_vocabulary(
+        self,
+        word: str,
+        meaning: str,
+        part_of_speech: str = "",
+        profile: dict = None,
+        native_label: str = None,
+        *,
+        use_account_proxy: bool = True,
+    ) -> VocabularyEnrichmentAIResult:
+        """Propose enrichment only. Never writes vocab.json."""
+        if use_account_proxy and config.uses_account_server() and profile is None:
+            import account_client
+
+            try:
+                data = account_client.enrich_vocabulary(
+                    word, meaning, part_of_speech=part_of_speech
+                )
+            except account_client.AccountError as error:
+                raise AIError(str(error)) from error
+            return sanitize_enrichment_ai_payload(data)
+
+        request = VocabularyEnrichmentAIRequest(
+            word=word,
+            meaning=meaning or "",
+            study_language=_study_language_from_profile(profile),
+            native_label=native_label or config.native_label(),
+            part_of_speech=part_of_speech or "",
+        )
+        return self.provider.enrich_vocabulary(request)
 
 
 def get_service() -> AIService:

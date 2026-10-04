@@ -109,3 +109,25 @@ def generate_reading(entries: list) -> dict:
         },
         config.account_token(),
     )
+
+
+def enrich_vocabulary(
+    word: str,
+    meaning: str,
+    part_of_speech: str = "",
+    language_code: str = None,
+    native_language: str = None,
+) -> dict:
+    """Request AI enrichment draft via account server. Never receives an API key."""
+    profile = config.current_language()
+    return _post(
+        "/api/enrich",
+        {
+            "word": word,
+            "meaning": meaning,
+            "part_of_speech": part_of_speech or "",
+            "language": language_code or profile["code"],
+            "native": native_language or config.native_code(),
+        },
+        config.account_token(),
+    )

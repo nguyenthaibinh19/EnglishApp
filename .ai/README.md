@@ -74,6 +74,6 @@ If documentation conflicts with tested current behavior, **investigate the confl
 | [invariants.md](invariants.md) | Rules that must not be broken |
 | [roadmap.md](roadmap.md) | Directional plan |
 | [lessons.md](lessons.md) | Durable engineering lessons |
-| [decisions/](decisions/) | Architecture Decision Records (through ADR-011) |
+| [decisions/](decisions/) | Architecture Decision Records (through ADR-014) |
 | [procedures/](procedures/) | How-to checklists |
 | [procedures/HOW_TO_UPDATE_PROJECT_MEMORY.md](procedures/HOW_TO_UPDATE_PROJECT_MEMORY.md) | When/how to update `.ai/` memory |

@@ -18,13 +18,14 @@ quiz / reading / account_server
 
 ## Steps
 
-1. Implement the `AIProvider` interface (grade sentence, generate reading, etc. as currently required).
+1. Implement the `AIProvider` interface (grade sentence, generate reading, enrich vocabulary, etc. as currently required).
 2. Wire it through `AIService` (inject/select provider) — do not bypass the facade from UI.
-3. Keep quiz/reading free of provider-specific SDKs.
-4. Production secrets remain **server-side**; desktop uses account HTTP + token.
+3. Keep quiz/reading/vocab enrichment UI free of provider-specific SDKs.
+4. Production secrets remain **server-side**; desktop uses account HTTP + token (`/api/grade`, `/api/reading`, `/api/enrich`).
 5. Add a fake/provider stub test — no live OpenAI calls.
 6. Run pytest (+ smoke if AI smoke paths are involved).
 7. Update architecture/roadmap memory if a new production provider becomes real.
+8. Vocabulary enrichment must remain advisory (draft → review → Apply); see ADR-012 / ADR-013.
 
 ## Do not
 

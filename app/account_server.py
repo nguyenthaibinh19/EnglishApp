@@ -67,6 +67,9 @@ class Handler(BaseHTTPRequestHandler):
             if self.path == "/api/reading":
                 self._send(200, _reading(payload))
                 return
+            if self.path == "/api/enrich":
+                self._send(200, _enrich(payload))
+                return
             self._send(404, {"error": "Không có chức năng này."})
         except (ValueError, ai_teacher.AITeacherError) as error:
             self._send(400, {"error": str(error)})
@@ -122,6 +125,23 @@ def _reading(payload: dict) -> dict:
         entries,
         level=str(payload.get("level") or config.READING_LEVEL),
         passage_words=int(payload.get("passage_words") or config.READING_PASSAGE_WORDS),
+        profile=_profile(payload),
+        native_label=_native_label(payload),
+    )
+
+
+def _enrich(payload: dict) -> dict:
+    """AI vocabulary enrichment — lexical fields only; validated; no vocab write."""
+    word = str(payload.get("word") or "").strip()
+    meaning = str(payload.get("meaning") or "").strip()
+    if not word or not meaning:
+        raise ValueError("Cần có từ và nghĩa.")
+    if len(word) > 120 or len(meaning) > 240:
+        raise ValueError("Từ hoặc nghĩa quá dài.")
+    return ai_teacher.enrich_vocabulary(
+        word,
+        meaning,
+        part_of_speech=str(payload.get("part_of_speech") or "").strip(),
         profile=_profile(payload),
         native_label=_native_label(payload),
     )

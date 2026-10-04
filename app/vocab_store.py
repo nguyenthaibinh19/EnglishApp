@@ -237,7 +237,9 @@ class VocabStore:
         payload.pop("nl", None)
         payload.pop("en", None)
 
-        optionals = self._optional_from_extra(extra, clearing=True)
+        optionals = self._optional_from_extra(
+            extra, clearing=True, existing=self.vocab[index]
+        )
         for field_name in (
             "alternatives",
             "examples",
@@ -266,7 +268,12 @@ class VocabStore:
         self.save()
         return True
 
-    def _optional_from_extra(self, extra: dict, clearing: bool = False) -> dict:
+    def _optional_from_extra(
+        self,
+        extra: dict,
+        clearing: bool = False,
+        existing: dict = None,
+    ) -> dict:
         out = {}
         if not extra:
             return out
@@ -280,8 +287,12 @@ class VocabStore:
             if "examples" in extra:
                 examples = normalize_examples(extra.get("examples"))
             else:
-                # Legacy editor/API still passes a single example string.
-                examples = normalize_examples(extra.get("example"))
+                # Legacy single-field editors pass ``example`` only. Preserve
+                # additional structured examples that the UI cannot edit yet.
+                examples = self._merge_legacy_example_edit(
+                    existing if isinstance(existing, dict) else {},
+                    extra.get("example"),
+                )
             if examples or clearing:
                 out["examples"] = [item.to_storage_dict() for item in examples]
         if "note" in extra:
@@ -305,6 +316,23 @@ class VocabStore:
             if data or clearing:
                 out["forms"] = data or {}
         return out
+
+    @staticmethod
+    def _merge_legacy_example_edit(existing_entry: dict, example_value) -> list:
+        """Update first example text from legacy editor without dropping the rest."""
+        from vocabulary_model import VocabularyExample
+
+        existing = normalize_examples(existing_entry.get("examples"))
+        if not existing and "example" in existing_entry:
+            existing = normalize_examples(existing_entry.get("example"))
+        new_text = str(example_value or "").strip()
+        if not existing:
+            return normalize_examples(new_text)
+        rest = existing[1:]
+        first_meaning = existing[0].meaning
+        if new_text:
+            return [VocabularyExample(text=new_text, meaning=first_meaning), *rest]
+        return list(rest)
 
     def delete(self, index: int) -> bool:
         if not (0 <= index < len(self.vocab)):

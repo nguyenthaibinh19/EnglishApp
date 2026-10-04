@@ -1,7 +1,15 @@
 """AI service/provider boundary with a fake provider — no network."""
 
 import ai_teacher
-from ai.base import AIError, AIProvider, GradeRequest, GradeResult, ReadingRequest
+from ai.base import (
+    AIError,
+    AIProvider,
+    GradeRequest,
+    GradeResult,
+    ReadingRequest,
+    VocabularyEnrichmentAIRequest,
+    VocabularyEnrichmentAIResult,
+)
 from ai.service import AIService, set_service
 
 
@@ -9,6 +17,7 @@ class FakeProvider(AIProvider):
     def __init__(self):
         self.grade_calls = []
         self.reading_calls = []
+        self.enrich_calls = []
 
     def grade_answer(self, request: GradeRequest) -> GradeResult:
         self.grade_calls.append(request)
@@ -30,6 +39,21 @@ class FakeProvider(AIProvider):
             "target_words": ["hallo"],
             "groups": [],
         }
+
+    def enrich_vocabulary(
+        self, request: VocabularyEnrichmentAIRequest
+    ) -> VocabularyEnrichmentAIResult:
+        self.enrich_calls.append(request)
+        return VocabularyEnrichmentAIResult(
+            part_of_speech="noun",
+            forms={"plural": f"{request.word}s"},
+            examples=(
+                {
+                    "text": f"Example with {request.word}.",
+                    "meaning": request.meaning,
+                },
+            ),
+        )
 
 
 def test_grading_and_reading_via_fake_provider():

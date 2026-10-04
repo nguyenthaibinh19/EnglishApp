@@ -56,3 +56,21 @@ def generate_reading(
         profile=profile,
         native_label=native_label,
     )
+
+
+def enrich_vocabulary(
+    word: str,
+    meaning: str,
+    part_of_speech: str = "",
+    profile: dict = None,
+    native_label: str = None,
+) -> dict:
+    """Đề xuất POS / forms / examples. Không ghi vocab.json."""
+    result = get_service().enrich_vocabulary(
+        word,
+        meaning,
+        part_of_speech=part_of_speech,
+        profile=profile,
+        native_label=native_label,
+    )
+    return result.as_dict()

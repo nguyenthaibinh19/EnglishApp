@@ -24,27 +24,29 @@ Architecture phases 1–14 (summary only):
 | 14 | Vocabulary Model v2 (`meaning` / `alternatives` / …) |
 | 14.5 | Project Memory Foundation (`.ai/`) |
 | 15A | Vocabulary Enrichment Data Model (`examples` / IPA / forms storage) |
+| 15B | Enrichment draft / review / apply foundation (no production providers) |
+| 15C | Production AI vocabulary enrichment v1 (`/api/enrich`, review-before-apply) |
+| 16 | Learning Progress Dashboard v1 (derived read-only analytics) |
 
 ## Current
 
 ```text
-Phase 15A — Vocabulary Enrichment Data Model — completed
+Phase 16 — Learning Progress Dashboard v1 — completed
 ```
 
 ## Next
 
 ```text
-Phase 15B — Vocabulary enrichment providers / review flow
+Dictionary / authoritative pronunciation providers; optional AI+dictionary orchestration
 ```
 
-Storage for structured examples, IPA, and a small forms map exists. Filling those fields from dictionary/AI (with optional user confirmation) is **not** done yet.
+Progress Dashboard exposes calm, non-gamified counts and recent activity. AI coaching / CEFR / charts remain out of scope for this phase.
 
-Likely 15B+ themes: dictionary provider, enrichment draft/review UI, optional POS population — **not** a mandate to add CEFR/audio/TTS in one step.
+Likely next themes: WikDict/language-rule providers, pronunciation source for IPA — still review-before-apply; **not** a mandate to add CEFR/audio/TTS in one step.
 
 ## Near-term (directional)
 
-- Vocabulary Enrichment (Phase 15+)
-- Progress / analytics screen
+- Dictionary / pronunciation enrichment
 - Reading Lab improvements
 - Listening (new activity — via StudySession, not ad-hoc `main.py` chains)
 

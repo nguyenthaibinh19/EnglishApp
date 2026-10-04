@@ -351,7 +351,15 @@ check("đăng nhập bằng mật khẩu mới", account_store.login("hocvien", 
 # ---------- AI provider boundary (không gọi mạng / OpenAI) ----------
 
 import ai_teacher
-from ai.base import AIError, AIProvider, GradeRequest, GradeResult, ReadingRequest
+from ai.base import (
+    AIError,
+    AIProvider,
+    GradeRequest,
+    GradeResult,
+    ReadingRequest,
+    VocabularyEnrichmentAIRequest,
+    VocabularyEnrichmentAIResult,
+)
 from ai.service import AIService, set_service
 
 
@@ -359,6 +367,7 @@ class FakeProvider(AIProvider):
     def __init__(self):
         self.grade_calls = []
         self.reading_calls = []
+        self.enrich_calls = []
 
     def grade_answer(self, request: GradeRequest) -> GradeResult:
         self.grade_calls.append(request)
@@ -381,6 +390,16 @@ class FakeProvider(AIProvider):
             "groups": [],
             "study_code": request.study_language.code if request.study_language else "",
         }
+
+    def enrich_vocabulary(
+        self, request: VocabularyEnrichmentAIRequest
+    ) -> VocabularyEnrichmentAIResult:
+        self.enrich_calls.append(request)
+        return VocabularyEnrichmentAIResult(
+            part_of_speech="verb",
+            forms={"past": "ging"},
+            examples=({"text": f"Ik {request.word}.", "meaning": request.meaning},),
+        )
 
 
 fake = FakeProvider()
@@ -416,6 +435,17 @@ try:
         callable(ai_teacher.check_sentence) and callable(ai_teacher.generate_reading),
     )
     check("AITeacherError alias AIError", ai_teacher.AITeacherError is AIError)
+
+    enriched = ai_teacher.enrich_vocabulary(
+        "gaan",
+        "to go",
+        part_of_speech="verb",
+        profile={"code": "nl", "name_en": "Dutch", "name_vi": "tiếng Hà Lan", "articles": (), "elisions": ()},
+        native_label="English",
+    )
+    check("facade enrich vocabulary qua provider", enriched.get("part_of_speech") == "verb")
+    check("enrich không trả API key", "api_key" not in enriched and "OPENAI" not in str(enriched))
+    check("enrich nhận StudyLanguage nl", fake.enrich_calls[0].study_language.code == "nl")
 finally:
     set_service(None)
 

@@ -9,8 +9,15 @@ See also: [invariants.md](invariants.md), [decisions/](decisions/).
 - **`VocabularyEntry` / VocabStore** own lexical information (`word`, `meaning`, alternatives, optional note/POS) plus optional enrichment (`examples`, `pronunciation.ipa`, controlled `forms`).
 - **Stable UUID (`id` / `vocab_id`)** owns learning identity — see [ADR-009](decisions/ADR-009-stable-vocabulary-identity.md).
 - Editable spelling/meaning must never own Progress / SRS / attempt identity.
-- Lexical model: [ADR-010](decisions/ADR-010-vocabulary-model-v2.md); enrichment storage: [ADR-011](decisions/ADR-011-vocabulary-enrichment-model.md).
-- Enrichment fields are optional storage; providers that fill them are a later phase.
+- Lexical model: [ADR-010](decisions/ADR-010-vocabulary-model-v2.md); enrichment storage: [ADR-011](decisions/ADR-011-vocabulary-enrichment-model.md); review-before-apply: [ADR-012](decisions/ADR-012-enrichment-review-before-apply.md).
+- Enrichment pipeline (domain, not Tkinter):
+
+```text
+VocabularyEntry → EnrichmentService → VocabularyEnrichmentProvider
+    → EnrichmentDraft (ephemeral) → review/select → apply → VocabStore.update
+```
+
+- Drafts are never auto-persisted. Production AI enrichment uses `AccountServerVocabularyEnrichmentProvider` → `/api/enrich` (review-before-apply; [ADR-013](decisions/ADR-013-ai-vocabulary-enrichment.md)). Enrich UI appears when AI is configured.
 
 ## Progress
 
@@ -44,6 +51,20 @@ Do not conflate “due now” with “requeued later in this session”. See [AD
 - Plans are **not** persisted.
 - Must never present future-review fallback as “due”. See [ADR-007](decisions/ADR-007-daily-study-planner.md).
 
+## Learning Progress Dashboard
+
+```text
+VocabStore + Progress + AttemptHistory + MistakeBook
+        ↓
+LearningProgressSnapshot (derived, not persisted)
+        ↓
+ProgressViewModel → ProgressApp
+```
+
+- Read-only analytics for one study language (counts, mastery-quality **attempts**, 7-day activity).
+- Reuses DailyStudy / SRS / MistakeBook helpers — UI must not redefine them.
+- See [ADR-014](decisions/ADR-014-learning-progress-dashboard.md).
+
 ## StudySession
 
 - Logical activity state machine (Vocabulary required when planned count > 0; Reading optional when enabled).
@@ -51,7 +72,7 @@ Do not conflate “due now” with “requeued later in this session”. See [AD
 
 ## UI (Tkinter)
 
-- Home Dashboard, Vocabulary Library, Mistake Book, quiz/reading adapters consume domain models / view-models.
+- Home Dashboard, Progress Dashboard, Vocabulary Library, Mistake Book, quiz/reading adapters consume domain models / view-models.
 - Must not independently reimplement SRS / Mistake / DailyStudy rules.
 - ScreenGuard owns lock/fullscreen enforcement.
 
@@ -61,12 +82,16 @@ Do not conflate “due now” with “requeued later in this session”. See [AD
 consumers → ai_teacher facade → AIService → AIProvider → OpenAIProvider
 ```
 
+Capabilities: grade sentence, generate reading, enrich vocabulary (POS/forms/examples).
+
 - OpenAI is one implementation, not the architecture ([ADR-003](decisions/ADR-003-ai-provider-boundary.md)).
 - Production API key remains **server-side**.
+- Vocabulary enrichment is advisory ([ADR-012](decisions/ADR-012-enrichment-review-before-apply.md), [ADR-013](decisions/ADR-013-ai-vocabulary-enrichment.md)).
 
 ## Account / server
 
-- Desktop uses HTTP + account token.
+- Desktop uses HTTP + account token (`Bearer` + body token).
+- Authenticated AI endpoints: `/api/grade`, `/api/reading`, `/api/enrich`.
 - Do not expose the account DB directly to the desktop client.
 - Reading generation wire may still use field name `vi` for meaning — local vocab schema remains canonical `meaning`.
 
