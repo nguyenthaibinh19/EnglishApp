@@ -6,7 +6,7 @@
 DailyStudyPlanner  →  StudySession  →  Tk adapter  →  activity UI
 ```
 
-See [ADR-007](../decisions/ADR-007-daily-study-planner.md), [ADR-008](../decisions/ADR-008-study-session.md).
+See [ADR-007](../decisions/ADR-007-daily-study-planner.md), [ADR-008](../decisions/ADR-008-study-session.md), [ADR-015](../decisions/ADR-015-listening-activity.md).
 
 ## Rules
 
@@ -23,3 +23,4 @@ See [ADR-007](../decisions/ADR-007-daily-study-planner.md), [ADR-008](../decisio
 
 - **Vocabulary** — required when planned vocab count > 0
 - **Reading** — optional when enabled
+- **Listening** — optional when enabled (defaults off until a production audio provider exists; unavailable must not block session finish)

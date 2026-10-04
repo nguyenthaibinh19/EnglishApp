@@ -304,21 +304,34 @@ class FreeHome:
             style="H2.TLabel",
         ).pack(anchor="w", pady=(0, 8))
         reading_var = tk.BooleanVar(value=config.activity_enabled("reading"))
+        listening_var = tk.BooleanVar(value=config.activity_enabled("listening"))
 
-        def on_toggle():
+        def on_reading_toggle():
             config.set_activity_enabled("reading", bool(reading_var.get()))
+            self.refresh()
+
+        def on_listening_toggle():
+            config.set_activity_enabled("listening", bool(listening_var.get()))
             self.refresh()
 
         ttk.Checkbutton(
             frame,
             text=config.ui("Đọc", "Reading"),
             variable=reading_var,
-            command=on_toggle,
+            command=on_reading_toggle,
         ).pack(anchor="w")
+        ttk.Checkbutton(
+            frame,
+            text=config.ui("Nghe", "Listening"),
+            variable=listening_var,
+            command=on_listening_toggle,
+        ).pack(anchor="w", pady=(4, 0))
         ttk.Label(
             frame,
             text=config.ui(
+                "Nghe mặc định tắt cho đến khi có nguồn phát âm thanh. "
                 "Ngôn ngữ học và khóa màn hình được quản lý trong phiên học.",
+                "Listening stays off by default until an audio provider exists. "
                 "Study languages and lock mode are managed inside the study session.",
             ),
             style="Muted.TLabel",

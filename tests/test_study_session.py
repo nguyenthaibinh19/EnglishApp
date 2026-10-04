@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from daily_study import DailyStudyPlan
 from study_session import (
+    KIND_LISTENING,
     KIND_READING,
     KIND_VOCABULARY,
     STATUS_ACTIVE,
@@ -22,6 +23,7 @@ def _plan(
     vocab_total=10,
     planned=5,
     reading=True,
+    listening=False,
     due=0,
     new=0,
     future=0,
@@ -36,6 +38,7 @@ def _plan(
         attention_word_count=attention,
         planned_vocab_count=planned,
         reading_enabled=reading,
+        listening_enabled=listening,
     )
 
 
@@ -57,6 +60,18 @@ def test_vocabulary_plus_reading_order():
     assert session.next_activity().kind == KIND_VOCABULARY
     session.complete(KIND_VOCABULARY)
     assert session.next_activity().kind == KIND_READING
+
+
+def test_vocabulary_reading_listening_order():
+    session = build_study_session(_plan(reading=True, listening=True))
+    assert [a.kind for a in session.activities()] == [
+        KIND_VOCABULARY,
+        KIND_READING,
+        KIND_LISTENING,
+    ]
+    session.complete(KIND_VOCABULARY)
+    session.complete(KIND_READING)
+    assert session.next_activity().kind == KIND_LISTENING
 
 
 def test_reading_disabled_plan():

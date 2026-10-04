@@ -39,6 +39,7 @@ class DailyStudyPlan:
     attention_word_count: int
     planned_vocab_count: int
     reading_enabled: bool
+    listening_enabled: bool = False
 
 
 def build_daily_study_plan(
@@ -49,6 +50,7 @@ def build_daily_study_plan(
     *,
     quiz_target: int,
     reading_enabled: bool,
+    listening_enabled: bool = False,
     now: Optional[datetime] = None,
 ) -> DailyStudyPlan:
     """Pure planner: no I/O, no writes.
@@ -101,6 +103,7 @@ def build_daily_study_plan(
         attention_word_count=attention,
         planned_vocab_count=planned,
         reading_enabled=bool(reading_enabled),
+        listening_enabled=bool(listening_enabled),
     )
 
 
@@ -110,6 +113,7 @@ def plan_for_language(
     now: Optional[datetime] = None,
     quiz_target: Optional[int] = None,
     reading_enabled: Optional[bool] = None,
+    listening_enabled: Optional[bool] = None,
     vocab_store: Any = None,
     progress: Any = None,
     attempts_filename: Optional[str] = None,
@@ -134,6 +138,11 @@ def plan_for_language(
         if reading_enabled is None
         else bool(reading_enabled)
     )
+    listening = (
+        config.activity_enabled("listening")
+        if listening_enabled is None
+        else bool(listening_enabled)
+    )
     return build_daily_study_plan(
         code,
         store.all(),
@@ -141,6 +150,7 @@ def plan_for_language(
         summaries,
         quiz_target=target,
         reading_enabled=reading,
+        listening_enabled=listening,
         now=now,
     )
 
@@ -176,6 +186,12 @@ def format_plan_preview_lines(plan: DailyStudyPlan, language_label: str) -> List
         config.ui(
             f"Đọc: {'bật' if plan.reading_enabled else 'tắt'}",
             f"Reading: {'enabled' if plan.reading_enabled else 'disabled'}",
+        )
+    )
+    lines.append(
+        config.ui(
+            f"Nghe: {'bật' if plan.listening_enabled else 'tắt'}",
+            f"Listening: {'enabled' if plan.listening_enabled else 'disabled'}",
         )
     )
     return lines

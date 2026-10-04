@@ -63,16 +63,30 @@ ProgressViewModel → ProgressApp
 
 - Read-only analytics for one study language (counts, mastery-quality **attempts**, 7-day activity).
 - Reuses DailyStudy / SRS / MistakeBook helpers — UI must not redefine them.
+- Overview **Needs attention** = current actionable vocab only (orphans excluded from that count).
 - See [ADR-014](decisions/ADR-014-learning-progress-dashboard.md).
 
 ## StudySession
 
-- Logical activity state machine (Vocabulary required when planned count > 0; Reading optional when enabled).
+- Logical activity state machine: Vocabulary required when planned count > 0; Reading optional when enabled; Listening optional when enabled (default off).
+- Order when present: vocabulary → reading → listening.
 - Does **not** own Tkinter locking/window enforcement. See [ADR-008](decisions/ADR-008-study-session.md).
+
+## Listening
+
+```text
+ListeningItem → ListeningSession → ListeningAudioProvider.play(text, language)
+        ↓
+ListeningApp (Tk adapter) ← StudyMaster / StudySession
+```
+
+- Content: spoken `text` + comprehension `question` / `answer` (+ optional alternatives/meaning).
+- Production resolve returns no provider yet; unavailable must not block finish after required work.
+- No Progress / SRS / AttemptHistory writes in Phase 17A. See [ADR-015](decisions/ADR-015-listening-activity.md).
 
 ## UI (Tkinter)
 
-- Home Dashboard, Progress Dashboard, Vocabulary Library, Mistake Book, quiz/reading adapters consume domain models / view-models.
+- Home Dashboard, Progress Dashboard, Vocabulary Library, Mistake Book, quiz/reading/listening adapters consume domain models / view-models.
 - Must not independently reimplement SRS / Mistake / DailyStudy rules.
 - ScreenGuard owns lock/fullscreen enforcement.
 

@@ -20,7 +20,7 @@ from typing import Any, List, Mapping, Optional, Sequence, Tuple
 
 from attempt_history import AttemptHistory, LearningAttempt
 from daily_study import build_daily_study_plan
-from mistake_book import MistakeSummary, summarize_mistakes
+from mistake_book import MistakeSummary, resolve_practice_entries, summarize_mistakes
 from srs import is_new, parse_utc, utc_now
 from text_utils import entry_word, normalize
 from vocab_identity import entry_id
@@ -123,6 +123,19 @@ def practiced_word_count(
     return count
 
 
+def actionable_attention_count(
+    mistake_summaries: Sequence[MistakeSummary],
+    vocab_entries: Sequence[dict],
+) -> int:
+    """Needs-attention items that resolve to a current VocabStore entry.
+
+    Uses MistakeBook's existing resolve rules (prefer vocab_id, legacy word
+    fallback). Deleted/orphan history does not inflate this dashboard count.
+    MistakeBook historical summaries themselves are unchanged.
+    """
+    return len(resolve_practice_entries(mistake_summaries, vocab_entries))
+
+
 def build_day_activity(
     attempts: Sequence[LearningAttempt],
     *,
@@ -182,7 +195,9 @@ def build_learning_progress(
     Current-vocabulary metrics use VocabStore entries only.
     Attempt analytics use AttemptHistory events for this language (including
     legacy/orphan records) — they do not invent current vocab rows.
-    NEW/DUE/FUTURE/ATTENTION come from DailyStudyPlanner / MistakeBook.
+    NEW/DUE/FUTURE come from DailyStudyPlanner / SRS helpers.
+    Dashboard attention counts only MistakeBook items that resolve to current
+    vocabulary (orphans may still appear in attempt/activity totals).
     """
     plan = build_daily_study_plan(
         language_code,
@@ -194,6 +209,8 @@ def build_learning_progress(
         now=now or utc_now(),
     )
     practiced = practiced_word_count(vocab_entries, progress_words)
+    # Dashboard Overview attention = current actionable vocab only.
+    attention = actionable_attention_count(mistake_summaries, vocab_entries)
 
     lang = str(language_code or "")
     # Prefer explicit language match; empty language_code on legacy rows in a
@@ -242,7 +259,7 @@ def build_learning_progress(
         new_word_count=plan.new_word_count,
         due_review_count=plan.due_review_count,
         future_review_count=plan.future_review_count,
-        attention_word_count=plan.attention_word_count,
+        attention_word_count=attention,
         total_attempt_count=total,
         mastery_attempt_count=mastery,
         non_mastery_attempt_count=non_mastery,

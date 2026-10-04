@@ -27,28 +27,27 @@ Architecture phases 1–14 (summary only):
 | 15B | Enrichment draft / review / apply foundation (no production providers) |
 | 15C | Production AI vocabulary enrichment v1 (`/api/enrich`, review-before-apply) |
 | 16 | Learning Progress Dashboard v1 (derived read-only analytics) |
+| 17A | Listening Foundation (optional StudySession activity + audio-provider seam; no production TTS) |
 
 ## Current
 
 ```text
-Phase 16 — Learning Progress Dashboard v1 — completed
+Phase 17A — Listening Foundation — completed
 ```
 
 ## Next
 
 ```text
-Dictionary / authoritative pronunciation providers; optional AI+dictionary orchestration
+Phase 17B — Listening audio provider (real TTS / local playback behind ListeningAudioProvider)
 ```
 
-Progress Dashboard exposes calm, non-gamified counts and recent activity. AI coaching / CEFR / charts remain out of scope for this phase.
-
-Likely next themes: WikDict/language-rule providers, pronunciation source for IPA — still review-before-apply; **not** a mandate to add CEFR/audio/TTS in one step.
+Also directional: dictionary / pronunciation enrichment (review-before-apply); Reading Lab improvements. Not a mandate to combine CEFR + audio + dictionary in one step.
 
 ## Near-term (directional)
 
+- Listening production audio (17B)
 - Dictionary / pronunciation enrichment
 - Reading Lab improvements
-- Listening (new activity — via StudySession, not ad-hoc `main.py` chains)
 
 ## Long-term (directional)
 

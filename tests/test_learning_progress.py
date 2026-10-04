@@ -180,9 +180,114 @@ def test_deleted_vocabulary_excluded_from_current_counts():
     assert snap.practiced_word_count == 1
     assert snap.due_review_count == 0
     assert snap.future_review_count == 1
-    # Orphan history still counts in attempt analytics / attention.
+    # Orphan history still counts in attempt analytics, not Overview attention.
     assert snap.total_attempt_count == 1
+    assert snap.attention_word_count == 0
+    assert len(summaries) == 1  # MistakeBook historical summary still exists
+
+
+def test_current_vocab_attention_is_counted():
+    vid = "11111111-1111-4111-8111-111111111111"
+    vocab = [{"id": vid, "word": "huis", "meaning": "house"}]
+    attempts = [
+        _attempt("huis", correct=False, timestamp=to_utc_iso(NOW), vocab_id=vid)
+    ]
+    summaries = summarize_mistakes(attempts, language_code="nl")
+    snap = build_learning_progress(
+        "nl", vocab, {}, attempts, summaries, now=NOW, today_local=TODAY, local_tz=TZ
+    )
+    assert len(summaries) == 1
     assert snap.attention_word_count == 1
+
+
+def test_deleted_vocab_attention_not_counted_in_dashboard():
+    deleted_id = "99999999-9999-4999-8999-999999999999"
+    vocab = [
+        {
+            "id": "11111111-1111-4111-8111-111111111111",
+            "word": "keep",
+            "meaning": "k",
+        }
+    ]
+    attempts = [
+        _attempt(
+            "gone",
+            correct=False,
+            timestamp=to_utc_iso(NOW),
+            vocab_id=deleted_id,
+        )
+    ]
+    summaries = summarize_mistakes(attempts, language_code="nl")
+    assert len(summaries) == 1  # historical MistakeBook semantics unchanged
+    snap = build_learning_progress(
+        "nl", vocab, {}, attempts, summaries, now=NOW, today_local=TODAY, local_tz=TZ
+    )
+    assert snap.attention_word_count == 0
+    assert snap.total_attempt_count == 1
+    assert snap.recent_days[-1].attempt_count == 1
+
+
+def test_orphan_attempts_still_count_in_historical_activity():
+    attempts = [
+        _attempt(
+            "deleted",
+            correct=True,
+            timestamp=to_utc_iso(NOW),
+            vocab_id="aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        ),
+        _attempt(
+            "deleted",
+            correct=False,
+            timestamp=to_utc_iso(NOW - timedelta(hours=1)),
+            vocab_id="aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        ),
+    ]
+    snap = build_learning_progress(
+        "nl",
+        [{"id": "11111111-1111-4111-8111-111111111111", "word": "x", "meaning": "y"}],
+        {},
+        attempts,
+        summarize_mistakes(attempts, language_code="nl"),
+        now=NOW,
+        today_local=TODAY,
+        local_tz=TZ,
+    )
+    assert snap.total_attempt_count == 2
+    assert snap.mastery_attempt_count == 1
+    assert snap.non_mastery_attempt_count == 1
+    assert snap.attention_word_count == 0
+
+
+def test_attention_not_inflated_solely_by_deleted_vocabulary():
+    current_id = "11111111-1111-4111-8111-111111111111"
+    vocab = [{"id": current_id, "word": "huis", "meaning": "house"}]
+    attempts = [
+        _attempt(
+            "huis",
+            correct=False,
+            timestamp=to_utc_iso(NOW),
+            vocab_id=current_id,
+        ),
+        _attempt(
+            "gone-a",
+            correct=False,
+            timestamp=to_utc_iso(NOW),
+            vocab_id="aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        ),
+        _attempt(
+            "gone-b",
+            correct=False,
+            timestamp=to_utc_iso(NOW),
+            vocab_id="bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+        ),
+    ]
+    summaries = summarize_mistakes(attempts, language_code="nl")
+    assert len(summaries) == 3
+    snap = build_learning_progress(
+        "nl", vocab, {}, attempts, summaries, now=NOW, today_local=TODAY, local_tz=TZ
+    )
+    assert snap.attention_word_count == 1
+    assert snap.total_attempt_count == 3
 
 
 def test_legacy_attempts_without_vocab_id_count_in_activity():

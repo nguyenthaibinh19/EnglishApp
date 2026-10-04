@@ -16,6 +16,7 @@ def _plan(**kwargs) -> DailyStudyPlan:
         attention_word_count=3,
         planned_vocab_count=5,
         reading_enabled=True,
+        listening_enabled=False,
     )
     base.update(kwargs)
     return DailyStudyPlan(**base)

@@ -10,6 +10,8 @@ After AttemptHistory, Mistake Book, SRS, and DailyStudyPlanner, learners need a 
 
 The Progress Dashboard recomputes a `LearningProgressSnapshot` from current VocabStore + Progress + AttemptHistory + MistakeBook (via existing DailyStudy / SRS helpers). Metrics are not written to `analytics.json` or similar. UI presentation lives in a Progress view-model; Tkinter does not redefine mastery / due / attention.
 
+Dashboard **Needs attention** counts only MistakeBook items that resolve to a **current** VocabStore entry (`vocab_id` preferred, legacy word fallback). Orphan/deleted history may still count in attempt/activity totals; it must not inflate Overview attention. MistakeBook historical semantics and Practice Mistakes are unchanged.
+
 ## Why
 
 Aggregates and events already answer “state now” and “what happened”. A derived read model keeps analytics honest and offline.

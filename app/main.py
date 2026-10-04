@@ -17,8 +17,11 @@ import ui_common
 from daily_study import plan_for_language
 from progress import Progress
 from quiz_app import VocabQuizApp
+from listening import resolve_listening_audio_provider
+from listening_app import ListeningApp
 from reading_app import ReadingApp
 from study_session import (
+    KIND_LISTENING,
     KIND_READING,
     KIND_VOCABULARY,
     STATUS_UNAVAILABLE,
@@ -45,7 +48,10 @@ class StudyMasterApp:
 
         self.vocab_window = None
         self.reading_window = None
+        self.listening_window = None
         self.reading_unavailable = False
+        self.listening_unavailable = False
+        self._listening_audio_provider = resolve_listening_audio_provider()
         self._menu_hidden = False
         self.row_status = {}
         self.row_buttons = {}
@@ -66,17 +72,18 @@ class StudyMasterApp:
             plan = plan_for_language(code)
             session = build_study_session(plan)
             if previous is not None:
-                # Preserve completed vocabulary across reading toggle rebuilds.
+                # Preserve completed vocabulary across optional-activity rebuilds.
                 if previous.vocabulary_complete() and session.has_activity(KIND_VOCABULARY):
                     session.complete(KIND_VOCABULARY)
-                if previous.has_activity(KIND_READING) and session.has_activity(KIND_READING):
-                    prior = previous.status(KIND_READING)
-                    if prior == "completed":
-                        session.complete(KIND_READING)
-                    elif prior == "skipped":
-                        session.skip(KIND_READING)
-                    elif prior == STATUS_UNAVAILABLE:
-                        session.mark_unavailable(KIND_READING)
+                for kind in (KIND_READING, KIND_LISTENING):
+                    if previous.has_activity(kind) and session.has_activity(kind):
+                        prior = previous.status(kind)
+                        if prior == "completed":
+                            session.complete(kind)
+                        elif prior == "skipped":
+                            session.skip(kind)
+                        elif prior == STATUS_UNAVAILABLE:
+                            session.mark_unavailable(kind)
             next_sessions[code] = session
         self.sessions = next_sessions
 
@@ -228,13 +235,22 @@ class StudyMasterApp:
                 command=lambda c=code: self.open_reading_section(c),
             )
             reading_button.pack(side=tk.LEFT, padx=(0, 4))
+            listening_button = ttk.Button(
+                row,
+                text=config.ui("Nghe", "Listen"),
+                style="Small.TButton",
+                width=10,
+                command=lambda c=code: self.open_listening_section(c),
+            )
+            listening_button.pack(side=tk.LEFT, padx=(0, 4))
             remove_button = ttk.Button(
                 row, text=config.ui("Bỏ", "Remove"), style="Small.TButton",
                 command=lambda c=code: self._remove_language(c),
             )
             remove_button.pack(side=tk.LEFT)
-            self.row_buttons[code] = (vocab_button, reading_button)
+            self.row_buttons[code] = (vocab_button, reading_button, listening_button)
             self._sync_reading_button(reading_button)
+            self._sync_listening_button(listening_button)
 
     def _ensure_missing_dictionaries(self):
         try:
@@ -363,6 +379,18 @@ class StudyMasterApp:
             if reading_button is not None:
                 self._sync_reading_button(reading_button)
 
+    def _sync_listening_button(self, button: ttk.Button):
+        if config.activity_enabled("listening"):
+            button.state(["!disabled"])
+        else:
+            button.state(["disabled"])
+
+    def _sync_listening_buttons(self):
+        for buttons in self.row_buttons.values():
+            listening_button = buttons[2] if len(buttons) > 2 else None
+            if listening_button is not None:
+                self._sync_listening_button(listening_button)
+
     def _on_activity_toggled(self, activity_id: str):
         variable = self.activity_vars.get(activity_id)
         if variable is None:
@@ -374,6 +402,11 @@ class StudyMasterApp:
             for session in self.sessions.values():
                 session.set_optional_enabled(KIND_READING, enabled)
             self._sync_reading_buttons()
+        elif activity_id == "listening":
+            self.listening_unavailable = False
+            for session in self.sessions.values():
+                session.set_optional_enabled(KIND_LISTENING, enabled)
+            self._sync_listening_buttons()
         self._refresh_status()
         if self._all_done():
             self.root.after(200, self._finish_if_all_done)
@@ -391,6 +424,8 @@ class StudyMasterApp:
             missing.append("từ vựng")
         if session.has_activity(KIND_READING) and not session.is_resolved(KIND_READING):
             missing.append("reading")
+        if session.has_activity(KIND_LISTENING) and not session.is_resolved(KIND_LISTENING):
+            missing.append("listening")
         return missing
 
     def _all_done(self) -> bool:
@@ -568,10 +603,63 @@ class StudyMasterApp:
             progress=self.progress,
             on_completed=self._on_reading_completed,
             on_request_switch=self._switch_to_vocab,
-            on_emergency=self.quit_all,
+            on_emergency=self.exit_all,
             on_failed=self._mark_reading_unavailable,
             on_skip=self._finish_without_reading if self._vocab_all_done() else None,
             required=not session.is_resolved(KIND_READING),
+            locked=True,
+        )
+
+    def open_listening_section(self, code=None):
+        if not config.activity_enabled("listening"):
+            return
+        if code is not None:
+            self._activate(code)
+        else:
+            code = config.active_code()
+            self._activate(code)
+        session = self._session_for(code)
+        if not session.has_activity(KIND_LISTENING):
+            return
+        if self.listening_window is not None and self.listening_window.winfo_exists():
+            self.listening_window.lift()
+            return
+
+        # No production audio provider → resolve as unavailable (never trap lock).
+        provider = self._listening_audio_provider
+        if provider is None or not provider.is_available():
+            try:
+                session.mark_unavailable(KIND_LISTENING)
+            except Exception:
+                pass
+            self.listening_unavailable = True
+            self._refresh_status()
+            self.guard.show_info(
+                config.ui("Nghe", "Listening"),
+                config.ui(
+                    "Phần nghe chưa dùng được vì chưa có nguồn phát âm thanh. "
+                    "Bạn vẫn có thể kết thúc phiên học.",
+                    "Listening is unavailable because no audio provider is configured. "
+                    "You can still finish the study session.",
+                ),
+            )
+            self.root.after(200, self._finish_if_all_done)
+            return
+
+        self._hide_menu()
+        self.listening_window = tk.Toplevel(self.root)
+        self.listening_window.bind("<Destroy>", self._on_child_destroy, add="+")
+        if not session.is_resolved(KIND_LISTENING):
+            session.start(KIND_LISTENING)
+        ListeningApp(
+            self.listening_window,
+            language_code=code,
+            audio_provider=provider,
+            on_completed=self._on_listening_completed,
+            on_failed=self._mark_listening_unavailable,
+            on_skip=self._skip_listening if self._vocab_all_done() else None,
+            on_emergency=self.exit_all,
+            required=not session.is_resolved(KIND_LISTENING),
             locked=True,
         )
 
@@ -588,7 +676,7 @@ class StudyMasterApp:
         self.root.withdraw()
 
     def _child_open(self) -> bool:
-        for window in (self.vocab_window, self.reading_window):
+        for window in (self.vocab_window, self.reading_window, self.listening_window):
             try:
                 if window is not None and window.winfo_exists():
                     return True
@@ -609,7 +697,11 @@ class StudyMasterApp:
         self.guard.resume()
 
     def _on_child_destroy(self, event):
-        if event.widget not in (self.vocab_window, self.reading_window):
+        if event.widget not in (
+            self.vocab_window,
+            self.reading_window,
+            self.listening_window,
+        ):
             return
         self.root.after(50, self._show_menu)
         self.root.after(50, self._refresh_status)
@@ -639,6 +731,9 @@ class StudyMasterApp:
         if nxt is not None and nxt.kind == KIND_READING:
             self.root.after(200, lambda: self._open_one_reading(code))
             return
+        if nxt is not None and nxt.kind == KIND_LISTENING:
+            self.root.after(200, lambda: self._open_one_listening(code))
+            return
         self.root.after(200, self._finish_if_all_done)
 
     def _open_one_reading(self, code: str):
@@ -646,12 +741,29 @@ class StudyMasterApp:
             return
         session = self._session_for(code)
         if session.is_resolved(KIND_READING):
-            self._finish_if_all_done()
+            self._advance_after_reading(code)
             return
         if not session.has_activity(KIND_READING):
-            self._finish_if_all_done()
+            self._advance_after_reading(code)
             return
         self.open_reading_section(code)
+
+    def _open_one_listening(self, code: str):
+        if self._child_open():
+            return
+        session = self._session_for(code)
+        if session.is_resolved(KIND_LISTENING) or not session.has_activity(KIND_LISTENING):
+            self._finish_if_all_done()
+            return
+        self.open_listening_section(code)
+
+    def _advance_after_reading(self, code: str):
+        session = self._session_for(code)
+        nxt = session.next_activity()
+        if nxt is not None and nxt.kind == KIND_LISTENING:
+            self.root.after(200, lambda: self._open_one_listening(code))
+            return
+        self.root.after(200, self._finish_if_all_done)
 
     def _mark_reading_unavailable(self):
         session = self._session_for(config.active_code())
@@ -686,10 +798,52 @@ class StudyMasterApp:
         self.root.after(200, self._finish_if_all_done)
 
     def _on_reading_completed(self):
-        session = self._session_for(config.active_code())
+        code = config.active_code()
+        session = self._session_for(code)
         if session.has_activity(KIND_READING):
             session.complete(KIND_READING)
         self.reading_unavailable = False
+        self._refresh_status()
+        self._advance_after_reading(code)
+
+    def _on_listening_completed(self):
+        session = self._session_for(config.active_code())
+        if session.has_activity(KIND_LISTENING):
+            session.complete(KIND_LISTENING)
+        self.listening_unavailable = False
+        self._refresh_status()
+        self.root.after(200, self._finish_if_all_done)
+
+    def _mark_listening_unavailable(self):
+        session = self._session_for(config.active_code())
+        if session.has_activity(KIND_LISTENING):
+            try:
+                session.mark_unavailable(KIND_LISTENING)
+            except Exception:
+                pass
+        self.listening_unavailable = True
+        self._refresh_status()
+        if self._all_done():
+            self.root.after(200, self._finish_if_all_done)
+
+    def _skip_listening(self):
+        if not self._vocab_all_done():
+            self._close_window(self.listening_window)
+            return
+        for code in config.study_codes():
+            session = self._session_for(code)
+            if session.has_activity(KIND_LISTENING) and not session.is_resolved(
+                KIND_LISTENING
+            ):
+                try:
+                    session.skip(KIND_LISTENING)
+                except Exception:
+                    try:
+                        session.mark_unavailable(KIND_LISTENING)
+                    except Exception:
+                        pass
+        self.listening_unavailable = False
+        self._close_window(self.listening_window)
         self._refresh_status()
         self.root.after(200, self._finish_if_all_done)
 
@@ -715,6 +869,16 @@ class StudyMasterApp:
                     parts.append(config.ui("Đọc: bỏ qua", "Reading: skipped"))
                 elif st == STATUS_UNAVAILABLE:
                     parts.append(config.ui("Đọc: không dùng được", "Reading: unavailable"))
+            if session.has_activity(KIND_LISTENING):
+                st = session.status(KIND_LISTENING)
+                if st == "completed":
+                    parts.append(config.ui("Nghe ✓", "Listening ✓"))
+                elif st == "skipped":
+                    parts.append(config.ui("Nghe: bỏ qua", "Listening: skipped"))
+                elif st == STATUS_UNAVAILABLE:
+                    parts.append(
+                        config.ui("Nghe: không dùng được", "Listening: unavailable")
+                    )
             if parts:
                 lines.append(f"{config.language_name(code)} — " + ", ".join(parts))
         detail = "\n".join(lines) if lines else names
@@ -768,7 +932,7 @@ class StudyMasterApp:
 
     def quit_all(self):
         self.progress.save()
-        for window in (self.vocab_window, self.reading_window):
+        for window in (self.vocab_window, self.reading_window, self.listening_window):
             try:
                 self._close_window(window)
             except tk.TclError:

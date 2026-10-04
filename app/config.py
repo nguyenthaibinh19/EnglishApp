@@ -312,14 +312,19 @@ def set_native(code: str) -> str:
     return chosen
 
 
-# Phần ngoài từ vựng. Thêm mục vào đây khi có dạng bài mới, ví dụ nghe.
+# Phần ngoài từ vựng. Thêm mục vào đây khi có dạng bài mới.
 OPTIONAL_ACTIVITIES = (
     {"id": "reading", "vi": "Đọc", "en": "Reading"},
+    {"id": "listening", "vi": "Nghe", "en": "Listening"},
 )
 
 
 def activity_enabled(activity_id: str) -> bool:
-    """True khi người dùng tick phần đó. Thiếu cài đặt thì bài đọc vẫn bật."""
+    """True when the learner enables that optional activity.
+
+    Missing settings: Reading defaults ON (historical). Listening defaults OFF
+    until a production audio provider exists.
+    """
     raw = _read_settings().get("activities")
     if not isinstance(raw, dict) or activity_id not in raw:
         return activity_id == "reading"

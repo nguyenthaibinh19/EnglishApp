@@ -2,11 +2,11 @@
 
 > First file a new agent should read. Keep this concise and update when phases complete.
 
-**Snapshot date context:** after Phase 16 (Learning Progress Dashboard v1).
+**Snapshot date context:** after Phase 17A (Listening Foundation).
 
 ## Product
 
-**StudyGuard / langstudyguard** is a Windows desktop study-lock app that helps a learner practice vocabulary (and optional reading) before dismissing a locked fullscreen session.
+**StudyGuard / langstudyguard** is a Windows desktop study-lock app that helps a learner practice vocabulary (and optional reading / listening) before dismissing a locked fullscreen session.
 
 - **Stack:** Python + Tkinter desktop client
 - **Account server:** Hetzner VPS; domain `langstudyguard.com`
@@ -65,7 +65,7 @@ Word Detail → AccountServerVocabularyEnrichmentProvider
     → account /api/enrich → AIService → EnrichmentDraft → review → Apply
 ```
 
-Major UI surfaces: Home Dashboard, Progress Dashboard, Vocabulary Library + Word Detail, Mistake Book, study session (quiz + optional reading).
+Major UI surfaces: Home Dashboard, Progress Dashboard, Vocabulary Library + Word Detail, Mistake Book, study session (quiz + optional reading + optional listening).
 
 ## Persistence (local, per study language)
 
@@ -103,7 +103,7 @@ python -m pytest
 python app/smoke_test.py
 ```
 
-**Baseline snapshot (not a permanent invariant):** after Phase 16, **223 pytest tests passing**; smoke test all checks pass.
+**Baseline snapshot (not a permanent invariant):** after Phase 17A, **241 pytest tests passing**; smoke test all checks pass.
 
 ## Current development position
 
@@ -114,7 +114,8 @@ Completed: Phase 15A — Vocabulary Enrichment Data Model
 Completed: Phase 15B — Vocabulary Enrichment Draft & Review Foundation
 Completed: Phase 15C — Production AI Vocabulary Enrichment v1
 Completed: Phase 16 — Learning Progress Dashboard v1
-Next: dictionary / pronunciation providers; optional orchestration with AI
+Completed: Phase 17A — Listening Foundation
+Next: Phase 17B — production / local Listening audio provider
 ```
 
-Progress Dashboard is derived read-only analytics over VocabStore / Progress / AttemptHistory / MistakeBook (no new persistence). AI enrichment remains advisory (draft → Apply).
+Listening is optional (settings default **off**). Production has no TTS yet (`resolve_listening_audio_provider()` → `None`); enabled Listening with no provider becomes **unavailable** and must not block session finish. Progress Dashboard is unchanged (no Listening analytics in 17A). AI enrichment remains advisory (draft → Apply).

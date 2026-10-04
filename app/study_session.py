@@ -1,8 +1,8 @@
-"""Study Session Runner v1 — domain orchestration from DailyStudyPlan.
+"""Study Session Runner — domain orchestration from DailyStudyPlan.
 
-Coordinates existing Vocabulary / Reading modules. No Tkinter. No network.
+Coordinates Vocabulary / Reading / Listening modules. No Tkinter. No network.
 
-Activity order: vocabulary → reading (when present).
+Activity order: vocabulary → reading → listening (when present).
 Completion: all required activities completed; optional ones completed,
 skipped, or unavailable.
 """
@@ -16,6 +16,7 @@ from daily_study import DailyStudyPlan
 
 KIND_VOCABULARY = "vocabulary"
 KIND_READING = "reading"
+KIND_LISTENING = "listening"
 
 STATUS_PENDING = "pending"
 STATUS_ACTIVE = "active"
@@ -46,6 +47,8 @@ def build_study_session(plan: DailyStudyPlan) -> "StudySession":
         activities.append(StudyActivity(KIND_VOCABULARY, required=True))
     if plan.reading_enabled:
         activities.append(StudyActivity(KIND_READING, required=False))
+    if getattr(plan, "listening_enabled", False):
+        activities.append(StudyActivity(KIND_LISTENING, required=False))
     return StudySession(plan, activities)
 
 
