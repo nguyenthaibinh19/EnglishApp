@@ -2,7 +2,7 @@
 
 > First file a new agent should read. Keep this concise and update when phases complete.
 
-**Snapshot date context:** after Phase 17A (Listening Foundation).
+**Snapshot date context:** after Phase 17A.1 (Window Lifecycle Stabilization).
 
 ## Product
 
@@ -103,7 +103,7 @@ python -m pytest
 python app/smoke_test.py
 ```
 
-**Baseline snapshot (not a permanent invariant):** after Phase 17A, **241 pytest tests passing**; smoke test all checks pass.
+**Baseline snapshot (not a permanent invariant):** after Phase 17A.1 lifecycle stabilization, **260 pytest tests passing**; smoke test all checks pass.
 
 ## Current development position
 
@@ -114,8 +114,9 @@ Completed: Phase 15A — Vocabulary Enrichment Data Model
 Completed: Phase 15B — Vocabulary Enrichment Draft & Review Foundation
 Completed: Phase 15C — Production AI Vocabulary Enrichment v1
 Completed: Phase 16 — Learning Progress Dashboard v1
-Completed: Phase 17A — Listening Foundation
+Completed: Phase 17A — Listening Foundation (+ hardening / product-QA patch)
+Completed: Phase 17A.1 — Window Lifecycle Stabilization
 Next: Phase 17B — production / local Listening audio provider
 ```
 
-Listening is optional (settings default **off**). Production has no TTS yet (`resolve_listening_audio_provider()` → `None`); enabled Listening with no provider becomes **unavailable** and must not block session finish. Progress Dashboard is unchanged (no Listening analytics in 17A). AI enrichment remains advisory (draft → Apply).
+Listening is optional (settings default **off**). Production has no TTS yet. ScreenGuard splits `pause_enforcement` (owned popups / activity hand-off) from rare `release_display` (updater). Reading word actions use an in-window overlay. Progress Dashboard is unchanged (no Listening analytics in 17A). AI enrichment remains advisory (draft → Apply).

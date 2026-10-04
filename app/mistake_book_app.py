@@ -204,6 +204,7 @@ class MistakeBookApp:
         target = practice_target(len(entries))
         progress = Progress(config.progress_path(self.language_code))
         self.practice_window = tk.Toplevel(self.window)
+        ui_common.own_toplevel(self.practice_window, self.window)
         VocabQuizApp(
             self.practice_window,
             progress=progress,

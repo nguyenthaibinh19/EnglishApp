@@ -29,6 +29,9 @@ _RESOLVED_OPTIONAL = frozenset(
 )
 _STARTABLE = frozenset({STATUS_PENDING, STATUS_ACTIVE})
 
+# Authoritative runtime order when activities are present.
+ACTIVITY_ORDER: Tuple[str, ...] = (KIND_VOCABULARY, KIND_READING, KIND_LISTENING)
+
 
 class StudySessionError(ValueError):
     """Illegal session state transition."""
@@ -40,6 +43,19 @@ class StudyActivity:
     required: bool
 
 
+def ordered_activities(activities: Iterable[StudyActivity]) -> List[StudyActivity]:
+    """Sort activities into canonical vocabulary → reading → listening order."""
+    by_kind = {activity.kind: activity for activity in activities}
+    ordered: List[StudyActivity] = []
+    for kind in ACTIVITY_ORDER:
+        activity = by_kind.pop(kind, None)
+        if activity is not None:
+            ordered.append(activity)
+    # Preserve any unexpected future kinds after the canonical prefix.
+    ordered.extend(by_kind.values())
+    return ordered
+
+
 def build_study_session(plan: DailyStudyPlan) -> "StudySession":
     """Create a session from a DailyStudyPlan (authoritative planning input)."""
     activities: List[StudyActivity] = []
@@ -49,7 +65,7 @@ def build_study_session(plan: DailyStudyPlan) -> "StudySession":
         activities.append(StudyActivity(KIND_READING, required=False))
     if getattr(plan, "listening_enabled", False):
         activities.append(StudyActivity(KIND_LISTENING, required=False))
-    return StudySession(plan, activities)
+    return StudySession(plan, ordered_activities(activities))
 
 
 class StudySession:
@@ -174,23 +190,29 @@ class StudySession:
             self._active_kind = None
 
     def set_optional_enabled(self, kind: str, enabled: bool) -> None:
-        """Add/remove an optional activity without wiping other progress."""
+        """Add/remove an optional activity without wiping other progress.
+
+        Newly enabled optionals are inserted in canonical ACTIVITY_ORDER
+        (vocabulary → reading → listening), never merely appended.
+        """
         if kind == KIND_VOCABULARY:
             raise StudySessionError("vocabulary requirement is fixed by the plan")
+        if kind not in (KIND_READING, KIND_LISTENING):
+            raise StudySessionError(f"unsupported optional activity {kind!r}")
         if enabled:
             if kind in self._by_kind:
                 return
             activity = StudyActivity(kind, required=False)
-            self._activities.append(activity)
             self._by_kind[kind] = activity
             self._statuses[kind] = STATUS_PENDING
+            self._activities = ordered_activities(self._by_kind.values())
             return
         # disabled → remove if present (does not affect vocabulary)
         if kind not in self._by_kind:
             return
-        self._activities = [a for a in self._activities if a.kind != kind]
         self._by_kind.pop(kind, None)
         self._statuses.pop(kind, None)
+        self._activities = ordered_activities(self._by_kind.values())
         if self._active_kind == kind:
             self._active_kind = None
 

@@ -380,6 +380,7 @@ class ReadingApp:
         return "break"
 
     def _open_word_popup(self, widget, word, start, end, index, x_root, y_root):
+        """In-window word-action overlay — never toggles Reading fullscreen/state."""
         if self._word_popup is not None:
             try:
                 if self._word_popup.winfo_exists():
@@ -387,14 +388,18 @@ class ReadingApp:
             except tk.TclError:
                 pass
 
-        self.guard.suspend()
-        pop = tk.Toplevel(self.window)
+        # Pause focus fighting only; do not leave fullscreen / zoom / withdraw.
+        self.guard.pause_enforcement()
+
+        # Overlay Frame inside the Reading window (no Toplevel = no WM flash).
+        pop = tk.Frame(
+            self.window,
+            bg=ui_common.COLOR_CARD,
+            highlightbackground=ui_common.COLOR_BORDER,
+            highlightthickness=1,
+            bd=0,
+        )
         self._word_popup = pop
-        pop.resizable(False, False)
-        try:
-            pop.attributes("-topmost", True)
-        except tk.TclError:
-            pass
 
         closed = {"done": False}
 
@@ -403,13 +408,16 @@ class ReadingApp:
                 return
             closed["done"] = True
             try:
+                pop.grab_release()
+            except tk.TclError:
+                pass
+            try:
                 if pop.winfo_exists():
                     pop.destroy()
             except tk.TclError:
                 pass
-            self.guard.resume(refocus=False)
+            self.guard.resume_enforcement(refocus=False)
 
-        pop.protocol("WM_DELETE_WINDOW", close)
         pop.bind("<Destroy>", lambda event: close() if event.widget is pop else None)
         pop.bind("<Escape>", close)
 
@@ -548,14 +556,17 @@ class ReadingApp:
         )
         ttk.Button(row2, text=config.ui("Đóng", "Close"), command=close).pack(side=tk.LEFT)
 
-        self._place_word_popup(pop, x_root, y_root)
-        pop.focus_set()
-        pop.wait_window()
+        self._place_word_overlay(pop, x_root, y_root)
+        try:
+            pop.lift()
+            pop.focus_set()
+            pop.grab_set()
+        except tk.TclError:
+            pass
+        self.window.wait_window(pop)
 
-    def _place_word_popup(self, pop, x_root, y_root):
-        """Đặt bảng tra từ cạnh chỗ bấm. Không ép kích thước, để nút Lưu không bị cắt."""
-        screen_w = pop.winfo_screenwidth()
-        screen_h = pop.winfo_screenheight()
+    def _place_word_overlay(self, pop, x_root, y_root):
+        """Place the in-window word overlay near the click, clamped to the Reading window."""
 
         def clamp(_event=None):
             try:
@@ -564,17 +575,22 @@ class ReadingApp:
             except tk.TclError:
                 return
             pop.update_idletasks()
-            width = max(pop.winfo_width(), pop.winfo_reqwidth(), 1)
-            height = max(pop.winfo_height(), pop.winfo_reqheight(), 1)
-            if width < 80 or height < 60:
+            width = max(pop.winfo_reqwidth(), 1)
+            height = max(pop.winfo_reqheight(), 1)
+            try:
+                parent_w = max(self.window.winfo_width(), 1)
+                parent_h = max(self.window.winfo_height(), 1)
+                origin_x = self.window.winfo_rootx()
+                origin_y = self.window.winfo_rooty()
+            except tk.TclError:
                 return
-            x = min(max(0, pop.winfo_x()), max(0, screen_w - width))
-            y = min(max(0, pop.winfo_y()), max(0, screen_h - height))
-            if pop.winfo_x() != x or pop.winfo_y() != y:
-                pop.geometry(f"+{x}+{y}")
+            x = int(x_root) - int(origin_x)
+            y = int(y_root) - int(origin_y)
+            x = min(max(8, x), max(8, parent_w - width - 8))
+            y = min(max(8, y), max(8, parent_h - height - 8))
+            pop.place(x=x, y=y)
 
-        pop.geometry(f"+{int(x_root)}+{int(y_root)}")
-        pop.bind("<Map>", lambda _event: pop.after(30, clamp), add="+")
+        clamp()
         pop.after(30, clamp)
 
     def _show_word_glosses(self, label, meaning_var, glosses, source, native):
@@ -881,15 +897,15 @@ class ReadingApp:
     # ============================================================
 
     def _ask_login(self) -> bool:
-        self.guard.suspend()
+        self.guard.pause_enforcement()
         try:
             import setup_wizard
             return setup_wizard.ask(self.window)
         finally:
-            self.guard.resume(refocus=False)
+            self.guard.resume_enforcement(refocus=False)
 
     def _open_word_bank(self):
-        """Mở sổ từ mà không đóng bài đọc."""
+        """Mở sổ từ mà không đóng bài đọc / không đổi fullscreen Reading."""
         if self._bank is not None:
             try:
                 if self._bank.winfo_exists():
@@ -897,20 +913,20 @@ class ReadingApp:
                     return
             except tk.TclError:
                 pass
-        self.guard.suspend()
+        self.guard.pause_enforcement()
         self._bank_suspended = True
-        bank = tk.Toplevel(self.window)
+        bank = ui_common.open_owned_popup(
+            self.window,
+            title=config.ui("Sổ từ", "Word list"),
+            topmost=True,
+        )
         self._bank = bank
-        try:
-            bank.attributes("-topmost", True)
-        except tk.TclError:
-            pass
 
         def release(event):
             if event.widget is not bank or not self._bank_suspended:
                 return
             self._bank_suspended = False
-            self.guard.resume(refocus=False)
+            self.guard.resume_enforcement(refocus=False)
 
         bank.bind("<Destroy>", release)
         from quiz_app import VocabQuizApp

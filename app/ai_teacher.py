@@ -47,7 +47,9 @@ def generate_reading(
 ) -> dict:
     """Sinh một bài đọc trong ngôn ngữ đang học, xoay quanh các từ đã ôn.
 
-    `entries` là list các dict có khóa word (hoặc nl/en cũ) và vi.
+    `entries` is a list of local vocab dicts with `word` and canonical `meaning`
+    (legacy `vi` still accepted via vocabulary accessors). Account HTTP wire for
+    `/api/reading` may still use `vi` — that contract is separate.
     """
     return get_service().generate_reading(
         entries,

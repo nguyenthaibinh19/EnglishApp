@@ -42,10 +42,19 @@ def reset_window(window: tk.Misc):
 
     Nếu không gỡ, form đăng nhập còn nằm dưới màn hình sau và bị kéo fullscreen,
     trông như khung hình bị xé. Lần mở lại không dựng lại các form đó nên hết lỗi.
+
+    Also restores a predictable normal (non-zoomed) window state so later
+    ``geometry(...)`` calls work after a heavy ``release_display()`` left
+    ``zoomed``. Not for micro-popups — only real page/root transitions.
     """
     try:
         window.attributes("-fullscreen", False)
         window.attributes("-topmost", False)
+    except tk.TclError:
+        pass
+    try:
+        # Heavy release_display() may leave state("zoomed").
+        window.state("normal")
     except tk.TclError:
         pass
     for child in list(window.winfo_children()):
@@ -63,6 +72,73 @@ def reset_window(window: tk.Misc):
         window.resizable(True, True)
     except tk.TclError:
         pass
+
+
+def launch_toplevel_app(parent: tk.Misc, builder, *, on_error=None):
+    """Create a child Toplevel, run ``builder(window)``, destroy on failure.
+
+    Success keeps the child. Failure destroys any partial window so callers never
+    leave an orphan blank Toplevel. ``on_error(exc)`` if provided; otherwise
+    re-raises after cleanup. Does not expose secrets — callers should log safely.
+    """
+    child = tk.Toplevel(parent)
+    try:
+        builder(child)
+    except Exception as error:  # noqa: BLE001 - boundary must catch constructor failures
+        try:
+            if child.winfo_exists():
+                child.destroy()
+        except tk.TclError:
+            pass
+        if on_error is not None:
+            on_error(error)
+            return None
+        raise
+    return child
+
+
+def own_toplevel(child: tk.Misc, parent: tk.Misc):
+    """Mark ``child`` as an owned application window (not a second app root)."""
+    try:
+        child.transient(parent)
+    except tk.TclError:
+        pass
+
+
+def open_owned_popup(
+    parent: tk.Misc,
+    *,
+    title: str = "",
+    modal: bool = False,
+    topmost: bool = False,
+) -> tk.Toplevel:
+    """Create a small owned Toplevel without mutating the parent's display state.
+
+    Callers must use ScreenGuard.enforcement_paused() (not release_display)
+    when the parent is under lock. Does not withdraw/deiconify the parent.
+    """
+    pop = tk.Toplevel(parent)
+    own_toplevel(pop, parent)
+    if title:
+        try:
+            pop.title(title)
+        except tk.TclError:
+            pass
+    try:
+        pop.resizable(False, False)
+    except tk.TclError:
+        pass
+    if topmost:
+        try:
+            pop.attributes("-topmost", True)
+        except tk.TclError:
+            pass
+    if modal:
+        try:
+            pop.grab_set()
+        except tk.TclError:
+            pass
+    return pop
 
 
 def apply_theme(root: tk.Misc):
@@ -100,10 +176,19 @@ def apply_theme(root: tk.Misc):
 class ScreenGuard:
     """Giữ cửa sổ ở chế độ toàn màn hình, luôn trên cùng và không cho tắt.
 
-    Có thể tạm ngưng khi cần mở hộp thoại hay combobox:
+    Two suspension modes (do not conflate them):
 
-        with guard.suspended():
-            messagebox.askyesno(...)
+    - ``enforcement_paused()`` / ``pause_enforcement()`` — stop focus/topmost
+      fighting for owned popups. Does **not** change fullscreen, state, or
+      geometry.
+    - ``release_display()`` — rare heavy path that leaves fullscreen (updater,
+      true external dialogs). Prefer enforcement pause for internal UI.
+
+    Owned popups:
+
+        with guard.enforcement_paused():
+            pop = open_owned_popup(window, modal=True)
+            ...
 
     Đặt LOCK_SCREEN=0 trong .env để tắt hẳn khi đang dev.
 
@@ -277,15 +362,37 @@ class ScreenGuard:
 
     # ---------- Tạm ngưng ----------
 
-    def suspend(self, leave_fullscreen: bool = True):
+    def pause_enforcement(self):
+        """Stop focus/topmost enforcement without changing visible display state.
+
+        Safe for owned popups and activity hand-off. Never toggles fullscreen,
+        ``state()``, geometry, withdraw, or deiconify.
+        """
+        self._begin_pause(release_display=False)
+
+    def resume_enforcement(self, refocus: bool = True):
+        """Undo ``pause_enforcement`` / ``release_display`` (restores display if released)."""
+        self._end_pause(refocus=refocus)
+
+    def release_display(self):
+        """Heavy path: leave fullscreen so a rare external dialog can be used.
+
+        Prefer ``pause_enforcement`` for internal owned popups. This may flash
+        because it changes fullscreen → zoomed.
+        """
+        self._begin_pause(release_display=True)
+
+    def restore_display(self, refocus: bool = True):
+        """Alias for ``resume_enforcement`` after ``release_display``."""
+        self._end_pause(refocus=refocus)
+
+    def _begin_pause(self, *, release_display: bool):
         self._cancel_refocus()
         self._suspend_depth += 1
         if self._suspend_depth == 1 and self.enabled:
             try:
                 self.window.attributes("-topmost", False)
-                # Combobox chỉ cần tắt topmost. Hộp thoại mật khẩu / cập nhật
-                # phải thoát fullscreen, không thì dialog bị che và không bấm được.
-                if leave_fullscreen:
+                if release_display:
                     self._was_fullscreen = bool(self.window.attributes("-fullscreen"))
                     if self._was_fullscreen:
                         self.window.attributes("-fullscreen", False)
@@ -294,7 +401,7 @@ class ScreenGuard:
             except tk.TclError:
                 pass
 
-    def resume(self, refocus: bool = True):
+    def _end_pause(self, *, refocus: bool):
         self._suspend_depth = max(self._suspend_depth - 1, 0)
         if self._suspend_depth == 0 and self.enabled:
             try:
@@ -304,19 +411,40 @@ class ScreenGuard:
                 self.window.attributes("-topmost", True)
             except tk.TclError:
                 pass
-            # Cho người dùng một khoảng yên sau hộp thoại, tránh tranh focus.
             self._mark_quiet(self._CLICK_GRACE_MS)
             if refocus:
                 self._cancel_refocus()
                 self._schedule_refocus(self._REFOCUS_DELAY_MS)
 
     @contextmanager
-    def suspended(self, leave_fullscreen: bool = True):
-        self.suspend(leave_fullscreen=leave_fullscreen)
+    def enforcement_paused(self):
+        """Lightweight pause for owned popups — no fullscreen/state/geometry change."""
+        self.pause_enforcement()
         try:
             yield
         finally:
-            self.resume()
+            self.resume_enforcement(refocus=False)
+
+    # Backward-compatible names. Default is now lightweight (no display release).
+    def suspend(self, leave_fullscreen: bool = False):
+        if leave_fullscreen:
+            self.release_display()
+        else:
+            self.pause_enforcement()
+
+    def resume(self, refocus: bool = True):
+        self.resume_enforcement(refocus=refocus)
+
+    @contextmanager
+    def suspended(self, leave_fullscreen: bool = False):
+        if leave_fullscreen:
+            self.release_display()
+        else:
+            self.pause_enforcement()
+        try:
+            yield
+        finally:
+            self.resume_enforcement()
 
     def track_combobox(self, widget: tk.Widget):
         """Giữ dropdown mở được khi cửa sổ đang topmost.
@@ -336,7 +464,7 @@ class ScreenGuard:
 
     def _suspend_for_popdown(self, widget: tk.Widget):
         if self._suspend_depth == 0:
-            self.suspend(leave_fullscreen=False)
+            self.pause_enforcement()
         self._watch_popdown(widget, 0, False)
 
     def _watch_popdown(self, widget: tk.Widget, tries: int, seen: bool):
@@ -358,47 +486,44 @@ class ScreenGuard:
 
     def _resume_if_suspended(self):
         if self._suspend_depth:
-            self.resume(refocus=False)
+            self.resume_enforcement(refocus=False)
 
     # ---------- Hộp thoại an toàn ----------
 
     def ask_yes_no(self, title: str, message: str) -> bool:
-        with self.suspended():
+        with self.enforcement_paused():
             try:
                 return bool(messagebox.askyesno(title, message, parent=self.window))
             except tk.TclError:
                 return True
 
     def show_info(self, title: str, message: str):
-        with self.suspended():
+        with self.enforcement_paused():
             try:
                 messagebox.showinfo(title, message, parent=self.window)
             except tk.TclError:
                 pass
 
     def show_error(self, title: str, message: str):
-        with self.suspended():
+        with self.enforcement_paused():
             try:
                 messagebox.showerror(title, message, parent=self.window)
             except tk.TclError:
                 pass
 
     def confirm_emergency_exit(self) -> bool:
-        with self.suspended():
+        with self.enforcement_paused():
             return confirm_developer_exit(self.window)
 
 
 def prompt_password(parent: tk.Misc, title: str, prompt: str):
-    """Hộp thoại mật khẩu. Trả về chuỗi đã nhập, hoặc None nếu hủy."""
+    """Hộp thoại mật khẩu. Trả về chuỗi đã nhập, hoặc None nếu hủy.
+
+    Owned popup only — callers under ScreenGuard should wrap with
+    ``enforcement_paused()`` (already done by ``confirm_emergency_exit``).
+    """
     result = {"value": None}
-    dialog = tk.Toplevel(parent)
-    dialog.title(title)
-    dialog.transient(parent)
-    dialog.resizable(False, False)
-    try:
-        dialog.attributes("-topmost", True)
-    except tk.TclError:
-        pass
+    dialog = open_owned_popup(parent, title=title, modal=True, topmost=True)
 
     ttk.Label(dialog, text=prompt, wraplength=380, justify="left").pack(
         padx=16, pady=(16, 8)

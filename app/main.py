@@ -4,6 +4,7 @@ Từ vựng luôn bắt buộc. Bài đọc và các phần sau này chỉ bắt
 Xong hết các phần đang bật mới đóng được app.
 """
 
+import traceback
 import tkinter as tk
 from tkinter import messagebox, ttk
 
@@ -270,14 +271,13 @@ class StudyMasterApp:
 
     def _download_pairs(self, pairs) -> bool:
         result = {"ok": False, "error": ""}
-        self.guard.suspend()
-        dialog = tk.Toplevel(self.root)
-        dialog.title(config.ui("Tải từ điển", "Download dictionary"))
-        dialog.resizable(False, False)
-        try:
-            dialog.attributes("-topmost", True)
-        except tk.TclError:
-            pass
+        self.guard.pause_enforcement()
+        dialog = ui_common.open_owned_popup(
+            self.root,
+            title=config.ui("Tải từ điển", "Download dictionary"),
+            modal=True,
+            topmost=True,
+        )
         frame = ttk.Frame(dialog, padding=16)
         frame.pack()
         label = ttk.Label(frame, text=config.ui("Đang tải từ điển…", "Downloading the dictionary…"), wraplength=420)
@@ -311,7 +311,7 @@ class StudyMasterApp:
                 dialog.destroy()
             except tk.TclError:
                 pass
-            self.guard.resume(refocus=False)
+            self.guard.resume_enforcement(refocus=False)
 
         def fail(error):
             result["error"] = str(error)
@@ -319,7 +319,7 @@ class StudyMasterApp:
                 dialog.destroy()
             except tk.TclError:
                 pass
-            self.guard.resume(refocus=False)
+            self.guard.resume_enforcement(refocus=False)
             self.guard.show_error(config.ui("Không tải được từ điển", "Dictionary download failed"), str(error))
 
         ui_common.run_async(dialog, work, finish, fail)
@@ -559,23 +559,42 @@ class StudyMasterApp:
             self.vocab_window.lift()
             return
 
-        self._hide_menu()
-        self.vocab_window = tk.Toplevel(self.root)
-        self.vocab_window.bind("<Destroy>", self._on_child_destroy, add="+")
-        if not session.vocabulary_complete():
-            session.start(KIND_VOCABULARY)
-        VocabQuizApp(
-            self.vocab_window,
-            store=self.store,
-            progress=self.progress,
-            on_completed=self._on_vocab_completed,
-            on_request_switch=self._switch_to_reading if config.activity_enabled("reading") else None,
-            on_emergency=self.quit_all,
-            required=not session.vocabulary_complete(),
-            locked=True,
-            target=session.planned_vocab_count,
-            language_code=code,
+        self._suspend_for_activity()
+        started = False
+
+        def build(window):
+            nonlocal started
+            window.bind("<Destroy>", self._on_child_destroy, add="+")
+            if not session.vocabulary_complete():
+                session.start(KIND_VOCABULARY)
+                started = True
+            VocabQuizApp(
+                window,
+                store=self.store,
+                progress=self.progress,
+                on_completed=self._on_vocab_completed,
+                on_request_switch=(
+                    self._switch_to_reading
+                    if config.activity_enabled("reading")
+                    else None
+                ),
+                on_emergency=self.quit_all,
+                required=not session.vocabulary_complete(),
+                locked=True,
+                target=session.planned_vocab_count,
+                language_code=code,
+            )
+
+        def failed(error):
+            self._report_activity_launch_error("Vocabulary", error)
+            self._resume_after_activity()
+
+        self.vocab_window = ui_common.launch_toplevel_app(
+            self.root, build, on_error=failed
         )
+        if self.vocab_window is None and started:
+            # Constructor failed after start — leave vocab pending for retry.
+            pass
 
     def open_reading_section(self, code=None):
         if not config.activity_enabled("reading"):
@@ -592,22 +611,43 @@ class StudyMasterApp:
             self.reading_window.lift()
             return
 
-        self._hide_menu()
-        self.reading_window = tk.Toplevel(self.root)
-        self.reading_window.bind("<Destroy>", self._on_child_destroy, add="+")
-        if not session.is_resolved(KIND_READING):
-            session.start(KIND_READING)
-        ReadingApp(
-            self.reading_window,
-            store=self.store,
-            progress=self.progress,
-            on_completed=self._on_reading_completed,
-            on_request_switch=self._switch_to_vocab,
-            on_emergency=self.exit_all,
-            on_failed=self._mark_reading_unavailable,
-            on_skip=self._finish_without_reading if self._vocab_all_done() else None,
-            required=not session.is_resolved(KIND_READING),
-            locked=True,
+        self._suspend_for_activity()
+        started = False
+
+        def build(window):
+            nonlocal started
+            window.bind("<Destroy>", self._on_child_destroy, add="+")
+            if not session.is_resolved(KIND_READING):
+                session.start(KIND_READING)
+                started = True
+            # Reading is optional in StudySession — unresolved ≠ required.
+            ReadingApp(
+                window,
+                store=self.store,
+                progress=self.progress,
+                on_completed=self._on_reading_completed,
+                on_request_switch=self._switch_to_vocab,
+                on_emergency=self.quit_all,
+                on_failed=self._mark_reading_unavailable,
+                on_skip=self._finish_without_reading if self._vocab_all_done() else None,
+                required=False,
+                locked=True,
+            )
+
+        def failed(error):
+            self._report_activity_launch_error("Reading", error)
+            if started or session.has_activity(KIND_READING):
+                try:
+                    session.mark_unavailable(KIND_READING)
+                except Exception:
+                    pass
+            self.reading_unavailable = True
+            self._resume_after_activity()
+            self._refresh_status()
+            self.root.after(200, self._finish_if_all_done)
+
+        self.reading_window = ui_common.launch_toplevel_app(
+            self.root, build, on_error=failed
         )
 
     def open_listening_section(self, code=None):
@@ -646,34 +686,69 @@ class StudyMasterApp:
             self.root.after(200, self._finish_if_all_done)
             return
 
-        self._hide_menu()
-        self.listening_window = tk.Toplevel(self.root)
-        self.listening_window.bind("<Destroy>", self._on_child_destroy, add="+")
-        if not session.is_resolved(KIND_LISTENING):
-            session.start(KIND_LISTENING)
-        ListeningApp(
-            self.listening_window,
-            language_code=code,
-            audio_provider=provider,
-            on_completed=self._on_listening_completed,
-            on_failed=self._mark_listening_unavailable,
-            on_skip=self._skip_listening if self._vocab_all_done() else None,
-            on_emergency=self.exit_all,
-            required=not session.is_resolved(KIND_LISTENING),
-            locked=True,
+        self._suspend_for_activity()
+        started = False
+
+        def build(window):
+            nonlocal started
+            window.bind("<Destroy>", self._on_child_destroy, add="+")
+            if not session.is_resolved(KIND_LISTENING):
+                session.start(KIND_LISTENING)
+                started = True
+            # Listening is optional — unresolved ≠ required at the Tk layer.
+            ListeningApp(
+                window,
+                language_code=code,
+                audio_provider=provider,
+                on_completed=self._on_listening_completed,
+                on_failed=self._mark_listening_unavailable,
+                on_skip=self._skip_listening if self._vocab_all_done() else None,
+                on_emergency=self.quit_all,
+                required=False,
+                locked=True,
+            )
+
+        def failed(error):
+            self._report_activity_launch_error("Listening", error)
+            if started or session.has_activity(KIND_LISTENING):
+                try:
+                    session.mark_unavailable(KIND_LISTENING)
+                except Exception:
+                    pass
+            self.listening_unavailable = True
+            self._resume_after_activity()
+            self._refresh_status()
+            self.root.after(200, self._finish_if_all_done)
+
+        self.listening_window = ui_common.launch_toplevel_app(
+            self.root, build, on_error=failed
         )
 
-    def _hide_menu(self):
-        """Nhường màn hình cho cửa sổ luyện tập, menu fullscreen không che lên trên."""
+    def _report_activity_launch_error(self, label: str, error: BaseException):
+        """Log full traceback for developers; show a safe message to the learner."""
+        traceback.print_exc()
+        detail = f"{type(error).__name__}: {error}"
+        print(f"[StudyMaster] {label} launch failed: {detail}", flush=True)
+        try:
+            self.guard.show_error(
+                config.ui(f"Không mở được {label}", f"Could not open {label}"),
+                config.ui(
+                    f"Có lỗi khi mở {label}.\n\n{detail}\n\n"
+                    "Phần tùy chọn sẽ được bỏ qua nếu cần để bạn vẫn kết thúc được.",
+                    f"Failed to open {label}.\n\n{detail}\n\n"
+                    "Optional activities can be skipped so you can still finish.",
+                ),
+            )
+        except Exception:
+            pass
+
+    def _suspend_for_activity(self):
+        """Pause parent enforcement; keep StudyMaster mapped and fullscreen stable."""
         if self._menu_hidden:
             return
         self._menu_hidden = True
-        self.guard.suspend(leave_fullscreen=False)
-        try:
-            self.root.attributes("-fullscreen", False)
-        except tk.TclError:
-            pass
-        self.root.withdraw()
+        # Child activity owns its own ScreenGuard. Do not zoom/unfullscreen parent.
+        self.guard.pause_enforcement()
 
     def _child_open(self) -> bool:
         for window in (self.vocab_window, self.reading_window, self.listening_window):
@@ -684,17 +759,15 @@ class StudyMasterApp:
                 continue
         return False
 
-    def _show_menu(self):
+    def _resume_after_activity(self):
+        """Resume parent guard after a failed launch or when no child remains."""
         if self._child_open() or not self._menu_hidden:
             return
         self._menu_hidden = False
-        self.root.deiconify()
-        if self.guard.enabled:
-            try:
-                self.root.attributes("-fullscreen", True)
-            except tk.TclError:
-                pass
-        self.guard.resume()
+        self.guard.resume_enforcement()
+
+    def _show_menu(self):
+        self._resume_after_activity()
 
     def _on_child_destroy(self, event):
         if event.widget not in (
@@ -827,21 +900,22 @@ class StudyMasterApp:
             self.root.after(200, self._finish_if_all_done)
 
     def _skip_listening(self):
+        """Skip Listening for the active study language only."""
         if not self._vocab_all_done():
             self._close_window(self.listening_window)
             return
-        for code in config.study_codes():
-            session = self._session_for(code)
-            if session.has_activity(KIND_LISTENING) and not session.is_resolved(
-                KIND_LISTENING
-            ):
+        code = config.active_code()
+        session = self._session_for(code)
+        if session.has_activity(KIND_LISTENING) and not session.is_resolved(
+            KIND_LISTENING
+        ):
+            try:
+                session.skip(KIND_LISTENING)
+            except Exception:
                 try:
-                    session.skip(KIND_LISTENING)
+                    session.mark_unavailable(KIND_LISTENING)
                 except Exception:
-                    try:
-                        session.mark_unavailable(KIND_LISTENING)
-                    except Exception:
-                        pass
+                    pass
         self.listening_unavailable = False
         self._close_window(self.listening_window)
         self._refresh_status()

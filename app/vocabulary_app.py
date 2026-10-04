@@ -228,6 +228,7 @@ class VocabularyLibraryApp:
         if self.detail_window is not None and self.detail_window.winfo_exists():
             self.detail_window.destroy()
         self.detail_window = tk.Toplevel(self.window)
+        ui_common.own_toplevel(self.detail_window, self.window)
         from vocabulary_enrichment import resolve_production_enrichment_provider
 
         WordDetailApp(
@@ -557,6 +558,7 @@ class WordDetailApp:
             return
         progress = Progress(config.progress_path(self.language_code))
         self.practice_window = tk.Toplevel(self.window)
+        ui_common.own_toplevel(self.practice_window, self.window)
         VocabQuizApp(
             self.practice_window,
             progress=progress,

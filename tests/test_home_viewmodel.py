@@ -37,6 +37,7 @@ def test_normal_metrics():
     assert vm.due_is_zero is False
     assert vm.empty_vocab is False
     assert "Enabled" in vm.reading_label or "bật" in vm.reading_label.lower()
+    assert "Disabled" in vm.listening_label or "tắt" in vm.listening_label.lower()
     assert vm.can_change_language is False
 
 
@@ -81,6 +82,13 @@ def test_empty_vocab():
 def test_reading_disabled():
     vm = build_home_view_model(_plan(reading_enabled=False), "French", hour=10)
     assert "Disabled" in vm.reading_label or "tắt" in vm.reading_label.lower()
+
+
+def test_listening_enabled_label():
+    vm = build_home_view_model(
+        _plan(listening_enabled=True), "Dutch", hour=10
+    )
+    assert "Enabled" in vm.listening_label or "bật" in vm.listening_label.lower()
 
 
 def test_multi_language_change_flag():

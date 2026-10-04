@@ -74,6 +74,28 @@ def test_vocabulary_reading_listening_order():
     assert session.next_activity().kind == KIND_LISTENING
 
 
+def test_dynamic_optional_enable_preserves_canonical_order():
+    session = build_study_session(_plan(reading=False, listening=False))
+    session.set_optional_enabled(KIND_LISTENING, True)
+    session.set_optional_enabled(KIND_READING, True)
+    assert [a.kind for a in session.activities()] == [
+        KIND_VOCABULARY,
+        KIND_READING,
+        KIND_LISTENING,
+    ]
+    session.set_optional_enabled(KIND_READING, False)
+    assert [a.kind for a in session.activities()] == [
+        KIND_VOCABULARY,
+        KIND_LISTENING,
+    ]
+    session.set_optional_enabled(KIND_READING, True)
+    assert [a.kind for a in session.activities()] == [
+        KIND_VOCABULARY,
+        KIND_READING,
+        KIND_LISTENING,
+    ]
+
+
 def test_reading_disabled_plan():
     session = build_study_session(_plan(reading=False))
     assert not session.has_activity(KIND_READING)

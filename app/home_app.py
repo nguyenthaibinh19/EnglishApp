@@ -28,8 +28,8 @@ class FreeHome:
         self._view: HomeViewModel | None = None
 
         self.root.title(config.APP_NAME)
-        self.root.geometry("560x620")
-        self.root.minsize(480, 520)
+        self.root.geometry("560x600")
+        self.root.minsize(480, 500)
         self.root.resizable(True, True)
         try:
             self.root.configure(bg=ui_common.COLOR_BG)
@@ -88,7 +88,9 @@ class FreeHome:
         self.vocab_plan_label = ttk.Label(self.plan_card, text="", style="Muted.TLabel")
         self.vocab_plan_label.pack(anchor="w")
         self.reading_state_label = ttk.Label(self.plan_card, text="", style="Muted.TLabel")
-        self.reading_state_label.pack(anchor="w", pady=(2, 12))
+        self.reading_state_label.pack(anchor="w", pady=(2, 0))
+        self.listening_state_label = ttk.Label(self.plan_card, text="", style="Muted.TLabel")
+        self.listening_state_label.pack(anchor="w", pady=(2, 12))
 
         self.empty_hint = ttk.Label(
             self.plan_card, text="", style="Muted.TLabel", wraplength=460
@@ -138,14 +140,6 @@ class FreeHome:
             style="Secondary.TButton",
             command=self._add_words,
         ).pack(side=tk.LEFT, expand=True, fill=tk.X, padx=(6, 0))
-        row3 = ttk.Frame(quick)
-        row3.pack(fill=tk.X, pady=(8, 2))
-        ttk.Button(
-            row3,
-            text=config.ui("Cài đặt học", "Study settings"),
-            style="Secondary.TButton",
-            command=self._open_settings,
-        ).pack(side=tk.LEFT, expand=True, fill=tk.X)
 
         ttk.Label(
             shell,
@@ -178,6 +172,7 @@ class FreeHome:
                 text=config.ui("Chưa tính được kế hoạch.", "Could not build today's plan.")
             )
             self.reading_state_label.config(text="")
+            self.listening_state_label.config(text="")
             self.empty_hint.config(text="")
             self.start_button.config(
                 text=config.ui("Bắt đầu học hôm nay", "Start today's study")
@@ -204,15 +199,16 @@ class FreeHome:
         self.attention_metric.config(text=view.attention_label)
         self.vocab_plan_label.config(text=view.vocab_plan_label)
         self.reading_state_label.config(text=view.reading_label)
+        self.listening_state_label.config(text=view.listening_label)
         self.start_button.config(text=view.primary_action_label)
 
         if view.empty_vocab:
             self.empty_hint.config(
                 text=config.ui(
                     "Kho từ đang trống. Hãy thêm từ trước khi học, "
-                    "hoặc bắt đầu phiên nếu chỉ muốn phần đọc (khi đang bật).",
+                    "hoặc bắt đầu phiên nếu chỉ muốn phần đọc/nghe (khi đang bật).",
                     "Your word list is empty. Add words before studying, "
-                    "or start a session if only optional reading is enabled.",
+                    "or start a session if only optional reading/listening is enabled.",
                 )
             )
         elif view.due_is_zero:
@@ -414,6 +410,7 @@ class FreeHome:
         if self.mistake_window is not None and self.mistake_window.winfo_exists():
             self.mistake_window.destroy()
         self.mistake_window = tk.Toplevel(self.root)
+        ui_common.own_toplevel(self.mistake_window, self.root)
         MistakeBookApp(self.mistake_window, language_code=code)
         self.mistake_window.bind("<Destroy>", lambda _e: self.root.after(80, self.refresh), add="+")
 
@@ -425,6 +422,7 @@ class FreeHome:
         if self.progress_window is not None and self.progress_window.winfo_exists():
             self.progress_window.destroy()
         self.progress_window = tk.Toplevel(self.root)
+        ui_common.own_toplevel(self.progress_window, self.root)
         ProgressApp(self.progress_window, language_code=code)
         self.progress_window.bind(
             "<Destroy>", lambda _e: self.root.after(80, self.refresh), add="+"
@@ -445,6 +443,7 @@ class FreeHome:
                     pass
             return
         self.bank_window = tk.Toplevel(self.root)
+        ui_common.own_toplevel(self.bank_window, self.root)
         self._library_app = VocabularyLibraryApp(
             self.bank_window, language_code=code, focus_add=focus_add
         )

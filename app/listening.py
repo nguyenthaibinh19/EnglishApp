@@ -229,6 +229,8 @@ class ListeningSession:
     def submit(self, user_answer: str) -> ListeningCheckResult:
         if self.unavailable:
             raise ListeningError("Listening is unavailable.")
+        if not self.played:
+            raise ListeningError("Listen before answering.")
         result = check_listening_answer(user_answer, self.item)
         self.last_result = result
         self.answered = True
@@ -238,4 +240,6 @@ class ListeningSession:
         """Mark activity completed after the learner continues."""
         if self.unavailable:
             return
+        if not self.answered:
+            raise ListeningError("Answer before finishing.")
         self.completed = True

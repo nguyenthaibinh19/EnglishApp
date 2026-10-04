@@ -89,6 +89,12 @@ ListeningApp (Tk adapter) ← StudyMaster / StudySession
 - Home Dashboard, Progress Dashboard, Vocabulary Library, Mistake Book, quiz/reading/listening adapters consume domain models / view-models.
 - Must not independently reimplement SRS / Mistake / DailyStudy rules.
 - ScreenGuard owns lock/fullscreen enforcement.
+- Activity launch is transactional (`ui_common.launch_toplevel_app`): constructor failure destroys the partial Toplevel and must not leave a blank orphan or hidden root.
+- StudyMaster keeps the parent root mapped during child activities; parent uses `pause_enforcement` (not fullscreen release) while a child ScreenGuard is active. Avoid withdraw/deiconify.
+- `ScreenGuard.pause_enforcement` / `enforcement_paused` stop focus/topmost fighting without changing fullscreen/state/geometry. `release_display` is the rare heavy path (e.g. updater).
+- Micro-popups that would still flash as `Toplevel` under lock (Reading word actions) may use an in-window overlay Frame.
+- `reset_window` restores `state("normal")` on real page/root transitions only — not micro-navigation.
+- Utility windows should use `transient(parent)` / `open_owned_popup` rather than appearing as independent app restarts.
 
 ## AI
 

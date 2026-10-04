@@ -143,7 +143,8 @@ def _active_guard(window: tk.Misc):
 def _offer(window, tag: str, url: str, expected_size: int = 0, kind: str = "exe"):
     guard = _active_guard(window)
     if guard is not None:
-        guard.suspend(leave_fullscreen=True)
+        # Update consent is a rare external dialog — heavy display release is OK.
+        guard.release_display()
     else:
         _set_topmost(window, False)
 
@@ -164,11 +165,11 @@ def _offer(window, tag: str, url: str, expected_size: int = 0, kind: str = "exe"
 
     if not agreed:
         if guard is not None:
-            guard.resume(refocus=False)
+            guard.restore_display(refocus=False)
         else:
             _set_topmost(window, True)
         return
-    # Giữ suspend trong lúc tải; app sẽ thoát sau khi cài xong.
+    # Giữ release_display trong lúc tải; app sẽ thoát sau khi cài xong.
     _download_and_restart(
         window, url, restore_topmost=(guard is None), expected_size=expected_size, kind=kind
     )

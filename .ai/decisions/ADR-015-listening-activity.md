@@ -9,8 +9,9 @@ StudyGuard needs Listening as a real optional study activity inside StudySession
 ## Decision
 
 - Listening is an **optional** StudySession activity when `listening_enabled` is true on `DailyStudyPlan` (settings `activities.listening`; **default OFF** until a production audio provider exists).
-- Domain model: `ListeningItem` (`text` / `question` / `answer` / optional `alternatives` / `meaning`) + `ListeningSession` controller (play → submit → finish / unavailable). No Progress / SRS / AttemptHistory mutation in 17A.
-- Audio boundary: `ListeningAudioProvider.play(text, language_code)`. Production `resolve_listening_audio_provider()` returns `None`. Tests/dev inject `FakeListeningAudioProvider`. Missing/unavailable provider → activity **unavailable** (does not block session finish after required work).
+- Domain model: `ListeningItem` (`text` / `question` / `answer` / optional `alternatives` / `meaning`) + `ListeningSession` controller (**successful play → submit → finish** / unavailable). Submit before play and finish before answer are rejected. No Progress / SRS / AttemptHistory mutation in 17A.
+- Audio boundary: `ListeningAudioProvider.play(text, language_code)`. Production `resolve_listening_audio_provider()` returns `None`. Tests/dev inject `FakeListeningAudioProvider`. Missing/unavailable provider → activity **unavailable** (does not block session finish after required work). Tk must call provider work via `ui_common.run_async` so future TTS cannot freeze the UI.
+- When locked, ListeningApp owns ScreenGuard like Reading/Vocabulary. Tk `required` must not treat unresolved optional Listening as required. Skip resolves **only the active study language**.
 - Answer checking reuses `text_utils.match_answer` for deterministic comprehension feedback (`exact`/`near` count as correct feedback); not vocabulary mastery.
 
 ## Why

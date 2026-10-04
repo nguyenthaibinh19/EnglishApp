@@ -1,6 +1,7 @@
-"""Listening activity Tk adapter (Phase 17A).
+"""Listening activity Tk adapter (Phase 17A hardening).
 
-Launched from StudyMaster like Reading. Does not own ScreenGuard.
+Launched from StudyMaster like Reading. Owns ScreenGuard when locked.
+Does not create an independent Tk root.
 """
 
 from __future__ import annotations
@@ -14,6 +15,7 @@ import ui_common
 from listening import (
     ListeningAudioError,
     ListeningAudioProvider,
+    ListeningError,
     ListeningSession,
     sample_listening_items,
 )
@@ -41,7 +43,8 @@ class ListeningApp:
         self.on_failed = on_failed
         self.on_skip = on_skip
         self.on_emergency = on_emergency
-        self.required = required
+        # Listening is optional in StudySession; never treat unresolved as required.
+        self.required = bool(required)
         self.locked = locked
         self._play_busy = False
 
@@ -59,8 +62,14 @@ class ListeningApp:
         window.title(
             f"{config.APP_NAME} — {config.ui('Nghe', 'Listening')}"
         )
-        window.geometry("560x420")
-        window.protocol("WM_DELETE_WINDOW", self._on_close)
+        if not locked:
+            window.geometry("560x420")
+
+        self.guard = ui_common.ScreenGuard(
+            window,
+            enabled=config.LOCK_SCREEN if locked else False,
+            on_close_attempt=self._on_close_attempt,
+        )
 
         self.root = ttk.Frame(window, padding=ui_common.PAD_PAGE)
         self.root.pack(fill=tk.BOTH, expand=True)
@@ -95,6 +104,12 @@ class ListeningApp:
             style="Primary.TButton",
             command=self._resolve_unavailable,
         ).pack(anchor="e")
+        ttk.Button(
+            self.root,
+            text=config.ui("Thoát khẩn cấp", "Emergency exit"),
+            style="Small.TButton",
+            command=self._emergency_exit,
+        ).pack(anchor="e", pady=(8, 0))
 
     def _build_exercise(self):
         ttk.Label(
@@ -160,36 +175,62 @@ class ListeningApp:
                 style="Small.TButton",
                 command=self._skip,
             ).pack(side=tk.RIGHT)
+        ttk.Button(
+            actions,
+            text=config.ui("Thoát khẩn cấp", "Emergency exit"),
+            style="Small.TButton",
+            command=self._emergency_exit,
+        ).pack(side=tk.RIGHT, padx=(0, 8) if callable(self.on_skip) else (0, 0))
 
         self.window.bind("<Return>", lambda _e: self._check())
 
     def _play(self):
+        """Play via run_async so future TTS/network work cannot freeze Tk."""
         if self._play_busy or self.session.unavailable:
+            return
+        if self.session._playing:
             return
         self._play_busy = True
         self.play_button.state(["disabled"])
-        try:
+        self.status.config(
+            text=config.ui("Đang phát…", "Playing…"),
+            foreground=ui_common.COLOR_MUTED,
+        )
+
+        def work():
             self.session.play()
-            self.status.config(
-                text=config.ui("Đã phát.", "Played."),
-                foreground=ui_common.COLOR_MUTED,
-            )
-        except ListeningAudioError as error:
-            self.status.config(text=str(error), foreground=ui_common.COLOR_WARN)
-            self._resolve_unavailable()
-            return
-        finally:
+            return True
+
+        def on_ok(_result):
             self._play_busy = False
             try:
                 if not self.session.unavailable:
                     self.play_button.state(["!disabled"])
+                self.status.config(
+                    text=config.ui("Đã phát.", "Played."),
+                    foreground=ui_common.COLOR_MUTED,
+                )
             except tk.TclError:
                 pass
+
+        def on_error(error: Exception):
+            self._play_busy = False
+            try:
+                self.status.config(text=str(error), foreground=ui_common.COLOR_WARN)
+            except tk.TclError:
+                pass
+            self._resolve_unavailable()
+
+        ui_common.run_async(self.window, work, on_ok, on_error)
 
     def _check(self):
         if self.session.answered or self.session.unavailable:
             return
-        result = self.session.submit(self.answer_var.get())
+        try:
+            result = self.session.submit(self.answer_var.get())
+        except ListeningError as error:
+            self.status.config(text=str(error), foreground=ui_common.COLOR_WARN)
+            return
         if result.correct:
             self.status.config(
                 text=config.ui("Đúng.", "Correct."),
@@ -213,7 +254,11 @@ class ListeningApp:
         self.check_button.state(["disabled"])
 
     def _finish(self):
-        self.session.finish()
+        try:
+            self.session.finish()
+        except ListeningError as error:
+            self.status.config(text=str(error), foreground=ui_common.COLOR_WARN)
+            return
         if callable(self.on_completed):
             self.on_completed()
         self.window.destroy()
@@ -227,24 +272,44 @@ class ListeningApp:
         self.session.unavailable = True
         if callable(self.on_failed):
             self.on_failed()
-        self.window.destroy()
+        try:
+            if self.window.winfo_exists():
+                self.window.destroy()
+        except tk.TclError:
+            pass
 
-    def _on_close(self):
-        if self.locked and self.required and not self.session.completed:
-            if callable(self.on_emergency):
-                # Same pattern as other activities: emergency handled by guard owner.
-                pass
+    def _on_close_attempt(self):
+        """Optional Listening: unresolved close → skip/unavailable. Emergency is separate."""
+        if self.session.completed:
+            self.window.destroy()
             return
         if self.session.unavailable:
             self._resolve_unavailable()
             return
-        if self.session.completed:
+        # Optional activity: never trap the learner on window close.
+        if not self.required:
+            if callable(self.on_skip):
+                self._skip()
+                return
+            if callable(self.on_failed):
+                self.on_failed()
             self.window.destroy()
             return
-        if callable(self.on_skip):
-            self._skip()
+        # Required path (should not apply to Listening) — show not-finished.
+        self.guard.show_info(
+            config.ui("Chưa xong", "Not finished"),
+            config.ui(
+                "Hãy hoàn thành phần nghe trước khi đóng cửa sổ.\n\n"
+                "Nếu app bị lỗi, hãy dùng nút “Thoát khẩn cấp”.",
+                "Finish Listening before closing.\n\n"
+                "If the app is stuck, use Emergency exit.",
+            ),
+        )
+
+    def _emergency_exit(self):
+        if not self.guard.confirm_emergency_exit():
             return
-        # Optional activity close → treat as skip/unavailable so lock can finish.
-        if callable(self.on_failed):
-            self.on_failed()
-        self.window.destroy()
+        if callable(self.on_emergency):
+            self.on_emergency()
+        else:
+            self.window.destroy()

@@ -546,12 +546,12 @@ class VocabQuizApp:
     def _on_sentence_error(self, error: Exception):
         self.grade_button.state(["!disabled"])
         if isinstance(error, account_client.SessionExpired):
-            self.guard.suspend()
+            self.guard.pause_enforcement()
             try:
                 import setup_wizard
                 signed_in = setup_wizard.ask(self.window)
             finally:
-                self.guard.resume(refocus=False)
+                self.guard.resume_enforcement(refocus=False)
             if signed_in:
                 self._grade_sentence()
                 return

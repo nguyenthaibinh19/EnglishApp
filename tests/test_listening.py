@@ -1,11 +1,14 @@
-"""Phase 17A — Listening foundation (no real audio / network)."""
+"""Phase 17A — Listening foundation + hardening (no real audio / network)."""
 
 from __future__ import annotations
+
+from pathlib import Path
 
 from daily_study import DailyStudyPlan, build_daily_study_plan
 from listening import (
     FakeListeningAudioProvider,
     ListeningAudioError,
+    ListeningError,
     ListeningItem,
     ListeningSession,
     NullListeningAudioProvider,
@@ -13,6 +16,7 @@ from listening import (
     resolve_listening_audio_provider,
     sample_listening_items,
 )
+from progress import Progress
 from study_session import (
     KIND_LISTENING,
     KIND_READING,
@@ -77,6 +81,53 @@ def test_domain_completion_and_play_language():
     assert session.completed is True
 
 
+def test_submit_before_play_rejected():
+    session = ListeningSession.create(
+        "nl", item=_item(), audio_provider=FakeListeningAudioProvider()
+    )
+    try:
+        session.submit("in a small house")
+        assert False, "expected ListeningError"
+    except ListeningError:
+        pass
+    assert session.answered is False
+
+
+def test_finish_before_answer_rejected():
+    session = ListeningSession.create(
+        "nl", item=_item(), audio_provider=FakeListeningAudioProvider()
+    )
+    session.play()
+    try:
+        session.finish()
+        assert False, "expected ListeningError"
+    except ListeningError:
+        pass
+    assert session.completed is False
+
+
+def test_play_submit_finish_completed():
+    session = ListeningSession.create(
+        "en", item=_item(), audio_provider=FakeListeningAudioProvider()
+    )
+    session.play()
+    session.submit("in a small house")
+    session.finish()
+    assert session.completed is True
+
+
+def test_provider_failure_unavailable():
+    session = ListeningSession.create(
+        "de", item=_item(), audio_provider=FakeListeningAudioProvider(fail=True)
+    )
+    try:
+        session.play()
+        assert False
+    except ListeningAudioError:
+        pass
+    assert session.unavailable is True
+
+
 def test_fake_provider_and_null_unavailable():
     assert resolve_listening_audio_provider() is None
     null = NullListeningAudioProvider()
@@ -88,17 +139,6 @@ def test_fake_provider_and_null_unavailable():
         assert False
     except ListeningAudioError:
         pass
-
-
-def test_audio_failure_marks_unavailable():
-    fake = FakeListeningAudioProvider(fail=True)
-    session = ListeningSession.create("de", item=_item(), audio_provider=fake)
-    try:
-        session.play()
-        assert False
-    except ListeningAudioError:
-        pass
-    assert session.unavailable is True
 
 
 def test_sample_items_language_aware_not_dutch_only():
@@ -174,8 +214,62 @@ def test_daily_study_listening_flag():
     assert not build_study_session(off).has_activity(KIND_LISTENING)
 
 
-def test_no_progress_srs_mutation_on_listening_check():
-    # Pure domain path — no Progress/Attempt files involved.
+def test_skip_listening_only_affects_one_language_session():
+    """Per-language skip contract: resolving nl must not resolve de."""
+    nl = build_study_session(
+        DailyStudyPlan(
+            language_code="nl",
+            vocab_total=0,
+            due_review_count=0,
+            new_word_count=0,
+            future_review_count=0,
+            attention_word_count=0,
+            planned_vocab_count=0,
+            reading_enabled=False,
+            listening_enabled=True,
+        )
+    )
+    de = build_study_session(
+        DailyStudyPlan(
+            language_code="de",
+            vocab_total=0,
+            due_review_count=0,
+            new_word_count=0,
+            future_review_count=0,
+            attention_word_count=0,
+            planned_vocab_count=0,
+            reading_enabled=False,
+            listening_enabled=True,
+        )
+    )
+    nl.skip(KIND_LISTENING)
+    assert nl.is_resolved(KIND_LISTENING)
+    assert not de.is_resolved(KIND_LISTENING)
+
+
+def test_listening_check_does_not_mutate_progress_srs_files(tmp_path: Path):
+    progress_path = tmp_path / "progress.json"
+    progress = Progress(str(progress_path))
+    progress.data["words"]["demo-id"] = {
+        "seen": 1,
+        "correct": 0,
+        "wrong": 0,
+        "streak": 0,
+        "last_seen": "",
+        "interval_days": 1,
+        "due_at": "2020-01-01T00:00:00+00:00",
+    }
+    progress.save()
+    before = progress_path.read_text(encoding="utf-8")
+    check_listening_answer("wrong", _item())
+    ListeningSession.create(
+        "nl", item=_item(), audio_provider=FakeListeningAudioProvider()
+    ).play()
+    after = progress_path.read_text(encoding="utf-8")
+    assert after == before
+
+
+def test_listening_item_immutable_under_answer_check():
     item = _item()
     before = (item.text, item.answer)
     check_listening_answer("wrong", item)

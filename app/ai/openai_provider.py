@@ -18,6 +18,7 @@ from ai.base import (
 )
 from reading_schema import normalize_test
 from text_utils import entry_word, strip_tags
+from vocabulary_model import entry_meaning
 
 _SENTENCE_SYSTEM = """You are a patient {name_en} teacher.
 The learner's native language is {native}. Write feedback_vi in {native} only.
@@ -248,8 +249,11 @@ class OpenAIProvider(AIProvider):
         level = (request.level or config.READING_LEVEL).upper()
         passage_words = request.passage_words or config.READING_PASSAGE_WORDS
 
+        # Local/domain entries use canonical ``meaning`` (legacy ``vi`` via entry_meaning).
+        # Account HTTP /api/reading wire may still send ``vi`` — unchanged separately.
         word_lines = "\n".join(
-            f"- {strip_tags(entry_word(entry))} = {entry.get('vi', '')}" for entry in words
+            f"- {strip_tags(entry_word(entry))} = {entry_meaning(entry)}"
+            for entry in words
         )
         user_prompt = f"Ngôn ngữ: {lang.name_en}\nDanh sách {len(words)} từ mục tiêu:\n{word_lines}"
         system_prompt = _READING_SYSTEM.format(

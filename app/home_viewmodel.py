@@ -22,6 +22,7 @@ class HomeViewModel:
     attention_label: str
     vocab_plan_label: str
     reading_label: str
+    listening_label: str
     primary_action_label: str
     empty_vocab: bool
     due_is_zero: bool
@@ -94,6 +95,11 @@ def build_home_view_model(
         f"Đọc · {'bật' if plan.reading_enabled else 'tắt'}",
         f"Reading · {'Enabled' if plan.reading_enabled else 'Disabled'}",
     )
+    listening_enabled = bool(getattr(plan, "listening_enabled", False))
+    listening_label = config.ui(
+        f"Nghe · {'bật' if listening_enabled else 'tắt'}",
+        f"Listening · {'Enabled' if listening_enabled else 'Disabled'}",
+    )
 
     return HomeViewModel(
         language_code=plan.language_code,
@@ -104,6 +110,7 @@ def build_home_view_model(
         attention_label=attention_label,
         vocab_plan_label=vocab_plan_label,
         reading_label=reading_label,
+        listening_label=listening_label,
         primary_action_label=config.ui("Bắt đầu học hôm nay", "Start today's study"),
         empty_vocab=empty,
         due_is_zero=due_zero,

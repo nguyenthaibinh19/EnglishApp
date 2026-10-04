@@ -94,6 +94,10 @@ Near answers and hint-assisted exact answers are **non-mastered**. Do not casual
 - StudySession decides **logical** completion.
 - ScreenGuard / Tkinter owns **lock enforcement**.
 - Do not move lock/security behavior into the session-domain model.
+- Activity Toplevel construction failures must not leave orphan blank windows or a withdrawn/unusable parent root.
+- Optional activity Tk adapters must not equate “unresolved” with “required”.
+- Returning to non-lock Home must restore a normal (non-zoomed) window state.
+- Internal child navigation must not change the parent window's visible fullscreen/normal state merely to display an owned popup. Use `ScreenGuard.pause_enforcement` / `enforcement_paused`; reserve `release_display` for rare external dialogs.
 
 ## Persistence safety
 
