@@ -13,6 +13,7 @@ from main import StudyMasterApp
 from study_session import (
     KIND_LISTENING,
     KIND_VOCABULARY,
+    STATUS_COMPLETED,
     STATUS_SKIPPED,
     STATUS_UNAVAILABLE,
     build_study_session,
@@ -41,6 +42,8 @@ def _bare_studymaster() -> StudyMasterApp:
     app._listening_provider_resolving = False
     app._listening_resolve_code = None
     app.listening_window = None
+    app.vocab_window = None
+    app.reading_window = None
     app.listening_unavailable = False
     app.listening_check_label = MagicMock()
     app.root = MagicMock()
@@ -196,10 +199,12 @@ def test_current_language_listening_skip_does_not_affect_another():
 
 def test_open_listening_always_wires_skip_callback():
     src = inspect.getsource(StudyMasterApp._open_listening_with_resolved_provider)
-    assert "on_skip=self._skip_listening" in src
-    assert "on_skip=self._skip_listening if" not in src
+    assert "on_skip=lambda c=code: self._skip_listening(c)" in src
+    assert "on_completed=lambda c=code: self._on_listening_completed(c)" in src
+    assert "on_failed=lambda c=code: self._mark_listening_unavailable(c)" in src
     skip_src = inspect.getsource(StudyMasterApp._skip_listening)
     assert "_vocab_all_done" not in skip_src
+    assert "config.active_code()" not in skip_src
 
 
 def test_blocking_resolve_null_provider_when_unavailable(monkeypatch):
@@ -209,3 +214,157 @@ def test_blocking_resolve_null_provider_when_unavailable(monkeypatch):
     )
     app = _bare_studymaster()
     assert app._blocking_resolve_listening_provider() is None
+
+
+def test_discovery_while_child_open_does_not_auto_open(monkeypatch):
+    provider = FakeListeningAudioProvider(supported=("en",))
+    app = _bare_studymaster()
+    app.vocab_window = MagicMock()
+    app.vocab_window.winfo_exists.return_value = True
+    app.reading_window = None
+    app.listening_window = None
+    opened = []
+    app._open_listening_with_resolved_provider = lambda code: opened.append(code)
+    monkeypatch.setattr(config, "activity_enabled", lambda activity_id: True)
+    monkeypatch.setattr(config, "active_code", lambda: "en")
+
+    app._listening_resolve_code = "en"
+    app._listening_provider_resolving = True
+    app._finish_listening_provider_resolve(provider)
+
+    assert app._listening_provider_resolved is True
+    assert app._listening_audio_provider is provider
+    assert opened == []
+    en = build_study_session(_plan("en", listening=True, planned=0))
+    assert not en.is_resolved(KIND_LISTENING)
+
+
+def test_provider_cached_after_stale_auto_open_suppressed(monkeypatch):
+    provider = FakeListeningAudioProvider(supported=("en",))
+    app = _bare_studymaster()
+    app.vocab_window = MagicMock()
+    app.vocab_window.winfo_exists.return_value = True
+    app.reading_window = None
+    app.listening_window = None
+    monkeypatch.setattr(config, "activity_enabled", lambda activity_id: True)
+    monkeypatch.setattr(config, "active_code", lambda: "en")
+    app._listening_resolve_code = "en"
+    app._finish_listening_provider_resolve(provider)
+    assert app._listening_audio_provider is provider
+    assert app._listening_provider_resolved is True
+    # Later explicit open uses cache — no rediscovery needed.
+    assert app._listening_provider_resolving is False
+
+
+def test_active_language_change_suppresses_stale_auto_open(monkeypatch):
+    provider = FakeListeningAudioProvider(supported=("en", "de"))
+    app = _bare_studymaster()
+    app.vocab_window = None
+    app.reading_window = None
+    app.listening_window = None
+    opened = []
+    app._open_listening_with_resolved_provider = lambda code: opened.append(code)
+    monkeypatch.setattr(config, "activity_enabled", lambda activity_id: True)
+    monkeypatch.setattr(config, "active_code", lambda: "de")  # navigated away
+
+    app._listening_resolve_code = "en"
+    app._finish_listening_provider_resolve(provider)
+    assert opened == []
+    assert app._listening_audio_provider is provider
+
+
+def test_english_listening_complete_ignores_german_active(monkeypatch):
+    app = _bare_studymaster()
+    en = build_study_session(_plan("en", listening=True, planned=0))
+    de = build_study_session(_plan("de", listening=True, planned=0))
+    app.sessions = {"en": en, "de": de}
+    app._session_for = lambda code=None: app.sessions[code or "en"]
+    app._refresh_status = lambda: None
+    app._finish_if_all_done = lambda: None
+    monkeypatch.setattr(config, "active_code", lambda: "de")
+
+    app._on_listening_completed("en")
+    assert en.is_resolved(KIND_LISTENING)
+    assert en.status(KIND_LISTENING) == STATUS_COMPLETED
+    assert not de.is_resolved(KIND_LISTENING)
+
+
+def test_english_listening_skip_ignores_german_active(monkeypatch):
+    app = _bare_studymaster()
+    en = build_study_session(_plan("en", listening=True, planned=0))
+    de = build_study_session(_plan("de", listening=True, planned=0))
+    app.sessions = {"en": en, "de": de}
+    app._session_for = lambda code=None: app.sessions[code or "en"]
+    app._refresh_status = lambda: None
+    app._finish_if_all_done = lambda: None
+    app._close_window = lambda window: None
+    monkeypatch.setattr(config, "active_code", lambda: "de")
+
+    app._skip_listening("en")
+    assert en.status(KIND_LISTENING) == STATUS_SKIPPED
+    assert not de.is_resolved(KIND_LISTENING)
+
+
+def test_english_listening_unavailable_ignores_german_active(monkeypatch):
+    app = _bare_studymaster()
+    en = build_study_session(_plan("en", listening=True, planned=0))
+    de = build_study_session(_plan("de", listening=True, planned=0))
+    app.sessions = {"en": en, "de": de}
+    app._session_for = lambda code=None: app.sessions[code or "en"]
+    app._refresh_status = lambda: None
+    app._all_done = lambda: False
+    monkeypatch.setattr(config, "active_code", lambda: "de")
+
+    app._mark_listening_unavailable("en")
+    assert en.status(KIND_LISTENING) == STATUS_UNAVAILABLE
+    assert not de.is_resolved(KIND_LISTENING)
+
+
+def test_multiple_listening_clicks_single_discovery_latest_wins(monkeypatch):
+    async_calls = []
+    resolve_calls = []
+
+    def fake_async(widget, work, on_success, on_error=None):
+        async_calls.append(work)
+        return SimpleNamespace(started=True)
+
+    def resolve():
+        resolve_calls.append(1)
+        return FakeListeningAudioProvider(supported=("en", "nl"))
+
+    monkeypatch.setattr("main.ui_common.run_async", fake_async)
+    monkeypatch.setattr("main.resolve_listening_audio_provider", resolve)
+    monkeypatch.setattr(config, "activity_enabled", lambda activity_id: True)
+
+    app = _bare_studymaster()
+    app.sessions["en"] = build_study_session(_plan("en", listening=True, planned=0))
+    app.sessions["nl"] = build_study_session(_plan("nl", listening=True, planned=0))
+    app._activate = lambda code: None
+    app._session_for = lambda code=None: app.sessions[code]
+
+    app.open_listening_section("en")
+    assert app._listening_resolve_code == "en"
+    assert len(async_calls) == 1
+
+    # Second click while in flight: latest-request-wins, no second discovery.
+    app.open_listening_section("nl")
+    assert app._listening_resolve_code == "nl"
+    assert len(async_calls) == 1
+    assert resolve_calls == []  # work not executed by fake_async
+
+
+def test_latest_request_auto_opens_only_if_still_safe(monkeypatch):
+    provider = FakeListeningAudioProvider(supported=("en", "nl"))
+    app = _bare_studymaster()
+    app.vocab_window = None
+    app.reading_window = None
+    app.listening_window = None
+    opened = []
+    app._open_listening_with_resolved_provider = lambda code: opened.append(code)
+    monkeypatch.setattr(config, "activity_enabled", lambda activity_id: True)
+    monkeypatch.setattr(config, "active_code", lambda: "nl")
+
+    # Latest pending is nl; active still nl; no child → auto-open nl.
+    app._listening_resolve_code = "nl"
+    app._finish_listening_provider_resolve(provider)
+    assert opened == ["nl"]

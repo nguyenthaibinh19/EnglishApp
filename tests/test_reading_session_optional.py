@@ -96,4 +96,6 @@ def test_listening_per_language_skip_unchanged():
     assert not de.is_resolved(KIND_LISTENING)
     src = inspect.getsource(StudyMasterApp._skip_listening)
     assert "for code in config.study_codes()" not in src
-    assert "active_code" in src
+    # Language is passed explicitly (window-bound), not read from mutable active_code().
+    assert "def _skip_listening(self, code: str)" in src
+    assert "config.active_code()" not in src

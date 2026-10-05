@@ -12,7 +12,7 @@ Phase 17A defined the `ListeningAudioProvider` seam with production resolve retu
 - Learner text and voice names are passed only as **environment-variable data**, never interpolated into PowerShell source.
 - Provider capability is **per study language** (`supports(language_code)`). Missing local voice → Listening **unavailable** for that language only; no silent wrong-language voice; no silent cloud/Edge fallback.
 - Speech-locale preference order lives on the Windows TTS provider mapping (not StudyLanguage persistence). Listening remains settings-default **OFF**.
-- StudyMaster must not enumerate Windows voices at construction time. Discovery runs off the Tk thread on first Listening open when the activity is enabled; the provider/catalog is reused for that StudyMaster lifetime.
+- StudyMaster must not enumerate Windows voices at construction time. Discovery runs off the Tk thread on first Listening open when the activity is enabled; the provider/catalog is reused for that StudyMaster lifetime. Async completion auto-opens only when still safe (no other study child; pending language still active). Listening session callbacks are bound to the window's language code.
 - Phase 17B does **not** change Listening content generation (sample items remain for playback validation).
 
 ## Why

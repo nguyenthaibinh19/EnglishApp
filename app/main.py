@@ -57,6 +57,8 @@ class StudyMasterApp:
         self._listening_audio_provider = None
         self._listening_provider_resolved = False
         self._listening_provider_resolving = False
+        # Latest Listening language requested while discovery is in flight
+        # (latest-request-wins). Cleared when discovery finishes.
         self._listening_resolve_code = None
         self._menu_hidden = False
         self.row_status = {}
@@ -712,7 +714,13 @@ class StudyMasterApp:
             pass
 
     def _begin_listening_provider_resolve(self, code: str):
-        """Kick off one background discovery; keep StudyMaster responsive."""
+        """Kick off one background discovery; keep StudyMaster responsive.
+
+        Multiple clicks while discovery is in flight update
+        ``_listening_resolve_code`` (latest-request-wins) but do not start a
+        second PowerShell discovery. Auto-open after completion is gated by
+        ``_should_auto_open_listening``.
+        """
         self._listening_resolve_code = code
         self._show_listening_check_status()
         if self._listening_provider_resolving:
@@ -723,28 +731,44 @@ class StudyMasterApp:
             return self._blocking_resolve_listening_provider()
 
         def on_success(provider):
-            self._listening_audio_provider = provider
-            self._listening_provider_resolved = True
-            self._listening_provider_resolving = False
-            self._clear_listening_check_status()
-            pending = self._listening_resolve_code or code
-            self._listening_resolve_code = None
-            if not config.activity_enabled("listening"):
-                return
-            self._open_listening_with_resolved_provider(pending)
+            self._finish_listening_provider_resolve(provider)
 
         def on_error(_error):
-            self._listening_audio_provider = None
-            self._listening_provider_resolved = True
-            self._listening_provider_resolving = False
-            self._clear_listening_check_status()
-            pending = self._listening_resolve_code or code
-            self._listening_resolve_code = None
-            if not config.activity_enabled("listening"):
-                return
-            self._open_listening_with_resolved_provider(pending)
+            self._finish_listening_provider_resolve(None)
 
         ui_common.run_async(self.root, work, on_success, on_error)
+
+    def _finish_listening_provider_resolve(self, provider):
+        """Cache discovery result; auto-open only if still safe/current."""
+        self._listening_audio_provider = provider
+        self._listening_provider_resolved = True
+        self._listening_provider_resolving = False
+        self._clear_listening_check_status()
+        pending = self._listening_resolve_code
+        self._listening_resolve_code = None
+        if not config.activity_enabled("listening"):
+            return
+        if not self._should_auto_open_listening(pending):
+            return
+        self._open_listening_with_resolved_provider(pending)
+
+    def _should_auto_open_listening(self, code: str) -> bool:
+        """Whether async discovery may auto-open Listening for ``code``.
+
+        Suppresses stale opens when another study child is already active or
+        the learner has navigated away from the pending language. Provider
+        cache remains valid either way.
+        """
+        if not code:
+            return False
+        if self._child_open():
+            return False
+        try:
+            if config.active_code() != code:
+                return False
+        except Exception:
+            return False
+        return True
 
     def _open_listening_with_resolved_provider(self, code: str):
         """Open Listening using the cached provider (or mark unavailable)."""
@@ -813,14 +837,14 @@ class StudyMasterApp:
             if not session.is_resolved(KIND_LISTENING):
                 session.start(KIND_LISTENING)
                 started = True
-            # Listening is optional — unresolved ≠ required at the Tk layer.
+            # Bind callbacks to this window's language — not mutable active_code().
             ListeningApp(
                 window,
                 language_code=code,
                 audio_provider=provider,
-                on_completed=self._on_listening_completed,
-                on_failed=self._mark_listening_unavailable,
-                on_skip=self._skip_listening,
+                on_completed=lambda c=code: self._on_listening_completed(c),
+                on_failed=lambda c=code: self._mark_listening_unavailable(c),
+                on_skip=lambda c=code: self._skip_listening(c),
                 on_emergency=self.quit_all,
                 required=False,
                 locked=True,
@@ -995,16 +1019,18 @@ class StudyMasterApp:
         self._refresh_status()
         self._advance_after_reading(code)
 
-    def _on_listening_completed(self):
-        session = self._session_for(config.active_code())
+    def _on_listening_completed(self, code: str):
+        """Complete Listening for the language that owns the window."""
+        session = self._session_for(code)
         if session.has_activity(KIND_LISTENING):
             session.complete(KIND_LISTENING)
         self.listening_unavailable = False
         self._refresh_status()
         self.root.after(200, self._finish_if_all_done)
 
-    def _mark_listening_unavailable(self):
-        session = self._session_for(config.active_code())
+    def _mark_listening_unavailable(self, code: str):
+        """Mark Listening unavailable for the language that owns the window."""
+        session = self._session_for(code)
         if session.has_activity(KIND_LISTENING):
             try:
                 session.mark_unavailable(KIND_LISTENING)
@@ -1015,9 +1041,8 @@ class StudyMasterApp:
         if self._all_done():
             self.root.after(200, self._finish_if_all_done)
 
-    def _skip_listening(self):
-        """Skip Listening for the active study language only (like Reading)."""
-        code = config.active_code()
+    def _skip_listening(self, code: str):
+        """Skip Listening for the language that owns the window (like Reading)."""
         session = self._session_for(code)
         if session.has_activity(KIND_LISTENING) and not session.is_resolved(
             KIND_LISTENING
