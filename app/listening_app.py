@@ -89,12 +89,22 @@ class ListeningApp:
         self._build_exercise()
 
     def _build_unavailable(self):
+        reason = self.session.unavailable_reason_message()
+        if not reason:
+            if self.session.unavailable_reason == "no_voice":
+                reason = config.ui(
+                    f"Chưa cài giọng đọc Windows cho {config.language_name(self.language_code)}.",
+                    f"No Windows text-to-speech voice is installed for "
+                    f"{config.language_name(self.language_code)}.",
+                )
+            else:
+                reason = config.ui(
+                    "Phần nghe chưa dùng được — chưa có nguồn phát âm thanh.",
+                    "Listening is unavailable — no audio provider is configured yet.",
+                )
         ttk.Label(
             self.root,
-            text=config.ui(
-                "Phần nghe chưa dùng được — chưa có nguồn phát âm thanh.",
-                "Listening is unavailable — no audio provider is configured yet.",
-            ),
+            text=reason,
             style="Muted.TLabel",
             wraplength=480,
         ).pack(anchor="w", pady=(8, 16))

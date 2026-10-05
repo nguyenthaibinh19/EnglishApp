@@ -2,7 +2,7 @@
 
 > First file a new agent should read. Keep this concise and update when phases complete.
 
-**Snapshot date context:** after Phase 17A.1 (Window Lifecycle Stabilization).
+**Snapshot date context:** after Phase 17B (Windows Local TTS Provider v1).
 
 ## Product
 
@@ -103,7 +103,7 @@ python -m pytest
 python app/smoke_test.py
 ```
 
-**Baseline snapshot (not a permanent invariant):** after Phase 17A final safety patch, **267 pytest tests passing**; smoke test all checks pass.
+**Baseline snapshot (not a permanent invariant):** after Phase 17B, **281 pytest tests passing**; smoke test all checks pass.
 
 ## Current development position
 
@@ -116,7 +116,8 @@ Completed: Phase 15C — Production AI Vocabulary Enrichment v1
 Completed: Phase 16 — Learning Progress Dashboard v1
 Completed: Phase 17A — Listening Foundation (+ hardening / product-QA patch)
 Completed: Phase 17A.1 — Window Lifecycle Stabilization
-Next: Phase 17B — production / local Listening audio provider
+Completed: Phase 17B — Windows Local TTS Provider v1
+Next: Phase 17C — production-quality Listening content (still local-first audio)
 ```
 
-Listening is optional (settings default **off**). Production has no TTS yet. ScreenGuard splits `pause_enforcement` (owned popups / activity hand-off) from rare `release_display` (updater). Reading word actions use an in-window overlay that keeps lock enforcement active. Optional Reading skip/unavailable is per active study language (same as Listening). Progress Dashboard is unchanged (no Listening analytics in 17A). AI enrichment remains advisory (draft → Apply).
+Listening is optional (settings default **off**). Production audio uses Windows installed System.Speech voices (`WindowsLocalTTSProvider`); capability is per study language. Missing voice → unavailable for that language only (no Edge/cloud fallback). Sample Listening items remain for playback validation — content generation is not solved in 17B. ScreenGuard splits `pause_enforcement` from rare `release_display`. Progress Dashboard is unchanged. AI enrichment remains advisory (draft → Apply).

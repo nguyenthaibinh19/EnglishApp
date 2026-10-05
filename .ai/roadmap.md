@@ -28,26 +28,28 @@ Architecture phases 1–14 (summary only):
 | 15C | Production AI vocabulary enrichment v1 (`/api/enrich`, review-before-apply) |
 | 16 | Learning Progress Dashboard v1 (derived read-only analytics) |
 | 17A | Listening Foundation (optional StudySession activity + audio-provider seam; no production TTS) |
+| 17B | Windows Local TTS Provider v1 (System.Speech; per-language voice capability) |
 
 ## Current
 
 ```text
-Phase 17A — Listening Foundation — completed
+Phase 17B — Windows Local TTS Provider v1 — completed
 ```
 
 ## Next
 
 ```text
-Phase 17B — Listening audio provider (real TTS / local playback behind ListeningAudioProvider)
+Phase 17C — Listening content quality / generation (local-first audio already in place)
 ```
 
-Also directional: dictionary / pronunciation enrichment (review-before-apply); Reading Lab improvements. Not a mandate to combine CEFR + audio + dictionary in one step.
+Also directional: dictionary / pronunciation enrichment (review-before-apply); Reading Lab improvements. Not a mandate to combine CEFR + cloud TTS in one step.
 
 ## Near-term (directional)
 
-- Listening production audio (17B)
+- Listening production content (17C)
 - Dictionary / pronunciation enrichment
 - Reading Lab improvements
+- Optional future explicit cloud TTS provider behind the same seam (never silent fallback)
 
 ## Long-term (directional)
 

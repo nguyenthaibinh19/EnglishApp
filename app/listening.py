@@ -1,7 +1,8 @@
-"""Listening activity foundation (Phase 17A).
+"""Listening activity foundation (Phase 17A + 17B provider seam).
 
 Domain-only: content model, answer check, audio-provider seam, session controller.
-No production TTS. No microphone. No network. No Progress/SRS mutation.
+No microphone. No network. No Progress/SRS mutation.
+Production audio: Windows local TTS via ListeningAudioProvider (Phase 17B).
 """
 
 from __future__ import annotations
@@ -44,7 +45,7 @@ class ListeningCheckResult:
 
 
 class ListeningAudioProvider(ABC):
-    """Minimal seam for Phase 17B TTS / local playback."""
+    """Audio seam for Listening. Implementations must not touch Tkinter."""
 
     @abstractmethod
     def play(self, text: str, language_code: str) -> None:
@@ -52,26 +53,44 @@ class ListeningAudioProvider(ABC):
         raise NotImplementedError
 
     def is_available(self) -> bool:
+        """True when the backend itself can run (not per-language)."""
         return True
+
+    def supports(self, language_code: str) -> bool:
+        """True when this provider can speak the given study language."""
+        return self.is_available()
 
 
 class FakeListeningAudioProvider(ListeningAudioProvider):
     """Test/dev provider — records calls; does not produce real audio."""
 
-    def __init__(self, *, fail: bool = False):
+    def __init__(self, *, fail: bool = False, supported: Optional[Sequence[str]] = None):
         self.fail = fail
         self.calls: List[Tuple[str, str]] = []
+        self._supported = (
+            None if supported is None else {str(code).lower() for code in supported}
+        )
+
+    def supports(self, language_code: str) -> bool:
+        if self._supported is None:
+            return True
+        return str(language_code or "").lower() in self._supported
 
     def play(self, text: str, language_code: str) -> None:
+        if not self.supports(language_code):
+            raise ListeningAudioError(f"No voice for {language_code}.")
         self.calls.append((str(text), str(language_code)))
         if self.fail:
             raise ListeningAudioError("Fake listening audio failed.")
 
 
 class NullListeningAudioProvider(ListeningAudioProvider):
-    """Explicit unavailable provider (no production TTS yet)."""
+    """Explicit unavailable provider."""
 
     def is_available(self) -> bool:
+        return False
+
+    def supports(self, language_code: str) -> bool:
         return False
 
     def play(self, text: str, language_code: str) -> None:
@@ -79,15 +98,25 @@ class NullListeningAudioProvider(ListeningAudioProvider):
 
 
 def resolve_listening_audio_provider() -> Optional[ListeningAudioProvider]:
-    """Production: no TTS yet → None (Listening becomes unavailable if enabled).
+    """Production: Windows local TTS when the speech backend initializes.
 
-    Tests / manual verification inject FakeListeningAudioProvider explicitly.
+    Non-Windows / discovery failure → None (Listening stays unavailable-safe).
+    Tests inject FakeListeningAudioProvider explicitly.
     """
-    return None
+    try:
+        from listening_windows_tts import try_create_windows_tts_provider
+
+        return try_create_windows_tts_provider()
+    except Exception:  # noqa: BLE001 - import/init must never break app startup
+        return None
 
 
 def sample_listening_items(language_code: str) -> Tuple[ListeningItem, ...]:
-    """Tiny bundled samples for supported study languages (architecture > volume)."""
+    """Tiny bundled samples for supported study languages (architecture > volume).
+
+    Phase 17B validates playback only — production-quality Listening content
+    remains a separate future concern (not AI-generated here).
+    """
     code = str(language_code or "").strip().lower()
     catalog = {
         "nl": ListeningItem(
@@ -174,6 +203,7 @@ class ListeningSession:
     last_result: Optional[ListeningCheckResult] = None
     completed: bool = False
     unavailable: bool = False
+    unavailable_reason: str = ""
     _playing: bool = field(default=False, repr=False)
 
     @classmethod
@@ -190,7 +220,11 @@ class ListeningSession:
             provider = resolve_listening_audio_provider()
         chosen = item
         if chosen is None:
-            pool = list(items) if items is not None else list(sample_listening_items(language_code))
+            pool = (
+                list(items)
+                if items is not None
+                else list(sample_listening_items(language_code))
+            )
             chosen = pool[0] if pool else None
         if chosen is None:
             session = cls(
@@ -199,32 +233,58 @@ class ListeningSession:
                 audio_provider=provider,
             )
             session.unavailable = True
+            session.unavailable_reason = "no_content"
             return session
         session = cls(language_code=language_code, item=chosen, audio_provider=provider)
         if provider is None or not provider.is_available():
             session.unavailable = True
+            session.unavailable_reason = "no_provider"
+            return session
+        if not provider.supports(language_code):
+            session.unavailable = True
+            session.unavailable_reason = "no_voice"
+            return session
         return session
 
     def play(self) -> None:
         if self.unavailable:
-            raise ListeningAudioError("Listening audio is not available.")
+            raise ListeningAudioError(
+                self.unavailable_reason_message()
+                or "Listening audio is not available."
+            )
         if self._playing:
             return
         if self.audio_provider is None or not self.audio_provider.is_available():
             self.unavailable = True
+            self.unavailable_reason = "no_provider"
             raise ListeningAudioError("Listening audio is not available.")
+        if not self.audio_provider.supports(self.language_code):
+            self.unavailable = True
+            self.unavailable_reason = "no_voice"
+            raise ListeningAudioError(self.unavailable_reason_message())
         self._playing = True
         try:
             self.audio_provider.play(self.item.text, self.language_code)
             self.played = True
         except ListeningAudioError:
+            # Failure must not mark played=True (state machine invariant).
             self.unavailable = True
+            if not self.unavailable_reason:
+                self.unavailable_reason = "play_failed"
             raise
         except Exception as error:  # noqa: BLE001
             self.unavailable = True
+            self.unavailable_reason = "play_failed"
             raise ListeningAudioError(str(error)) from error
         finally:
             self._playing = False
+
+    def unavailable_reason_message(self) -> str:
+        if self.unavailable_reason == "no_voice" and self.audio_provider is not None:
+            missing = getattr(self.audio_provider, "missing_voice_message", None)
+            if callable(missing):
+                return str(missing(self.language_code))
+        return ""
 
     def submit(self, user_answer: str) -> ListeningCheckResult:
         if self.unavailable:

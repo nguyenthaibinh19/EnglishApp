@@ -75,14 +75,16 @@ ProgressViewModel → ProgressApp
 ## Listening
 
 ```text
-ListeningItem → ListeningSession → ListeningAudioProvider.play(text, language)
+ListeningItem → ListeningSession → ListeningAudioProvider
+        ↓
+ WindowsLocalTTSProvider (System.Speech via fixed PowerShell)
         ↓
 ListeningApp (Tk adapter) ← StudyMaster / StudySession
 ```
 
-- Content: spoken `text` + comprehension `question` / `answer` (+ optional alternatives/meaning).
-- Production resolve returns no provider yet; unavailable must not block finish after required work.
-- No Progress / SRS / AttemptHistory writes in Phase 17A. See [ADR-015](decisions/ADR-015-listening-activity.md).
+- Content: spoken `text` + comprehension `question` / `answer` (+ optional alternatives/meaning). Sample items remain for playback validation; production content generation is separate future work.
+- Production resolve returns Windows local TTS when available; `supports(language)` is per study language. Missing voice → unavailable for that language only (never wrong-language or silent cloud fallback). See [ADR-015](decisions/ADR-015-listening-activity.md), [ADR-016](decisions/ADR-016-listening-local-tts.md).
+- No Progress / SRS / AttemptHistory writes from Listening.
 
 ## UI (Tkinter)
 

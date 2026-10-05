@@ -10,7 +10,8 @@ StudyGuard needs Listening as a real optional study activity inside StudySession
 
 - Listening is an **optional** StudySession activity when `listening_enabled` is true on `DailyStudyPlan` (settings `activities.listening`; **default OFF** until a production audio provider exists).
 - Domain model: `ListeningItem` (`text` / `question` / `answer` / optional `alternatives` / `meaning`) + `ListeningSession` controller (**successful play → submit → finish** / unavailable). Submit before play and finish before answer are rejected. No Progress / SRS / AttemptHistory mutation in 17A.
-- Audio boundary: `ListeningAudioProvider.play(text, language_code)`. Production `resolve_listening_audio_provider()` returns `None`. Tests/dev inject `FakeListeningAudioProvider`. Missing/unavailable provider → activity **unavailable** (does not block session finish after required work). Tk must call provider work via `ui_common.run_async` so future TTS cannot freeze the UI.
+- Audio boundary: `ListeningAudioProvider.play(text, language_code)` plus optional `supports(language_code)`. Production resolve returns `WindowsLocalTTSProvider` on Windows when System.Speech initializes; otherwise `None`. Tests/dev may inject `FakeListeningAudioProvider`. Missing provider or missing voice for the active language → activity **unavailable** (does not block session finish). Tk must call provider work via `ui_common.run_async`.
+- Local-first Windows TTS policy: [ADR-016](ADR-016-listening-local-tts.md).
 - When locked, ListeningApp owns ScreenGuard like Reading/Vocabulary. Tk `required` must not treat unresolved optional Listening as required. Skip resolves **only the active study language**.
 - Answer checking reuses `text_utils.match_answer` for deterministic comprehension feedback (`exact`/`near` count as correct feedback); not vocabulary mastery.
 
@@ -20,7 +21,7 @@ Keeps Listening language-aware and Session-orchestrated without shipping fake pr
 
 ## Consequences
 
-Easier: Phase 17B can plug a real provider behind the same seam. Harder: enabled Listening with no provider always resolves as unavailable until TTS lands.
+Easier: Phase 17B plugs a real local provider behind the same seam. Harder: languages without an installed Windows voice stay unavailable until the learner installs a TTS pack (or a future explicit cloud provider is added).
 
 ## Do not
 

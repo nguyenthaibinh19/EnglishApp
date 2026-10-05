@@ -665,7 +665,7 @@ class StudyMasterApp:
             self.listening_window.lift()
             return
 
-        # No production audio provider → resolve as unavailable (never trap lock).
+        # Provider / per-language voice support → unavailable (never trap lock).
         provider = self._listening_audio_provider
         if provider is None or not provider.is_available():
             try:
@@ -680,6 +680,34 @@ class StudyMasterApp:
                     "Phần nghe chưa dùng được vì chưa có nguồn phát âm thanh. "
                     "Bạn vẫn có thể kết thúc phiên học.",
                     "Listening is unavailable because no audio provider is configured. "
+                    "You can still finish the study session.",
+                ),
+            )
+            self.root.after(200, self._finish_if_all_done)
+            return
+        if not provider.supports(code):
+            try:
+                session.mark_unavailable(KIND_LISTENING)
+            except Exception:
+                pass
+            self.listening_unavailable = True
+            self._refresh_status()
+            missing = getattr(provider, "missing_voice_message", None)
+            detail = (
+                missing(code)
+                if callable(missing)
+                else config.ui(
+                    f"Chưa cài giọng đọc Windows cho {config.language_name(code)}.",
+                    f"No Windows text-to-speech voice is installed for "
+                    f"{config.language_name(code)}.",
+                )
+            )
+            self.guard.show_info(
+                config.ui("Nghe", "Listening"),
+                detail
+                + "\n\n"
+                + config.ui(
+                    "Bạn vẫn có thể kết thúc phiên học.",
                     "You can still finish the study session.",
                 ),
             )
@@ -1030,13 +1058,20 @@ class StudyMasterApp:
 def run_diagnostics():
     """`python main.py --check` — xem môi trường đã sẵn sàng chưa, không mở cửa sổ."""
     import importlib
+    import os
     import sys
 
-    print(f"{config.APP_NAME} — kiểm tra môi trường\n")
-    print(f"Python  : {sys.version.split()[0]}")
-    print(f"Đường dẫn: {sys.executable}")
-    print(f"Dữ liệu : {config.data_dir()}")
-    print(f"Bản đóng gói: {'có' if config.is_frozen() else 'không'}\n")
+    lines: list[str] = []
+
+    def out(message: str = "") -> None:
+        print(message)
+        lines.append(message)
+
+    out(f"{config.APP_NAME} — kiểm tra môi trường\n")
+    out(f"Python  : {sys.version.split()[0]}")
+    out(f"Đường dẫn: {sys.executable}")
+    out(f"Dữ liệu : {config.data_dir()}")
+    out(f"Bản đóng gói: {'có' if config.is_frozen() else 'không'}\n")
 
     for module, needed_for in (
         ("tkinter", "giao diện"),
@@ -1046,32 +1081,73 @@ def run_diagnostics():
     ):
         try:
             importlib.import_module(module)
-            print(f"  [ok] {module}")
+            out(f"  [ok] {module}")
         except ImportError:
-            print(f"  [thiếu] {module} — cần cho {needed_for}")
+            out(f"  [thiếu] {module} — cần cho {needed_for}")
 
     store = VocabStore()
     summary = Progress().summary()
-    print(f"\nTừ vựng : {store.count()} từ trong vocab.json")
+    out(f"\nTừ vựng : {store.count()} từ trong vocab.json")
     duplicates = store.find_duplicates()
     if duplicates:
-        print(f"  Trùng lặp: {', '.join(duplicates[:5])}")
+        out(f"  Trùng lặp: {', '.join(duplicates[:5])}")
     if config.ai_is_configured():
         key_status = "đã cấu hình"
     elif config.OPENAI_API_KEY:
         key_status = "đang là giá trị mẫu, hãy điền key thật vào .env"
     else:
         key_status = "chưa có — xem .env.example"
-    print(f"API key : {key_status}")
-    print(f"Model   : {config.OPENAI_MODEL}")
-    print(
+    out(f"API key : {key_status}")
+    out(f"Model   : {config.OPENAI_MODEL}")
+    out(
         f"Mục tiêu: {config.QUIZ_TARGET_CORRECT} câu đúng mỗi lần mở máy, "
         f"bài đọc trình độ {config.READING_LEVEL}"
     )
-    print("Gốc    : " + config.native_label())
-    print("Học    : " + ", ".join(languages.resolve_language(code).label for code in config.study_codes()))
-    print(f"Hôm nay : đã ôn {summary['asked_today']} từ, "
+    out("Gốc    : " + config.native_label())
+    out("Học    : " + ", ".join(languages.resolve_language(code).label for code in config.study_codes()))
+    out(f"Hôm nay : đã ôn {summary['asked_today']} từ, "
           f"bài đọc {'xong' if summary['reading_done'] else 'chưa xong'}")
+
+    # Phase 17B: Listening / Windows local TTS capability (no console flash).
+    out("\nListening TTS:")
+    try:
+        from listening import resolve_listening_audio_provider
+
+        provider = resolve_listening_audio_provider()
+        if provider is None or not provider.is_available():
+            out("  provider: unavailable")
+        else:
+            out(f"  provider: {type(provider).__name__}")
+            for lang in languages.SUPPORTED_LANGUAGES:
+                if provider.supports(lang.code):
+                    out(f"  {lang.code} ({lang.label}): available")
+                else:
+                    out(f"  {lang.code} ({lang.label}): missing voice")
+            # Optional audible self-test for frozen/source packaging QA.
+            if os.environ.get("STUDYGUARD_TTS_SELFTEST", "").strip() == "1":
+                speak_code = next(
+                    (lang.code for lang in languages.SUPPORTED_LANGUAGES if provider.supports(lang.code)),
+                    None,
+                )
+                if speak_code is None:
+                    out("  selftest: skipped (no supported voice)")
+                else:
+                    provider.play(
+                        "StudyGuard listening self test.",
+                        speak_code,
+                    )
+                    out(f"  selftest: played ({speak_code})")
+    except Exception as error:
+        out(f"  provider error: {type(error).__name__}")
+
+    # Windowed frozen exe has no console; persist output for packaging QA.
+    try:
+        report = os.path.join(config.data_dir(), "diagnostics_last.txt")
+        with open(report, "w", encoding="utf-8") as handle:
+            handle.write("\n".join(lines) + "\n")
+        out(f"\nĐã ghi: {report}")
+    except Exception:
+        pass
 
 
 def main():

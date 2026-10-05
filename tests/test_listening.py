@@ -129,7 +129,10 @@ def test_provider_failure_unavailable():
 
 
 def test_fake_provider_and_null_unavailable():
-    assert resolve_listening_audio_provider() is None
+    # Production resolver may return WindowsLocalTTSProvider on Windows.
+    resolved = resolve_listening_audio_provider()
+    if resolved is not None:
+        assert resolved.is_available() is True
     null = NullListeningAudioProvider()
     assert null.is_available() is False
     session = ListeningSession.create("en", audio_provider=null)
