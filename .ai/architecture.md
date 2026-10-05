@@ -84,6 +84,7 @@ ListeningApp (Tk adapter) ← StudyMaster / StudySession
 
 - Content: spoken `text` + comprehension `question` / `answer` (+ optional alternatives/meaning). Sample items remain for playback validation; production content generation is separate future work.
 - Production resolve returns Windows local TTS when available; `supports(language)` is per study language. Missing voice → unavailable for that language only (never wrong-language or silent cloud fallback). See [ADR-015](decisions/ADR-015-listening-activity.md), [ADR-016](decisions/ADR-016-listening-local-tts.md).
+- StudyMaster must **not** discover Windows voices during construction. TTS discovery runs only when Listening is enabled and the learner opens Listening, via `ui_common.run_async` (off the Tk thread). Provider/catalog is cached for the StudyMaster lifetime.
 - No Progress / SRS / AttemptHistory writes from Listening.
 
 ## UI (Tkinter)

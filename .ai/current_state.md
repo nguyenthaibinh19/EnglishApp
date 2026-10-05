@@ -103,7 +103,7 @@ python -m pytest
 python app/smoke_test.py
 ```
 
-**Baseline snapshot (not a permanent invariant):** after Phase 17B, **281 pytest tests passing**; smoke test all checks pass.
+**Baseline snapshot (not a permanent invariant):** after Phase 17B final hardening, **291 pytest tests passing**; smoke test all checks pass.
 
 ## Current development position
 
@@ -116,8 +116,8 @@ Completed: Phase 15C — Production AI Vocabulary Enrichment v1
 Completed: Phase 16 — Learning Progress Dashboard v1
 Completed: Phase 17A — Listening Foundation (+ hardening / product-QA patch)
 Completed: Phase 17A.1 — Window Lifecycle Stabilization
-Completed: Phase 17B — Windows Local TTS Provider v1
+Completed: Phase 17B — Windows Local TTS Provider v1 (+ final hardening: lazy TTS discovery)
 Next: Phase 17C — production-quality Listening content (still local-first audio)
 ```
 
-Listening is optional (settings default **off**). Production audio uses Windows installed System.Speech voices (`WindowsLocalTTSProvider`); capability is per study language. Missing voice → unavailable for that language only (no Edge/cloud fallback). Sample Listening items remain for playback validation — content generation is not solved in 17B. ScreenGuard splits `pause_enforcement` from rare `release_display`. Progress Dashboard is unchanged. AI enrichment remains advisory (draft → Apply).
+Listening is optional (settings default **off**). Production audio uses Windows installed System.Speech voices (`WindowsLocalTTSProvider`); capability is per study language. Missing voice → unavailable for that language only (no Edge/cloud fallback). StudyMaster does **not** discover Windows voices at startup — discovery runs off the Tk thread on first Listening open and is cached for the StudyMaster lifetime. Sample Listening items remain for playback validation — content generation is not solved in 17B. ScreenGuard splits `pause_enforcement` from rare `release_display`. Progress Dashboard is unchanged. AI enrichment remains advisory (draft → Apply).

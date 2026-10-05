@@ -52,7 +52,12 @@ class StudyMasterApp:
         self.listening_window = None
         self.reading_unavailable = False
         self.listening_unavailable = False
-        self._listening_audio_provider = resolve_listening_audio_provider()
+        # Lazy TTS: never discover Windows voices during StudyMaster construction.
+        # Listening-off users must not pay PowerShell enumeration cost.
+        self._listening_audio_provider = None
+        self._listening_provider_resolved = False
+        self._listening_provider_resolving = False
+        self._listening_resolve_code = None
         self._menu_hidden = False
         self.row_status = {}
         self.row_buttons = {}
@@ -116,6 +121,14 @@ class StudyMasterApp:
             justify="left",
         )
         self.intro_label.pack(anchor="w", pady=(8, 14))
+        self.listening_check_label = ttk.Label(
+            card,
+            text="",
+            style="Muted.TLabel",
+            wraplength=760,
+            justify="left",
+        )
+        self.listening_check_label.pack(anchor="w", pady=(0, 4))
 
         activities = ttk.LabelFrame(
             card, text=config.ui("Phần cần làm", "Parts to study"), padding=8
@@ -665,8 +678,85 @@ class StudyMasterApp:
             self.listening_window.lift()
             return
 
-        # Provider / per-language voice support → unavailable (never trap lock).
+        # First Listening open: resolve/discover off the Tk thread.
+        if not self._listening_provider_resolved:
+            self._begin_listening_provider_resolve(code)
+            return
+
+        self._open_listening_with_resolved_provider(code)
+
+    def _blocking_resolve_listening_provider(self):
+        """Resolve + voice discovery. Call only from a background worker."""
+        provider = resolve_listening_audio_provider()
+        if provider is None:
+            return None
+        if not provider.is_available():
+            return None
+        return provider
+
+    def _show_listening_check_status(self):
+        try:
+            self.listening_check_label.config(
+                text=config.ui(
+                    "Đang kiểm tra giọng đọc Windows…",
+                    "Checking Windows speech voices…",
+                )
+            )
+        except tk.TclError:
+            pass
+
+    def _clear_listening_check_status(self):
+        try:
+            self.listening_check_label.config(text="")
+        except tk.TclError:
+            pass
+
+    def _begin_listening_provider_resolve(self, code: str):
+        """Kick off one background discovery; keep StudyMaster responsive."""
+        self._listening_resolve_code = code
+        self._show_listening_check_status()
+        if self._listening_provider_resolving:
+            return
+        self._listening_provider_resolving = True
+
+        def work():
+            return self._blocking_resolve_listening_provider()
+
+        def on_success(provider):
+            self._listening_audio_provider = provider
+            self._listening_provider_resolved = True
+            self._listening_provider_resolving = False
+            self._clear_listening_check_status()
+            pending = self._listening_resolve_code or code
+            self._listening_resolve_code = None
+            if not config.activity_enabled("listening"):
+                return
+            self._open_listening_with_resolved_provider(pending)
+
+        def on_error(_error):
+            self._listening_audio_provider = None
+            self._listening_provider_resolved = True
+            self._listening_provider_resolving = False
+            self._clear_listening_check_status()
+            pending = self._listening_resolve_code or code
+            self._listening_resolve_code = None
+            if not config.activity_enabled("listening"):
+                return
+            self._open_listening_with_resolved_provider(pending)
+
+        ui_common.run_async(self.root, work, on_success, on_error)
+
+    def _open_listening_with_resolved_provider(self, code: str):
+        """Open Listening using the cached provider (or mark unavailable)."""
+        session = self._session_for(code)
+        if not session.has_activity(KIND_LISTENING):
+            return
+        if self.listening_window is not None and self.listening_window.winfo_exists():
+            self.listening_window.lift()
+            return
+
         provider = self._listening_audio_provider
+        # Provider / per-language voice support → unavailable (never trap lock).
         if provider is None or not provider.is_available():
             try:
                 session.mark_unavailable(KIND_LISTENING)
@@ -730,7 +820,7 @@ class StudyMasterApp:
                 audio_provider=provider,
                 on_completed=self._on_listening_completed,
                 on_failed=self._mark_listening_unavailable,
-                on_skip=self._skip_listening if self._vocab_all_done() else None,
+                on_skip=self._skip_listening,
                 on_emergency=self.quit_all,
                 required=False,
                 locked=True,
@@ -926,10 +1016,7 @@ class StudyMasterApp:
             self.root.after(200, self._finish_if_all_done)
 
     def _skip_listening(self):
-        """Skip Listening for the active study language only."""
-        if not self._vocab_all_done():
-            self._close_window(self.listening_window)
-            return
+        """Skip Listening for the active study language only (like Reading)."""
         code = config.active_code()
         session = self._session_for(code)
         if session.has_activity(KIND_LISTENING) and not session.is_resolved(

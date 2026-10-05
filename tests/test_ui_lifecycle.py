@@ -111,11 +111,17 @@ def test_launch_toplevel_app_keeps_window_on_success(monkeypatch):
 def test_study_master_activity_emergency_uses_quit_all():
     """Regression: open_reading/listening used missing self.exit_all → blank Toplevel."""
     reading_src = inspect.getsource(StudyMasterApp.open_reading_section)
-    listening_src = inspect.getsource(StudyMasterApp.open_listening_section)
+    listening_open_src = inspect.getsource(StudyMasterApp.open_listening_section)
+    listening_src = inspect.getsource(
+        StudyMasterApp._open_listening_with_resolved_provider
+    )
     assert "self.exit_all" not in reading_src
+    assert "self.exit_all" not in listening_open_src
     assert "self.exit_all" not in listening_src
     assert "on_emergency=self.quit_all" in reading_src
     assert "on_emergency=self.quit_all" in listening_src
     assert "launch_toplevel_app" in reading_src
+    assert "launch_toplevel_app" in listening_src
     assert "required=False" in reading_src
     assert "required=False" in listening_src
+    assert "_begin_listening_provider_resolve" in listening_open_src

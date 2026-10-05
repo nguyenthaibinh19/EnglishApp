@@ -28,7 +28,7 @@ Architecture phases 1–14 (summary only):
 | 15C | Production AI vocabulary enrichment v1 (`/api/enrich`, review-before-apply) |
 | 16 | Learning Progress Dashboard v1 (derived read-only analytics) |
 | 17A | Listening Foundation (optional StudySession activity + audio-provider seam; no production TTS) |
-| 17B | Windows Local TTS Provider v1 (System.Speech; per-language voice capability) |
+| 17B | Windows Local TTS Provider v1 (System.Speech; per-language voice capability; lazy StudyMaster discovery) |
 
 ## Current
 
