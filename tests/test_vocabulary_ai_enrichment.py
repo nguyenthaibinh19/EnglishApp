@@ -60,6 +60,9 @@ class RecordingAIProvider(AIProvider):
     def generate_reading(self, request: ReadingRequest) -> dict:
         raise AssertionError("reading not used")
 
+    def generate_listening(self, request):
+        raise AssertionError("listening not used")
+
     def enrich_vocabulary(
         self, request: VocabularyEnrichmentAIRequest
     ) -> VocabularyEnrichmentAIResult:

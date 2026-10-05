@@ -842,6 +842,7 @@ class StudyMasterApp:
                 window,
                 language_code=code,
                 audio_provider=provider,
+                vocab_store=self.store,
                 on_completed=lambda c=code: self._on_listening_completed(c),
                 on_failed=lambda c=code: self._mark_listening_unavailable(c),
                 on_skip=lambda c=code: self._skip_listening(c),

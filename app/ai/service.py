@@ -11,12 +11,15 @@ from ai.base import (
     AIProvider,
     GradeRequest,
     GradeResult,
+    ListeningRequest,
     ReadingRequest,
     VocabularyEnrichmentAIRequest,
     VocabularyEnrichmentAIResult,
     sanitize_enrichment_ai_payload,
 )
 from ai.openai_provider import OpenAIProvider
+from listening import ListeningItem
+from listening_content import ListeningContentError, normalize_listening_item
 
 _service: Optional["AIService"] = None
 
@@ -105,6 +108,63 @@ class AIService:
             passage_words=passage_words or config.READING_PASSAGE_WORDS,
         )
         return self.provider.generate_reading(request)
+
+    def generate_listening(
+        self,
+        entries: list,
+        *,
+        language_code: str = None,
+        native_code: str = None,
+        native_label: str = None,
+        level: str = None,
+        profile: dict = None,
+        use_account_proxy: bool = True,
+    ) -> ListeningItem:
+        """Generate one validated ListeningItem. Explicit language ownership."""
+        code = str(
+            language_code
+            or (profile or {}).get("code")
+            or ""
+        ).strip().lower()
+        native = str(native_code or config.native_code()).strip().lower()
+        label = native_label or (
+            "English" if native == "en" else config.native_label()
+        )
+        cefr = str(level or config.READING_LEVEL).strip().upper()
+
+        if use_account_proxy and config.uses_account_server() and profile is None:
+            import account_client
+
+            try:
+                data = account_client.generate_listening(
+                    entries,
+                    language_code=code or None,
+                    native_language=native,
+                    level=cefr,
+                )
+            except account_client.AccountError as error:
+                raise AIError(str(error)) from error
+            try:
+                return normalize_listening_item(data)
+            except ListeningContentError as error:
+                raise AIError(str(error)) from error
+
+        study = None
+        if profile is not None:
+            study = _study_language_from_profile(profile)
+        elif code:
+            study = languages.resolve_language(code)
+        else:
+            study = languages.resolve_language(config.active_code())
+
+        request = ListeningRequest(
+            entries=tuple(entries or ()),
+            study_language=study,
+            native_label=label,
+            native_code=native,
+            level=cefr,
+        )
+        return self.provider.generate_listening(request)
 
     def enrich_vocabulary(
         self,

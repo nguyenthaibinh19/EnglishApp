@@ -29,17 +29,20 @@ Architecture phases 1–14 (summary only):
 | 16 | Learning Progress Dashboard v1 (derived read-only analytics) |
 | 17A | Listening Foundation (optional StudySession activity + audio-provider seam; no production TTS) |
 | 17B | Windows Local TTS Provider v1 (System.Speech; per-language voice capability; lazy StudyMaster discovery) |
+| 17C | AI-generated Listening content v1 (StudyGuard targets; study-language question; grounded answer; cache/fallback) |
 
 ## Current
 
 ```text
-Phase 17B — Windows Local TTS Provider v1 — completed
+Phase 17C — AI-generated Listening content v1 — completed
 ```
 
 ## Next
 
 ```text
-Phase 17C — Listening content quality / generation (local-first audio already in place)
+Optional later: Listening attempt history / analytics (not mastery)
+Dictionary / pronunciation enrichment (review-before-apply)
+Reading Lab improvements
 ```
 
 Also directional: dictionary / pronunciation enrichment (review-before-apply); Reading Lab improvements. Not a mandate to combine CEFR + cloud TTS in one step.

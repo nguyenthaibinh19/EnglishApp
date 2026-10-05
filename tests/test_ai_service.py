@@ -6,6 +6,7 @@ from ai.base import (
     AIProvider,
     GradeRequest,
     GradeResult,
+    ListeningRequest,
     ReadingRequest,
     VocabularyEnrichmentAIRequest,
     VocabularyEnrichmentAIResult,
@@ -17,6 +18,7 @@ class FakeProvider(AIProvider):
     def __init__(self):
         self.grade_calls = []
         self.reading_calls = []
+        self.listening_calls = []
         self.enrich_calls = []
 
     def grade_answer(self, request: GradeRequest) -> GradeResult:
@@ -39,6 +41,18 @@ class FakeProvider(AIProvider):
             "target_words": ["hallo"],
             "groups": [],
         }
+
+    def generate_listening(self, request: ListeningRequest):
+        from listening import ListeningItem
+
+        self.listening_calls.append(request)
+        return ListeningItem(
+            text="The train leaves at nine.",
+            question="What time does the train leave?",
+            answer="at nine",
+            alternatives=("nine",),
+            meaning="Meaning in native language.",
+        )
 
     def enrich_vocabulary(
         self, request: VocabularyEnrichmentAIRequest

@@ -60,6 +60,26 @@ def generate_reading(
     )
 
 
+def generate_listening(
+    entries: list,
+    *,
+    language_code: str = None,
+    native_code: str = None,
+    native_label: str = None,
+    level: str = None,
+    profile: dict = None,
+):
+    """Sinh một ListeningItem (study-language-first). Explicit language ownership."""
+    return get_service().generate_listening(
+        entries,
+        language_code=language_code,
+        native_code=native_code,
+        native_label=native_label,
+        level=level,
+        profile=profile,
+    )
+
+
 def enrich_vocabulary(
     word: str,
     meaning: str,

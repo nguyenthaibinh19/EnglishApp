@@ -111,66 +111,89 @@ def resolve_listening_audio_provider() -> Optional[ListeningAudioProvider]:
         return None
 
 
-def sample_listening_items(language_code: str) -> Tuple[ListeningItem, ...]:
-    """Tiny bundled samples for supported study languages (architecture > volume).
+def sample_listening_items(
+    language_code: str, *, native_code: str = None
+) -> Tuple[ListeningItem, ...]:
+    """Bundled study-language-first samples (AI fallback).
 
-    Phase 17B validates playback only — production-quality Listening content
-    remains a separate future concern (not AI-generated here).
+    Spoken text, question, and answer are in the study language.
+    ``meaning`` follows ``native_code`` (vi|en); defaults to vi.
     """
     code = str(language_code or "").strip().lower()
+    native = str(native_code or "vi").strip().lower()
+    # (text, question, answer, alternatives, meaning_vi, meaning_en)
     catalog = {
-        "nl": ListeningItem(
-            text="Ik woon in een klein huis.",
-            question="Where do I live? / Tôi sống ở đâu?",
-            answer="in a small house",
-            alternatives=("in een klein huis", "a small house", "nhà nhỏ"),
-            meaning="I live in a small house.",
+        "nl": (
+            "De trein vertrekt om negen uur vanaf het station.",
+            "Hoe laat vertrekt de trein?",
+            "om negen uur",
+            ("negen uur", "om 9 uur"),
+            "Tàu khởi hành lúc chín giờ từ nhà ga.",
+            "The train leaves at nine from the station.",
         ),
-        "en": ListeningItem(
-            text="The train leaves at nine.",
-            question="When does the train leave?",
-            answer="at nine",
-            alternatives=("nine", "9"),
-            meaning="The train leaves at nine.",
+        "en": (
+            "The train leaves at nine from the station.",
+            "What time does the train leave?",
+            "at nine",
+            ("nine", "at 9"),
+            "Tàu khởi hành lúc chín giờ từ nhà ga.",
+            "The train leaves at nine from the station.",
         ),
-        "fr": ListeningItem(
-            text="Je vais au marché.",
-            question="Where am I going?",
-            answer="to the market",
-            alternatives=("au marché", "marché", "the market"),
-            meaning="I am going to the market.",
+        "fr": (
+            "Le train part à neuf heures de la gare.",
+            "À quelle heure part le train?",
+            "à neuf heures",
+            ("neuf heures", "à 9 heures"),
+            "Tàu khởi hành lúc chín giờ từ nhà ga.",
+            "The train leaves at nine from the station.",
         ),
-        "de": ListeningItem(
-            text="Ich trinke Wasser.",
-            question="What am I drinking?",
-            answer="water",
-            alternatives=("Wasser", "water"),
-            meaning="I drink water.",
+        "de": (
+            "Der Zug fährt um neun Uhr vom Bahnhof ab.",
+            "Wann fährt der Zug ab?",
+            "um neun Uhr",
+            ("neun Uhr", "um 9 Uhr"),
+            "Tàu khởi hành lúc chín giờ từ nhà ga.",
+            "The train leaves at nine from the station.",
         ),
-        "es": ListeningItem(
-            text="Ella lee un libro.",
-            question="What is she reading?",
-            answer="a book",
-            alternatives=("un libro", "libro", "book"),
-            meaning="She is reading a book.",
+        "es": (
+            "El tren sale a las nueve desde la estación.",
+            "¿A qué hora sale el tren?",
+            "a las nueve",
+            ("las nueve", "a las 9"),
+            "Tàu khởi hành lúc chín giờ từ nhà ga.",
+            "The train leaves at nine from the station.",
         ),
-        "it": ListeningItem(
-            text="Lui mangia la pizza.",
-            question="What is he eating?",
-            answer="pizza",
-            alternatives=("la pizza", "pizza"),
-            meaning="He is eating pizza.",
+        "it": (
+            "Il treno parte alle nove dalla stazione.",
+            "A che ora parte il treno?",
+            "alle nove",
+            ("le nove", "alle 9"),
+            "Tàu khởi hành lúc chín giờ từ nhà ga.",
+            "The train leaves at nine from the station.",
         ),
-        "pt": ListeningItem(
-            text="Nós falamos português.",
-            question="What language do we speak?",
-            answer="Portuguese",
-            alternatives=("português", "portuguese"),
-            meaning="We speak Portuguese.",
+        "pt": (
+            "O comboio parte às nove da estação.",
+            "A que horas parte o comboio?",
+            "às nove",
+            ("as nove", "às 9"),
+            "Tàu khởi hành lúc chín giờ từ nhà ga.",
+            "The train leaves at nine from the station.",
         ),
     }
-    item = catalog.get(code)
-    return (item,) if item is not None else ()
+    row = catalog.get(code)
+    if row is None:
+        return ()
+    text, question, answer, alts, meaning_vi, meaning_en = row
+    meaning = meaning_en if native == "en" else meaning_vi
+    return (
+        ListeningItem(
+            text=text,
+            question=question,
+            answer=answer,
+            alternatives=alts,
+            meaning=meaning,
+        ),
+    )
 
 
 def check_listening_answer(user_answer: str, item: ListeningItem) -> ListeningCheckResult:

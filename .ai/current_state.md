@@ -2,7 +2,7 @@
 
 > First file a new agent should read. Keep this concise and update when phases complete.
 
-**Snapshot date context:** after Phase 17B (Windows Local TTS Provider v1).
+**Snapshot date context:** after Phase 17C (AI-generated Listening content v1).
 
 ## Product
 
@@ -47,7 +47,7 @@ VocabularyEntry
 AI path:
 
 ```text
-quiz / reading / vocab enrich / account_server
+quiz / reading / listening / vocab enrich / account_server
         ↓
    ai_teacher facade
         ↓
@@ -63,6 +63,15 @@ Production vocab enrichment:
 ```text
 Word Detail → AccountServerVocabularyEnrichmentProvider
     → account /api/enrich → AIService → EnrichmentDraft → review → Apply
+```
+
+Production Listening content:
+
+```text
+listening_source (local target select)
+    → AI generate_listening (/api/listening when frozen)
+    → validated ListeningItem → cache
+    → ListeningSession → WindowsLocalTTSProvider
 ```
 
 Major UI surfaces: Home Dashboard, Progress Dashboard, Vocabulary Library + Word Detail, Mistake Book, study session (quiz + optional reading + optional listening).
@@ -103,7 +112,7 @@ python -m pytest
 python app/smoke_test.py
 ```
 
-**Baseline snapshot (not a permanent invariant):** after Phase 17B async Listening race fix, **299 pytest tests passing**; smoke test all checks pass.
+**Baseline snapshot (not a permanent invariant):** after Phase 17C, **327 pytest tests passing**; smoke test all checks pass.
 
 ## Current development position
 
@@ -116,8 +125,9 @@ Completed: Phase 15C — Production AI Vocabulary Enrichment v1
 Completed: Phase 16 — Learning Progress Dashboard v1
 Completed: Phase 17A — Listening Foundation (+ hardening / product-QA patch)
 Completed: Phase 17A.1 — Window Lifecycle Stabilization
-Completed: Phase 17B — Windows Local TTS Provider v1 (+ final hardening: lazy TTS discovery)
-Next: Phase 17C — production-quality Listening content (still local-first audio)
+Completed: Phase 17B — Windows Local TTS Provider v1 (+ final hardening / async race fix)
+Completed: Phase 17C — AI-generated Listening content v1 (target-language-first)
+Next: Listening history/SRS (optional later); dictionary/pronunciation enrichment; Reading Lab
 ```
 
-Listening is optional (settings default **off**). Production audio uses Windows installed System.Speech voices (`WindowsLocalTTSProvider`); capability is per study language. Missing voice → unavailable for that language only (no Edge/cloud fallback). StudyMaster does **not** discover Windows voices at startup — discovery runs off the Tk thread on first Listening open and is cached for the StudyMaster lifetime. Async discovery must not auto-open Listening over another child activity or after the learner navigates away; Listening callbacks bind the window's language explicitly. Sample Listening items remain for playback validation — content generation is not solved in 17B. ScreenGuard splits `pause_enforcement` from rare `release_display`. Progress Dashboard is unchanged. AI enrichment remains advisory (draft → Apply).
+Listening is optional (settings default **off**). Content is AI-generated from StudyGuard-selected targets (max 2) with validated cache + bundled fallback; question/answer/transcript are study language; meaning is native; word lookup on demand. Audio remains Windows local TTS only. No Listening attempt/SRS/mastery persistence yet. ScreenGuard splits `pause_enforcement` from rare `release_display`. Progress Dashboard is unchanged. AI enrichment remains advisory (draft → Apply).

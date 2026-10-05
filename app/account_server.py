@@ -67,6 +67,9 @@ class Handler(BaseHTTPRequestHandler):
             if self.path == "/api/reading":
                 self._send(200, _reading(payload))
                 return
+            if self.path == "/api/listening":
+                self._send(200, _listening(payload))
+                return
             if self.path == "/api/enrich":
                 self._send(200, _enrich(payload))
                 return
@@ -128,6 +131,46 @@ def _reading(payload: dict) -> dict:
         profile=_profile(payload),
         native_label=_native_label(payload),
     )
+
+
+def _listening(payload: dict) -> dict:
+    """AI Listening content — validated; canonical meaning wire; no key leak."""
+    from listening_content import listening_item_as_dict
+
+    words = payload.get("words")
+    if not isinstance(words, list):
+        raise ValueError("Danh sách từ không hợp lệ.")
+    max_words = max(1, int(config.LISTENING_WORD_COUNT))
+    if len(words) > max_words:
+        raise ValueError("Quá nhiều từ mục tiêu cho Listening.")
+    entries = []
+    for item in words:
+        if not isinstance(item, dict):
+            raise ValueError("Mỗi từ Listening phải là object.")
+        word = str(item.get("word") or "").strip()
+        meaning = str(item.get("meaning") or "").strip()
+        if not word or not meaning:
+            raise ValueError("Mỗi từ Listening cần word và meaning.")
+        if len(word) > 120 or len(meaning) > 240:
+            raise ValueError("Từ hoặc nghĩa Listening quá dài.")
+        entries.append({"word": word, "meaning": meaning})
+    if not entries:
+        raise ValueError("Cần ít nhất một từ Listening.")
+    native = str(payload.get("native") or "").strip().lower()
+    if native not in ("vi", "en"):
+        raise ValueError("Ngôn ngữ gốc không hợp lệ.")
+    level = str(payload.get("level") or config.READING_LEVEL).strip().upper()
+    if not level or len(level) > 8:
+        raise ValueError("Trình độ CEFR không hợp lệ.")
+    item = ai_teacher.generate_listening(
+        entries,
+        language_code=str(payload.get("language") or "").strip().lower(),
+        native_code=native,
+        native_label=_native_label(payload),
+        level=level,
+        profile=_profile(payload),
+    )
+    return listening_item_as_dict(item)
 
 
 def _enrich(payload: dict) -> dict:

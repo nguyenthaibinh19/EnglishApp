@@ -125,6 +125,9 @@ TYPO_TOLERANCE = _env_int("TYPO_TOLERANCE", 1)
 
 # ---------- Luyện đọc ----------
 
+# Số từ mục tiêu cho Listening (StudyGuard chọn; AI không chọn).
+LISTENING_WORD_COUNT = _env_int("LISTENING_WORD_COUNT", 2)
+
 # Số từ được đưa vào bài đọc do AI sinh ra.
 READING_WORD_COUNT = _env_int("READING_WORD_COUNT", 12)
 

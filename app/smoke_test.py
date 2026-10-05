@@ -391,6 +391,17 @@ class FakeProvider(AIProvider):
             "study_code": request.study_language.code if request.study_language else "",
         }
 
+    def generate_listening(self, request):
+        from listening import ListeningItem
+
+        return ListeningItem(
+            text="The train leaves at nine.",
+            question="What time does the train leave?",
+            answer="at nine",
+            alternatives=("nine",),
+            meaning="Meaning.",
+        )
+
     def enrich_vocabulary(
         self, request: VocabularyEnrichmentAIRequest
     ) -> VocabularyEnrichmentAIResult:

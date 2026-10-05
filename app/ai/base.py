@@ -67,6 +67,17 @@ class ReadingRequest:
 
 
 @dataclass(frozen=True)
+class ListeningRequest:
+    """AI Listening generation — StudyGuard supplies targets; AI only writes content."""
+
+    entries: Sequence[Mapping[str, Any]] = field(default_factory=tuple)
+    study_language: Optional[StudyLanguage] = None
+    native_label: str = ""
+    native_code: str = ""
+    level: str = ""
+
+
+@dataclass(frozen=True)
 class VocabularyEnrichmentAIRequest:
     """Lexical-only enrichment request — no learning history."""
 
@@ -182,6 +193,11 @@ class AIProvider(ABC):
     @abstractmethod
     def generate_reading(self, request: ReadingRequest) -> dict:
         """Trả về dict bài đọc đã chuẩn hóa (schema hiện tại của app)."""
+        raise NotImplementedError
+
+    @abstractmethod
+    def generate_listening(self, request: ListeningRequest):
+        """Return a validated ListeningItem (study-language-first content)."""
         raise NotImplementedError
 
     @abstractmethod

@@ -111,6 +111,43 @@ def generate_reading(entries: list) -> dict:
     )
 
 
+def generate_listening(
+    entries: list,
+    *,
+    language_code: str = None,
+    native_language: str = None,
+    level: str = None,
+) -> dict:
+    """Request AI Listening content via account server. Never receives an API key.
+
+    Wire uses canonical ``meaning`` (not legacy ``vi``).
+    """
+    profile = config.current_language()
+    code = str(language_code or profile["code"]).strip().lower()
+    native = str(native_language or config.native_code()).strip().lower()
+    words = []
+    for entry in entries or []:
+        if not isinstance(entry, dict):
+            continue
+        from text_utils import entry_word, strip_tags
+        from vocabulary_model import entry_meaning
+
+        word = strip_tags(entry_word(entry)).strip()
+        meaning = str(entry_meaning(entry) or "").strip()
+        if word and meaning:
+            words.append({"word": word, "meaning": meaning})
+    return _post(
+        "/api/listening",
+        {
+            "words": words,
+            "language": code,
+            "native": native,
+            "level": str(level or config.READING_LEVEL).strip().upper(),
+        },
+        config.account_token(),
+    )
+
+
 def enrich_vocabulary(
     word: str,
     meaning: str,
