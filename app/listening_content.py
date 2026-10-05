@@ -5,7 +5,8 @@ AI/server/cache output is untrusted. One normalization boundary for all paths.
 
 from __future__ import annotations
 
-from typing import Any, List, Mapping, Optional, Sequence, Tuple
+import re
+from typing import Any, List, Mapping, Tuple
 
 from listening import ListeningItem
 
@@ -18,6 +19,10 @@ _MAX_MEANING = 320
 _MAX_ALT = 5
 _MAX_ALT_LEN = 100
 
+# Unicode-aware word character (letter / number / mark). Apostrophe is not included,
+# so phrase boundaries treat punctuation as separators while preserving accents.
+_WORD_CHAR = r"[^\W_]"  # \w minus underscore; Unicode letters/digits/marks under re.UNICODE
+
 
 class ListeningContentError(ValueError):
     """Invalid Listening content — must not reach ListeningSession."""
@@ -28,18 +33,33 @@ def fold_listening_text(value: str) -> str:
     return " ".join(str(value or "").casefold().split())
 
 
+def listening_phrase_in_text(phrase: str, text: str) -> bool:
+    """True when ``phrase`` appears in ``text`` as a whole phrase (not a subword).
+
+    Uses case/whitespace folding plus Unicode-aware boundaries so Latin StudyGuard
+    languages reject matches like ``nine`` inside ``nineteen`` or ``car`` inside
+    ``scarf``, while still accepting multi-word answers and trailing punctuation.
+    """
+    needle = fold_listening_text(phrase)
+    haystack = fold_listening_text(text)
+    if not needle or not haystack:
+        return False
+    parts = needle.split()
+    if not parts:
+        return False
+    body = r"\s+".join(re.escape(part) for part in parts)
+    pattern = rf"(?<!{_WORD_CHAR}){body}(?!{_WORD_CHAR})"
+    return re.search(pattern, haystack, flags=re.UNICODE) is not None
+
+
 def answer_grounded_in_text(answer: str, text: str) -> bool:
     """True when the expected answer appears as a phrase in the transcript."""
-    needle = fold_listening_text(answer)
-    haystack = fold_listening_text(text)
-    return bool(needle) and needle in haystack
+    return listening_phrase_in_text(answer, text)
 
 
 def question_leaks_answer(question: str, answer: str) -> bool:
     """True when the question already contains the answer phrase (trivial listening)."""
-    needle = fold_listening_text(answer)
-    haystack = fold_listening_text(question)
-    return bool(needle) and needle in haystack
+    return listening_phrase_in_text(answer, question)
 
 
 def _require_str(data: Mapping[str, Any], key: str, *, max_len: int) -> str:

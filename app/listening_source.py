@@ -49,8 +49,8 @@ def select_listening_targets(
 
     Returns up to ``count`` canonical VocabularyEntry dicts (read-only).
     """
-    limit = int(count if count is not None else config.LISTENING_WORD_COUNT)
-    if limit <= 0 or store.count() == 0:
+    limit = config.listening_target_count(count)
+    if store.count() == 0:
         return []
 
     chosen: List[dict] = []

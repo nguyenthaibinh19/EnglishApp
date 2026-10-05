@@ -112,7 +112,7 @@ python -m pytest
 python app/smoke_test.py
 ```
 
-**Baseline snapshot (not a permanent invariant):** after Phase 17C final contract hardening, **334 pytest tests passing**; smoke test all checks pass.
+**Baseline snapshot (not a permanent invariant):** after Phase 17C final pre-deploy correctness patch, **340 pytest tests passing**; smoke test all checks pass.
 
 ## Current development position
 

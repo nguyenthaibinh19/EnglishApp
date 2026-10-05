@@ -126,7 +126,19 @@ TYPO_TOLERANCE = _env_int("TYPO_TOLERANCE", 1)
 # ---------- Luyện đọc ----------
 
 # Số từ mục tiêu cho Listening (StudyGuard chọn; AI không chọn).
+# Phase 17C hard-caps at LISTENING_MAX_TARGETS regardless of env override.
+LISTENING_MAX_TARGETS = 2
 LISTENING_WORD_COUNT = _env_int("LISTENING_WORD_COUNT", 2)
+
+
+def listening_target_count(requested=None) -> int:
+    """Effective Listening target count for Phase 17C: clamped to 1..LISTENING_MAX_TARGETS."""
+    raw = LISTENING_WORD_COUNT if requested is None else requested
+    try:
+        value = int(raw)
+    except (TypeError, ValueError):
+        value = LISTENING_MAX_TARGETS
+    return max(1, min(int(LISTENING_MAX_TARGETS), value))
 
 # Số từ được đưa vào bài đọc do AI sinh ra.
 READING_WORD_COUNT = _env_int("READING_WORD_COUNT", 12)

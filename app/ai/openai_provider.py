@@ -329,7 +329,7 @@ class OpenAIProvider(AIProvider):
         level = (request.level or config.READING_LEVEL).upper()
         # Untrusted lexical data — labelled, never treated as instructions.
         data_lines = []
-        for entry in words[: max(1, int(config.LISTENING_WORD_COUNT))]:
+        for entry in words[: config.listening_target_count()]:
             data_lines.append(
                 {
                     "word": strip_tags(entry_word(entry)),

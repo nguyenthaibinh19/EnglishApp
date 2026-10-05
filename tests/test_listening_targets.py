@@ -118,6 +118,31 @@ def test_no_duplicates_and_max_two(tmp_path: Path):
     assert len(set(ids)) == 2
 
 
+def test_target_count_clamped_to_phase_max(tmp_path: Path, monkeypatch):
+    import config
+
+    store = _store(
+        tmp_path,
+        [
+            {"id": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa", "word": "one", "meaning": "1"},
+            {"id": "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb", "word": "two", "meaning": "2"},
+            {"id": "cccccccc-cccc-cccc-cccc-cccccccccccc", "word": "three", "meaning": "3"},
+            {"id": "dddddddd-dddd-dddd-dddd-dddddddddddd", "word": "four", "meaning": "4"},
+        ],
+    )
+    progress = _progress(
+        tmp_path,
+        {"version": 3, "identity": "vocab_id", "words": {}, "days": {}},
+    )
+    assert config.listening_target_count(1) == 1
+    assert config.listening_target_count(2) == 2
+    assert config.listening_target_count(10) == 2
+    monkeypatch.setattr(config, "LISTENING_WORD_COUNT", 10)
+    assert config.listening_target_count() == 2
+    chosen = select_listening_targets(store, progress, language_code="en", count=10)
+    assert len(chosen) == 2
+
+
 def test_legacy_word_key_compatibility(tmp_path: Path):
     store = _store(
         tmp_path,

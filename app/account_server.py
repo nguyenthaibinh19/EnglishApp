@@ -68,7 +68,20 @@ class Handler(BaseHTTPRequestHandler):
                 self._send(200, _reading(payload))
                 return
             if self.path == "/api/listening":
-                self._send(200, _listening(payload))
+                try:
+                    self._send(200, _listening(payload))
+                except ValueError as error:
+                    # Validation messages are safe (our own Vietnamese strings).
+                    self._send(400, {"error": str(error)})
+                except Exception as error:
+                    # Never forward provider/SDK/prompt details to the desktop.
+                    sys.stderr.write(
+                        "[listening] generation failed: %s\n" % type(error).__name__
+                    )
+                    self._send(
+                        400,
+                        {"error": "Không tạo được bài nghe lúc này."},
+                    )
                 return
             if self.path == "/api/enrich":
                 self._send(200, _enrich(payload))
@@ -133,6 +146,9 @@ def _reading(payload: dict) -> dict:
     )
 
 
+_LISTENING_CEFR_LEVELS = frozenset({"A1", "A2", "B1", "B2", "C1", "C2"})
+
+
 def _listening(payload: dict) -> dict:
     """AI Listening content — validated; canonical meaning wire; no key leak."""
     from listening_content import listening_item_as_dict
@@ -149,9 +165,11 @@ def _listening(payload: dict) -> dict:
     words = payload.get("words")
     if not isinstance(words, list):
         raise ValueError("Danh sách từ không hợp lệ.")
-    max_words = max(1, int(config.LISTENING_WORD_COUNT))
-    if len(words) > max_words:
+    # Authoritative Phase 17C maximum — not env-overridable past LISTENING_MAX_TARGETS.
+    if len(words) > int(config.LISTENING_MAX_TARGETS):
         raise ValueError("Quá nhiều từ mục tiêu cho Listening.")
+    if len(words) < 1:
+        raise ValueError("Cần ít nhất một từ Listening.")
     entries = []
     for item in words:
         if not isinstance(item, dict):
@@ -172,8 +190,11 @@ def _listening(payload: dict) -> dict:
     native = str(payload.get("native") or "").strip().lower()
     if native not in ("vi", "en"):
         raise ValueError("Ngôn ngữ gốc không hợp lệ.")
-    level = str(payload.get("level") or config.READING_LEVEL).strip().upper()
-    if not level or len(level) > 8:
+    raw_level = payload.get("level", config.READING_LEVEL)
+    if not isinstance(raw_level, str):
+        raise ValueError("Trình độ CEFR không hợp lệ.")
+    level = raw_level.strip().upper()
+    if level not in _LISTENING_CEFR_LEVELS:
         raise ValueError("Trình độ CEFR không hợp lệ.")
     item = ai_teacher.generate_listening(
         entries,

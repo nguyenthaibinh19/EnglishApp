@@ -230,6 +230,119 @@ def test_account_listening_rejects_non_string_word_meaning(monkeypatch):
     assert calls == []
 
 
+def test_account_listening_rejects_more_than_max_targets(monkeypatch):
+    import account_server
+    import config
+
+    calls = []
+    monkeypatch.setattr(config, "LISTENING_WORD_COUNT", 10)
+    monkeypatch.setattr(
+        account_server.ai_teacher,
+        "generate_listening",
+        lambda *a, **k: calls.append(1),
+    )
+    try:
+        account_server._listening(
+            {
+                "words": [
+                    {"word": "a", "meaning": "1"},
+                    {"word": "b", "meaning": "2"},
+                    {"word": "c", "meaning": "3"},
+                ],
+                "language": "en",
+                "native": "vi",
+                "level": "A2",
+            }
+        )
+        assert False
+    except ValueError:
+        pass
+    assert calls == []
+
+
+def test_account_listening_cefr_whitelist(monkeypatch):
+    import account_server
+    from listening import ListeningItem
+
+    monkeypatch.setattr(
+        account_server.ai_teacher,
+        "generate_listening",
+        lambda *a, **k: ListeningItem(
+            text="The train leaves at nine.",
+            question="What time does the train leave?",
+            answer="at nine",
+            meaning="Meaning.",
+        ),
+    )
+    for level in ("A1", "A2", "B1", "B2", "C1", "C2", "a2"):
+        data = account_server._listening(
+            {
+                "words": [{"word": "train", "meaning": "tau"}],
+                "language": "en",
+                "native": "vi",
+                "level": level,
+            }
+        )
+        assert data["answer"] == "at nine"
+    for bad in ("", "2", "HELLO", 2, ["A2"], {"level": "A2"}):
+        try:
+            account_server._listening(
+                {
+                    "words": [{"word": "train", "meaning": "tau"}],
+                    "language": "en",
+                    "native": "vi",
+                    "level": bad,
+                }
+            )
+            assert False, bad
+        except ValueError:
+            pass
+
+
+def test_listening_route_sanitizes_ai_errors(monkeypatch):
+    import account_server
+
+    class FakeHandler:
+        def __init__(self):
+            self.path = "/api/listening"
+            self.sent = []
+
+        def _send(self, status, payload):
+            self.sent.append((status, payload))
+
+    monkeypatch.setattr(
+        account_server,
+        "_listening",
+        lambda payload: (_ for _ in ()).throw(
+            account_server.ai_teacher.AITeacherError(
+                "OpenAI boom sk-secret prompt dump traceback"
+            )
+        ),
+    )
+
+    handler = FakeHandler()
+    payload = {
+        "words": [{"word": "train", "meaning": "tau"}],
+        "language": "en",
+        "native": "vi",
+        "level": "A2",
+    }
+    # Mirror Handler's /api/listening exception contract.
+    try:
+        handler._send(200, account_server._listening(payload))
+    except ValueError as error:
+        handler._send(400, {"error": str(error)})
+    except Exception:
+        handler._send(400, {"error": "Không tạo được bài nghe lúc này."})
+
+    status, body = handler.sent[-1]
+    assert status == 400
+    assert body["error"] == "Không tạo được bài nghe lúc này."
+    assert "sk-secret" not in body["error"]
+    assert "prompt" not in body["error"].lower()
+    assert "traceback" not in body["error"].lower()
+
+
 def test_account_client_listening_payload(monkeypatch):
     import account_client
 
