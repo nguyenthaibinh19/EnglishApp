@@ -101,6 +101,38 @@ def test_answer_must_be_grounded_case_whitespace_ok():
     assert item.answer == "AT NINE"
 
 
+def test_required_fields_reject_numeric_types():
+    base = {
+        "text": "The train leaves at nine.",
+        "question": "What time does the train leave?",
+        "answer": "at nine",
+        "meaning": "Meaning.",
+    }
+    for key, bad in (
+        ("text", 123),
+        ("question", 45),
+        ("answer", 9),
+        ("meaning", 3.14),
+    ):
+        data = dict(base)
+        data[key] = bad
+        with pytest.raises(ListeningContentError):
+            normalize_listening_item(data)
+
+
+def test_non_string_alternatives_are_ignored():
+    item = normalize_listening_item(
+        {
+            "text": "alpha beta gamma",
+            "question": "Which?",
+            "answer": "alpha",
+            "alternatives": ["beta", 2, {"x": 1}, None, "gamma"],
+            "meaning": "Meaning.",
+        }
+    )
+    assert item.alternatives == ("beta", "gamma")
+
+
 def test_question_must_not_leak_answer():
     assert question_leaks_answer("Vertrekt de trein om negen uur?", "om negen uur")
     with pytest.raises(ListeningContentError):

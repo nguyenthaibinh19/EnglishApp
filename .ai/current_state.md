@@ -112,7 +112,7 @@ python -m pytest
 python app/smoke_test.py
 ```
 
-**Baseline snapshot (not a permanent invariant):** after Phase 17C, **327 pytest tests passing**; smoke test all checks pass.
+**Baseline snapshot (not a permanent invariant):** after Phase 17C final contract hardening, **334 pytest tests passing**; smoke test all checks pass.
 
 ## Current development position
 
@@ -126,8 +126,8 @@ Completed: Phase 16 — Learning Progress Dashboard v1
 Completed: Phase 17A — Listening Foundation (+ hardening / product-QA patch)
 Completed: Phase 17A.1 — Window Lifecycle Stabilization
 Completed: Phase 17B — Windows Local TTS Provider v1 (+ final hardening / async race fix)
-Completed: Phase 17C — AI-generated Listening content v1 (target-language-first)
-Next: Listening history/SRS (optional later); dictionary/pronunciation enrichment; Reading Lab
+Phase 17C implementation complete — production deployment/live verification pending
+Next after live /api/listening QA: Listening history/SRS (optional later); dictionary/pronunciation enrichment; Reading Lab
 ```
 
-Listening is optional (settings default **off**). Content is AI-generated from StudyGuard-selected targets (max 2) with validated cache + bundled fallback; question/answer/transcript are study language; meaning is native; word lookup on demand. Audio remains Windows local TTS only. No Listening attempt/SRS/mastery persistence yet. ScreenGuard splits `pause_enforcement` from rare `release_display`. Progress Dashboard is unchanged. AI enrichment remains advisory (draft → Apply).
+Listening is optional (settings default **off**). Content is AI-generated from StudyGuard-selected targets (max 2) with validated cache + bundled fallback; question/answer/transcript are study language; meaning is native; word lookup on demand. Audio remains Windows local TTS only. No Listening attempt/SRS/mastery persistence yet. **Production `POST /api/listening` on the live VPS has not yet been deployed/verified** — frozen production proxy QA is pending. ScreenGuard splits `pause_enforcement` from rare `release_display`. Progress Dashboard is unchanged. AI enrichment remains advisory (draft → Apply).

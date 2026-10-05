@@ -23,7 +23,7 @@ def open_word_action_overlay(
     language_code: str,
     native_code: str = None,
     sentence_provider: Optional[Callable[[], str]] = None,
-    on_save: Optional[Callable[[str, str], None]] = None,
+    on_save: Optional[Callable[[str, str], object]] = None,
     on_highlight: Optional[Callable[[], None]] = None,
     previous: Optional[tk.Misc] = None,
 ) -> tk.Frame:
@@ -161,10 +161,27 @@ def open_word_action_overlay(
             return
         if callable(on_save):
             try:
-                on_save(word, meaning)
-                result_label.config(text=config.ui("Đã lưu.", "Saved."))
+                result = on_save(word, meaning)
             except Exception as error:  # noqa: BLE001
                 result_label.config(text=str(error))
+                return
+            # Contract: True/"saved" | False/"duplicate" | "failed"/other
+            if result is True or result == "saved":
+                result_label.config(text=config.ui("Đã lưu.", "Saved."))
+            elif result is False or result == "duplicate":
+                result_label.config(
+                    text=config.ui(
+                        "Từ này đã có trong danh sách.",
+                        "This word is already in your list.",
+                    )
+                )
+            else:
+                result_label.config(
+                    text=config.ui(
+                        "Không lưu được từ này.",
+                        "Could not save this word.",
+                    )
+                )
         else:
             result_label.config(
                 text=config.ui("Không lưu được từ này.", "Saving is not available here.")

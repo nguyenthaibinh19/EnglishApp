@@ -149,6 +149,87 @@ def test_account_listening_handler_validation():
         pass
 
 
+def test_account_listening_rejects_unsupported_language(monkeypatch):
+    import account_server
+
+    calls = []
+
+    def boom(*_a, **_k):
+        calls.append(1)
+        raise AssertionError("AI must not run")
+
+    monkeypatch.setattr(account_server.ai_teacher, "generate_listening", boom)
+    for language in ("xx", "", None):
+        try:
+            account_server._listening(
+                {
+                    "words": [{"word": "train", "meaning": "tau"}],
+                    "language": language,
+                    "native": "vi",
+                    "level": "A2",
+                }
+            )
+            assert False, language
+        except ValueError:
+            pass
+    assert calls == []
+
+
+def test_account_listening_accepts_supported_languages(monkeypatch):
+    import account_server
+    from listening import ListeningItem
+
+    seen = []
+
+    def fake_generate(entries, **kwargs):
+        seen.append(kwargs.get("language_code"))
+        return ListeningItem(
+            text="The train leaves at nine.",
+            question="What time does the train leave?",
+            answer="at nine",
+            alternatives=("nine",),
+            meaning="Meaning.",
+        )
+
+    monkeypatch.setattr(account_server.ai_teacher, "generate_listening", fake_generate)
+    for code in ("en", "nl"):
+        data = account_server._listening(
+            {
+                "words": [{"word": "train", "meaning": "tau"}],
+                "language": code,
+                "native": "vi",
+                "level": "A2",
+            }
+        )
+        assert data["answer"] == "at nine"
+    assert seen == ["en", "nl"]
+
+
+def test_account_listening_rejects_non_string_word_meaning(monkeypatch):
+    import account_server
+
+    calls = []
+    monkeypatch.setattr(
+        account_server.ai_teacher,
+        "generate_listening",
+        lambda *a, **k: calls.append(1),
+    )
+    for bad in (
+        {"word": ["train"], "meaning": "tau"},
+        {"word": "train", "meaning": {"vi": "tau"}},
+        {"word": 1, "meaning": "tau"},
+        {"word": "train", "meaning": 2},
+    ):
+        try:
+            account_server._listening(
+                {"words": [bad], "language": "en", "native": "vi", "level": "A2"}
+            )
+            assert False, bad
+        except ValueError:
+            pass
+    assert calls == []
+
+
 def test_account_client_listening_payload(monkeypatch):
     import account_client
 

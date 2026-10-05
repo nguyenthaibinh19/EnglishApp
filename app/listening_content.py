@@ -46,9 +46,10 @@ def _require_str(data: Mapping[str, Any], key: str, *, max_len: int) -> str:
     if key not in data:
         raise ListeningContentError(f"Missing Listening field: {key}")
     raw = data.get(key)
-    if not isinstance(raw, (str, int, float)):
+    # Required fields must be real strings — do not coerce int/float.
+    if not isinstance(raw, str):
         raise ListeningContentError(f"Listening field {key} must be text.")
-    text = str(raw).strip()
+    text = raw.strip()
     if not text:
         raise ListeningContentError(f"Listening field {key} is empty.")
     if len(text) > max_len:
@@ -64,9 +65,10 @@ def _normalize_alternatives(raw: Any, *, answer: str, text: str) -> Tuple[str, .
     seen = {fold_listening_text(answer)}
     out: List[str] = []
     for item in raw:
-        if not isinstance(item, (str, int, float)):
+        # Policy: non-string alternative entries are ignored (not coerced).
+        if not isinstance(item, str):
             continue
-        value = str(item).strip()
+        value = item.strip()
         if not value or len(value) > _MAX_ALT_LEN:
             continue
         key = fold_listening_text(value)
@@ -85,8 +87,9 @@ def _normalize_alternatives(raw: Any, *, answer: str, text: str) -> Tuple[str, .
 def normalize_listening_item(data: Any) -> ListeningItem:
     """Validate untrusted payload into a frozen ListeningItem.
 
-    Rejects non-objects, missing fields, oversized fields, and answers that are
-    not grounded in the spoken transcript. Caps alternatives (max 5).
+    Rejects non-objects, missing fields, non-string required fields, oversized
+    fields, and answers that are not grounded in the spoken transcript.
+    Alternatives: list/tuple only; non-string entries ignored; max 5 grounded.
     """
     if not isinstance(data, dict):
         raise ListeningContentError("Listening content must be a JSON object.")

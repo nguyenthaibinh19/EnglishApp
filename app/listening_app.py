@@ -376,12 +376,21 @@ class ListeningApp:
         )
 
     def _save_word(self, word: str, meaning: str):
+        """Return ``saved`` / ``duplicate`` / ``failed`` for truthful overlay UX."""
         store = self.vocab_store
         if store is None:
             from vocab_store import VocabStore
 
             store = VocabStore(config.vocab_path(self.language_code))
-        store.add(word, meaning)
+        text = str(word or "").strip()
+        gloss = str(meaning or "").strip()
+        if not text or not gloss:
+            return "failed"
+        if store.index_of(text) is not None:
+            return "duplicate"
+        if store.add(text, gloss):
+            return "saved"
+        return "failed"
 
     def _play(self):
         if self.session is None or self._play_busy or self.session.unavailable:

@@ -137,6 +137,15 @@ def _listening(payload: dict) -> dict:
     """AI Listening content — validated; canonical meaning wire; no key leak."""
     from listening_content import listening_item_as_dict
 
+    # Strict study-language check — do NOT use languages.get() fallback here.
+    code = str(payload.get("language") or "").strip().lower()
+    if not code or not languages.is_supported_language(code):
+        raise ValueError("Ngôn ngữ không được hỗ trợ.")
+    study = languages.get_language(code)
+    if study is None:
+        raise ValueError("Ngôn ngữ không được hỗ trợ.")
+    profile = study.as_profile(include_code=True)
+
     words = payload.get("words")
     if not isinstance(words, list):
         raise ValueError("Danh sách từ không hợp lệ.")
@@ -147,8 +156,12 @@ def _listening(payload: dict) -> dict:
     for item in words:
         if not isinstance(item, dict):
             raise ValueError("Mỗi từ Listening phải là object.")
-        word = str(item.get("word") or "").strip()
-        meaning = str(item.get("meaning") or "").strip()
+        raw_word = item.get("word")
+        raw_meaning = item.get("meaning")
+        if not isinstance(raw_word, str) or not isinstance(raw_meaning, str):
+            raise ValueError("word và meaning Listening phải là chuỗi.")
+        word = raw_word.strip()
+        meaning = raw_meaning.strip()
         if not word or not meaning:
             raise ValueError("Mỗi từ Listening cần word và meaning.")
         if len(word) > 120 or len(meaning) > 240:
@@ -164,11 +177,11 @@ def _listening(payload: dict) -> dict:
         raise ValueError("Trình độ CEFR không hợp lệ.")
     item = ai_teacher.generate_listening(
         entries,
-        language_code=str(payload.get("language") or "").strip().lower(),
+        language_code=code,
         native_code=native,
         native_label=_native_label(payload),
         level=level,
-        profile=_profile(payload),
+        profile=profile,
     )
     return listening_item_as_dict(item)
 

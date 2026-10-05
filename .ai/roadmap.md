@@ -34,13 +34,14 @@ Architecture phases 1–14 (summary only):
 ## Current
 
 ```text
-Phase 17C — AI-generated Listening content v1 — completed
+Phase 17C implementation complete — production deployment/live verification pending
 ```
 
 ## Next
 
 ```text
-Optional later: Listening attempt history / analytics (not mastery)
+Deploy/verify live POST /api/listening (VPS + frozen production proxy)
+Then optional: Listening attempt history / analytics (not mastery)
 Dictionary / pronunciation enrichment (review-before-apply)
 Reading Lab improvements
 ```
