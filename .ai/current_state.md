@@ -2,7 +2,9 @@
 
 > First file a new agent should read. Keep this concise and update when phases complete.
 
-**Snapshot date context:** after Phase 17C (AI-generated Listening content v1).
+**Snapshot date context:** 2026-10-26 — Phase 17C CLOSED (production accepted).
+**Project baseline:** Lead-reviewed through Phase 17C
+**Accepted commit:** `c0b2d2d375d1b258a5c14fec5f713065875ee0fa`
 
 ## Product
 
@@ -112,7 +114,7 @@ python -m pytest
 python app/smoke_test.py
 ```
 
-**Baseline snapshot (not a permanent invariant):** after Phase 17C final pre-deploy correctness patch, **340 pytest tests passing**; smoke test all checks pass.
+**Test notes (do not treat as a permanent green invariant):** a pre-17C-deploy snapshot once reported ~340 pytest passes. Cursor later reported a pre-existing failure in `tests/test_text_utils.py::test_exact_and_article_stripped` (article-stripping matcher / matching smoke check). Do not claim current full-suite green without fresh evidence.
 
 ## Current development position
 
@@ -126,8 +128,12 @@ Completed: Phase 16 — Learning Progress Dashboard v1
 Completed: Phase 17A — Listening Foundation (+ hardening / product-QA patch)
 Completed: Phase 17A.1 — Window Lifecycle Stabilization
 Completed: Phase 17B — Windows Local TTS Provider v1 (+ final hardening / async race fix)
-Phase 17C implementation complete — production deployment/live verification pending
-Next after live /api/listening QA: Listening history/SRS (optional later); dictionary/pronunciation enrichment; Reading Lab
+Completed: Phase 17C — AI-generated Listening content v1 (production accepted)
+Next (directional only): Listening history/SRS (optional later); dictionary/pronunciation enrichment; Reading Lab
 ```
 
-Listening is optional (settings default **off**). Content is AI-generated from StudyGuard-selected targets (max 2) with validated cache + bundled fallback; question/answer/transcript are study language; meaning is native; word lookup on demand. Audio remains Windows local TTS only. No Listening attempt/SRS/mastery persistence yet. **Production `POST /api/listening` on the live VPS has not yet been deployed/verified** — frozen production proxy QA is pending. ScreenGuard splits `pause_enforcement` from rare `release_display`. Progress Dashboard is unchanged. AI enrichment remains advisory (draft → Apply).
+Listening is optional (settings default **off**). Content is AI-generated from StudyGuard-selected targets (max 2) with validated cache + bundled fallback; question/answer/transcript are study language; meaning is native; word lookup on demand. Audio remains Windows local TTS only.
+
+**Phase 17C production acceptance (2026-10-26, SHA `c0b2d2d`):** live VPS `/api/listening` deployed and verified (authenticated 200 + negative cases); Windows TTS verified; UI hotfix for missing theme color shipped; frozen Windows `.exe` Listening flow operator-QA passed. No Listening attempt/SRS/mastery persistence. No cloud TTS, STT, or pronunciation scoring.
+
+**Known deferred (not reopening 17C):** Dutch `nl-NL` voice may be missing on a given Windows machine (OS install); legacy article-stripping matcher failure is separate technical debt. ScreenGuard still splits `pause_enforcement` from rare `release_display`. Progress Dashboard unchanged. AI enrichment remains advisory (draft → Apply).

@@ -34,25 +34,25 @@ Architecture phases 1–14 (summary only):
 ## Current
 
 ```text
-Phase 17C implementation complete — production deployment/live verification pending
+Phase 17C CLOSED — production accepted
+Accepted SHA: c0b2d2d375d1b258a5c14fec5f713065875ee0fa
 ```
 
 ## Next
 
 ```text
-Deploy/verify live POST /api/listening (VPS + frozen production proxy)
-Then optional: Listening attempt history / analytics (not mastery)
+Optional later: Listening attempt history / analytics (not mastery / SRS)
 Dictionary / pronunciation enrichment (review-before-apply)
 Reading Lab improvements
 ```
 
-Also directional: dictionary / pronunciation enrichment (review-before-apply); Reading Lab improvements. Not a mandate to combine CEFR + cloud TTS in one step.
+Directional only — do not auto-start the next phase. Not a mandate to combine CEFR + cloud TTS in one step.
 
 ## Near-term (directional)
 
-- Listening production content (17C)
 - Dictionary / pronunciation enrichment
 - Reading Lab improvements
+- Optional Listening attempt history / analytics (not mastery)
 - Optional future explicit cloud TTS provider behind the same seam (never silent fallback)
 
 ## Long-term (directional)
@@ -72,3 +72,7 @@ Also directional: dictionary / pronunciation enrichment (review-before-apply); R
 - Embedding production OpenAI keys in the desktop app
 - Treating chat history as project source of truth
 - Bundling `.ai/` into the frozen executable as runtime data
+- Listening history / SRS / mastery persistence (explicitly out of 17C scope)
+- Cloud TTS, STT, or pronunciation scoring for Listening
+- Dutch `nl-NL` Windows voice missing on some machines — OS voice install, not an app defect
+- Legacy article-stripping matcher failure (`test_text_utils` / smoke) — separate technical debt; does not reopen 17C
