@@ -147,11 +147,55 @@ def test_word_overlay_does_not_pause_screenguard(monkeypatch):
 
 
 def test_check_reveals_transcript_not_before(monkeypatch):
-    src = inspect.getsource(ListeningApp._build_exercise)
+    src = inspect.getsource(ListeningApp._render_exercise_widgets)
     assert "session.item.text" not in src or "question" in src
     # Transcript content is only inserted in _check.
     check_src = inspect.getsource(ListeningApp._check)
     assert "session.item.text" in check_src
     assert "session.item.meaning" in check_src
-    build_src = inspect.getsource(ListeningApp._build_exercise)
+    build_src = inspect.getsource(ListeningApp._render_exercise_widgets)
     assert "self.session.item.question" in build_src
+
+
+def test_build_exercise_recovers_on_construction_failure(monkeypatch):
+    monkeypatch.setattr("listening_app.ui_common.apply_theme", lambda *_a, **_k: None)
+    monkeypatch.setattr(
+        "listening_app.ui_common.ScreenGuard",
+        lambda *a, **k: MagicMock(),
+    )
+    monkeypatch.setattr(
+        "listening_app.ttk.Frame",
+        lambda *a, **k: MagicMock(pack=MagicMock(), winfo_children=lambda: []),
+    )
+    monkeypatch.setattr("listening_app.ttk.Label", lambda *a, **k: MagicMock(pack=MagicMock()))
+    monkeypatch.setattr(
+        "listening_app.ttk.Button",
+        lambda *a, **k: MagicMock(pack=MagicMock(), state=MagicMock()),
+    )
+
+    def boom(*_a, **_k):
+        raise AttributeError("module 'ui_common' has no attribute 'COLOR_TEXT'")
+
+    monkeypatch.setattr("listening_app.prepare_clickable_text", boom)
+
+    window = MagicMock()
+    window.winfo_exists.return_value = True
+    item = ListeningItem(
+        text="The train leaves at nine.",
+        question="What time does the train leave?",
+        answer="at nine",
+        meaning="Meaning.",
+    )
+    app = ListeningApp(
+        window,
+        language_code="en",
+        audio_provider=FakeListeningAudioProvider(),
+        item=item,
+        locked=False,
+    )
+    assert app.session is not None
+    assert app.session.unavailable is True
+    assert not hasattr(app, "status") or getattr(app, "status", None) is None
+    # Play must not raise AttributeError after a failed build.
+    app._play()
+    assert app._play_busy is False

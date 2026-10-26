@@ -624,8 +624,11 @@ def run_async(widget: tk.Misc, work, on_success, on_error=None):
             try:
                 if widget.winfo_exists():
                     callback(value)
-            except tk.TclError:
-                pass
+            except Exception:
+                # Surface callback failures (do not treat them as silent success).
+                import traceback
+
+                traceback.print_exc()
 
         try:
             widget.after(0, invoke)

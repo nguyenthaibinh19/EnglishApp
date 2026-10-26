@@ -276,7 +276,8 @@ def prepare_clickable_text(
         borderwidth=0,
         highlightthickness=0,
         background=background,
-        foreground=foreground or ui_common.COLOR_TEXT,
+        # Same body-text default as ReadingApp._prepare_lookup_text.
+        foreground=foreground or "#1a1a1a",
         cursor="hand2",
     )
     widget.insert("1.0", content)

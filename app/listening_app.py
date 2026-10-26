@@ -252,6 +252,33 @@ class ListeningApp:
         ).pack(anchor="e", pady=(8, 0))
 
     def _build_exercise(self):
+        """Render the play/answer UI. Construction failures go to unavailable."""
+        try:
+            self._render_exercise_widgets()
+        except Exception as error:  # noqa: BLE001 - recover into unavailable lifecycle
+            if self.session is not None:
+                self.session.unavailable = True
+                if not self.session.unavailable_reason:
+                    self.session.unavailable_reason = "no_content"
+            # Drop any partial widgets (e.g. Play without status) before recovery UI.
+            for attr in (
+                "play_button",
+                "question_text",
+                "answer_entry",
+                "status",
+                "check_button",
+                "continue_button",
+                "transcript_frame",
+            ):
+                if hasattr(self, attr):
+                    try:
+                        delattr(self, attr)
+                    except Exception:
+                        pass
+            if self._alive():
+                self._build_unavailable(extra=str(error))
+
+    def _render_exercise_widgets(self):
         self._clear_body()
         assert self.session is not None
         ttk.Label(
@@ -397,9 +424,14 @@ class ListeningApp:
             return
         if self.session._playing:
             return
+        play_button = getattr(self, "play_button", None)
+        status = getattr(self, "status", None)
+        if play_button is None or status is None:
+            # Partial construction must not raise AttributeError on Play.
+            return
         self._play_busy = True
-        self.play_button.state(["disabled"])
-        self.status.config(
+        play_button.state(["disabled"])
+        status.config(
             text=config.ui("Đang phát…", "Playing…"),
             foreground=ui_common.COLOR_MUTED,
         )
@@ -413,12 +445,15 @@ class ListeningApp:
             if not self._alive():
                 return
             try:
-                if not self.session.unavailable:
-                    self.play_button.state(["!disabled"])
-                self.status.config(
-                    text=config.ui("Đã phát.", "Played."),
-                    foreground=ui_common.COLOR_MUTED,
-                )
+                btn = getattr(self, "play_button", None)
+                lbl = getattr(self, "status", None)
+                if btn is not None and self.session is not None and not self.session.unavailable:
+                    btn.state(["!disabled"])
+                if lbl is not None:
+                    lbl.config(
+                        text=config.ui("Đã phát.", "Played."),
+                        foreground=ui_common.COLOR_MUTED,
+                    )
             except tk.TclError:
                 pass
 
@@ -427,7 +462,9 @@ class ListeningApp:
             if not self._alive():
                 return
             try:
-                self.status.config(text=str(error), foreground=ui_common.COLOR_WARN)
+                lbl = getattr(self, "status", None)
+                if lbl is not None:
+                    lbl.config(text=str(error), foreground=ui_common.COLOR_WARN)
             except tk.TclError:
                 pass
             self._resolve_unavailable()
