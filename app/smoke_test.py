@@ -315,9 +315,9 @@ import tempfile
 import account_store
 import updater
 
-check("bản mới hơn thì cần cập nhật", updater.is_newer("v1.4.0", "1.3.4"))
-check("cùng bản thì không cập nhật", not updater.is_newer("v1.3.4", "1.3.4"))
-check("bản cũ hơn thì không cập nhật", not updater.is_newer("v1.3.3", "1.3.4"))
+check("bản mới hơn thì cần cập nhật", updater.is_newer("v1.4.1", "1.4.0"))
+check("cùng bản thì không cập nhật", not updater.is_newer("v1.4.0", "1.4.0"))
+check("bản cũ hơn thì không cập nhật", not updater.is_newer("v1.3.4", "1.4.0"))
 url, size, kind = updater._pick_asset(
     {
         "assets": [
