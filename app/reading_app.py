@@ -284,7 +284,8 @@ class ReadingApp:
         glossary = self.test.get("glossary") or []
         if glossary:
             lines = "\n".join(
-                f"• {g.get('word') or g.get('nl')} — {g['vi']}"
+                f"• {g.get('word') or g.get('nl')} — "
+                f"{g.get('vi') or g.get('meaning') or ''}"
                 for g in glossary
                 if g.get("word") or g.get("nl")
             )
@@ -911,34 +912,53 @@ class ReadingApp:
                 pass
         self.guard.pause_enforcement()
         self._bank_suspended = True
-        bank = ui_common.open_owned_popup(
-            self.window,
-            title=config.ui("Sổ từ", "Word list"),
-            topmost=True,
-        )
-        self._bank = bank
-
-        def release(event):
-            if event.widget is not bank or not self._bank_suspended:
-                return
-            self._bank_suspended = False
-            self.guard.resume_enforcement(refocus=False)
-
-        bank.bind("<Destroy>", release)
-        from quiz_app import VocabQuizApp
-        VocabQuizApp(
-            bank,
-            store=self.store,
-            progress=self.progress,
-            manage_only=True,
-            locked=False,
-            required=False,
-        )
+        bank = None
         try:
-            if bank.winfo_exists():
-                bank.lift()
-        except tk.TclError:
-            pass
+            bank = ui_common.open_owned_popup(
+                self.window,
+                title=config.ui("Sổ từ", "Word list"),
+                topmost=True,
+            )
+            self._bank = bank
+
+            def release(event):
+                if event.widget is not bank or not self._bank_suspended:
+                    return
+                self._bank_suspended = False
+                self.guard.resume_enforcement(refocus=False)
+
+            bank.bind("<Destroy>", release)
+            from quiz_app import VocabQuizApp
+
+            VocabQuizApp(
+                bank,
+                store=self.store,
+                progress=self.progress,
+                manage_only=True,
+                locked=False,
+                required=False,
+            )
+            try:
+                if bank.winfo_exists():
+                    bank.lift()
+            except tk.TclError:
+                pass
+        except Exception:
+            # Construction failed — never leave ScreenGuard paused or an orphan popup.
+            self._bank = None
+            if self._bank_suspended:
+                self._bank_suspended = False
+                try:
+                    self.guard.resume_enforcement(refocus=False)
+                except Exception:
+                    pass
+            if bank is not None:
+                try:
+                    if bank.winfo_exists():
+                        bank.destroy()
+                except tk.TclError:
+                    pass
+            raise
 
     def _finish_early(self):
         self.required = False

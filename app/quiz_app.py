@@ -15,6 +15,7 @@ from progress import Progress
 from quiz_engine import QuizEngine
 from text_utils import entry_word, fold_accents, normalize, strip_tags, without_article
 from vocab_store import ReadOnlyVocabView, VocabStore
+from vocabulary_model import entry_meaning
 
 
 class VocabQuizApp:
@@ -615,7 +616,14 @@ class VocabQuizApp:
 
         list_frame = ttk.Frame(left)
         list_frame.pack(fill=tk.BOTH, expand=True)
-        self.word_listbox = tk.Listbox(list_frame, font=ui_common.FONT_BODY, activestyle="none")
+        # Keep Listbox selection when Entry fields take the PRIMARY selection
+        # (e.g. Ctrl+A in Meaning); otherwise Update/Enter think nothing is selected.
+        self.word_listbox = tk.Listbox(
+            list_frame,
+            font=ui_common.FONT_BODY,
+            activestyle="none",
+            exportselection=False,
+        )
         scrollbar = ttk.Scrollbar(list_frame, orient="vertical", command=self.word_listbox.yview)
         self.word_listbox.config(yscrollcommand=scrollbar.set)
         self.word_listbox.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
@@ -704,7 +712,7 @@ class VocabQuizApp:
         self._filtered_indices = []
 
         for index, entry in enumerate(self.store.all()):
-            label = f"{strip_tags(entry_word(entry))} — {entry['vi']}"
+            label = f"{strip_tags(entry_word(entry))} — {entry_meaning(entry)}"
             if keyword and not self._entry_matches(entry, keyword):
                 continue
             self._filtered_indices.append(index)
@@ -726,8 +734,6 @@ class VocabQuizApp:
 
     def _learner_meaning(self, entry) -> str:
         """Nghĩa hiện ra khi làm bài. Tiếng Anh thì lấy từ điển, không dùng chú thích tiếng Việt đã lưu."""
-        from vocabulary_model import entry_meaning
-
         stored = entry_meaning(entry)
         if config.native_code() != "en":
             return stored
@@ -735,7 +741,7 @@ class VocabQuizApp:
         return gloss or stored
 
     def _entry_matches(self, entry, keyword: str) -> bool:
-        from vocabulary_model import entry_alternatives, entry_meaning
+        from vocabulary_model import entry_alternatives
 
         fields = (
             entry_word(entry),
@@ -755,7 +761,7 @@ class VocabQuizApp:
         index = self._selected_store_index()
         if index is None:
             return
-        from vocabulary_model import entry_alternatives, entry_example, entry_meaning
+        from vocabulary_model import entry_alternatives, entry_example
 
         entry = self.store.get(index) or {}
         alt = entry_alternatives(entry)
@@ -829,8 +835,8 @@ class VocabQuizApp:
         if self.guard.ask_yes_no(
             config.ui("Xóa từ", "Delete word"),
             config.ui(
-                f"Xóa “{entry_word(entry)} — {entry['vi']}”?",
-                f"Delete “{entry_word(entry)} — {entry['vi']}”?",
+                f"Xóa “{entry_word(entry)} — {entry_meaning(entry)}”?",
+                f"Delete “{entry_word(entry)} — {entry_meaning(entry)}”?",
             ),
         ):
             self.store.delete(index)
