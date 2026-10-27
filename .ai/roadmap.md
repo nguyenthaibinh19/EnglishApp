@@ -30,26 +30,31 @@ Architecture phases 1–14 (summary only):
 | 17A | Listening Foundation (optional StudySession activity + audio-provider seam; no production TTS) |
 | 17B | Windows Local TTS Provider v1 (System.Speech; per-language voice capability; lazy StudyMaster discovery) |
 | 17C | AI-generated Listening content v1 (StudyGuard targets; study-language question; grounded answer; cache/fallback) |
+| 18A | Account Cloud Sync Foundation (Leader-approved source; isolated `study_sync.db` vocabulary store; no production sync) |
 
 ## Current
 
 ```text
-Phase 17C CLOSED — production accepted
-Accepted SHA: c0b2d2d375d1b258a5c14fec5f713065875ee0fa
+Phase 18A COMPLETED — Account Cloud Sync source foundation (Leader-approved)
+No HTTP sync, desktop sync, VPS deploy, or production activation
 ```
 
 ## Next
 
 ```text
+Phase 18B planning — sync transport / client (not started)
+Then major product priority: AI Local Reading / Listening
 Optional later: Listening attempt history / analytics (not mastery / SRS)
 Dictionary / pronunciation enrichment (review-before-apply)
 Reading Lab improvements
 ```
 
-Directional only — do not auto-start the next phase. Not a mandate to combine CEFR + cloud TTS in one step.
+Directional only — do not auto-start Phase 18B or activate production sync from the 18A foundation.
 
 ## Near-term (directional)
 
+- Phase 18B planning (sync transport / client; not started; no production activation)
+- AI Local Reading / Listening (next major product priority after sync readiness)
 - Dictionary / pronunciation enrichment
 - Reading Lab improvements
 - Optional Listening attempt history / analytics (not mastery)
@@ -59,7 +64,7 @@ Directional only — do not auto-start the next phase. Not a mandate to combine 
 
 - StudyGuard AI / local model (`StudyGuardAIProvider` / `LocalModelProvider`)
 - AI evaluation dataset from AttemptHistory
-- Cloud sync (requires stable vocab IDs — already foundation)
+- Cloud sync transport + Progress/AttemptHistory merge (builds on 18A + stable vocab IDs)
 - Production distribution / code signing
 - Website evolution (`langstudyguard.com`)
 - Commercial / payment layer
@@ -76,3 +81,4 @@ Directional only — do not auto-start the next phase. Not a mandate to combine 
 - Cloud TTS, STT, or pronunciation scoring for Listening
 - Dutch `nl-NL` Windows voice missing on some machines — OS voice install, not an app defect
 - Legacy article-stripping matcher failure (`test_text_utils` / smoke) — separate technical debt; does not reopen 17C
+- Production cloud sync activation / HTTP sync routes / automatic desktop upload (not 18A)

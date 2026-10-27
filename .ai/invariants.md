@@ -106,9 +106,22 @@ Near answers and hint-assisted exact answers are **non-mastered**. Do not casual
 - When rewriting user persistence: prefer atomic temp-write + flush/fsync + `os.replace`.
 - Migrations must be **idempotent**.
 
+## Account Cloud Sync (foundation)
+
+- Sync persistence (when present) lives in **`study_sync.db`**, not production `accounts.db` ([ADR-018](decisions/ADR-018-account-cloud-sync.md)).
+- Vocabulary sync identity is the immutable `vocab_id`; never regenerate IDs on sync write.
+- Stale entity `expected_revision` must **conflict without mutation** (no silent overwrite).
+- Deleted entities are tombstones; must not be silently resurrected.
+- Replay of the same `operation_id` is idempotent only when entity key, delete intent, canonical payload, **and** the operation’s `expected_revision` all match; any mismatch is a conflict.
+- Sync payloads must use an explicit allowlist (canonical + supported legacy aliases + valid enrichment). Unsupported fields must be **rejected**, never silently dropped while acknowledging success.
+- Sensitive keys (tokens / API keys / passwords) must be rejected recursively, including nested objects and `examples[]` items.
+- Numeric sync arguments (`user_id`, revisions, cursors, limits) must be real integers — not bool or float.
+- Phase 18A does **not** activate production sync, HTTP sync routes, or automatic desktop upload.
+
 ## Test isolation
 
 - Tests must not modify real user AppData.
+- Sync store tests must use `tmp_path` only — never write production `accounts.db` or live AppData.
 - Tests must not contact production services (OpenAI, VPS, live dictionaries) unless an explicit, isolated fixture says otherwise — prefer fakes / `tmp_path`.
 
 ## Language architecture

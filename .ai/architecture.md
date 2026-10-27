@@ -120,9 +120,27 @@ Capabilities: grade sentence, generate reading, enrich vocabulary (POS/forms/exa
 ## Account / server
 
 - Desktop uses HTTP + account token (`Bearer` + body token).
-- Authenticated AI endpoints: `/api/grade`, `/api/reading`, `/api/enrich`.
+- Authenticated AI endpoints: `/api/grade`, `/api/reading`, `/api/enrich`, `/api/listening`.
 - Do not expose the account DB directly to the desktop client.
 - Reading generation wire may still use field name `vi` for meaning — local vocab schema remains canonical `meaning`.
+
+## Account Cloud Sync (Phase 18A foundation)
+
+```text
+Trusted server code (future HTTP)
+        ↓  authenticated user_id
+app/sync_store.py  →  study_sync.db  (separate from accounts.db)
+        ↓
+vocabulary_entities + vocabulary_changes
+(revision, tombstone, operation_id, change cursor)
+```
+
+- Local-first: desktop AppData remains the working store; cloud sync is not required to study.
+- Phase 18A implements **vocabulary entity persistence only** — no Progress/SRS merge, AttemptHistory sync, settings sync, HTTP routes, or production activation ([ADR-018](decisions/ADR-018-account-cloud-sync.md), status **Proposed**).
+- Optimistic concurrency via `expected_revision`; conflicts do not mutate.
+- Deletes are tombstones; no silent resurrection.
+- `operation_id` retries are idempotent only when the mutation matches; mismatched reuse conflicts.
+- Do not store auth tokens or API keys in sync payloads.
 
 ## Languages
 
