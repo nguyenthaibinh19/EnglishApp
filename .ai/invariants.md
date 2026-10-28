@@ -122,7 +122,7 @@ Near answers and hint-assisted exact answers are **non-mastered**. Do not casual
 - The Hetzner account-server file list includes the sync import closure. Importing that package with `STUDY_SYNC_ENABLED` unset must not create `study_sync.db`.
 - Sync HTTP errors stay non-sensitive: no stack traces, SQLite paths, passwords, tokens, or provider secrets. Page size is at most 500 changes.
 - Phase 18B.1 does **not** deploy, enable production sync, or add a desktop sync client. Accepted HTTP commit: `599e473`.
-- Sync backup uses SQLite's online backup API, publishes only after `integrity_check`, and never creates a missing `study_sync.db` or deletes the source. Retention touches only the `study-sync-` prefix. Restore refuses an existing destination. The sync backup is not scheduled in 18B.2.
+- Sync backup uses SQLite's online backup API, publishes only after `integrity_check`, and never creates a missing `study_sync.db` or deletes the source. Retention touches only the `study-sync-` prefix. Restore refuses an existing destination. The sync backup is not scheduled. The Accepted Phase 18B.3 plan does not add a timer or set `STUDY_SYNC_ENABLED`. On-VPS retention is not sufficient for activation. Abuse-resistance controls must be implemented and verified effective before the flag is set, not merely designed. Accepted backup commit: `5f4251a`.
 
 ## Test isolation
 

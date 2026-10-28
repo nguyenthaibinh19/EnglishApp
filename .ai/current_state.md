@@ -2,9 +2,11 @@
 
 > First file a new agent should read. Keep this concise and update when phases complete.
 
-**Snapshot date context:** 2026-10-28 — Phase 18B.2 sync database backup and staging readiness **CLOSED** (Leader-approved source, pending GitHub commit verification). Sync backup is **not scheduled**. Sync flag stays **OFF**. Nothing deployed. No desktop sync client.
+**Snapshot date context:** 2026-10-28 — Phase 18B.2 is **CLOSED** and independently verified. Phase 18B.3 planning is **Accepted**, pending GitHub commit verification. Sync backup is **not scheduled**. Sync flag stays **OFF**. Nothing deployed. No desktop sync client.
 
-**Git baseline for this work:** `599e4738f445dcca3ac0f7a762c303297a5752bd`
+**Git baseline for this work:** `5f4251a9e88b434621c8f0ac7eb281de6d4ee174`
+
+**Phase 18B.2 accepted commit:** `5f4251a` (sync backup and restore; ADR-020 Accepted; not scheduled)
 
 **Phase 18B.1 accepted commit:** `599e473` (vocabulary sync HTTP; ADR-019 Accepted)
 
@@ -14,7 +16,7 @@
 
 **Phase 17C accepted commit:** `c0b2d2d375d1b258a5c14fec5f713065875ee0fa`
 
-**Windows Startup:** deferred pending access to the affected PC (not in Phase 18B.2 scope).
+**Windows Startup:** deferred pending access to the affected PC (unchanged by Phase 18B.3).
 
 ## Product
 
@@ -141,8 +143,9 @@ Completed: Phase 17B — Windows Local TTS Provider v1 (+ final hardening / asyn
 Completed: Phase 17C — AI-generated Listening content v1 (production accepted)
 Completed: Phase 18A — Account Cloud Sync Foundation (accepted ``94f1bf7``; isolated ``study_sync.db`` vocabulary store; ADR-018 Accepted)
 Completed: Phase 18B.1 — Authenticated vocabulary sync HTTP (accepted ``599e473``; default-off; not deployed; no desktop client; ADR-019 Accepted)
-Completed: Phase 18B.2 — Sync DB backup and restore (Leader-approved source; ADR-020 Accepted; backup not scheduled; sync flag OFF; not deployed; no desktop client; pending GitHub commit verification)
-Next: planning only — a separately authorized backup schedule, server staging/activation, then an eventual Windows client (do not start automatically)
+Completed: Phase 18B.2 — Sync DB backup and restore (independently verified ``5f4251a``; ADR-020 Accepted; backup not scheduled; sync flag OFF; not deployed; no desktop client)
+Completed: Phase 18B.3 — Production-readiness plan (Accepted planning document, pending GitHub commit verification; sync flag OFF; backup not scheduled; not deployed; no desktop client)
+Next: Phase 18B.4 is the next possible repo-only milestone (sync backup timer units in the repo). It is not automatically authorized.
 Then (directional): AI Local Reading/Listening; optional Listening history/SRS; dictionary/pronunciation enrichment; Reading Lab
 ```
 
@@ -154,6 +157,8 @@ Listening is optional (settings default **off**). Content is AI-generated from S
 
 **Phase 18B.1 CLOSED (accepted `599e473`):** POST `/api/sync/vocabulary/put`, `/delete`, and `/changes` on the existing account server. Sync remains **default-off** unless `STUDY_SYNC_ENABLED` is exactly `1`. It is **not deployed**. **No desktop sync client** exists. See [ADR-019](decisions/ADR-019-vocabulary-sync-http.md).
 
-**Phase 18B.2 CLOSED (Leader-approved source, pending GitHub commit verification):** online backup and restore for `study_sync.db` only (`study-sync-` prefix, integrity check before publish, no-clobber restore, no source delete). **Not scheduled.** Sync flag stays **OFF**. **Nothing deployed.** **No desktop sync client.** `backup_accounts.py` stays accounts-only. See [ADR-020](decisions/ADR-020-sync-database-backup.md) and [SYNC_DB_OPERATIONS.md](procedures/SYNC_DB_OPERATIONS.md).
+**Phase 18B.2 CLOSED (independently verified `5f4251a`):** online backup and restore for `study_sync.db` only (`study-sync-` prefix, integrity check before publish, no-clobber restore, no source delete). **Not scheduled.** Sync flag stays **OFF**. **Nothing deployed.** **No desktop sync client.** `backup_accounts.py` stays accounts-only. See [ADR-020](decisions/ADR-020-sync-database-backup.md) and [SYNC_DB_OPERATIONS.md](procedures/SYNC_DB_OPERATIONS.md).
+
+**Phase 18B.3 ACCEPTED PLANNING (pending GitHub commit verification):** production-readiness plan only. Before any `STUDY_SYNC_ENABLED=1`: encrypted off-box backup and restore; cold-start rehearsal on a synthetic schema-v2 database when no live `study_sync.db` exists; first live on-box and off-box backups inside the approved RPO; public API rate limits, per-account quotas, and disk-exhaustion protection implemented, tested, dark-deployed under a separate authorization, and verified effective. Staging stays on localhost and its vocabulary is never copied into the live database. No timer, no VPS change, no flag activation, no desktop client. See [PHASE-18B.3-production-readiness.md](plans/PHASE-18B.3-production-readiness.md).
 
 **Known deferred (not reopening 17C):** Dutch `nl-NL` voice may be missing on a given Windows machine (OS install); legacy article-stripping matcher failure is separate technical debt. ScreenGuard still splits `pause_enforcement` from rare `release_display`. Progress Dashboard unchanged. AI enrichment remains advisory (draft → Apply).

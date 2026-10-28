@@ -1,6 +1,6 @@
 # Sync database operations
 
-Source procedure for Phase 18B.2. **Do not run the production steps in this phase.** The sync flag stays unset and the sync backup is not scheduled.
+Source procedure for the backup/restore behavior accepted in Phase 18B.2 (`5f4251a`). **Do not run the production steps.** The sync flag stays unset and the sync backup is not scheduled. The Accepted Phase 18B.3 plan is [PHASE-18B.3-production-readiness.md](../plans/PHASE-18B.3-production-readiness.md). That plan is not an authorization to execute this procedure.
 
 ## What is already true
 
@@ -33,10 +33,14 @@ All of the following have to be true before anyone sets `STUDY_SYNC_ENABLED=1` o
 4. The sync backup script is invoked by a **separate** timer or oneshot. Do not replace the accounts timer.
 5. `STUDY_SYNC_DIR` is unset unless operations deliberately chose another directory. The default file is `study_sync.db` beside the server modules.
 6. Desktop sync is still not part of this step.
+7. An off-box copy is access-controlled and encrypted, and a restore drill from that copy has succeeded onto a new path. On-VPS retention does not satisfy this item. Ownership, credential handling, and who restores are decided in that ops milestone, not here. If production `study_sync.db` does not exist yet, the rehearsal uses a synthetic schema-v2 database in an isolated environment. Staging vocabulary is never copied into the live database. After the first live sync database exists, its first on-box and off-box backups are both required within the approved RPO.
+8. Public API rate limits, per-account storage and change-history quotas, and disk-exhaustion protection are implemented, tested, dark-deployed under a separate Leader authorization, and verified effective. Safe HTTP monitoring is in place. An accepted design alone does not satisfy this item.
+9. RPO and RTO have been chosen. Backup freshness meets the RPO. A `study_sync.db` that disappears after first creation is detected persistently. The retention warning alerts even when the backup process exits 0.
+10. The effective flag matches across `.env`, systemd `Environment=`, drop-in overrides, and the running process.
 
 ## Rollback (do not execute)
 
-1. Unset `STUDY_SYNC_ENABLED` and restart the account server. Sync routes go back to 404 and stop opening `study_sync.db`.
+1. Unset `STUDY_SYNC_ENABLED` in `.env`, the systemd unit, and drop-in overrides, then restart the account server. Confirm the process environment matches. Sync routes go back to 404 and stop opening `study_sync.db`.
 2. Leave the database file in place. Do not delete it as part of rollback.
 3. Login and AI routes keep using `accounts.db`. The accounts backup timer stays unchanged.
 4. To inspect history, restore a `study-sync-*.db` backup into a **new** path and open that copy.

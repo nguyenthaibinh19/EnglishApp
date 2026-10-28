@@ -32,34 +32,35 @@ Architecture phases 1–14 (summary only):
 | 17C | AI-generated Listening content v1 (StudyGuard targets; study-language question; grounded answer; cache/fallback) |
 | 18A | Account Cloud Sync Foundation (Leader-approved source; isolated `study_sync.db` vocabulary store; no production sync) |
 | 18B.1 | Authenticated vocabulary sync HTTP (Leader-approved source; default-off; not deployed; no desktop client) |
-| 18B.2 | Sync DB backup and restore (Leader-approved source; not scheduled; sync flag off; not deployed; no desktop client) |
+| 18B.2 | Sync DB backup and restore (independently verified `5f4251a`; not scheduled; sync flag off; not deployed; no desktop client) |
+| 18B.3 | Production-readiness plan (Accepted planning document, pending GitHub commit verification; no timer, no deploy, no desktop client) |
 
 ## Current
 
 ```text
-Phase 18B.2 COMPLETED — Leader-approved source backup/restore (pending GitHub commit verification)
+Phase 18B.3 planning COMPLETED — Accepted document, pending GitHub commit verification
 Backup is not scheduled
 Sync flag stays OFF; nothing deployed; no desktop client
+Accepted backup baseline: 5f4251a
 ```
 
 ## Next
 
 ```text
-Planning only — do not start automatically:
-  separately authorized sync backup schedule
-  server staging / activation
-  eventual Windows client
+Phase 18B.4 is the next possible repo-only milestone
+It is not automatically authorized
+Windows client work stays after the later activation gates
 Then major product priority: AI Local Reading / Listening
 Optional later: Listening attempt history / analytics (not mastery / SRS)
 Dictionary / pronunciation enrichment (review-before-apply)
 Reading Lab improvements
 ```
 
-Directional only — do not schedule the sync backup, activate production sync, or start the Windows client without a separate authorization.
+Directional only — a sync backup timer, production activation, and the Windows client each need their own authorization. Completing the 18B.3 plan does not start 18B.4.
 
 ## Near-term (directional)
 
-- Planning for a sync backup schedule, server staging/activation, and an eventual Windows client (not started; no production activation)
+- Phase 18B.4 repo-only sync backup units, only after a separate authorization (no production activation)
 - AI Local Reading / Listening (next major product priority after sync readiness)
 - Dictionary / pronunciation enrichment
 - Reading Lab improvements
