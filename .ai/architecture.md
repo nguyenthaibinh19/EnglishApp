@@ -139,7 +139,8 @@ vocabulary_entities + vocabulary_changes
 
 - Local-first: desktop AppData remains the working store; cloud sync is not required to study.
 - Phase 18A (accepted commit `94f1bf7`) implements **vocabulary entity persistence only** ([ADR-018](decisions/ADR-018-account-cloud-sync.md), status **Accepted**). It does not activate production sync.
-- Phase 18B.1 (in progress, source only) adds POST `/api/sync/vocabulary/put|delete|changes` behind a **default-off** server flag ([ADR-019](decisions/ADR-019-vocabulary-sync-http.md)). Disabled requests do not open `study_sync.db`. Sync routes reject body-token fallback and client-supplied `user_id`.
+- Phase 18B.1 (accepted commit `599e473`, [ADR-019](decisions/ADR-019-vocabulary-sync-http.md) **Accepted**) adds POST `/api/sync/vocabulary/put|delete|changes` behind a **default-off** server flag. Disabled requests do not open `study_sync.db`. Sync routes reject body-token fallback and client-supplied `user_id`.
+- Phase 18B.2 (in progress) adds a separate sync backup/restore path ([ADR-020](decisions/ADR-020-sync-database-backup.md)). It does not replace `backup_accounts.py` and is not on the daily timer.
 - Login and AI routes still call `account_store.login()` / `user_for_token()` with no directory argument. Sync uses that same `user_for_token()` so it sees the same `accounts.db`. `STUDY_SYNC_DIR` overrides only the sync file.
 - `deploy/hetzner/setup.sh` must package the account-server import closure (`sync_http.py`, `sync_store.py`, `vocab_identity.py`, `vocabulary_model.py`, plus the existing AI/listening modules). Importing that package with the flag unset must not create `study_sync.db`. This phase does not run the script on the VPS.
 - Not in 18B.1: desktop sync, VPS deploy, production flag, Progress/SRS merge, AttemptHistory sync, settings sync.

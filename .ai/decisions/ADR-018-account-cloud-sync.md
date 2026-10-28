@@ -64,7 +64,7 @@ Production must not silently overwrite learning state. Authentication already ex
 
 - Sync persistence lives in a **separate** SQLite file (`study_sync.db` by default), configurable by path.
 - Do not mix sync tables into production `accounts.db` in 18A (keeps backup/rollback and blast radius clear).
-- `deploy/hetzner/backup_accounts.py` remains accounts-only until a later ops phase adds sync DB backup.
+- `deploy/hetzner/backup_accounts.py` stays accounts-only. Sync backup is a separate, unscheduled tool ([ADR-020](ADR-020-sync-database-backup.md)).
 
 ### Schema versioning / migration (study_sync.db)
 

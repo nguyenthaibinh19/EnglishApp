@@ -121,7 +121,8 @@ Near answers and hint-assisted exact answers are **non-mastered**. Do not casual
 - Sync HTTP takes `user_id` only from `account_store.user_for_token()` on `Authorization: Bearer`, the same call existing login/AI routes use. Body `token` and JSON `user_id` are not authority. There is no separate account-directory override.
 - The Hetzner account-server file list includes the sync import closure. Importing that package with `STUDY_SYNC_ENABLED` unset must not create `study_sync.db`.
 - Sync HTTP errors stay non-sensitive: no stack traces, SQLite paths, passwords, tokens, or provider secrets. Page size is at most 500 changes.
-- Phase 18B.1 does **not** deploy, enable production sync, or add a desktop sync client.
+- Phase 18B.1 does **not** deploy, enable production sync, or add a desktop sync client. Accepted HTTP commit: `599e473`.
+- Sync backup uses SQLite's online backup API, publishes only after `integrity_check`, and never creates a missing `study_sync.db` or deletes the source. Retention touches only the `study-sync-` prefix. Restore refuses an existing destination. The sync backup is not scheduled in 18B.2.
 
 ## Test isolation
 

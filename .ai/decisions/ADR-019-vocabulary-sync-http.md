@@ -172,7 +172,7 @@ A default-off flag on the process that already authenticates learners is the sma
 
 ## Consequences
 
-Easier: local integration tests on `127.0.0.1` with temporary databases; rollback does not require a schema downgrade. Harder: operators must treat `STUDY_SYNC_ENABLED=1` as a production change even though the code can ship dark. Desktop sync and conflict UI remain later work. `study_sync.db` still needs its own backup story before activation.
+Easier: local integration tests on `127.0.0.1` with temporary databases; rollback does not require a schema downgrade. Harder: operators must treat `STUDY_SYNC_ENABLED=1` as a production change even though the code can ship dark. Desktop sync and conflict UI remain later work. A separate sync backup exists in source ([ADR-020](ADR-020-sync-database-backup.md)) but is not scheduled and does not by itself authorize activation.
 
 ## Do not
 

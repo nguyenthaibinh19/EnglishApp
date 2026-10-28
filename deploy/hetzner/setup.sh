@@ -38,6 +38,7 @@ FILES=(
   ai/base.py
   ai/service.py
   ai/openai_provider.py
+  sync_backup.py
   requirements-server.txt
 )
 
@@ -83,6 +84,8 @@ for name in "${FILES[@]}"; do
   fi
 done
 cp "${SRC}/deploy/hetzner/backup_accounts.py" "${APP_DIR}/deploy/hetzner/backup_accounts.py"
+# Copied for a later ops step. The daily timer still runs backup_accounts.py only.
+cp "${SRC}/deploy/hetzner/backup_sync.py" "${APP_DIR}/deploy/hetzner/backup_sync.py"
 cp "${SRC}/deploy/hetzner/language-guard.service" /etc/systemd/system/language-guard.service
 cp "${SRC}/deploy/hetzner/language-guard-backup.service" /etc/systemd/system/language-guard-backup.service
 cp "${SRC}/deploy/hetzner/language-guard-backup.timer" /etc/systemd/system/language-guard-backup.timer

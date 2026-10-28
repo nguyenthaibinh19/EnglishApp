@@ -32,30 +32,34 @@ Architecture phases 1–14 (summary only):
 | 17C | AI-generated Listening content v1 (StudyGuard targets; study-language question; grounded answer; cache/fallback) |
 | 18A | Account Cloud Sync Foundation (Leader-approved source; isolated `study_sync.db` vocabulary store; no production sync) |
 | 18B.1 | Authenticated vocabulary sync HTTP (Leader-approved source; default-off; not deployed; no desktop client) |
+| 18B.2 | Sync DB backup and restore (Leader-approved source; not scheduled; sync flag off; not deployed; no desktop client) |
 
 ## Current
 
 ```text
-Phase 18B.1 COMPLETED — Leader-approved source HTTP (pending GitHub commit verification)
-Sync remains default-off, not deployed, no desktop client
+Phase 18B.2 COMPLETED — Leader-approved source backup/restore (pending GitHub commit verification)
+Backup is not scheduled
+Sync flag stays OFF; nothing deployed; no desktop client
 ```
 
 ## Next
 
 ```text
-Phase 18B.2 planning — sync DB backup and server staging readiness (not started)
-Before Windows client integration
+Planning only — do not start automatically:
+  separately authorized sync backup schedule
+  server staging / activation
+  eventual Windows client
 Then major product priority: AI Local Reading / Listening
 Optional later: Listening attempt history / analytics (not mastery / SRS)
 Dictionary / pronunciation enrichment (review-before-apply)
 Reading Lab improvements
 ```
 
-Directional only — do not start the Windows sync client before 18B.2 planning, and do not activate production sync by setting the flag on the VPS.
+Directional only — do not schedule the sync backup, activate production sync, or start the Windows client without a separate authorization.
 
 ## Near-term (directional)
 
-- Phase 18B.2 planning (sync DB backup and server staging readiness; before Windows client integration; no production activation)
+- Planning for a sync backup schedule, server staging/activation, and an eventual Windows client (not started; no production activation)
 - AI Local Reading / Listening (next major product priority after sync readiness)
 - Dictionary / pronunciation enrichment
 - Reading Lab improvements
