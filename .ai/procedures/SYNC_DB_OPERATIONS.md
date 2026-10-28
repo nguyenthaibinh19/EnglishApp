@@ -6,7 +6,8 @@ Source procedure for the backup/restore behavior accepted in Phase 18B.2 (`5f425
 
 - `accounts.db` backup remains `deploy/hetzner/backup_accounts.py` on the existing daily timer. Prefix: `accounts-`.
 - Sync backup code is `app/sync_backup.py`. The operator script is `deploy/hetzner/backup_sync.py`. Prefix: `study-sync-`.
-- `deploy/hetzner/setup.sh` may copy `backup_sync.py`. It does **not** add a timer and does not set `STUDY_SYNC_ENABLED`.
+- `deploy/hetzner/setup.sh` may copy `backup_sync.py` and the sync unit files into the app tree. It does **not** install or enable the sync timer and does not set `STUDY_SYNC_ENABLED`. Production installation of that timer is Phase 18B.8.
+- Alert events and the test sink are [ADR-021](../decisions/ADR-021-sync-backup-alerts.md) (Accepted for the source contract only). Production paging is not configured or operational. A test record file is not paging. Exit 0 after a retention warning does not prove the warning was paged.
 - A missing `study_sync.db` is not created by the backup tool.
 - Restore publishes with a no-clobber hard link. An existing destination, including a dangling symlink or a file created during the copy, is not modified.
 - The temporary file is created mode `0600` before SQLite writes user data. On POSIX the backup directory must end up mode `0700` or the backup fails.

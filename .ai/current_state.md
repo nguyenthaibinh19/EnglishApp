@@ -2,9 +2,11 @@
 
 > First file a new agent should read. Keep this concise and update when phases complete.
 
-**Snapshot date context:** 2026-10-28 — Phase 18B.2 is **CLOSED** and independently verified. Phase 18B.3 planning is **Accepted**, pending GitHub commit verification. Sync backup is **not scheduled**. Sync flag stays **OFF**. Nothing deployed. No desktop sync client.
+**Snapshot date context:** 2026-10-28 — Phase 18B.4 sync backup timer and alerting is **CLOSED** (Leader-approved source, pending GitHub commit verification). Timer units exist in the repository only. They are not installed or enabled. No production alert destination. Nothing deployed. Sync flag stays **OFF**. No desktop sync client.
 
-**Git baseline for this work:** `5f4251a9e88b434621c8f0ac7eb281de6d4ee174`
+**Git baseline for this work:** `97f7b25b504fdfb555c4d5462d418ae11081a867`
+
+**Phase 18B.3 accepted commit:** `97f7b25` (production-readiness plan; no timer, no deploy)
 
 **Phase 18B.2 accepted commit:** `5f4251a` (sync backup and restore; ADR-020 Accepted; not scheduled)
 
@@ -16,7 +18,7 @@
 
 **Phase 17C accepted commit:** `c0b2d2d375d1b258a5c14fec5f713065875ee0fa`
 
-**Windows Startup:** deferred pending access to the affected PC (unchanged by Phase 18B.3).
+**Windows Startup:** deferred pending access to the affected PC (unchanged).
 
 ## Product
 
@@ -144,8 +146,9 @@ Completed: Phase 17C — AI-generated Listening content v1 (production accepted)
 Completed: Phase 18A — Account Cloud Sync Foundation (accepted ``94f1bf7``; isolated ``study_sync.db`` vocabulary store; ADR-018 Accepted)
 Completed: Phase 18B.1 — Authenticated vocabulary sync HTTP (accepted ``599e473``; default-off; not deployed; no desktop client; ADR-019 Accepted)
 Completed: Phase 18B.2 — Sync DB backup and restore (independently verified ``5f4251a``; ADR-020 Accepted; backup not scheduled; sync flag OFF; not deployed; no desktop client)
-Completed: Phase 18B.3 — Production-readiness plan (Accepted planning document, pending GitHub commit verification; sync flag OFF; backup not scheduled; not deployed; no desktop client)
-Next: Phase 18B.4 is the next possible repo-only milestone (sync backup timer units in the repo). It is not automatically authorized.
+Completed: Phase 18B.3 — Production-readiness plan (accepted ``97f7b25``; planning only; sync flag OFF; backup not scheduled; not deployed; no desktop client)
+Completed: Phase 18B.4 — Sync backup timer units and alert contract (Leader-approved source, pending GitHub commit verification; units not installed or enabled; no production alert destination; sync flag OFF; not deployed)
+Next: Phase 18B.5 — repo-only restore verification. It is not automatically authorized.
 Then (directional): AI Local Reading/Listening; optional Listening history/SRS; dictionary/pronunciation enrichment; Reading Lab
 ```
 
@@ -159,6 +162,8 @@ Listening is optional (settings default **off**). Content is AI-generated from S
 
 **Phase 18B.2 CLOSED (independently verified `5f4251a`):** online backup and restore for `study_sync.db` only (`study-sync-` prefix, integrity check before publish, no-clobber restore, no source delete). **Not scheduled.** Sync flag stays **OFF**. **Nothing deployed.** **No desktop sync client.** `backup_accounts.py` stays accounts-only. See [ADR-020](decisions/ADR-020-sync-database-backup.md) and [SYNC_DB_OPERATIONS.md](procedures/SYNC_DB_OPERATIONS.md).
 
-**Phase 18B.3 ACCEPTED PLANNING (pending GitHub commit verification):** production-readiness plan only. Before any `STUDY_SYNC_ENABLED=1`: encrypted off-box backup and restore; cold-start rehearsal on a synthetic schema-v2 database when no live `study_sync.db` exists; first live on-box and off-box backups inside the approved RPO; public API rate limits, per-account quotas, and disk-exhaustion protection implemented, tested, dark-deployed under a separate authorization, and verified effective. Staging stays on localhost and its vocabulary is never copied into the live database. No timer, no VPS change, no flag activation, no desktop client. See [PHASE-18B.3-production-readiness.md](plans/PHASE-18B.3-production-readiness.md).
+**Phase 18B.3 CLOSED (accepted `97f7b25`):** production-readiness plan only. It does not install a timer or set the sync flag. See [PHASE-18B.3-production-readiness.md](plans/PHASE-18B.3-production-readiness.md).
+
+**Phase 18B.4 CLOSED (Leader-approved source, pending GitHub commit verification):** `language-guard-sync-backup.service` and `.timer` exist in the repository only. They are **not installed or enabled**. No production alert destination is configured, and production paging is not operational. Nothing is deployed. Sync is not activated. See [ADR-021](decisions/ADR-021-sync-backup-alerts.md) (Accepted for the source alert contract only).
 
 **Known deferred (not reopening 17C):** Dutch `nl-NL` voice may be missing on a given Windows machine (OS install); legacy article-stripping matcher failure is separate technical debt. ScreenGuard still splits `pause_enforcement` from rare `release_display`. Progress Dashboard unchanged. AI enrichment remains advisory (draft → Apply).

@@ -1,6 +1,6 @@
 # Phase 18B.3 — Production readiness plan
 
-Status: **Accepted** planning document, pending GitHub commit verification. Acceptance of this plan does not authorize implementation, a VPS change, a timer, flag activation, a database write, or Windows client work. The next possible milestone is repo-only 18B.4, and it is not started automatically.
+Status: **Accepted** planning document (`97f7b25`). Acceptance of this plan does not authorize implementation of later milestones, a VPS change, a timer, flag activation, a database write, or Windows client work. Phase 18B.4 may add repository units only. Installing them is Phase 18B.8 and is not started automatically.
 
 Accepted baseline: Phase 18B.2 commit `5f4251a9e88b434621c8f0ac7eb281de6d4ee174` (`5f4251a`).
 

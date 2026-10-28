@@ -33,34 +33,35 @@ Architecture phases 1–14 (summary only):
 | 18A | Account Cloud Sync Foundation (Leader-approved source; isolated `study_sync.db` vocabulary store; no production sync) |
 | 18B.1 | Authenticated vocabulary sync HTTP (Leader-approved source; default-off; not deployed; no desktop client) |
 | 18B.2 | Sync DB backup and restore (independently verified `5f4251a`; not scheduled; sync flag off; not deployed; no desktop client) |
-| 18B.3 | Production-readiness plan (Accepted planning document, pending GitHub commit verification; no timer, no deploy, no desktop client) |
+| 18B.3 | Production-readiness plan (accepted `97f7b25`; planning only; no timer, no deploy, no desktop client) |
+| 18B.4 | Sync backup timer and alert contract (Leader-approved source; units not installed or enabled; no production alert destination; sync flag off) |
 
 ## Current
 
 ```text
-Phase 18B.3 planning COMPLETED — Accepted document, pending GitHub commit verification
-Backup is not scheduled
+Phase 18B.4 COMPLETED — Leader-approved source (pending GitHub commit verification)
+Timer units are repository-only and are not installed or enabled
+No production alert destination; paging is not operational
 Sync flag stays OFF; nothing deployed; no desktop client
-Accepted backup baseline: 5f4251a
+Planning baseline: 97f7b25
 ```
 
 ## Next
 
 ```text
-Phase 18B.4 is the next possible repo-only milestone
+Phase 18B.5 — repo-only restore verification
 It is not automatically authorized
-Windows client work stays after the later activation gates
 Then major product priority: AI Local Reading / Listening
 Optional later: Listening attempt history / analytics (not mastery / SRS)
 Dictionary / pronunciation enrichment (review-before-apply)
 Reading Lab improvements
 ```
 
-Directional only — a sync backup timer, production activation, and the Windows client each need their own authorization. Completing the 18B.3 plan does not start 18B.4.
+Directional only — installing the sync timer, production activation, and the Windows client each need their own authorization. Completing Phase 18B.4 does not start Phase 18B.5.
 
 ## Near-term (directional)
 
-- Phase 18B.4 repo-only sync backup units, only after a separate authorization (no production activation)
+- Phase 18B.5 repo-only restore verification, only after a separate authorization (no production activation)
 - AI Local Reading / Listening (next major product priority after sync readiness)
 - Dictionary / pronunciation enrichment
 - Reading Lab improvements

@@ -1,0 +1,10 @@
+[Unit]
+Description=Backup Language Guard sync database
+
+[Service]
+Type=oneshot
+User=guard
+Group=guard
+Environment=STUDY_SYNC_DB=/opt/language-guard/study_sync.db
+Environment=STUDY_SYNC_BACKUP_DIR=/var/backups/language-guard/study-sync
+ExecStart=/opt/language-guard/venv/bin/python /opt/language-guard/deploy/hetzner/backup_sync.py

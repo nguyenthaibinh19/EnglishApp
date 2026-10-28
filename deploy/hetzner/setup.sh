@@ -39,6 +39,7 @@ FILES=(
   ai/service.py
   ai/openai_provider.py
   sync_backup.py
+  sync_alert.py
   requirements-server.txt
 )
 
@@ -86,6 +87,10 @@ done
 cp "${SRC}/deploy/hetzner/backup_accounts.py" "${APP_DIR}/deploy/hetzner/backup_accounts.py"
 # Copied for a later ops step. The daily timer still runs backup_accounts.py only.
 cp "${SRC}/deploy/hetzner/backup_sync.py" "${APP_DIR}/deploy/hetzner/backup_sync.py"
+# Sync timer units stay in the app tree. Do not copy them into systemd and do
+# not enable them. Phase 18B.8 is the installation milestone.
+cp "${SRC}/deploy/hetzner/language-guard-sync-backup.service" "${APP_DIR}/deploy/hetzner/language-guard-sync-backup.service"
+cp "${SRC}/deploy/hetzner/language-guard-sync-backup.timer" "${APP_DIR}/deploy/hetzner/language-guard-sync-backup.timer"
 cp "${SRC}/deploy/hetzner/language-guard.service" /etc/systemd/system/language-guard.service
 cp "${SRC}/deploy/hetzner/language-guard-backup.service" /etc/systemd/system/language-guard-backup.service
 cp "${SRC}/deploy/hetzner/language-guard-backup.timer" /etc/systemd/system/language-guard-backup.timer
