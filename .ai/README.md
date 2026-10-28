@@ -74,7 +74,7 @@ If documentation conflicts with tested current behavior, **investigate the confl
 | [invariants.md](invariants.md) | Rules that must not be broken |
 | [roadmap.md](roadmap.md) | Directional plan |
 | [lessons.md](lessons.md) | Durable engineering lessons |
-| [decisions/](decisions/) | Architecture Decision Records (through ADR-021) |
+| [decisions/](decisions/) | Architecture Decision Records (through ADR-022; ADR-022 is Accepted, architecture only, not implemented) |
 | [procedures/SYNC_DB_OPERATIONS.md](procedures/SYNC_DB_OPERATIONS.md) | Sync backup/restore and activation checklist (not executed) |
 | [plans/PHASE-18B.3-production-readiness.md](plans/PHASE-18B.3-production-readiness.md) | Phase 18B.3 production-readiness plan (Accepted; `97f7b25`) |
 | [procedures/](procedures/) | How-to checklists |

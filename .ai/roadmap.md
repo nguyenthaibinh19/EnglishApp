@@ -34,16 +34,17 @@ Architecture phases 1–14 (summary only):
 | 18B.1 | Authenticated vocabulary sync HTTP (Leader-approved source; default-off; not deployed; no desktop client) |
 | 18B.2 | Sync DB backup and restore (independently verified `5f4251a`; not scheduled; sync flag off; not deployed; no desktop client) |
 | 18B.3 | Production-readiness plan (accepted `97f7b25`; planning only; no timer, no deploy, no desktop client) |
-| 18B.4 | Sync backup timer and alert contract (Leader-approved source; units not installed or enabled; no production alert destination; sync flag off) |
+| 18B.4 | Sync backup timer and alert contract (accepted `d277791`; units not installed; no production paging; sync flag off) |
 
 ## Current
 
 ```text
-Phase 18B.4 COMPLETED — Leader-approved source (pending GitHub commit verification)
+Phase 18B.4 COMPLETED — accepted `d277791`
 Timer units are repository-only and are not installed or enabled
 No production alert destination; paging is not operational
 Sync flag stays OFF; nothing deployed; no desktop client
-Planning baseline: 97f7b25
+ADR-022 automatic account sync is Accepted as architecture only; milestones are not started
+Planning baseline: d277791
 ```
 
 ## Next
@@ -62,6 +63,7 @@ Directional only — installing the sync timer, production activation, and the W
 ## Near-term (directional)
 
 - Phase 18B.5 repo-only restore verification, only after a separate authorization (no production activation)
+- ADR-022 event-first automatic account sync (Accepted, architecture only; does not replace 18B.5 and does not authorize a client or 18C). Includes replacement overlap preflight and per-account vocabulary isolation. Implementation is not started.
 - AI Local Reading / Listening (next major product priority after sync readiness)
 - Dictionary / pronunciation enrichment
 - Reading Lab improvements

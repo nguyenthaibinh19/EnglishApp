@@ -2,9 +2,11 @@
 
 > First file a new agent should read. Keep this concise and update when phases complete.
 
-**Snapshot date context:** 2026-10-28 — Phase 18B.4 sync backup timer and alerting is **CLOSED** (Leader-approved source, pending GitHub commit verification). Timer units exist in the repository only. They are not installed or enabled. No production alert destination. Nothing deployed. Sync flag stays **OFF**. No desktop sync client.
+**Snapshot date context:** 2026-10-29 — Phase 18B.4 is **CLOSED** at `d277791`. ADR-022 is **Accepted** as architecture only and is not implemented. Implementation milestones are not started. Sync flag stays **OFF**. Timer units are not installed. No production paging. Nothing deployed. No desktop sync client.
 
-**Git baseline for this work:** `97f7b25b504fdfb555c4d5462d418ae11081a867`
+**Git baseline for this work:** `d2777913e7d175fea0ad26c629c5cf7f2c0feca8`
+
+**Phase 18B.4 accepted commit:** `d277791` (sync backup timer units and source alert contract; not installed; ADR-021 Accepted)
 
 **Phase 18B.3 accepted commit:** `97f7b25` (production-readiness plan; no timer, no deploy)
 
@@ -147,8 +149,9 @@ Completed: Phase 18A — Account Cloud Sync Foundation (accepted ``94f1bf7``; is
 Completed: Phase 18B.1 — Authenticated vocabulary sync HTTP (accepted ``599e473``; default-off; not deployed; no desktop client; ADR-019 Accepted)
 Completed: Phase 18B.2 — Sync DB backup and restore (independently verified ``5f4251a``; ADR-020 Accepted; backup not scheduled; sync flag OFF; not deployed; no desktop client)
 Completed: Phase 18B.3 — Production-readiness plan (accepted ``97f7b25``; planning only; sync flag OFF; backup not scheduled; not deployed; no desktop client)
-Completed: Phase 18B.4 — Sync backup timer units and alert contract (Leader-approved source, pending GitHub commit verification; units not installed or enabled; no production alert destination; sync flag OFF; not deployed)
+Completed: Phase 18B.4 — Sync backup timer units and alert contract (accepted ``d277791``; units not installed or enabled; no production paging; sync flag OFF; not deployed)
 Next: Phase 18B.5 — repo-only restore verification. It is not automatically authorized.
+Accepted, not started: ADR-022 event-first automatic account sync (architecture only). No schema, HTTP, or Windows client. Phase 18B.5 remains the next possible separately authorized milestone. The accepted design includes server-order SRS, replacement overlap preflight before any duplicate upload, and per-account vocabulary isolation.
 Then (directional): AI Local Reading/Listening; optional Listening history/SRS; dictionary/pronunciation enrichment; Reading Lab
 ```
 
@@ -164,6 +167,8 @@ Listening is optional (settings default **off**). Content is AI-generated from S
 
 **Phase 18B.3 CLOSED (accepted `97f7b25`):** production-readiness plan only. It does not install a timer or set the sync flag. See [PHASE-18B.3-production-readiness.md](plans/PHASE-18B.3-production-readiness.md).
 
-**Phase 18B.4 CLOSED (Leader-approved source, pending GitHub commit verification):** `language-guard-sync-backup.service` and `.timer` exist in the repository only. They are **not installed or enabled**. No production alert destination is configured, and production paging is not operational. Nothing is deployed. Sync is not activated. See [ADR-021](decisions/ADR-021-sync-backup-alerts.md) (Accepted for the source alert contract only).
+**Phase 18B.4 CLOSED (accepted `d277791`):** `language-guard-sync-backup.service` and `.timer` exist in the repository only. They are **not installed or enabled**. Production paging is not operational. Nothing is deployed. Sync is not activated. See [ADR-021](decisions/ADR-021-sync-backup-alerts.md).
+
+**ADR-022 Accepted** (architecture only; not implemented): event-first progress sync and automatic account sync while the Windows app is running. Local study stays authoritative offline. Server-order folding and `received_at`-anchored `ladder-v2` SRS are locked, including a late offline wrong answer resetting streak. Confirmed and provisional projections stay separate. Import identity is file identity plus byte offset. A replacement file requires overlap preflight and explicit reconciliation before an ambiguous line can upload; accepted events are not deleted or silently duplicated. Synced requires both vocabulary and progress outboxes clear, both download cursors caught up, and no unresolved blocking conflict. Future signed-in vocabulary is per-account; machine-global guest `vocab.json` must not automatically appear in or upload to an account. No tables, routes, or client are authorized. Milestones 18C.1–18C.3 are not started. See [ADR-022](decisions/ADR-022-event-first-automatic-account-sync.md).
 
 **Known deferred (not reopening 17C):** Dutch `nl-NL` voice may be missing on a given Windows machine (OS install); legacy article-stripping matcher failure is separate technical debt. ScreenGuard still splits `pause_enforcement` from rare `release_display`. Progress Dashboard unchanged. AI enrichment remains advisory (draft → Apply).
