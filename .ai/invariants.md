@@ -116,7 +116,12 @@ Near answers and hint-assisted exact answers are **non-mastered**. Do not casual
 - Sync payloads must use an explicit allowlist (canonical + supported legacy aliases + valid enrichment). Unsupported fields must be **rejected**, never silently dropped while acknowledging success.
 - Sensitive keys (tokens / API keys / passwords) must be rejected recursively, including nested objects and `examples[]` items.
 - Numeric sync arguments (`user_id`, revisions, cursors, limits) must be real integers — not bool or float.
-- Phase 18A does **not** activate production sync, HTTP sync routes, or automatic desktop upload.
+- Phase 18A does **not** activate production sync or automatic desktop upload. Accepted store commit: `94f1bf7`.
+- Phase 18B.1 HTTP sync is **off** unless `STUDY_SYNC_ENABLED` is exactly `1`. While off, sync routes must not open or create `study_sync.db`.
+- Sync HTTP takes `user_id` only from `account_store.user_for_token()` on `Authorization: Bearer`, the same call existing login/AI routes use. Body `token` and JSON `user_id` are not authority. There is no separate account-directory override.
+- The Hetzner account-server file list includes the sync import closure. Importing that package with `STUDY_SYNC_ENABLED` unset must not create `study_sync.db`.
+- Sync HTTP errors stay non-sensitive: no stack traces, SQLite paths, passwords, tokens, or provider secrets. Page size is at most 500 changes.
+- Phase 18B.1 does **not** deploy, enable production sync, or add a desktop sync client.
 
 ## Test isolation
 

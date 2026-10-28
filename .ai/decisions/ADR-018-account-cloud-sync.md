@@ -108,6 +108,10 @@ Production must not silently overwrite learning state. Authentication already ex
 - Later phases: feature flag / server config before any production traffic.
 - Rollback: disable flag; leave `study_sync.db` unused; desktop unaffected.
 
+### Phase 18B.1 addendum (HTTP, source only)
+
+Phase 18B.1 adds a default-off vocabulary sync API on the existing account server. The flag, Bearer-only auth, cursor page contract, and status codes are [ADR-019](ADR-019-vocabulary-sync-http.md). Production stays off (`STUDY_SYNC_ENABLED` unset). No desktop client and no VPS activation in that phase.
+
 ## Phase 18A vs future
 
 **Implemented in 18A**

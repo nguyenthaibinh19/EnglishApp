@@ -2,15 +2,17 @@
 
 > First file a new agent should read. Keep this concise and update when phases complete.
 
-**Snapshot date context:** 2026-10-27 — Phase 18A Account Cloud Sync Foundation **CLOSED** (Leader-approved source foundation). No HTTP sync, desktop sync, VPS deploy, or production activation.
+**Snapshot date context:** 2026-10-28 — Phase 18B.1 Authenticated Vocabulary Sync API **CLOSED** (Leader-approved source implementation, pending GitHub commit verification). Sync stays **default-off** (`STUDY_SYNC_ENABLED` unset). Not deployed. No desktop sync client.
 
-**Git baseline for this work:** `ed51a9248eb4e676973666b82c743ebc93fedca0`
+**Git baseline for this work:** `94f1bf753b9ca522bc40be6b46cf2516bbe00993`
+
+**Phase 18A accepted commit:** `94f1bf7` (vocabulary sync store; ADR-018 Accepted)
 
 **Accepted Vocabulary Manager hotfix:** `ed51a92` (canonical `meaning` + Listbox `exportselection=False`)
 
 **Phase 17C accepted commit:** `c0b2d2d375d1b258a5c14fec5f713065875ee0fa`
 
-**Windows Startup:** deferred pending access to the affected PC (not in Phase 18A scope).
+**Windows Startup:** deferred pending access to the affected PC (not in Phase 18B.1 scope).
 
 ## Product
 
@@ -135,8 +137,9 @@ Completed: Phase 17A — Listening Foundation (+ hardening / product-QA patch)
 Completed: Phase 17A.1 — Window Lifecycle Stabilization
 Completed: Phase 17B — Windows Local TTS Provider v1 (+ final hardening / async race fix)
 Completed: Phase 17C — AI-generated Listening content v1 (production accepted)
-Completed: Phase 18A — Account Cloud Sync Foundation (Leader-approved source; isolated ``study_sync.db`` vocabulary store only; ADR-018 Accepted)
-Next: Phase 18B planning (sync transport / client — not started)
+Completed: Phase 18A — Account Cloud Sync Foundation (accepted ``94f1bf7``; isolated ``study_sync.db`` vocabulary store; ADR-018 Accepted)
+Completed: Phase 18B.1 — Authenticated vocabulary sync HTTP (Leader-approved source; default-off; not deployed; no desktop client; ADR-019 Accepted; pending GitHub commit verification)
+Next: Phase 18B.2 planning — sync DB backup and server staging readiness, before Windows client integration
 Then (directional): AI Local Reading/Listening; optional Listening history/SRS; dictionary/pronunciation enrichment; Reading Lab
 ```
 
@@ -144,6 +147,8 @@ Listening is optional (settings default **off**). Content is AI-generated from S
 
 **Phase 17C production acceptance (2026-10-26, SHA `c0b2d2d`):** live VPS `/api/listening` deployed and verified (authenticated 200 + negative cases); Windows TTS verified; UI hotfix for missing theme color shipped; frozen Windows `.exe` Listening flow operator-QA passed. No Listening attempt/SRS/mastery persistence. No cloud TTS, STT, or pronunciation scoring.
 
-**Phase 18A CLOSED (Leader-approved source foundation):** isolated `app/sync_store.py` + `study_sync.db` vocabulary entity store (revision, tombstone, operation_id + expected_revision idempotency, cursor pagination, strict payload allowlist, future-schema rejection before DDL). **Not included:** HTTP sync routes, desktop sync/upload, Progress/SRS/AttemptHistory sync, VPS deploy, production activation, or Windows client sync behavior. See [ADR-018](decisions/ADR-018-account-cloud-sync.md).
+**Phase 18A CLOSED (accepted `94f1bf7`):** isolated `app/sync_store.py` + `study_sync.db` vocabulary entity store (revision, tombstone, operation_id + expected_revision idempotency, cursor pagination, strict payload allowlist, future-schema rejection before DDL). See [ADR-018](decisions/ADR-018-account-cloud-sync.md).
+
+**Phase 18B.1 CLOSED (Leader-approved source implementation, pending GitHub commit verification):** POST `/api/sync/vocabulary/put`, `/delete`, and `/changes` on the existing account server. Sync remains **default-off** unless `STUDY_SYNC_ENABLED` is exactly `1`. It is **not deployed**. **No desktop sync client** exists. Bearer session `user_id` only, via the same `account_store.user_for_token()` call as login/AI; no body-token fallback; client `user_id` is ignored. While the flag is unset, `study_sync.db` is not opened. **Not included:** VPS deploy, production flag, Progress/SRS/AttemptHistory, ScreenGuard, Windows Startup. See [ADR-019](decisions/ADR-019-vocabulary-sync-http.md).
 
 **Known deferred (not reopening 17C):** Dutch `nl-NL` voice may be missing on a given Windows machine (OS install); legacy article-stripping matcher failure is separate technical debt. ScreenGuard still splits `pause_enforcement` from rare `release_display`. Progress Dashboard unchanged. AI enrichment remains advisory (draft → Apply).

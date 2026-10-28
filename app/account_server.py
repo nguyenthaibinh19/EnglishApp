@@ -20,6 +20,7 @@ import account_store
 import ai_teacher
 import config
 import languages
+import sync_http
 
 # 0.0.0.0 khi chạy trên máy dev. Trên VPS, systemd đặt 127.0.0.1 để chỉ Caddy được vào.
 HOST = (os.getenv("ACCOUNT_BIND") or "0.0.0.0").strip() or "0.0.0.0"
@@ -39,6 +40,14 @@ class Handler(BaseHTTPRequestHandler):
         self._send(200, {"ok": True, "message": "Language Guard account server is running."})
 
     def do_POST(self):
+        if self.path in sync_http.SYNC_PATHS:
+            try:
+                status, body = sync_http.handle_request(self.path, self.headers, self.rfile)
+            except Exception as error:
+                sys.stderr.write("[sync] request failed: %s\n" % type(error).__name__)
+                status, body = 500, {"error": "Sync store unavailable."}
+            self._send(status, body)
+            return
         length = int(self.headers.get("Content-Length") or 0)
         if length <= 0 or length > _MAX_BODY:
             self._send(400, {"error": "Yêu cầu không hợp lệ."})

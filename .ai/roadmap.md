@@ -31,29 +31,31 @@ Architecture phases 1–14 (summary only):
 | 17B | Windows Local TTS Provider v1 (System.Speech; per-language voice capability; lazy StudyMaster discovery) |
 | 17C | AI-generated Listening content v1 (StudyGuard targets; study-language question; grounded answer; cache/fallback) |
 | 18A | Account Cloud Sync Foundation (Leader-approved source; isolated `study_sync.db` vocabulary store; no production sync) |
+| 18B.1 | Authenticated vocabulary sync HTTP (Leader-approved source; default-off; not deployed; no desktop client) |
 
 ## Current
 
 ```text
-Phase 18A COMPLETED — Account Cloud Sync source foundation (Leader-approved)
-No HTTP sync, desktop sync, VPS deploy, or production activation
+Phase 18B.1 COMPLETED — Leader-approved source HTTP (pending GitHub commit verification)
+Sync remains default-off, not deployed, no desktop client
 ```
 
 ## Next
 
 ```text
-Phase 18B planning — sync transport / client (not started)
+Phase 18B.2 planning — sync DB backup and server staging readiness (not started)
+Before Windows client integration
 Then major product priority: AI Local Reading / Listening
 Optional later: Listening attempt history / analytics (not mastery / SRS)
 Dictionary / pronunciation enrichment (review-before-apply)
 Reading Lab improvements
 ```
 
-Directional only — do not auto-start Phase 18B or activate production sync from the 18A foundation.
+Directional only — do not start the Windows sync client before 18B.2 planning, and do not activate production sync by setting the flag on the VPS.
 
 ## Near-term (directional)
 
-- Phase 18B planning (sync transport / client; not started; no production activation)
+- Phase 18B.2 planning (sync DB backup and server staging readiness; before Windows client integration; no production activation)
 - AI Local Reading / Listening (next major product priority after sync readiness)
 - Dictionary / pronunciation enrichment
 - Reading Lab improvements
@@ -81,4 +83,4 @@ Directional only — do not auto-start Phase 18B or activate production sync fro
 - Cloud TTS, STT, or pronunciation scoring for Listening
 - Dutch `nl-NL` Windows voice missing on some machines — OS voice install, not an app defect
 - Legacy article-stripping matcher failure (`test_text_utils` / smoke) — separate technical debt; does not reopen 17C
-- Production cloud sync activation / HTTP sync routes / automatic desktop upload (not 18A)
+- Production cloud sync activation / setting `STUDY_SYNC_ENABLED=1` on the VPS / automatic desktop upload (not 18B.1)

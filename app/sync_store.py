@@ -1,7 +1,8 @@
 """Account Cloud Sync persistence foundation (Phase 18A).
 
 Isolated SQLite store (``study_sync.db``) for versioned vocabulary entities.
-Not wired to HTTP, desktop upload, or production accounts.db.
+HTTP access is a separate, default-off adapter (``sync_http`` / ADR-019).
+This module does not serve HTTP, upload desktop data, or touch production accounts.db.
 
 Trusted server code passes authenticated ``user_id`` after session checks.
 This module does not validate tokens.

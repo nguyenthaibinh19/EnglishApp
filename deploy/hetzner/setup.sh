@@ -18,14 +18,26 @@ fi
 SRC="$(cd "$(dirname "$0")/../.." && pwd)"
 APP_DIR="/opt/language-guard"
 APP_USER="guard"
+# Import closure of account_server.py. Sync modules are copied so the process
+# can start with STUDY_SYNC_ENABLED unset; that flag must stay off in production.
 FILES=(
   account_server.py
   account_store.py
   ai_teacher.py
   config.py
   languages.py
+  listening.py
+  listening_content.py
   reading_schema.py
+  sync_http.py
+  sync_store.py
   text_utils.py
+  vocab_identity.py
+  vocabulary_model.py
+  ai/__init__.py
+  ai/base.py
+  ai/service.py
+  ai/openai_provider.py
   requirements-server.txt
 )
 
@@ -64,6 +76,7 @@ fi
 mkdir -p "${APP_DIR}/deploy/hetzner" /var/backups/language-guard
 for name in "${FILES[@]}"; do
   if [[ "${name}" == *.py ]]; then
+    mkdir -p "${APP_DIR}/$(dirname "${name}")"
     cp "${SRC}/app/${name}" "${APP_DIR}/${name}"
   else
     cp "${SRC}/${name}" "${APP_DIR}/${name}"

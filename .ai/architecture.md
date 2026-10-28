@@ -124,11 +124,13 @@ Capabilities: grade sentence, generate reading, enrich vocabulary (POS/forms/exa
 - Do not expose the account DB directly to the desktop client.
 - Reading generation wire may still use field name `vi` for meaning — local vocab schema remains canonical `meaning`.
 
-## Account Cloud Sync (Phase 18A foundation)
+## Account Cloud Sync (Phase 18A store + Phase 18B.1 HTTP)
 
 ```text
-Trusted server code (future HTTP)
-        ↓  authenticated user_id
+account_server.py  (STUDY_SYNC_ENABLED must be exactly "1")
+        ↓  Bearer session only — user_id from account_store.user_for_token()
+sync_http.py
+        ↓
 app/sync_store.py  →  study_sync.db  (separate from accounts.db)
         ↓
 vocabulary_entities + vocabulary_changes
@@ -136,7 +138,11 @@ vocabulary_entities + vocabulary_changes
 ```
 
 - Local-first: desktop AppData remains the working store; cloud sync is not required to study.
-- Phase 18A implements **vocabulary entity persistence only** — no Progress/SRS merge, AttemptHistory sync, settings sync, HTTP routes, or production activation ([ADR-018](decisions/ADR-018-account-cloud-sync.md), status **Proposed**).
+- Phase 18A (accepted commit `94f1bf7`) implements **vocabulary entity persistence only** ([ADR-018](decisions/ADR-018-account-cloud-sync.md), status **Accepted**). It does not activate production sync.
+- Phase 18B.1 (in progress, source only) adds POST `/api/sync/vocabulary/put|delete|changes` behind a **default-off** server flag ([ADR-019](decisions/ADR-019-vocabulary-sync-http.md)). Disabled requests do not open `study_sync.db`. Sync routes reject body-token fallback and client-supplied `user_id`.
+- Login and AI routes still call `account_store.login()` / `user_for_token()` with no directory argument. Sync uses that same `user_for_token()` so it sees the same `accounts.db`. `STUDY_SYNC_DIR` overrides only the sync file.
+- `deploy/hetzner/setup.sh` must package the account-server import closure (`sync_http.py`, `sync_store.py`, `vocab_identity.py`, `vocabulary_model.py`, plus the existing AI/listening modules). Importing that package with the flag unset must not create `study_sync.db`. This phase does not run the script on the VPS.
+- Not in 18B.1: desktop sync, VPS deploy, production flag, Progress/SRS merge, AttemptHistory sync, settings sync.
 - Optimistic concurrency via `expected_revision`; conflicts do not mutate.
 - Deletes are tombstones; no silent resurrection.
 - `operation_id` retries are idempotent only when the mutation matches; mismatched reuse conflicts.
