@@ -39,31 +39,31 @@ Architecture phases 1–14 (summary only):
 ## Current
 
 ```text
-Phase 18B.4 COMPLETED — accepted `d277791`
-Timer units are repository-only and are not installed or enabled
-No production alert destination; paging is not operational
-Sync flag stays OFF; nothing deployed; no desktop client
-ADR-022 automatic account sync is Accepted as architecture only; milestones are not started
-Planning baseline: d277791
+Phase 18B.5 Leader-approved source, pending GitHub commit verification
+Restore verification is repository-only, not scheduled or installed
+Phase 18B.4 remains CLOSED at `d277791`
+ADR-022 remains Accepted architecture only at `d9d0fe3`; no Progress Sync implementation
+Sync flag stays OFF; no production paging, timer installation, VPS deployment, or Windows sync client
+Planning baseline: d9d0fe3
 ```
 
 ## Next
 
 ```text
-Phase 18B.5 — repo-only restore verification
-It is not automatically authorized
-Then major product priority: AI Local Reading / Listening
+Phase 18B.6 is the next possible milestone and is not automatically authorized
+Then major product priority after sync readiness: AI Local Reading / Listening
 Optional later: Listening attempt history / analytics (not mastery / SRS)
 Dictionary / pronunciation enrichment (review-before-apply)
 Reading Lab improvements
 ```
 
-Directional only — installing the sync timer, production activation, and the Windows client each need their own authorization. Completing Phase 18B.4 does not start Phase 18B.5.
+Directional only — installing the sync timer, production activation, and the Windows client each need their own authorization. Phase 18B.5 is Leader-approved source, pending GitHub commit verification. That approval does not start Phase 18B.6.
 
 ## Near-term (directional)
 
-- Phase 18B.5 repo-only restore verification, only after a separate authorization (no production activation)
-- ADR-022 event-first automatic account sync (Accepted, architecture only; does not replace 18B.5 and does not authorize a client or 18C). Includes replacement overlap preflight and per-account vocabulary isolation. Implementation is not started.
+- Phase 18B.5 repo-only restore verification is Leader-approved source, pending GitHub commit verification (repository-only; not scheduled or installed)
+- Phase 18B.6 is the next possible milestone and is not automatically authorized
+- ADR-022 event-first automatic account sync (Accepted, architecture only at `d9d0fe3`; does not replace 18B.5 and does not authorize a client or 18C). Includes replacement overlap preflight and per-account vocabulary isolation. Implementation is not started.
 - AI Local Reading / Listening (next major product priority after sync readiness)
 - Dictionary / pronunciation enrichment
 - Reading Lab improvements

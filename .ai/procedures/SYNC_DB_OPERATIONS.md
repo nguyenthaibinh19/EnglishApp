@@ -13,6 +13,23 @@ Source procedure for the backup/restore behavior accepted in Phase 18B.2 (`5f425
 - The temporary file is created mode `0600` before SQLite writes user data. On POSIX the backup directory must end up mode `0700` or the backup fails.
 - SQLite paths use an encoded file URI with `mode=ro`.
 - After a backup file is published, retention deletes only older `study-sync-*.db` names. If that cleanup fails, the new backup is kept, `retention_warning` is set, and the operator script exits 0 after printing `Retention cleanup failed; the new backup was kept.` It does not delete `accounts-*.db`.
+- Phase 18B.5 adds `app/sync_restore_verify.py` and `deploy/hetzner/verify_sync_backup.py`. Status: **Leader-approved source, pending GitHub commit verification**. Repository-only. **Not scheduled or installed.** `setup.sh` may copy the script into the app tree and does not install a timer. The verifier does not set `STUDY_SYNC_ENABLED`. Phase 18B.6 is not automatically authorized.
+
+## Restore verification (repository only, do not schedule)
+
+The newest name matching a real ASCII timestamp `study-sync-YYYYMMDD-HHMMSS-ffffff.db` is restored with `restore_database` into a new `run-*` directory under the verification root. Impossible dates, invalid clock values, Unicode digits, and malformed names are not candidates. The verification root is resolved before any directory is created or chmodded; a root that is the protected application directory, a descendant of it, or a symlink alias of it is refused without changes there. The copy is opened with `mode=ro`. `PRAGMA integrity_check` must be `ok`. Schema version must be **2**, with `sync_meta`, `vocabulary_entities`, and `vocabulary_changes` and their expected columns. `sync_store.connect()` is not used, so a future schema is not migrated.
+
+| Result | Exit | Fixed output |
+|--------|------|----------------|
+| Verified | 0 | stdout `study_sync restore verification verified` |
+| Skipped | 0 | stdout `study_sync restore verification skipped` |
+| Failed | 1 | stderr `study_sync restore verification failed` |
+
+Skip means there is no validly named backup and the live path does not exist. It does not mean the database never existed. If the live path exists as a regular file, a directory, a symlink, or any other file type, the result is failed, and nothing is created or read there. A corrupt or unsupported newest backup fails. An older file is not tried. The live database, the backup, and `accounts.db` are not written. Paths, tokens, and vocabulary contents are not printed.
+
+Configuration is `STUDY_SYNC_BACKUP_DIR`, `STUDY_SYNC_VERIFY_DIR`, and `STUDY_SYNC_DB` (the live path, used only to see whether a file is present). Tests pass temporary paths and do not call the script against production paths.
+
+A production schedule, alert integration, disappearance detection, and freshness monitoring remain Phase 18B.8.
 
 ## Local checklist (safe to run)
 
@@ -21,6 +38,7 @@ These are automated and use temporary files only:
 1. `tests/test_hetzner_package.py` — packaged server imports with the sync flag unset and does not create `study_sync.db`.
 2. `tests/test_sync_staging.py` — login and AI routes still answer; sync routes are 404 while the flag is off; a temporary account can sync only after the flag is set in that test process; backup and restore of that temporary database succeed.
 3. `tests/test_sync_backup.py` — integrity gate, no-clobber restore, private temporary files, directory-permission failure, retention warning, literal `%` paths, restore contents, idempotent retry, and accounts files left in place.
+4. `tests/test_sync_restore_verify.py` — newest-backup restore verification in temporary directories. It does not restore a production path.
 
 No production secrets and no real accounts.
 
