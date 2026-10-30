@@ -13,7 +13,7 @@ Source procedure for the backup/restore behavior accepted in Phase 18B.2 (`5f425
 - The temporary file is created mode `0600` before SQLite writes user data. On POSIX the backup directory must end up mode `0700` or the backup fails.
 - SQLite paths use an encoded file URI with `mode=ro`.
 - After a backup file is published, retention deletes only older `study-sync-*.db` names. If that cleanup fails, the new backup is kept, `retention_warning` is set, and the operator script exits 0 after printing `Retention cleanup failed; the new backup was kept.` It does not delete `accounts-*.db`.
-- Phase 18B.5 adds `app/sync_restore_verify.py` and `deploy/hetzner/verify_sync_backup.py`. Status: **Leader-approved source, pending GitHub commit verification**. Repository-only. **Not scheduled or installed.** `setup.sh` may copy the script into the app tree and does not install a timer. The verifier does not set `STUDY_SYNC_ENABLED`. Phase 18B.6 is not automatically authorized.
+- Phase 18B.5 adds `app/sync_restore_verify.py` and `deploy/hetzner/verify_sync_backup.py`. Status: **CLOSED**, GitHub-verified at `69307892f779e61de7b99563eb5c76ad4296cbcc`. Repository-only. **Not scheduled or installed.** `setup.sh` may copy the script into the app tree and does not install a timer. The verifier does not set `STUDY_SYNC_ENABLED`.
 
 ## Restore verification (repository only, do not schedule)
 
@@ -31,6 +31,10 @@ Configuration is `STUDY_SYNC_BACKUP_DIR`, `STUDY_SYNC_VERIFY_DIR`, and `STUDY_SY
 
 A production schedule, alert integration, disappearance detection, and freshness monitoring remain Phase 18B.8.
 
+## Local staging (repository only, do not deploy)
+
+Phase 18B.6 is **Leader-approved source, pending GitHub commit verification**. It is not GitHub-verified yet. It is an isolated local drill. It does not create `/opt/language-guard-staging` on the server, install `language-guard-staging.service`, or change production `.env`. `accounts.db` follows the directory of the copied `account_store.py`. `STUDY_SYNC_DIR` is a different staging directory. The guard in `deploy/hetzner/staging_guard.py` runs before any database is created. It allows only `ACCOUNT_BIND=127.0.0.1`, refuses port `8765`, and refuses paths that resolve into `/opt/language-guard` or `/var/backups/language-guard`. Before the process listens, the staging `.env` must exist and contain only the staging allowlist. The pre-materialization guard may run while that file is absent. Status proof is a new non-overwriting file under the staging proof directory and is not allowed to replace a database, backup, or `.env`. The provider key in that process is `staging-fake-not-a-provider-key` and the AI routes are mocked. On Windows, symlink tests skipped because `os.symlink` is unavailable, including the POSIX proof-partial regression. Follow-up QA: `tests/test_sync_api.py::test_excessive_request_size_does_not_open_sync_db` once raised `ConnectionAbortedError` (WinError 10053) after a 413 response; an isolated rerun passed and the full suite did not reproduce it. A passing local drill is not authorization to run staging on the VPS. Phase 18B.7 is not authorized.
+
 ## Local checklist (safe to run)
 
 These are automated and use temporary files only:
@@ -39,6 +43,7 @@ These are automated and use temporary files only:
 2. `tests/test_sync_staging.py` — login and AI routes still answer; sync routes are 404 while the flag is off; a temporary account can sync only after the flag is set in that test process; backup and restore of that temporary database succeed.
 3. `tests/test_sync_backup.py` — integrity gate, no-clobber restore, private temporary files, directory-permission failure, retention warning, literal `%` paths, restore contents, idempotent retry, and accounts files left in place.
 4. `tests/test_sync_restore_verify.py` — newest-backup restore verification in temporary directories. It does not restore a production path.
+5. `tests/test_sync_staging_isolation.py` — staging guard and the synthetic localhost drill. Temporary trees only. It does not deploy staging. On this Windows host the symlink cases skipped, including the POSIX proof-partial regression. The database-byte and marker cases ran.
 
 No production secrets and no real accounts.
 

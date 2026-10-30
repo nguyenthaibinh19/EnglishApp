@@ -35,34 +35,39 @@ Architecture phases 1–14 (summary only):
 | 18B.2 | Sync DB backup and restore (independently verified `5f4251a`; not scheduled; sync flag off; not deployed; no desktop client) |
 | 18B.3 | Production-readiness plan (accepted `97f7b25`; planning only; no timer, no deploy, no desktop client) |
 | 18B.4 | Sync backup timer and alert contract (accepted `d277791`; units not installed; no production paging; sync flag off) |
+| 18B.5 | Restore verification (GitHub-verified `6930789`; repository-only; not scheduled or installed) |
 
 ## Current
 
 ```text
-Phase 18B.5 Leader-approved source, pending GitHub commit verification
-Restore verification is repository-only, not scheduled or installed
+Phase 18B.6 Leader-approved source, pending GitHub commit verification
+Not GitHub-verified yet. Local tests only. Not a VPS deployment and the staging unit is not installed
+Windows symlink tests skipped (`os.symlink` unavailable), including the POSIX proof-partial regression
+Follow-up QA: one oversized sync request returned 413 then WinError 10053; rerun passed and the full suite did not reproduce it
+Phase 18B.5 remains CLOSED at `6930789`
 Phase 18B.4 remains CLOSED at `d277791`
 ADR-022 remains Accepted architecture only at `d9d0fe3`; no Progress Sync implementation
 Sync flag stays OFF; no production paging, timer installation, VPS deployment, or Windows sync client
-Planning baseline: d9d0fe3
+Planning baseline: 6930789
 ```
 
 ## Next
 
 ```text
-Phase 18B.6 is the next possible milestone and is not automatically authorized
+Phase 18B.7 is the next possible milestone and is not authorized
 Then major product priority after sync readiness: AI Local Reading / Listening
 Optional later: Listening attempt history / analytics (not mastery / SRS)
 Dictionary / pronunciation enrichment (review-before-apply)
 Reading Lab improvements
 ```
 
-Directional only — installing the sync timer, production activation, and the Windows client each need their own authorization. Phase 18B.5 is Leader-approved source, pending GitHub commit verification. That approval does not start Phase 18B.6.
+Directional only — installing the sync timer, production activation, and the Windows client each need their own authorization. Phase 18B.6 is Leader-approved source, pending GitHub commit verification. That work does not start Phase 18B.7 and does not deploy a staging host.
 
 ## Near-term (directional)
 
-- Phase 18B.5 repo-only restore verification is Leader-approved source, pending GitHub commit verification (repository-only; not scheduled or installed)
-- Phase 18B.6 is the next possible milestone and is not automatically authorized
+- Phase 18B.5 restore verification is closed (GitHub-verified `6930789`; repository-only; not scheduled or installed)
+- Phase 18B.6 isolated local staging is Leader-approved source, pending GitHub commit verification (not GitHub-verified yet; not a VPS deployment; staging unit not installed). Proof files are new names in the proof directory. The staging `.env` must match the allowlist before listen. Windows symlink tests skipped. One intermittent HTTP 413 `ConnectionAbortedError` (WinError 10053) is follow-up QA and was not reproduced by the full suite.
+- Phase 18B.7 is not authorized
 - ADR-022 event-first automatic account sync (Accepted, architecture only at `d9d0fe3`; does not replace 18B.5 and does not authorize a client or 18C). Includes replacement overlap preflight and per-account vocabulary isolation. Implementation is not started.
 - AI Local Reading / Listening (next major product priority after sync readiness)
 - Dictionary / pronunciation enrichment

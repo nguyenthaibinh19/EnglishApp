@@ -1,0 +1,29 @@
+[Unit]
+Description=Language Guard staging account server (repository template only)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=guard
+Group=guard
+WorkingDirectory=/opt/language-guard-staging
+Environment=ACCOUNT_BIND=127.0.0.1
+Environment=ACCOUNT_PORT=8876
+Environment=STAGING_PACKAGE_DIR=/opt/language-guard-staging
+Environment=STUDY_SYNC_DIR=/var/lib/language-guard-staging/sync
+Environment=STUDY_SYNC_BACKUP_DIR=/var/backups/language-guard-staging
+Environment=STUDY_SYNC_VERIFY_DIR=/var/lib/language-guard-staging/verify
+Environment=STAGING_ENV_FILE=/opt/language-guard-staging/.env
+Environment=STAGING_PROOF_DIR=/var/lib/language-guard-staging/proof
+Environment=OPENAI_API_KEY=staging-fake-not-a-provider-key
+Environment=OPENAI_BASE_URL=http://127.0.0.1:9
+Environment=STUDY_SYNC_ENABLED=0
+ExecStartPre=/opt/language-guard-staging/venv/bin/python /opt/language-guard-staging/deploy/hetzner/staging_guard.py
+ExecStart=/opt/language-guard-staging/venv/bin/python /opt/language-guard-staging/deploy/hetzner/staging_server.py
+Restart=no
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target
