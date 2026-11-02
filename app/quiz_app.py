@@ -745,7 +745,11 @@ class VocabQuizApp:
 
         fields = (
             entry_word(entry),
-            without_article(normalize(entry_word(entry))),
+            without_article(
+                normalize(entry_word(entry)),
+                language_code=getattr(self, "language_code", None),
+                entry=entry,
+            ),
             entry_meaning(entry),
             " ".join(entry_alternatives(entry)),
         )

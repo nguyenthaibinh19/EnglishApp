@@ -112,7 +112,12 @@ class QuizEngine:
         if entry is None:
             return AnswerResult(verdict="wrong", is_correct=False)
 
-        verdict, matched = match_answer(user_answer, entry, config.TYPO_TOLERANCE)
+        verdict, matched = match_answer(
+            user_answer,
+            entry,
+            config.TYPO_TOLERANCE,
+            language_code=self.language_code,
+        )
         is_correct = verdict in ("exact", "near")
 
         self.answered += 1

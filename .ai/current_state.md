@@ -2,15 +2,15 @@
 
 > First file a new agent should read. Keep this concise and update when phases complete.
 
-**Snapshot date context:** 2026-10-30 — Phase 18B.6 isolated local staging is **Leader-approved source, pending GitHub commit verification**. It is not a VPS deployment and is not GitHub-verified yet. Phase 18B.5 is **CLOSED** and GitHub-verified at `69307892f779e61de7b99563eb5c76ad4296cbcc`. Phase 18B.4 remains **CLOSED** at `d277791`. ADR-022 remains **Accepted** as architecture only (`d9d0fe3`) and is not implemented. Sync flag stays **OFF**. No production paging, timer installation, VPS deployment, or Windows sync client.
+**Snapshot date context:** 2026-11-02 — Article-Matching Hotfix is **Leader-approved source, pending GitHub commit verification**. It is not GitHub-verified yet. Phase 18B.6 is **CLOSED** at `39f3a0bbbc47dda2c213324a820d198d0f0c3501`. It is not a VPS deployment. Phase 18B.5 is **CLOSED** and GitHub-verified at `69307892f779e61de7b99563eb5c76ad4296cbcc`. Phase 18B.4 remains **CLOSED** at `d277791`. ADR-022 remains **Accepted** as architecture only (`d9d0fe3`) and is not implemented. Sync flag stays **OFF**. Phase 18B.7 is not authorized. No production paging, timer installation, VPS deployment, or Windows sync client.
 
-**Git baseline for this work:** `69307892f779e61de7b99563eb5c76ad4296cbcc`
+**Git baseline for this work:** `39f3a0bbbc47dda2c213324a820d198d0f0c3501`
 
 **ADR-022 accepted commit:** `d9d0fe3` (event-first account sync architecture only; not implemented)
 
 **Phase 18B.5 accepted commit:** `69307892f779e61de7b99563eb5c76ad4296cbcc` (restore verification; repository-only; not scheduled or installed)
 
-**Phase 18B.6:** Leader-approved source, pending GitHub commit verification (isolated local staging; not GitHub-verified yet; staging unit not installed)
+**Phase 18B.6 accepted commit:** `39f3a0bbbc47dda2c213324a820d198d0f0c3501` (isolated local staging; CLOSED; staging unit not installed)
 
 **Phase 18B.4 accepted commit:** `d277791` (sync backup timer units and source alert contract; not installed; ADR-021 Accepted)
 
@@ -136,7 +136,7 @@ python -m pytest
 python app/smoke_test.py
 ```
 
-**Test notes (do not treat as a permanent green invariant):** a pre-17C-deploy snapshot once reported ~340 pytest passes. Cursor later reported a pre-existing failure in `tests/test_text_utils.py::test_exact_and_article_stripped` (article-stripping matcher / matching smoke check). Do not claim current full-suite green without fresh evidence.
+**Test notes (do not treat as a permanent green invariant):** a pre-17C-deploy snapshot once reported ~340 pytest passes. On 2026-11-02 the article-stripping hotfix run reported `tests/test_text_utils.py::test_exact_and_article_stripped` passing and smoke `bỏ mạo từ vẫn đúng` passing. Full `python -m pytest`: 487 passed, 7 skipped. Smoke: all checks passed. The hotfix is Leader-approved source, pending GitHub commit verification. Do not claim it is GitHub-verified, and do not claim a later tree is green without fresh evidence.
 
 ## Current development position
 
@@ -157,7 +157,8 @@ Completed: Phase 18B.2 — Sync DB backup and restore (independently verified ``
 Completed: Phase 18B.3 — Production-readiness plan (accepted ``97f7b25``; planning only; sync flag OFF; backup not scheduled; not deployed; no desktop client)
 Completed: Phase 18B.4 — Sync backup timer units and alert contract (accepted ``d277791``; units not installed or enabled; no production paging; sync flag OFF; not deployed)
 Completed: Phase 18B.5 — Restore verification (GitHub-verified ``69307892f779e61de7b99563eb5c76ad4296cbcc``; repository-only; not scheduled or installed)
-Next: Phase 18B.6 — isolated local staging and synthetic-account drill. **Leader-approved source, pending GitHub commit verification.** Local tests only. Not a VPS deployment. Not GitHub-verified yet. Phase 18B.7 is not authorized.
+Completed: Phase 18B.6 — Isolated local staging (CLOSED ``39f3a0bbbc47dda2c213324a820d198d0f0c3501``; repository-only; staging unit not installed)
+Next: Article-Matching Hotfix — Leader-approved source, pending GitHub commit verification. Not GitHub-verified yet. Phase 18B.7 is not authorized.
 Accepted, not started: ADR-022 event-first automatic account sync (architecture only, `d9d0fe3`). No schema, HTTP, or Windows client. Phase 18C is not started.
 Then (directional, after sync readiness): AI Local Reading/Listening; optional Listening history/SRS; dictionary/pronunciation enrichment; Reading Lab
 ```
@@ -178,8 +179,10 @@ Listening is optional (settings default **off**). Content is AI-generated from S
 
 **Phase 18B.5 CLOSED (GitHub-verified `69307892f779e61de7b99563eb5c76ad4296cbcc`):** `app/sync_restore_verify.py` and `deploy/hetzner/verify_sync_backup.py` restore the newest `study-sync-*.db` into a new temporary directory, open it read-only, and require schema version 2. A missing backup is a skip only when the live path is absent. A directory, symlink, or other non-file there is a failure. The verification root is checked, including ancestor symlinks, before anything is created. The verifier is not scheduled, does not install a timer, and does not set `STUDY_SYNC_ENABLED`. See [SYNC_DB_OPERATIONS.md](procedures/SYNC_DB_OPERATIONS.md).
 
-**Phase 18B.6 Leader-approved source, pending GitHub commit verification** (not GitHub-verified yet): a copied account-server tree, its own synthetic `accounts.db` and `study_sync.db`, and a pre-start guard. Local tests bind `127.0.0.1` on a port other than `8765` and mock AI routes. Before listen, the staging `.env` must exist and match the staging-only allowlist; the pre-materialization guard may still run while that file is absent. Proof status is a new non-overwriting file in the staging proof directory and must not replace a database, backup, or `.env`. On this Windows host, symlink tests in `tests/test_sync_staging_isolation.py` skipped because `os.symlink` is unavailable, including the POSIX proof-partial regression. Follow-up QA: `tests/test_sync_api.py::test_excessive_request_size_does_not_open_sync_db` once raised `ConnectionAbortedError` (WinError 10053) after the server had already returned 413; an isolated rerun passed and the full suite did not reproduce it. This does not create `/opt/language-guard-staging` on the VPS, install `language-guard-staging.service`, or change production `.env`. Phase 18B.7 is not authorized. See [SYNC_DB_OPERATIONS.md](procedures/SYNC_DB_OPERATIONS.md).
+**Phase 18B.6 CLOSED (`39f3a0bbbc47dda2c213324a820d198d0f0c3501`):** a copied account-server tree, its own synthetic `accounts.db` and `study_sync.db`, and a pre-start guard. Local tests bind `127.0.0.1` on a port other than `8765` and mock AI routes. Before listen, the staging `.env` must exist and match the staging-only allowlist; the pre-materialization guard may still run while that file is absent. Proof status is a new non-overwriting file in the staging proof directory and must not replace a database, backup, or `.env`. On this Windows host, symlink tests in `tests/test_sync_staging_isolation.py` skipped because `os.symlink` is unavailable, including the POSIX proof-partial regression. This does not create `/opt/language-guard-staging` on the VPS, install `language-guard-staging.service`, or change production `.env`. Phase 18B.7 is not authorized. See [SYNC_DB_OPERATIONS.md](procedures/SYNC_DB_OPERATIONS.md).
+
+**Article-Matching Hotfix — Leader-approved source, pending GitHub commit verification** (not GitHub-verified yet): a Dutch legacy answer was evaluated with English articles from the active settings language. Explicit quiz `language_code` now takes priority. Legacy `nl` / `en` keys remain when the caller does not pass a language. Canonical `word` entries and explicit `articles` / `elisions` remain supported. Exact-without-hint remains the mastery rule, and a new submit appends an attempt instead of rewriting older rows. Evidence: full pytest 487 passed, 7 skipped; smoke all checks passed. HTTP 413 / WinError 10053 was not reproduced in five reruns and stays follow-up QA; production HTTP was not changed. Phase 18B.7 is not authorized.
 
 **ADR-022 Accepted** (architecture only; not implemented; `d9d0fe3`): event-first progress sync and automatic account sync while the Windows app is running. Local study stays authoritative offline. Server-order folding and `received_at`-anchored `ladder-v2` SRS are locked, including a late offline wrong answer resetting streak. Confirmed and provisional projections stay separate. Import identity is file identity plus byte offset. A replacement file requires overlap preflight and explicit reconciliation before an ambiguous line can upload; accepted events are not deleted or silently duplicated. Synced requires both vocabulary and progress outboxes clear, both download cursors caught up, and no unresolved blocking conflict. Future signed-in vocabulary is per-account; machine-global guest `vocab.json` must not automatically appear in or upload to an account. No tables, routes, or client are authorized. Milestones 18C.1–18C.3 are not started. See [ADR-022](decisions/ADR-022-event-first-automatic-account-sync.md).
 
-**Known deferred (not reopening 17C):** Dutch `nl-NL` voice may be missing on a given Windows machine (OS install); legacy article-stripping matcher failure is separate technical debt. ScreenGuard still splits `pause_enforcement` from rare `release_display`. Progress Dashboard unchanged. AI enrichment remains advisory (draft → Apply).
+**Known deferred (not reopening 17C):** Dutch `nl-NL` voice may be missing on a given Windows machine (OS install). The article-stripping mismatch is addressed in the Leader-approved hotfix above, pending GitHub commit verification. ScreenGuard still splits `pause_enforcement` from rare `release_display`. Progress Dashboard unchanged. AI enrichment remains advisory (draft → Apply). The oversized-body HTTP 413 WinError 10053 abort was not reproduced on 2026-11-02; the handler is unchanged.

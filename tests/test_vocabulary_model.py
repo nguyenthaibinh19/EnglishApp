@@ -155,9 +155,12 @@ def test_rename_preserves_id_and_learning_state(tmp_path):
 def test_quiz_matching_same_before_after_canonicalization():
     legacy = {"nl": "de fiets", "vi": "xe đạp", "alt": ["rijwiel"]}
     canonical = normalize_entry_dict(legacy, assign_id=False)
-    assert match_answer("de fiets", legacy)[0] == match_answer("de fiets", canonical)[0]
-    assert match_answer("fiets", legacy)[0] == match_answer("fiets", canonical)[0]
-    assert match_answer("rijwiel", legacy)[0] == match_answer("rijwiel", canonical)[0]
+    assert match_answer("de fiets", legacy, language_code="nl")[0] == "exact"
+    assert match_answer("de fiets", canonical, language_code="nl")[0] == "exact"
+    assert match_answer("fiets", legacy, language_code="nl")[0] == "exact"
+    assert match_answer("fiets", canonical, language_code="nl")[0] == "exact"
+    assert match_answer("rijwiel", legacy, language_code="nl")[0] == "exact"
+    assert match_answer("rijwiel", canonical, language_code="nl")[0] == "exact"
 
 
 def test_library_search_on_canonical_meaning():

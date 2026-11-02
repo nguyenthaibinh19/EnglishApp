@@ -1,12 +1,16 @@
 """Chuẩn hóa và so khớp câu trả lời cho ngôn ngữ đang học.
 
 So sánh đáp án nằm ở đây để phần giao diện không phải biết về mạo từ,
-dấu phụ hay tag loại từ. Danh sách mạo từ / elision lấy từ profile
-StudyLanguage (qua config.current_language), không hard-code một tiếng.
+dấu phụ hay tag loại từ. Mạo từ và elision lấy từ ngôn ngữ của phiên
+học (language_code), rồi từ khóa cũ nl/en trên entry. config.current_language
+chỉ là phương án cuối, để một ngôn ngữ đang chọn trong settings không
+đổi quy tắc của một phiên học khác.
 """
 
 import re
 import unicodedata
+
+import languages
 
 # Tag loại từ có thể xuất hiện trong vocab.json: "fiets (de)", "lopen (ww)"...
 _POS_TAG = re.compile(
@@ -54,26 +58,57 @@ def entry_word(entry: dict) -> str:
     return str(entry.get("word") or entry.get("nl") or entry.get("en") or "")
 
 
-def _matching_rules(articles=None, elisions=None):
+def _legacy_language(entry) -> str | None:
+    """Language stored on the entry when the caller did not pass one."""
+    if not isinstance(entry, dict):
+        return None
+    explicit = entry.get("language_code") or entry.get("language")
+    if explicit and languages.is_supported_language(str(explicit)):
+        return str(explicit).strip().lower()
+    # Canonical ``word`` entries do not carry nl/en. Those keys are the
+    # pre-migration language, and only apply when they still hold the word.
+    if "word" not in entry:
+        if str(entry.get("nl") or "").strip():
+            return "nl"
+        if str(entry.get("en") or "").strip():
+            return "en"
+    return None
+
+
+def _matching_rules(articles=None, elisions=None, language_code=None, entry=None):
+    """Article and elision lists for one comparison.
+
+    An explicit list wins, including when the caller passes only one of the
+    two. Otherwise use the study language, then a legacy nl/en entry, then
+    the active settings language.
+    """
     if articles is not None or elisions is not None:
         return articles or (), elisions or ()
+    code = str(language_code or "").strip().lower()
+    if not languages.is_supported_language(code):
+        code = _legacy_language(entry) or ""
+    if languages.is_supported_language(code):
+        profile = languages.get_language(code)
+        return profile.articles or (), profile.elisions or ()
     import config
     profile = config.current_language()
     return profile.get("articles") or (), profile.get("elisions") or ()
 
 
-def without_article(s: str, articles=None) -> str:
+def without_article(s: str, articles=None, *, language_code=None, entry=None) -> str:
     """Bỏ mạo từ đứng đầu: 'de fiets' -> 'fiets', 'the house' -> 'house'."""
-    articles = articles if articles is not None else _matching_rules()[0]
+    if articles is None:
+        articles = _matching_rules(language_code=language_code, entry=entry)[0]
     parts = s.split(" ", 1)
     if len(parts) == 2 and parts[0] in articles:
         return parts[1].strip()
     return s
 
 
-def without_elision(s: str, elisions=None) -> str:
+def without_elision(s: str, elisions=None, *, language_code=None, entry=None) -> str:
     """Bỏ mạo từ dính: l'école -> école."""
-    elisions = elisions if elisions is not None else _matching_rules()[1]
+    if elisions is None:
+        elisions = _matching_rules(language_code=language_code, entry=entry)[1]
     folded = s.replace("’", "'")
     for prefix in elisions:
         if folded.lower().startswith(prefix) and len(folded) > len(prefix):
@@ -86,7 +121,7 @@ def display_word(entry: dict) -> str:
     return strip_tags(entry_word(entry))
 
 
-def accepted_forms(entry: dict, articles=None, elisions=None) -> set:
+def accepted_forms(entry: dict, articles=None, elisions=None, *, language_code=None) -> set:
     """Tập hợp mọi cách viết được chấp nhận cho một từ.
 
     Bao gồm: dạng đầy đủ, dạng bỏ mạo từ, các đáp án ngăn bằng '|' hoặc '/',
@@ -102,6 +137,9 @@ def accepted_forms(entry: dict, articles=None, elisions=None) -> set:
         alt = [alt]
     raw_values.extend(alt)
 
+    articles, elisions = _matching_rules(
+        articles, elisions, language_code=language_code, entry=entry
+    )
     forms = set()
     for raw in raw_values:
         for piece in _ALT_SPLIT.split(str(raw)):
@@ -139,7 +177,15 @@ def levenshtein(a: str, b: str) -> int:
     return previous[-1]
 
 
-def match_answer(user_answer: str, entry: dict, typo_tolerance: int = 1, articles=None, elisions=None):
+def match_answer(
+    user_answer: str,
+    entry: dict,
+    typo_tolerance: int = 1,
+    articles=None,
+    elisions=None,
+    *,
+    language_code=None,
+):
     """So khớp câu trả lời với một từ.
 
     Trả về (verdict, best_form) trong đó verdict là:
@@ -148,7 +194,7 @@ def match_answer(user_answer: str, entry: dict, typo_tolerance: int = 1, article
       - "wrong": sai
     """
     user = normalize(user_answer)
-    forms = accepted_forms(entry, articles, elisions)
+    forms = accepted_forms(entry, articles, elisions, language_code=language_code)
     if not user or not forms:
         return "wrong", display_word(entry)
 

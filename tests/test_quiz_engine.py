@@ -3,6 +3,8 @@
 import json
 import random
 
+import config
+import languages
 from attempt_history import AttemptHistory
 from progress import Progress
 from quiz_engine import QuizEngine
@@ -131,3 +133,45 @@ def test_requeue_does_not_duplicate_without_new_submit(tmp_path):
     assert len(attempts.load_attempts()) == 1
     engine.pick_next()
     assert len(attempts.load_attempts()) == 1
+
+
+def test_submit_uses_quiz_language_and_keeps_prior_attempt(tmp_path, monkeypatch):
+    """Dutch quiz strips 'de' even when settings are English. Old rows stay."""
+    english = languages.get_language("en").as_profile(include_code=True)
+    monkeypatch.setattr(config, "active_code", lambda: "en")
+    monkeypatch.setattr(config, "current_language", lambda: english)
+    _, progress, engine, attempts = _engine(tmp_path, language_code="nl")
+    engine.current_index = 0
+    engine.hint_used = False
+    first = engine.submit("nope")
+    assert first.verdict == "wrong"
+    saved = attempts.load_attempts()
+    assert saved[0].user_answer == "nope"
+    assert saved[0].correct is False
+
+    engine.current_index = 0
+    engine.hint_used = False
+    bare = engine.submit("fiets")
+    assert bare.verdict == "exact"
+    assert bare.is_correct is True
+    loaded = attempts.load_attempts()
+    assert len(loaded) == 2
+    assert loaded[0].user_answer == "nope"
+    assert loaded[0].correct is False
+    assert loaded[1].correct is True
+    stats = progress.word_stats("de fiets")
+    assert stats["correct"] == 1
+    assert stats["wrong"] == 1
+
+    german = QuizEngine(
+        engine.store,
+        progress,
+        target=3,
+        rng=random.Random(1),
+        attempt_history=AttemptHistory(str(tmp_path / "de-attempts.jsonl"), language_code="de"),
+        language_code="de",
+    )
+    german.store.add("das Haus", "ngôi nhà")
+    german.current_index = german.store.count() - 1
+    assert german.submit("Haus").verdict == "exact"
+    assert german.submit("das Haus").verdict == "exact"
