@@ -41,40 +41,45 @@ Architecture phases 1–14 (summary only):
 ## Current
 
 ```text
-Article-Matching Hotfix — Leader-approved source, pending GitHub commit verification
-Not GitHub-verified yet. Root cause: a Dutch legacy answer used English articles from active settings
-Explicit quiz language takes priority. Legacy nl/en keys, canonical word entries, and explicit articles/elisions remain supported
-Diagnosis: settings language was en, so Dutch "de" was not stripped
-QuizEngine.language_code is passed into match_answer; legacy nl/en keys remain the fallback
-2026-11-02: full pytest 487 passed, 7 skipped; smoke all checks passed
+Phase 18B.7 preflight — review only; VPS deployment is not authorized
+Candidate is d0f2f00, a descendant of 5f4251a; setup.sh is not the deploy tool
+Flag stays unset; sync routes stay 404; no sync timer; accounts timer unchanged
+Article-Matching Hotfix CLOSED and GitHub-verified at `d0f2f00`
+Windows RC QA PAUSED — local unpublished build, not a release milestone
+2026-11-02 at d0f2f00: full pytest 487 passed, 7 skipped; smoke all checks passed
+The 7 skips are Linux symlink tests and systemd-analyze; they are not passes
+Windows pytest PASS does not prove Linux runtime safety
 HTTP 413 WinError 10053 did not reproduce (5 reruns); production HTTP unchanged
+Isolated frozen --check exited 0 and did not install or register Startup
+Python 3.13.13 pytest 487 passed, 7 skipped; smoke all checks passed
+Frozen GUI QA remains blocked: no Sandbox, no VM, primary profile not used for a normal launch
 Phase 18B.6 remains CLOSED at `39f3a0b`
 Phase 18B.5 remains CLOSED at `6930789`
 Phase 18B.4 remains CLOSED at `d277791`
-ADR-022 remains Accepted architecture only at `d9d0fe3`; no Progress Sync implementation
+ADR-022 remains Accepted architecture only at `d9d0fe3`; Phase 18C is not started
 Sync flag stays OFF; no production paging, timer installation, VPS deployment, or Windows sync client
-Phase 18B.7 is not authorized
-Planning baseline: 39f3a0b
+Planning baseline: d0f2f00
 ```
 
 ## Next
 
 ```text
-Phase 18B.7 is the next possible milestone and is not authorized
+Phase 18B.7 preflight is the current planning target. Deploying it is not authorized
 Then major product priority after sync readiness: AI Local Reading / Listening
 Optional later: Listening attempt history / analytics (not mastery / SRS)
 Dictionary / pronunciation enrichment (review-before-apply)
 Reading Lab improvements
 ```
 
-Directional only — installing the sync timer, production activation, and the Windows client each need their own authorization. The Article-Matching Hotfix is Leader-approved source, pending GitHub commit verification. It does not start Phase 18B.7 and does not deploy a staging host.
+Directional only — installing the sync timer, production activation, and the Windows client each need their own authorization. Phase 18B.7 preflight does not deploy, does not run `setup.sh`, and does not start a staging host. Windows RC QA is paused and is not a release.
 
 ## Near-term (directional)
 
 - Phase 18B.5 restore verification is closed (GitHub-verified `6930789`; repository-only; not scheduled or installed)
 - Phase 18B.6 isolated local staging is closed (`39f3a0b`; not a VPS deployment; staging unit not installed). Proof files are new names in the proof directory. The staging `.env` must match the allowlist before listen. Windows symlink tests skipped.
-- Article-Matching Hotfix is Leader-approved source, pending GitHub commit verification (not GitHub-verified yet). A Dutch legacy answer was evaluated with English articles from active settings. Explicit quiz language takes priority. Legacy `nl`/`en` keys, canonical `word` entries, and explicit articles/elisions remain supported. On 2026-11-02 full pytest was 487 passed, 7 skipped, and smoke passed every check. The HTTP 413 WinError 10053 abort did not reproduce in five reruns and is follow-up QA only; production HTTP is unchanged.
-- Phase 18B.7 is not authorized
+- Article-Matching Hotfix is closed and GitHub-verified at `d0f2f00`. A Dutch legacy answer was evaluated with English articles from active settings. Explicit quiz language takes priority. Legacy `nl`/`en` keys, canonical `word` entries, and explicit articles/elisions remain supported. On 2026-11-02 full pytest was 487 passed, 7 skipped, and smoke passed every check. The seven skips are Linux-only and were not marked passed. The HTTP 413 WinError 10053 abort did not reproduce in five reruns and is follow-up QA only; production HTTP is unchanged.
+- Windows RC QA is paused: a local unpublished executable only. It is not a GitHub Release and was not installed over the current app. Frozen GUI QA is blocked without a disposable Windows account or VM.
+- Phase 18B.7 preflight is review only. A later dark deploy keeps `STUDY_SYNC_ENABLED` unset, does not install the sync timer, and does not use `setup.sh`. That deploy is not authorized. Linux symlink and `systemd-analyze` tests are still unverified.
 - ADR-022 event-first automatic account sync (Accepted, architecture only at `d9d0fe3`; does not replace 18B.5 and does not authorize a client or 18C). Includes replacement overlap preflight and per-account vocabulary isolation. Implementation is not started.
 - AI Local Reading / Listening (next major product priority after sync readiness)
 - Dictionary / pronunciation enrichment
@@ -102,5 +107,5 @@ Directional only — installing the sync timer, production activation, and the W
 - Listening history / SRS / mastery persistence (explicitly out of 17C scope)
 - Cloud TTS, STT, or pronunciation scoring for Listening
 - Dutch `nl-NL` Windows voice missing on some machines — OS voice install, not an app defect
-- Legacy article-stripping matcher failure (`test_text_utils` / smoke) — separate technical debt; does not reopen 17C
+- Linux symlink and `systemd-analyze` tests remain unverified on this Windows host; they are skips, not passes
 - Production cloud sync activation / setting `STUDY_SYNC_ENABLED=1` on the VPS / automatic desktop upload (not 18B.1)
