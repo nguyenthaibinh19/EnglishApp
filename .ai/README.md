@@ -34,17 +34,27 @@ If documentation conflicts with tested current behavior, **investigate the confl
 - **ADRs** explain why decisions were made.
 - **Code** is authoritative for exact implementation.
 
-## Recommended agent workflow
+## Recommended reading order
 
 1. Read [`current_state.md`](current_state.md)
 2. Read [`invariants.md`](invariants.md)
-3. Read relevant architecture / ADR files
-4. Inspect relevant code
-5. Inspect tests
-6. Make the smallest safe change
-7. Run `python -m pytest`
-8. Run `python app/smoke_test.py` when relevant
-9. Update durable memory **only if** architecture, schema, invariants, or roadmap changed
+3. Read [`agent_playbook/README.md`](agent_playbook/README.md) and then [`agent_playbook/AI_AGENT_WORKFLOW.md`](agent_playbook/AI_AGENT_WORKFLOW.md)
+4. Read the ADR, architecture page, or procedure for the task
+5. Inspect the code and tests named by the brief
+6. Read a dated file under [`agent_playbook/handoffs/`](agent_playbook/handoffs/) only when resuming that snapshot
+
+`current_state.md`, `invariants.md`, `architecture.md`, the ADRs, and `roadmap.md` remain authoritative for their subjects. The playbook owns collaboration, diffs, and handoff rules. A dated handoff is a historical snapshot and is not a second current state.
+
+## Recommended agent workflow
+
+The canonical loop is [`agent_playbook/AI_AGENT_WORKFLOW.md`](agent_playbook/AI_AGENT_WORKFLOW.md). In short:
+
+1. Confirm the baseline SHA in the Leader brief
+2. Read the memory files in the order above
+3. Make the smallest testable change inside the brief
+4. Run the required tests and report passed, failed, and skipped counts
+5. Put the complete review diff in `diff/` and wait for review before commit
+6. Update durable memory only when architecture, schema, invariants, or roadmap changed
 
 ## What belongs here
 
@@ -79,4 +89,6 @@ If documentation conflicts with tested current behavior, **investigate the confl
 | [plans/PHASE-18B.3-production-readiness.md](plans/PHASE-18B.3-production-readiness.md) | Phase 18B.3 production-readiness plan (Accepted; `97f7b25`) |
 | [procedures/](procedures/) | How-to checklists |
 | [procedures/HOW_TO_UPDATE_PROJECT_MEMORY.md](procedures/HOW_TO_UPDATE_PROJECT_MEMORY.md) | When/how to update `.ai/` memory |
-| [procedures/AI_AGENT_WORKFLOW.md](procedures/AI_AGENT_WORKFLOW.md) | ChatGPT Leader / Cursor Developer / Codex QA workflow |
+| [agent_playbook/README.md](agent_playbook/README.md) | Collaboration playbook: workflow, diff standard, and chat handoffs |
+| [agent_playbook/AI_AGENT_WORKFLOW.md](agent_playbook/AI_AGENT_WORKFLOW.md) | Canonical User / Leader / Developer / Codex workflow |
+| [procedures/AI_AGENT_WORKFLOW.md](procedures/AI_AGENT_WORKFLOW.md) | Pointer to the canonical workflow |
