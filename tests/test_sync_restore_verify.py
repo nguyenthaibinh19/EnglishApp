@@ -517,7 +517,9 @@ def test_verifier_needs_no_network_flag_or_credentials(tmp_path):
     setup = (ROOT / "deploy" / "hetzner" / "setup.sh").read_text(encoding="utf-8")
     assert "verify_sync_backup.py" in setup
     assert "systemctl enable --now language-guard-sync-backup.timer" not in setup
-    assert "language-guard-sync-verify" not in setup
+    assert "/etc/systemd/system/language-guard-sync-verify" not in setup
+    assert "systemctl enable --now language-guard-sync-verify" not in setup
+    assert 'cp "${SRC}/deploy/hetzner/language-guard-sync-verify.timer" "${APP_DIR}/deploy/hetzner/language-guard-sync-verify.timer"' in setup
     _source, live, backups, verify = _layout(tmp_path)
     _seed(_source)
     _place(_source, backups, NEWER)
@@ -677,3 +679,45 @@ def test_backup_names_require_real_ascii_timestamps(tmp_path, monkeypatch):
     monkeypatch.setattr(sync_backup, "restore_database", spy)
     assert verify_latest_backup(str(backups), str(verify), str(live)).status == STATUS_VERIFIED
     assert seen == [valid]
+
+
+def test_restore_hash_is_the_opened_bytes_and_a_same_size_mutation_fails(tmp_path, monkeypatch):
+    source, live, backups, verify = _layout(tmp_path)
+    _seed(source)
+    placed = _place(source, backups, NEWER)
+    original = placed.read_bytes()
+    replaced = {"done": False}
+    real = sync_backup.restore_database
+
+    def replace_named_backup(backup_path, destination):
+        if not replaced["done"]:
+            replaced["done"] = True
+            stamped = os.stat(placed)
+            placed.write_bytes(b"x" * len(original))
+            os.utime(placed, ns=(stamped.st_mtime_ns, stamped.st_mtime_ns))
+        return real(backup_path, destination)
+
+    monkeypatch.setattr(sync_backup, "restore_database", replace_named_backup)
+    result = verify_latest_backup(str(backups), str(verify), str(live))
+    assert result.status == STATUS_VERIFIED
+    assert result.backup_sha256 != __import__("hashlib").sha256(b"x" * len(original)).hexdigest()
+    assert result.backup_bytes == len(original)
+
+    second = tmp_path / "second"
+    second.mkdir()
+    source_two, live_two, backups_two, verify_two = _layout(second)
+    _seed(source_two)
+    placed_two = _place(source_two, backups_two, NEWER)
+    real_again = sync_backup.restore_database
+
+    def mutate_private_copy(backup_path, destination):
+        info = os.stat(backup_path)
+        data = bytearray(Path(backup_path).read_bytes())
+        data[-1] ^= 0x01
+        Path(backup_path).write_bytes(bytes(data))
+        os.utime(backup_path, ns=(info.st_mtime_ns, info.st_mtime_ns))
+        return real_again(backup_path, destination)
+
+    monkeypatch.setattr(sync_backup, "restore_database", mutate_private_copy)
+    mutated = verify_latest_backup(str(backups_two), str(verify_two), str(live_two))
+    assert mutated.status == STATUS_FAILED

@@ -58,8 +58,8 @@ Sync flag stays OFF; no production paging and no Windows sync client
 ## Next
 
 ```text
-Phase 18B.8 — Sync Backup Timer & Verification is the next planned milestone
-It is NOT AUTHORIZED. No timer installation, VPS change, or Sync activation
+Phase 18B.8 repository monitoring code exists and is not closed
+It is not installed. No timer installation, VPS change, or Sync activation is authorized
 Then major product priority after sync readiness: AI Local Reading / Listening
 Optional later: Listening attempt history / analytics (not mastery / SRS)
 Dictionary / pronunciation enrichment (review-before-apply)
@@ -75,7 +75,7 @@ Directional only — Phase 18B.8, production activation, and the Windows client 
 - Article-Matching Hotfix is closed and GitHub-verified at `d0f2f00`. A Dutch legacy answer was evaluated with English articles from active settings. Explicit quiz language takes priority. Legacy `nl`/`en` keys, canonical `word` entries, and explicit articles/elisions remain supported. On 2026-11-02 full pytest was 487 passed, 7 skipped, and smoke passed every check. The seven skips are Linux-only and were not marked passed. The HTTP 413 WinError 10053 abort did not reproduce in five reruns and is follow-up QA only; production HTTP is unchanged.
 - Windows RC QA is paused: a local unpublished executable only. It is not a GitHub Release and was not installed over the current app. Frozen GUI QA is blocked without a disposable Windows account or VM.
 - Phase 18B.7 controlled dark deploy is closed. Server source `d0f2f00` is on the VPS with `STUDY_SYNC_ENABLED` unset, sync routes at 404, and no sync timer. The seven Linux tests remain deferred.
-- Phase 18B.8 Sync Backup Timer & Verification is planned and is not authorized. No timer installation, VPS change, or Sync activation.
+- Phase 18B.8 repository monitoring code and templates exist and are not closed or installed. No timer installation, VPS change, or Sync activation is authorized.
 - ADR-022 event-first automatic account sync (Accepted, architecture only at `d9d0fe3`; does not replace 18B.5 and does not authorize a client or 18C). Includes replacement overlap preflight and per-account vocabulary isolation. Implementation is not started.
 - AI Local Reading / Listening (next major product priority after sync readiness)
 - Dictionary / pronunciation enrichment

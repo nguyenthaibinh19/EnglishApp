@@ -41,6 +41,9 @@ FILES=(
   sync_backup.py
   sync_alert.py
   sync_restore_verify.py
+  health_monitor.py
+  health_notify.py
+  health_handoff.py
   requirements-server.txt
 )
 
@@ -91,9 +94,22 @@ cp "${SRC}/deploy/hetzner/backup_sync.py" "${APP_DIR}/deploy/hetzner/backup_sync
 # Copied for a later ops step. Not scheduled and not installed as a timer.
 cp "${SRC}/deploy/hetzner/verify_sync_backup.py" "${APP_DIR}/deploy/hetzner/verify_sync_backup.py"
 # Sync timer units stay in the app tree. Do not copy them into systemd and do
-# not enable them. Phase 18B.8 is the installation milestone.
+# not enable them. This script does not install Phase 18B.8.
 cp "${SRC}/deploy/hetzner/language-guard-sync-backup.service" "${APP_DIR}/deploy/hetzner/language-guard-sync-backup.service"
 cp "${SRC}/deploy/hetzner/language-guard-sync-backup.timer" "${APP_DIR}/deploy/hetzner/language-guard-sync-backup.timer"
+# Health and sync-verify units stay in the app tree. This script does not
+# copy them into /etc/systemd/system and does not enable them.
+cp "${SRC}/deploy/hetzner/health_report.py" "${APP_DIR}/deploy/hetzner/health_report.py"
+cp "${SRC}/deploy/hetzner/language-guard-health-check.service" "${APP_DIR}/deploy/hetzner/language-guard-health-check.service"
+cp "${SRC}/deploy/hetzner/language-guard-health-check.timer" "${APP_DIR}/deploy/hetzner/language-guard-health-check.timer"
+cp "${SRC}/deploy/hetzner/language-guard-health-report.service" "${APP_DIR}/deploy/hetzner/language-guard-health-report.service"
+cp "${SRC}/deploy/hetzner/language-guard-health-report.timer" "${APP_DIR}/deploy/hetzner/language-guard-health-report.timer"
+cp "${SRC}/deploy/hetzner/language-guard-sync-verify.service" "${APP_DIR}/deploy/hetzner/language-guard-sync-verify.service"
+cp "${SRC}/deploy/hetzner/language-guard-sync-verify.timer" "${APP_DIR}/deploy/hetzner/language-guard-sync-verify.timer"
+cp "${SRC}/deploy/hetzner/health_notify_service.py" "${APP_DIR}/deploy/hetzner/health_notify_service.py"
+cp "${SRC}/deploy/hetzner/language-guard-health-notify.socket" "${APP_DIR}/deploy/hetzner/language-guard-health-notify.socket"
+cp "${SRC}/deploy/hetzner/language-guard-health-notify@.service" "${APP_DIR}/deploy/hetzner/language-guard-health-notify@.service"
+cp "${SRC}/deploy/hetzner/language-guard-notify.sysusers" "${APP_DIR}/deploy/hetzner/language-guard-notify.sysusers"
 cp "${SRC}/deploy/hetzner/language-guard.service" /etc/systemd/system/language-guard.service
 cp "${SRC}/deploy/hetzner/language-guard-backup.service" /etc/systemd/system/language-guard-backup.service
 cp "${SRC}/deploy/hetzner/language-guard-backup.timer" /etc/systemd/system/language-guard-backup.timer
@@ -119,6 +135,9 @@ fi
 "${APP_DIR}/venv/bin/pip" install --upgrade pip
 "${APP_DIR}/venv/bin/pip" install -r "${APP_DIR}/requirements-server.txt"
 
+# Do not chown /opt/language-guard-notify. That tree is the root-owned
+# notifier runtime and must stay non-writable by guard. This script does
+# not create it and does not install the notifier units.
 chown -R "${APP_USER}:${APP_USER}" "${APP_DIR}" /var/backups/language-guard
 
 sed "s/TEN_MIEN/${DOMAIN}/g" "${SRC}/deploy/hetzner/Caddyfile" > /etc/caddy/Caddyfile

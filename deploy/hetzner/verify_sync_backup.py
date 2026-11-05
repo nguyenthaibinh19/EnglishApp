@@ -19,7 +19,7 @@ import sys
 APP_DIR = "/opt/language-guard"
 SOURCE_DB = "/opt/language-guard/study_sync.db"
 BACKUP_DIR = "/var/backups/language-guard/study-sync"
-VERIFY_ROOT = "/var/lib/language-guard/study-sync-verify"
+VERIFY_ROOT = "/var/lib/language-guard-verify/work"
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
 _ROOT = os.path.abspath(os.path.join(_HERE, "..", ".."))
@@ -40,7 +40,11 @@ def execute(backup_dir: str, verify_root: str, live_db: str) -> int:
         result = sync_restore_verify.verify_latest_backup(backup_dir, verify_root, live_db)
     except Exception:
         sys.stderr.write(LINE_FAILED + "\n")
+        _record_result(
+            sync_restore_verify.VerifyResult(sync_restore_verify.STATUS_FAILED)
+        )
         return 1
+    _record_result(result)
     if result.status == sync_restore_verify.STATUS_VERIFIED:
         sys.stdout.write(LINE_VERIFIED + "\n")
         return 0
@@ -49,6 +53,26 @@ def execute(backup_dir: str, verify_root: str, live_db: str) -> int:
         return 0
     sys.stderr.write(LINE_FAILED + "\n")
     return 1
+
+
+def _record_result(result) -> None:
+    """Best-effort private record. A write failure must not change the exit."""
+    path = (os.environ.get("HEALTH_VERIFY_RESULT_PATH") or "").strip()
+    if not path:
+        return
+    try:
+        import health_monitor
+
+        health_monitor.note_sync_verify_result(
+            path,
+            result.status,
+            backup_name=result.backup_name,
+            backup_bytes=result.backup_bytes,
+            backup_mtime_ns=result.backup_mtime_ns,
+            backup_sha256=result.backup_sha256,
+        )
+    except Exception:
+        return
 
 
 def main() -> int:

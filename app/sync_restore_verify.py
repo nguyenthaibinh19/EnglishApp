@@ -10,6 +10,7 @@ resolved before any directory is created or its mode is changed.
 
 from __future__ import annotations
 
+import hashlib
 import os
 import shutil
 import sqlite3
@@ -72,9 +73,13 @@ class VerifyError(Exception):
 
 @dataclass(frozen=True)
 class VerifyResult:
-    """Status only. Paths and database contents stay out of this object."""
+    """Status and non-sensitive backup identity. Paths and contents stay out."""
 
     status: str
+    backup_name: str = ""
+    backup_bytes: int = 0
+    backup_mtime_ns: int = 0
+    backup_sha256: str = ""
 
 
 def verify_latest_backup(
@@ -89,7 +94,7 @@ def verify_latest_backup(
     path is ``FAILED``. Returns ``FAILED`` when the newest valid backup
     cannot be proved recoverable. Does not try an older backup.
     """
-    holder = {"run": None}
+    holder = {"run": None, "identity": None}
     status = STATUS_FAILED
     try:
         status = _verify(backup_dir, verify_root, live_db, holder)
@@ -100,7 +105,16 @@ def verify_latest_backup(
             _cleanup_run(holder["run"], verify_root)
         except Exception:
             status = STATUS_FAILED
-    return VerifyResult(status)
+    identity = holder.get("identity") or {}
+    if status == STATUS_SKIPPED:
+        identity = {}
+    return VerifyResult(
+        status,
+        backup_name=str(identity.get("backup_name") or ""),
+        backup_bytes=int(identity.get("backup_bytes") or 0),
+        backup_mtime_ns=int(identity.get("backup_mtime_ns") or 0),
+        backup_sha256=str(identity.get("backup_sha256") or ""),
+    )
 
 
 def _verify(
@@ -118,7 +132,7 @@ def _verify(
         return _missing_backup_status(live_db)
 
     _reject_symlink_components(newest)
-    if not os.path.isfile(newest):
+    if os.path.islink(newest) or not os.path.isfile(newest):
         raise VerifyError("backup is not a regular file")
 
     _prepare_verify_root(verify_root)
@@ -126,12 +140,82 @@ def _verify(
     _assert_cleanup_target(run_dir, verify_root)
     holder["run"] = run_dir
     _enforce_private_directory(run_dir)
+    captured = _capture_backup(newest, os.path.join(run_dir, os.path.basename(newest)))
+    holder["identity"] = captured
     destination = os.path.join(run_dir, _RESTORED_NAME)
     _assert_safe_destination(destination, newest, live_db, verify_root, backup_dir)
-    sync_backup.restore_database(newest, destination)
+    sync_backup.restore_database(captured["copy_path"], destination)
+    if file_sha256(captured["copy_path"]) != captured["backup_sha256"]:
+        raise VerifyError("backup bytes changed before restore")
     _assert_private_file(destination)
     _check_restored(destination)
     return STATUS_VERIFIED
+
+
+def _capture_backup(path: str, copy_path: str) -> dict:
+    """Copy the opened inode and hash those bytes.
+
+    A later replacement of the backup path, including one that keeps the
+    same size and mtime, is not the file that will be restored. The hash is
+    taken again after restore; a change to this private copy fails the run.
+    """
+    flags = os.O_RDONLY | getattr(os, "O_BINARY", 0)
+    if hasattr(os, "O_NOFOLLOW"):
+        flags |= os.O_NOFOLLOW
+    descriptor = os.open(path, flags)
+    try:
+        info = os.fstat(descriptor)
+        if not stat.S_ISREG(info.st_mode):
+            raise VerifyError("backup is not a regular file")
+        _copy_descriptor(descriptor, copy_path)
+    finally:
+        os.close(descriptor)
+    digest = file_sha256(copy_path)
+    copied = os.stat(copy_path)
+    return {
+        "backup_name": os.path.basename(path),
+        "backup_bytes": int(copied.st_size),
+        "backup_mtime_ns": int(info.st_mtime_ns),
+        "backup_sha256": digest,
+        "copy_path": copy_path,
+    }
+
+
+def _copy_descriptor(descriptor: int, destination: str) -> None:
+    os.lseek(descriptor, 0, os.SEEK_SET)
+    flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_BINARY", 0)
+    if hasattr(os, "O_NOFOLLOW"):
+        flags |= os.O_NOFOLLOW
+    output = os.open(destination, flags, 0o600)
+    try:
+        while True:
+            chunk = os.read(descriptor, 65536)
+            if not chunk:
+                break
+            os.write(output, chunk)
+        os.fsync(output)
+    finally:
+        os.close(output)
+
+
+def file_sha256(path: str) -> str:
+    """Hash a regular file. A symlink is refused and is not followed."""
+    if os.path.islink(path):
+        raise VerifyError("refusing a symlink")
+    flags = os.O_RDONLY | getattr(os, "O_BINARY", 0)
+    if hasattr(os, "O_NOFOLLOW"):
+        flags |= os.O_NOFOLLOW
+    descriptor = os.open(path, flags)
+    try:
+        digest = hashlib.sha256()
+        while True:
+            chunk = os.read(descriptor, 65536)
+            if not chunk:
+                break
+            digest.update(chunk)
+        return digest.hexdigest()
+    finally:
+        os.close(descriptor)
 
 
 def _newest_candidate(backup_dir: str) -> Optional[str]:

@@ -1,0 +1,18 @@
+[Unit]
+Description=Language Guard notification handoff
+
+[Socket]
+ListenStream=/run/language-guard/notify.sock
+SocketUser=lg-notify
+SocketGroup=lg-notify-client
+SocketMode=0660
+# systemd creates the parent directory as root:root with DirectoryMode.
+# 0750 root:root is not traversable by lg-notify-client, so an authorized
+# client still cannot connect. 0755 allows traversal. Connect permission
+# is SocketMode=0660 plus SocketGroup, not the directory mode.
+DirectoryMode=0755
+Accept=yes
+Service=language-guard-health-notify@.service
+
+[Install]
+WantedBy=sockets.target

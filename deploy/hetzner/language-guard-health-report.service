@@ -1,0 +1,29 @@
+[Unit]
+Description=Language Guard daily health report
+
+[Service]
+Type=oneshot
+User=guard
+Group=guard
+SupplementaryGroups=lg-notify-client lg-health
+NoNewPrivileges=true
+PrivateMounts=yes
+PrivateTmp=yes
+ProtectProc=invisible
+ProcSubset=pid
+UMask=0077
+ProtectSystem=strict
+InaccessiblePaths=-/etc/language-guard
+ReadOnlyPaths=/opt/language-guard /var/backups/language-guard /var/lib/language-guard-verify
+ReadWritePaths=/var/lib/language-guard
+Environment=HEALTH_STATE_PATH=/var/lib/language-guard/health-state.json
+Environment=HEALTH_VERIFY_RESULT_PATH=/var/lib/language-guard-verify/result.json
+Environment=HEALTH_NOTIFY_SOCKET=/run/language-guard/notify.sock
+Environment=HEALTH_WITNESS_PATH=/var/lib/language-guard/study-sync-observed
+Environment=ACCOUNTS_BACKUP_DIR=/var/backups/language-guard
+Environment=ACCOUNTS_LIVE_DB=/opt/language-guard/accounts.db
+Environment=STUDY_SYNC_DB=/opt/language-guard/study_sync.db
+Environment=STUDY_SYNC_BACKUP_DIR=/var/backups/language-guard/study-sync
+Environment=SYSTEMD_UNIT_DIR=/etc/systemd/system
+Environment=HEALTH_PUBLIC_URL=https://langstudyguard.com/
+ExecStart=/opt/language-guard/venv/bin/python /opt/language-guard/deploy/hetzner/health_report.py report
