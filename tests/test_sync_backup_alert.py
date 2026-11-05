@@ -267,8 +267,15 @@ def test_sync_units_are_independent_repository_artifacts():
     assert "Persistent=true" in timer
     assert "RandomizedDelaySec=10m" in timer
     assert "OnCalendar=*-*-* 03:15:00" in accounts_timer
+    assert "Persistent=true" in accounts_timer
     assert "RandomizedDelaySec=20m" in accounts_timer
-    assert "backup_accounts.py" in accounts_service
+    assert "UMask=0077" in accounts_service
+    assert "User=guard" in accounts_service
+    assert "Group=guard" in accounts_service
+    assert (
+        "ExecStart=/opt/language-guard/venv/bin/python "
+        "/opt/language-guard/deploy/hetzner/backup_accounts.py"
+    ) in accounts_service
     assert "backup_sync.py" not in accounts_service
     assert "systemctl enable --now language-guard-backup.timer" in setup
     assert "systemctl enable --now language-guard-sync-backup.timer" not in setup

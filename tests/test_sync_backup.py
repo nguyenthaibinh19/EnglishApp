@@ -7,6 +7,7 @@ import sqlite3
 import stat
 import subprocess
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
 
 import pytest
@@ -150,7 +151,7 @@ def test_retention_is_scoped_to_sync_prefix(tmp_path):
     assert not Path(published[0]).exists()
 
 
-def test_accounts_backup_does_not_remove_sync_backups(tmp_path):
+def _load_accounts_backup():
     import importlib.util
 
     script = ROOT / "deploy" / "hetzner" / "backup_accounts.py"
@@ -158,6 +159,21 @@ def test_accounts_backup_does_not_remove_sync_backups(tmp_path):
     module = importlib.util.module_from_spec(spec)
     assert spec.loader is not None
     spec.loader.exec_module(module)
+    return module
+
+
+def _seed_accounts(path: Path) -> None:
+    connection = sqlite3.connect(str(path))
+    try:
+        connection.execute("CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT)")
+        connection.execute("INSERT INTO users (name) VALUES ('ada')")
+        connection.commit()
+    finally:
+        connection.close()
+
+
+def test_accounts_backup_does_not_remove_sync_backups(tmp_path):
+    module = _load_accounts_backup()
 
     source = tmp_path / "accounts.db"
     connection = sqlite3.connect(str(source))
@@ -402,3 +418,152 @@ def test_paths_with_literal_percent_round_trip_read_only(tmp_path):
     finally:
         connection.close()
     assert decoy.read_bytes() == b"not-the-source"
+
+
+def test_accounts_backup_round_trip_is_readable(tmp_path):
+    module = _load_accounts_backup()
+    source = tmp_path / "accounts.db"
+    _seed_accounts(source)
+    backup_dir = tmp_path / "backups"
+    assert module.backup_file(str(source), str(backup_dir)) == 0
+    snapshot = next(backup_dir.glob("accounts-*.db"))
+    restored = sqlite3.connect(str(snapshot))
+    try:
+        assert restored.execute("SELECT name FROM users").fetchone() == ("ada",)
+    finally:
+        restored.close()
+
+
+def test_accounts_backup_is_mode_0600_under_umask_0022(tmp_path):
+    if os.name != "posix":
+        pytest.skip("POSIX permission bits are required")
+    source = tmp_path / "accounts.db"
+    _seed_accounts(source)
+    backup_dir = tmp_path / "backups"
+    backup_dir.mkdir()
+    script = ROOT / "deploy" / "hetzner" / "backup_accounts.py"
+    child = r"""
+import os, sqlite3, stat, sys
+from importlib.util import module_from_spec, spec_from_file_location
+os.umask(0o022)
+spec = spec_from_file_location("backup_accounts_umask", sys.argv[1])
+module = module_from_spec(spec)
+spec.loader.exec_module(module)
+if module.backup_file(sys.argv[2], sys.argv[3]) != 0:
+    raise SystemExit("backup failed")
+names = [name for name in os.listdir(sys.argv[3]) if name.startswith("accounts-")]
+if len(names) != 1:
+    raise SystemExit("expected one snapshot")
+path = os.path.join(sys.argv[3], names[0])
+mode = stat.S_IMODE(os.stat(path).st_mode)
+if mode != 0o600:
+    raise SystemExit("mode %o" % mode)
+connection = sqlite3.connect(path)
+try:
+    row = connection.execute("SELECT name FROM users").fetchone()
+finally:
+    connection.close()
+if row != ("ada",):
+    raise SystemExit("snapshot unreadable")
+"""
+    completed = subprocess.run(
+        [sys.executable, "-c", child, str(script), str(source), str(backup_dir)],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    assert completed.returncode == 0, completed.stderr
+
+
+def test_same_second_collision_does_not_overwrite_snapshot(tmp_path, monkeypatch):
+    module = _load_accounts_backup()
+    source = tmp_path / "accounts.db"
+    _seed_accounts(source)
+    backup_dir = tmp_path / "backups"
+    backup_dir.mkdir()
+    older = backup_dir / "accounts-20000101-000000.db"
+    older.write_bytes(b"older-good")
+    existing = backup_dir / "accounts-20261106-031500.db"
+    existing.write_bytes(b"keep-me")
+
+    class FrozenDateTime(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return datetime(2026, 11, 6, 3, 15, 0, tzinfo=timezone.utc)
+
+    monkeypatch.setattr(module, "datetime", FrozenDateTime)
+    with pytest.raises(FileExistsError):
+        module.backup_file(str(source), str(backup_dir), keep=1)
+    assert existing.read_bytes() == b"keep-me"
+    assert older.read_bytes() == b"older-good"
+    assert {path.name for path in backup_dir.iterdir()} == {
+        existing.name,
+        older.name,
+    }
+
+
+def test_failed_backup_leaves_no_completed_snapshot(tmp_path, monkeypatch):
+    module = _load_accounts_backup()
+    source = tmp_path / "accounts.db"
+    _seed_accounts(source)
+    backup_dir = tmp_path / "backups"
+    backup_dir.mkdir()
+    older = backup_dir / "accounts-20000101-000000.db"
+    older.write_bytes(b"older-good")
+    real_connect = module.sqlite3.connect
+
+    def fail_new_snapshot(path, *args, **kwargs):
+        if os.path.basename(path).startswith("accounts-"):
+            if not os.path.isfile(path):
+                raise AssertionError("incomplete snapshot was not reserved")
+            raise sqlite3.OperationalError("injected failure")
+        return real_connect(path, *args, **kwargs)
+
+    monkeypatch.setattr(module.sqlite3, "connect", fail_new_snapshot)
+    with pytest.raises(sqlite3.OperationalError, match="injected failure"):
+        module.backup_file(str(source), str(backup_dir), keep=1)
+    assert older.read_bytes() == b"older-good"
+    assert {path.name for path in backup_dir.iterdir()} == {older.name}
+
+
+def test_missing_accounts_source_creates_no_snapshot(tmp_path):
+    module = _load_accounts_backup()
+    backup_dir = tmp_path / "backups"
+    assert module.backup_file(str(tmp_path / "missing.db"), str(backup_dir)) == 0
+    assert not backup_dir.exists()
+
+
+def test_accounts_backup_timer_template_is_unchanged():
+    text = (ROOT / "deploy" / "hetzner" / "language-guard-backup.timer").read_text(
+        encoding="utf-8"
+    )
+    assert text == (
+        "[Unit]\n"
+        "Description=Daily backup of Language Guard accounts\n"
+        "\n"
+        "[Timer]\n"
+        "OnCalendar=*-*-* 03:15:00\n"
+        "Persistent=true\n"
+        "RandomizedDelaySec=20m\n"
+        "\n"
+        "[Install]\n"
+        "WantedBy=timers.target\n"
+    )
+
+
+def test_accounts_backup_service_sets_private_umask():
+    text = (ROOT / "deploy" / "hetzner" / "language-guard-backup.service").read_text(
+        encoding="utf-8"
+    )
+    assert text == (
+        "[Unit]\n"
+        "Description=Backup Language Guard accounts database\n"
+        "\n"
+        "[Service]\n"
+        "Type=oneshot\n"
+        "User=guard\n"
+        "Group=guard\n"
+        "UMask=0077\n"
+        "ExecStart=/opt/language-guard/venv/bin/python "
+        "/opt/language-guard/deploy/hetzner/backup_accounts.py\n"
+    )
