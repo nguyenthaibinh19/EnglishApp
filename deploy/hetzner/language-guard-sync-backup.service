@@ -7,4 +7,8 @@ User=guard
 Group=guard
 Environment=STUDY_SYNC_DB=/opt/language-guard/study_sync.db
 Environment=STUDY_SYNC_BACKUP_DIR=/var/backups/language-guard/study-sync
+Environment=HEALTH_STATE_PATH=/var/lib/language-guard/health-state.json
+# User=guard is the same identity as the health collector. That directory
+# is the collector ReadWritePaths and must exist, be writable by guard,
+# and must not be a symlink. This unit does not enable the timer.
 ExecStart=/opt/language-guard/venv/bin/python /opt/language-guard/deploy/hetzner/backup_sync.py

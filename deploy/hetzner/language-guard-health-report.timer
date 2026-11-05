@@ -1,0 +1,10 @@
+[Unit]
+Description=Language Guard daily health report at 09:00 Europe/Amsterdam
+
+[Timer]
+OnCalendar=*-*-* 09:00:00 Europe/Amsterdam
+Persistent=true
+AccuracySec=1s
+
+[Install]
+WantedBy=timers.target

@@ -1,0 +1,32 @@
+[Unit]
+Description=Language Guard notifier
+
+[Service]
+Type=simple
+User=lg-notify
+Group=lg-notify
+NoNewPrivileges=true
+PrivateMounts=yes
+PrivateTmp=yes
+ProtectProc=invisible
+ProcSubset=pid
+UMask=0077
+ProtectSystem=strict
+# The account tree is writable by guard after setup.sh. This process must
+# not execute or import it. /opt/language-guard-notify is a separate tree,
+# root:root, mode 0755, files 0644, and is not chowned by setup.sh.
+# python -I ignores PYTHONPATH, user site packages, and the script directory.
+InaccessiblePaths=-/opt/language-guard -/etc/language-guard -/var/backups/language-guard -/var/lib/language-guard -/var/lib/language-guard-verify
+ReadOnlyPaths=/opt/language-guard-notify
+ReadWritePaths=/var/lib/language-guard-notify
+StateDirectory=language-guard-notify
+StateDirectoryMode=0700
+Environment=HEALTH_NOTIFIER_STATE_PATH=/var/lib/language-guard-notify/attempts.json
+LoadCredential=telegram.token:/etc/language-guard/telegram.token
+LoadCredential=telegram.chat:/etc/language-guard/telegram.chat
+LoadCredential=brevo.key:/etc/language-guard/brevo.key
+LoadCredential=brevo.sender:/etc/language-guard/brevo.sender
+LoadCredential=brevo.recipient:/etc/language-guard/brevo.recipient
+LoadCredential=heartbeat.url:/etc/language-guard/heartbeat.url
+StandardInput=socket
+ExecStart=/opt/language-guard-notify/venv/bin/python -I -c "import sys; sys.path.insert(0, '/opt/language-guard-notify/app'); import health_notify_service; raise SystemExit(health_notify_service.main())"

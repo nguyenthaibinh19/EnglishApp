@@ -40,20 +40,28 @@ def execute(source: str, backup_dir: str, alert_sink=_FROM_ENV, environ=None) ->
         result = sync_backup.backup_database(source, backup_dir)
     except (sync_backup.SyncBackupError, OSError, sqlite3.Error):
         sys.stderr.write("study_sync backup failed\n")
-        return _emit(
+        code = _emit(
             sync_alert.EVENT_BACKUP_FAILED,
             success_exit=1,
             alert_sink=alert_sink,
             environ=env,
         )
-    if result is not None and result.retention_warning:
+        _note_health("failed", env)
+        return code
+    if result is None:
+        _note_health("absent", env)
+        return 0
+    if result.retention_warning:
         sys.stderr.write(result.retention_warning + "\n")
-        return _emit(
+        code = _emit(
             sync_alert.EVENT_RETENTION_WARNING,
             success_exit=0,
             alert_sink=alert_sink,
             environ=env,
         )
+        _note_health("retention_warning", env)
+        return code
+    _note_health("published", env)
     return 0
 
 
@@ -65,6 +73,16 @@ def _emit(event_type: str, *, success_exit: int, alert_sink, environ) -> int:
         sys.stderr.write(sync_alert.ALERT_NOT_DELIVERED + "\n")
         return 2
     return success_exit
+
+
+def _note_health(kind: str, environ) -> None:
+    """Best-effort health note. It must not change ADR-021 exit codes."""
+    try:
+        import health_monitor
+
+        health_monitor.note_sync_backup_event(kind, environ)
+    except Exception:
+        return
 
 
 def main() -> int:

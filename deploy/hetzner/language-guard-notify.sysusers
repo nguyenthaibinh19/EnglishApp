@@ -1,0 +1,8 @@
+# Templates only. setup.sh does not install this file.
+# Do not add guard to lg-notify-client. Membership would let the account
+# server connect to the notifier socket. The health units receive that
+# group through SupplementaryGroups= and nowhere else.
+u lg-notify - "Language Guard notifier"
+g lg-notify-client -
+u lg-verify - "Language Guard restore verifier"
+g lg-health -

@@ -1,0 +1,24 @@
+[Unit]
+Description=Verify the newest Language Guard sync backup
+
+[Service]
+Type=oneshot
+User=lg-verify
+Group=lg-health
+NoNewPrivileges=true
+PrivateMounts=yes
+PrivateTmp=yes
+ProtectProc=invisible
+ProcSubset=pid
+UMask=0027
+ProtectSystem=strict
+StateDirectory=language-guard-verify
+StateDirectoryMode=0750
+InaccessiblePaths=-/opt/language-guard/accounts.db -/opt/language-guard/.env
+ReadOnlyPaths=/opt/language-guard/venv /opt/language-guard/app /opt/language-guard/deploy/hetzner /var/backups/language-guard/study-sync
+ReadWritePaths=/var/lib/language-guard-verify
+Environment=STUDY_SYNC_DB=/opt/language-guard/study_sync.db
+Environment=STUDY_SYNC_BACKUP_DIR=/var/backups/language-guard/study-sync
+Environment=STUDY_SYNC_VERIFY_DIR=/var/lib/language-guard-verify/work
+Environment=HEALTH_VERIFY_RESULT_PATH=/var/lib/language-guard-verify/result.json
+ExecStart=/opt/language-guard/venv/bin/python /opt/language-guard/deploy/hetzner/verify_sync_backup.py
