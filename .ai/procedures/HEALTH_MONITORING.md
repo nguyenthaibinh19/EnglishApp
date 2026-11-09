@@ -1,6 +1,6 @@
 # Health monitoring
 
-Repository templates for Phase 18B.8. They are not installed, enabled, or started by this document. `setup.sh` copies them into the application tree and does not copy them into `/etc/systemd/system`. The accounts backup timer is unchanged. `STUDY_SYNC_ENABLED` stays unset.
+Repository templates for Phase 18B.8. The source is committed at `24e600b` and merged at `65b045a`. These templates are not installed, enabled, or started. `setup.sh` copies them into the application tree and does not copy them into `/etc/systemd/system`. The accounts backup timer is unchanged. `STUDY_SYNC_ENABLED` stays unset.
 
 `PROVIDER_ACCEPTED` means the provider API returned success. It does not prove that a person received or read the message. A finished collector process also does not mean the report was delivered. If the VPS is down, neither Telegram nor email can be sent. UptimeRobot is the public-outage signal, and Healthchecks.io is the missed-report signal.
 
@@ -55,7 +55,7 @@ The socket inode is `lg-notify:lg-notify-client` mode `0660`. systemd creates `/
 
 The notifier runs as `lg-notify`. It is the only unit that loads the credentials. Its executable is `python -I` from `/opt/language-guard-notify/venv`, and its only inserted import path is `/opt/language-guard-notify/app`. That tree is installed by a separate operations plan as `root:root` mode `0755`, with files mode `0644`, and `setup.sh` must not chown it to `guard`. The whole `/opt/language-guard` tree is inaccessible to the notifier. The process refuses to start when its own file is under `/opt/language-guard`. Its namespace also hides backups and the collector state. Attempt timestamps live in `/var/lib/language-guard-notify`, mode `0700`, owned by `lg-notify`. It does not open a path from the request. Logs still contain only the channel, result, HTTP status, and attempt.
 
-The verifier runs as `lg-verify`, group `lg-health`. Its state directory is `/var/lib/language-guard-verify`, mode `0750`. The collector's supplementary group `lg-health` can read the published result and cannot write the directory or the verifier lock. The collector does not need write access to read `result.json`. The account server is not in that group. Before the verify unit is installed, the sync backup directory needs a traverse grant for `lg-verify` without giving it read access to the accounts backup files. Those files stay mode `0600`. This repository does not change their permissions.
+The verifier runs as `lg-verify`, group `lg-health`. Its state directory is `/var/lib/language-guard-verify`, mode `0750`. The collector's supplementary group `lg-health` can read the published result and cannot write the directory or the verifier lock. The collector does not need write access to read `result.json`. The account server is not in that group. Before the verify unit is installed, the sync backup directory needs a traverse grant for `lg-verify` without giving it read access to the accounts backup files. The contract is mode `0600`. Commit `09556f9` makes new snapshots request that mode and sets `UMask=0077` on the accounts unit template. That commit is not deployed, and it does not chmod files that already exist. The 2026-11-05 read-only preflight found three production snapshots at mode `0644`. Do not add the traverse grant while any accounts backup is looser than `0600`.
 
 Root can still inspect any process. A process that can connect to the socket can submit a structured event, not arbitrary prose. It cannot read the bot token, the Brevo key, or the heartbeat URL. The notifier tree is not created by this repository's deploy script. Until that operations plan installs it, the unit is a template only.
 
@@ -88,4 +88,4 @@ The backup script does not send Telegram or email itself. A check that finds an 
 - A skipped sync backup would be reported as success.
 - This work would be treated as off-box recovery (18B.9) or Sync activation (18B.11).
 
-Phase 18B.8 is not closed. Phase 18B.7 remains closed.
+Phase 18B.8 source is committed and is not a production closure. Phase 18B.7 remains closed. Cloud Sync remains off.

@@ -2,13 +2,17 @@
 
 > First file a new agent should read. Keep this concise and update when phases complete.
 
-**Snapshot date context:** 2026-11-03 — Phase 18B.7 is **CLOSED**: the controlled dark deploy is Leader-accepted. Phase 18B.8 repository code, unit templates, and [HEALTH_MONITORING.md](procedures/HEALTH_MONITORING.md) exist and are **not deployed, not installed, and not closed**. Production installation is not authorized. Windows release-candidate QA is **PAUSED**, unpublished, and is not an active release milestone. The Article-Matching Hotfix is **CLOSED** and GitHub-verified at `d0f2f004c85ce9f4265d33bd034ba18423f1e3a5`. Phase 18B.6 is **CLOSED** at `39f3a0bbbc47dda2c213324a820d198d0f0c3501`. Phase 18B.5 is **CLOSED** and GitHub-verified at `69307892f779e61de7b99563eb5c76ad4296cbcc`. Phase 18B.4 remains **CLOSED** at `d277791`. ADR-022 remains **Accepted** as architecture only (`d9d0fe3`) and is not implemented. Phase 18C is not started. Sync flag stays **OFF**. No production paging, sync timer, Sync activation, or Windows sync client.
+**Snapshot date:** 2026-11-08. Phase 18B.7 remains **CLOSED**. Phase 18B.8 health-monitoring **source is committed and on `main`**, and it is **not installed, not enabled, and not operational**. The accounts-backup mode fix is **committed and not deployed**. Production monitoring installation is **BLOCKED**. Windows installation safety is **implemented locally and uncommitted**. Cloud Sync stays **OFF**. ADR-022 remains architecture only. Phase 18C is not implemented.
 
-**Local implementation HEAD:** `cc3fd0fc9fd16dc6e39d48bbcd7928bcee4e0628` (this worktree; Phase 18B.8 is uncommitted)
+**This worktree:** `fix/windows-install-safety` at `09556f909b0ce6d8dcc27816800ef6bcd308f1ab`, plus uncommitted `app/install.py` and untracked `tests/test_install.py`.
 
-**GitHub `main` last verified by Leader:** `604031446d0a832edfc3d6cdead6c84b87cc276a`
+**GitHub `main` read on 2026-11-08:** `09556f909b0ce6d8dcc27816800ef6bcd308f1ab`.
 
-**Deployed server source:** `d0f2f004c85ce9f4265d33bd034ba18423f1e3a5`
+**Deployed server source:** `d0f2f004c85ce9f4265d33bd034ba18423f1e3a5`. A newer Git commit is not a deploy.
+
+**Phase 18B.8 source:** `24e600bacff67d134217deb931eb953721c9ea9b`, merge `65b045a62dc0f0e1f3e6f7d156ed22311e9bc705` (committed; not installed)
+
+**Accounts backup mode source:** `09556f909b0ce6d8dcc27816800ef6bcd308f1ab` (committed; not deployed)
 
 **ADR-022 accepted commit:** `d9d0fe3` (event-first account sync architecture only; not implemented)
 
@@ -34,7 +38,7 @@
 
 **Phase 17C accepted commit:** `c0b2d2d375d1b258a5c14fec5f713065875ee0fa`
 
-**Windows Startup:** deferred pending access to the affected PC (unchanged).
+**Windows Startup:** one user shortcut exists and points at the installed safety build with `--lock`. That automatic start has not been executed. See **Windows installation safety** below.
 
 ## Product
 
@@ -144,7 +148,15 @@ python -m pytest
 python app/smoke_test.py
 ```
 
-**Test notes (do not treat as a permanent green invariant):** a pre-17C-deploy snapshot once reported ~340 pytest passes. On 2026-11-02, at `d0f2f004c85ce9f4265d33bd034ba18423f1e3a5`, full `python -m pytest` was 487 passed, 7 skipped, and smoke passed every check. The seven skips are the Linux symlink tests and `systemd-analyze`; they were not run as passes. Windows RC packaging is local and unpublished. Do not claim a later tree is green without fresh evidence.
+**Test notes (do not treat as a permanent green invariant):** a pre-17C-deploy snapshot once reported ~340 pytest passes. On 2026-11-02, at `d0f2f004c85ce9f4265d33bd034ba18423f1e3a5`, full `python -m pytest` was 487 passed, 7 skipped, and smoke passed every check. The seven skips are the Linux symlink tests and `systemd-analyze`; they were not run as passes. Do not claim a later tree is green without fresh evidence.
+
+Later evidence, not a full-suite rerun of this worktree:
+
+| Evidence | Result | What it is |
+|---|---|---|
+| Leader Linux QA of merge `65b045a` | 106 passed, 0 failed, 0 skipped | Health, restore verification, backup alert, and package tests. Not a VPS install |
+| Leader Linux QA of the accounts-backup mode patch that became `09556f9` | 127 passed, 0 failed, 0 skipped | Those suites plus the sync-backup tests, including mode `0600` under umask `0022`. Not a deploy |
+| `pytest tests/test_install.py` on this worktree, 2026-11-08 | 15 passed, 0 failed, 0 skipped | Mocks and temporary paths only. Does not launch the real executable |
 
 ## Current development position
 
@@ -167,7 +179,9 @@ Completed: Phase 18B.4 — Sync backup timer units and alert contract (accepted 
 Completed: Phase 18B.5 — Restore verification (GitHub-verified ``69307892f779e61de7b99563eb5c76ad4296cbcc``; source copied in 18B.7; no production verification job installed or scheduled)
 Completed: Phase 18B.6 — Isolated local staging (CLOSED ``39f3a0bbbc47dda2c213324a820d198d0f0c3501``; repository-only; staging unit not installed)
 Completed: Phase 18B.7 — Controlled dark deploy (CLOSED; server source ``d0f2f004c85ce9f4265d33bd034ba18423f1e3a5``; Sync OFF; no sync timer)
-Next: Phase 18B.8 repository implementation is present and uncommitted. It is not installed, not closed, and does not authorize a timer, a VPS change, or Sync activation. Windows RC QA remains PAUSED and unpublished.
+Committed, not deployed: Phase 18B.8 health monitoring (``24e600b``, merge ``65b045a``) and the accounts snapshot mode fix (``09556f9``)
+Local, uncommitted: Windows installation safety ([ADR-023](decisions/ADR-023-windows-installation-safety.md))
+Next Git decision: integrate that uncommitted patch and the matching ``.ai/`` update. Production monitoring install stays blocked. Phase 18C is not started.
 Accepted, not started: ADR-022 event-first automatic account sync (architecture only, `d9d0fe3`). No schema, HTTP, or Windows client. Phase 18C is not started.
 Then (directional, after sync readiness): AI Local Reading/Listening; optional Listening history/SRS; dictionary/pronunciation enrichment; Reading Lab
 ```
@@ -192,11 +206,15 @@ Listening is optional (settings default **off**). Content is AI-generated from S
 
 **Article-Matching Hotfix CLOSED (GitHub-verified `d0f2f004c85ce9f4265d33bd034ba18423f1e3a5`):** a Dutch legacy answer was evaluated with English articles from the active settings language. Explicit quiz `language_code` takes priority. Legacy `nl` / `en` keys remain when the caller does not pass a language. Canonical `word` entries and explicit `articles` / `elisions` remain supported. Exact-without-hint remains the mastery rule, and a new submit appends an attempt instead of rewriting older rows. Windows RC QA on this commit: pytest 487 passed, 7 skipped; smoke all checks passed. With settings language `en`, legacy `de fiets` accepts `fiets`, and `language_code=nl` accepts it for a canonical entry. The seven Linux tests stayed skipped (`os.symlink` unavailable; `systemd-analyze` unavailable) and are not passes. HTTP 413 / WinError 10053 was not reproduced in five earlier reruns and stays follow-up QA. This hotfix does not authorize a VPS deploy.
 
-**Windows RC QA PAUSED** (not a release, not published, not the active milestone): a local `dist/langstudyguard.exe` and zip were built from `d0f2f00` with PyInstaller 6.22.3. The bundle contains a dedicated QA emergency password only. It does not contain the developer `.env` API key, account token, or account-server URL. Isolated `--check` exited 0: `install.prepare()` is skipped, the report was written under a disposable AppData directory, no isolated install copy or Startup shortcut was created, and the API key was absent. The primary installed exe, Startup shortcut, `progress.json`, and `settings.json` hashes were unchanged. Python 3.13.13, the build interpreter, also reported pytest 487 passed, 7 skipped, and smoke all checks passed. Frozen GUI QA remains blocked: Windows Sandbox is not installed, no Hyper-V VM is available, and the extra local accounts were not used. Production Sync stays OFF.
+**Windows RC QA of `d0f2f00` is historical.** That unpublished local executable is no longer official `dist` or the installed application. Its frozen GUI was not completed in a disposable Windows environment. The replacement binary and its limits are in the Windows installation-safety paragraph above. Production Sync stays OFF.
 
 **Phase 18B.7 CLOSED (Leader-accepted controlled dark deploy, 2026-11-03):** server source `d0f2f004c85ce9f4265d33bd034ba18423f1e3a5`, recorded against GitHub baseline `6b59331e124e18cf6f6f371b8b562a569b22a309`. Twelve approved server files were deployed with matching SHA-256 checksums. `language-guard.service` restarted successfully. Fresh login returned HTTP 200 and issued a session. One authenticated AI Grade request returned HTTP 200 with a functional response. Public health returned HTTP 200. The three Sync POSTs returned HTTP 404. `STUDY_SYNC_ENABLED` remains unset. `study_sync.db` remained absent. The accounts backup was verified, and database permissions were hardened. The existing accounts backup timer is unchanged. No sync timer was installed, and no rollback was required. `setup.sh` was not used. The seven Linux-specific tests (symlink cases and `systemd-analyze`) stay explicitly deferred and are not passes. This closure does not authorize Phase 18B.8.
 
-**Phase 18B.8 repository implementation, not closed and not deployed:** `app/health_monitor.py`, `app/health_notify.py`, `deploy/hetzner/health_report.py`, health-check, health-report, and sync-verify unit templates. Checks are every 30 minutes and the daily report is 09:00 Europe/Amsterdam, both as calendar suffixes. The sync backup template is `04:45:00 UTC`. Accounts backup code and its timer are unchanged. `setup.sh` copies the new templates into the app tree and does not enable them. `STUDY_SYNC_ENABLED` stays unset. The collector stays `guard` and does not load provider credentials. The notifier is a separate `lg-notify` template. The collector does not create `study_sync.db`. A restore verification is `UNKNOWN` until the verifier writes `result.json`; a recorded `VERIFIED` matches the current backup identity only. Health-channel backup alerts wait for the next 30-minute check. A 30-minute poll can miss a database created and deleted between checks. Provider acceptance is not proof a person received the message. See [HEALTH_MONITORING.md](procedures/HEALTH_MONITORING.md). No timer is installed and Sync is not activated.
+**Phase 18B.8 source committed, operations not closed:** `app/health_monitor.py`, `app/health_notify.py`, `deploy/hetzner/health_report.py`, and the health-check, health-report, and sync-verify unit templates are in `24e600bacff67d134217deb931eb953721c9ea9b`, merged by `65b045a62dc0f0e1f3e6f7d156ed22311e9bc705`. Checks are every 30 minutes and the daily report is 09:00 Europe/Amsterdam. The sync backup template is `04:45:00 UTC`. `setup.sh` copies templates into the app tree and does not enable them. `STUDY_SYNC_ENABLED` stays unset. The collector stays `guard` and does not load provider credentials. The notifier is a separate `lg-notify` template. The collector does not create `study_sync.db`. A restore verification is `UNKNOWN` until the verifier writes `result.json`. Provider acceptance is not proof a person received the message. See [HEALTH_MONITORING.md](procedures/HEALTH_MONITORING.md). No 18B.8 unit is installed. The 18B.3 plan's timer-installation milestone that reused this number has not started.
+
+**Accounts backup mode, committed and not deployed (`09556f9`):** new snapshots are reserved with `os.open(..., 0o600)` and the accounts unit template sets `UMask=0077`. The timer calendar is unchanged. `setup.sh` must not be the deploy vehicle. The 2026-11-05 read-only production preflight found `accounts-20261103-032805.db`, `accounts-20261104-032631.db`, and `accounts-20261105-032959.db` at mode `0644` inside the `0700` backup directory. Other UIDs cannot read them through that directory today. A future `lg-verify` traverse grant is blocked until those files are `0600`. No production chmod or unit install is authorized.
+
+**Windows installation safety, not closed ([ADR-023](decisions/ADR-023-windows-installation-safety.md)):** the patch is source-reviewed in this worktree and is not on `main`. `tests/test_install.py` passed 15 tests on 2026-11-08. The isolated build, official `dist\langstudyguard.exe`, the single ZIP entry `langstudyguard.exe`, and `%LOCALAPPDATA%\langstudyguard\langstudyguard.exe` share SHA-256 `bbcd5e9a8bb22c72acdf863c94b68f6dbb7cc76717b737c6b93b0e50b28d58c3`. The ZIP file itself is SHA-256 `260089de6ff4eab071dbc70c904dd09ba6b9ca3091bcccaaa55a83bd859274f8`. The user confirmed Home Dashboard open and a normal close. That launch did not create Startup. A new user Startup shortcut then set the target to the installed executable, arguments `--lock`, and the install directory as the working directory. Automatic Startup and Emergency Exit under `--lock` have not been run on this build. Previous dist and install backups remain outside the repository. This is not a GitHub Release.
 
 **ADR-022 Accepted** (architecture only; not implemented; `d9d0fe3`): event-first progress sync and automatic account sync while the Windows app is running. Local study stays authoritative offline. Server-order folding and `received_at`-anchored `ladder-v2` SRS are locked, including a late offline wrong answer resetting streak. Confirmed and provisional projections stay separate. Import identity is file identity plus byte offset. A replacement file requires overlap preflight and explicit reconciliation before an ambiguous line can upload; accepted events are not deleted or silently duplicated. Synced requires both vocabulary and progress outboxes clear, both download cursors caught up, and no unresolved blocking conflict. Future signed-in vocabulary is per-account; machine-global guest `vocab.json` must not automatically appear in or upload to an account. No tables, routes, or client are authorized. Milestones 18C.1–18C.3 are not started. See [ADR-022](decisions/ADR-022-event-first-automatic-account-sync.md).
 

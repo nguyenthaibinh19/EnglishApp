@@ -2,6 +2,8 @@
 
 Update `.ai/` **only for durable facts** — not for temporary debugging or session chatter.
 
+**Standing rule:** a completed phase, architectural change, operational change, or safety fix is not fully closed until the relevant `.ai/` files match the repository, the tests, and the deployment evidence. Chat history is not that record.
+
 ## When to update what
 
 | Change | Update |
@@ -10,6 +12,8 @@ Update `.ai/` **only for durable facts** — not for temporary debugging or sess
 | Invariant / must-not-break rule | [`invariants.md`](../invariants.md) **and** corresponding tests |
 | Schema / persistence contracts | [`current_state.md`](../current_state.md) + relevant ADR and/or procedure (e.g. vocab schema) |
 | Completed or current roadmap phase | [`current_state.md`](../current_state.md) + [`roadmap.md`](../roadmap.md) |
+| Deployed, enabled, or still blocked operations | [`current_state.md`](../current_state.md). Do not mark a plan milestone deployed because its source commit exists |
+| Windows install or Startup safety | [`current_state.md`](../current_state.md), [`invariants.md`](../invariants.md), and [ADR-023](../decisions/ADR-023-windows-installation-safety.md) |
 
 ## What does not belong in `.ai/`
 

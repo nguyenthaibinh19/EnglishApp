@@ -86,3 +86,25 @@ Never blur: prepared ≠ committed ≠ pushed ≠ installed ≠ enabled ≠ oper
 State a clear verdict (approved / approved with corrections / on hold / blocked), why, and exactly one next action. For implementation work, deliver one self-contained Cursor prompt with baseline, scope, boundaries and report requirements. Prefer practical movement over gratuitous review loops; keep unresolved blockers explicit. Do not promise background completion.
 
 See `ENGINEERING_AND_DIFF_STANDARD.md` and `CHAT_HANDOFF_PROTOCOL.md` for the concrete coding/review and context-transfer checklists.
+
+## 9. Establish the baseline before acting
+
+1. Read [`.ai/current_state.md`](../current_state.md), then the roadmap, invariants, and the ADR for the task.
+2. In the worktree named by the brief, run `git rev-parse HEAD`, `git branch --show-current`, and `git status --short`. Uncommitted files are part of the baseline when the brief says so.
+3. Treat three trees as different facts: this worktree, GitHub `main` (`git ls-remote origin refs/heads/main` when a push or deploy is in scope), and the deployed VPS source SHA in `current_state.md`. A matching Git SHA does not mean the VPS is running it.
+4. Prefer code, tests, ADRs, and dated evidence over a chat summary. If they disagree, name the disagreement and stop before "correcting" production.
+5. Update `.ai/` in the same authorized change when a phase, architecture rule, operational state, or safety fix changes. A dated handoff is a snapshot; do not let it override `current_state.md`.
+6. Report commands, counts, skips, SHAs, and what was not run. Label `UNVERIFIED` when the evidence was not read.
+7. Commit, push, deploy, timer install, Startup change, release, and `STUDY_SYNC_ENABLED=1` each need their own approval. A brief that says "implement" does not include them.
+8. Do not write passwords, tokens, `.env` values, learner progress, or private user paths into `.ai/`, diffs meant for GitHub, or issue comments. Use `%LOCALAPPDATA%`, `%APPDATA%`, and repository-relative paths.
+
+## 10. Current collaboration practice (2026-11-08)
+
+This is how the project is being run now. It is not a permanent architecture requirement.
+
+- ChatGPT is Leader, architect, and reviewer.
+- Cursor Desktop is the primary implementation agent.
+- The user copies prompts and reports between them.
+- GitHub-to-Slack notification can ring. It does not start ChatGPT or Cursor work. Autonomous triggering is blocked.
+- There is no operational autonomous agent bridge. Do not poll for work and do not start a Cloud Agent unless a later brief authorizes that exact action.
+- Codex remains selective QA, not a standing gate.

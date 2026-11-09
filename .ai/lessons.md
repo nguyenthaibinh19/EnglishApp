@@ -26,6 +26,12 @@ Durable engineering lessons from Phases 1–14. Prefer these over repeating past
 - Future SRS reviews must never be labeled **due**.
 - Reading failure must not hard-block session completion after required vocab.
 
+## Windows installation
+
+- `shutil.copy2` keeps the source timestamp, so an older executable can replace a newer install without looking newer.
+- An installed launch must not recreate Startup. An external copy must not overwrite an existing install.
+- Creating a `--lock` shortcut is not a test of that locked session or of Emergency Exit.
+
 ## Engineering style
 
 - Prefer a small pure module over a new framework.

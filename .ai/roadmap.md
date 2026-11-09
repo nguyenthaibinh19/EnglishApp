@@ -39,43 +39,54 @@ Architecture phases 1–14 (summary only):
 | 18B.6 | Isolated local staging (CLOSED `39f3a0b`; repository-only; staging unit not installed) |
 | 18B.7 | Controlled dark deploy (CLOSED; server source `d0f2f00`; Sync OFF; no sync timer; seven Linux tests deferred) |
 
+Phase 18B.7 is the last fully CLOSED milestone.
+
 ## Current
 
+Phase 18B.8 is **OPEN / NOT CLOSED**. Its source is on `main`. Production monitoring is not installed or enabled. Cloud Sync is OFF.
+
+- Health-monitoring source is committed at `24e600b` and merged at `65b045a`. Monitoring Linux QA of that tree: 106 passed, 0 failed, 0 skipped, per the existing QA report.
+- Accounts backup mode fix is committed at `09556f9`. Its Linux QA: 127 passed, 0 failed, 0 skipped, per the existing QA report. That fix is not deployed.
+- Three production accounts backups from 2026-11-03 through 2026-11-05 are mode `0644`. They block the next operations step. Do not install the monitoring units or grant verifier traverse while they remain looser than `0600`.
+
 ```text
-Phase 18B.7 CLOSED — controlled dark deploy accepted
-Deployed server source d0f2f00; GitHub baseline 6b59331
-Twelve files matched approved SHA-256 checksums; language-guard.service restarted
-Fresh login HTTP 200; authenticated AI Grade HTTP 200; public health HTTP 200
-Three Sync POSTs HTTP 404; STUDY_SYNC_ENABLED unset; study_sync.db absent
-Accounts backup verified; database permissions hardened; accounts timer unchanged
-No sync timer installed; no rollback
-Seven Linux tests remain deferred, not passed
-Windows RC QA PAUSED — local unpublished build, not a release milestone
-ADR-022 remains Accepted architecture only at `d9d0fe3`; Phase 18C is not started
-Sync flag stays OFF; no production paging and no Windows sync client
+GitHub main: 09556f909b0ce6d8dcc27816800ef6bcd308f1ab (read 2026-11-08)
+Worktree fix/windows-install-safety is that commit plus uncommitted installer safety
+Phase 18B.7 CLOSED — controlled dark deploy; server source still d0f2f00
+Phase 18B.8 OPEN / NOT CLOSED — source on main, operations not installed
+Cloud Sync OFF; study_sync.db absent at the 18B.7 deploy; no sync timer
+Windows installation safety: local exe and dist match the tested binary
+Startup shortcut exists with --lock and has not been launched on this build
+Emergency Exit under --lock is not verified on this build
+ADR-022 remains architecture only; Phase 18C is not implemented
 ```
 
 ## Next
 
 ```text
-Phase 18B.8 repository monitoring code exists and is not closed
-It is not installed. No timer installation, VPS change, or Sync activation is authorized
-Then major product priority after sync readiness: AI Local Reading / Listening
+Integrate the uncommitted Windows installation-safety patch and these docs
+only after a separate Git authorization
+Production accounts-backup remediation is a blocker, not an authorized task
+Do not install 18B.8 units, grant verifier traverse, or set STUDY_SYNC_ENABLED
+Phase 18C stays unimplemented
+Next major product priority after the sync sequence: AI Local Reading / Listening
 Optional later: Listening attempt history / analytics (not mastery / SRS)
 Dictionary / pronunciation enrichment (review-before-apply)
 Reading Lab improvements
 ```
 
-Directional only — Phase 18B.8, production activation, and the Windows client each need their own authorization. Windows RC QA is paused and is not a release.
+Directional only. Source on `main` is not deployment. The Windows client in ADR-022 is not started. Do not renumber the product back to Phase 15.
 
 ## Near-term (directional)
 
 - Phase 18B.5 restore verification is closed (GitHub-verified `6930789`; source copied in 18B.7; no production verification job installed or scheduled)
 - Phase 18B.6 isolated local staging is closed (`39f3a0b`; not a VPS deployment; staging unit not installed). Proof files are new names in the proof directory. The staging `.env` must match the allowlist before listen. Windows symlink tests skipped.
 - Article-Matching Hotfix is closed and GitHub-verified at `d0f2f00`. A Dutch legacy answer was evaluated with English articles from active settings. Explicit quiz language takes priority. Legacy `nl`/`en` keys, canonical `word` entries, and explicit articles/elisions remain supported. On 2026-11-02 full pytest was 487 passed, 7 skipped, and smoke passed every check. The seven skips are Linux-only and were not marked passed. The HTTP 413 WinError 10053 abort did not reproduce in five reruns and is follow-up QA only; production HTTP is unchanged.
-- Windows RC QA is paused: a local unpublished executable only. It is not a GitHub Release and was not installed over the current app. Frozen GUI QA is blocked without a disposable Windows account or VM.
+- The 2026-11-02 Windows RC build from `d0f2f00` is no longer the installed executable or official `dist`. It was unpublished and is not a release. The current local binary is the 2026-11-08 installation-safety executable recorded in [ADR-023](decisions/ADR-023-windows-installation-safety.md).
 - Phase 18B.7 controlled dark deploy is closed. Server source `d0f2f00` is on the VPS with `STUDY_SYNC_ENABLED` unset, sync routes at 404, and no sync timer. The seven Linux tests remain deferred.
-- Phase 18B.8 repository monitoring code and templates exist and are not closed or installed. No timer installation, VPS change, or Sync activation is authorized.
+- Phase 18B.8 health-monitoring source is on `main` (`24e600b`, merge `65b045a`) and is not installed. The 18B.3 plan used the same number for a later timer installation; that installation has not started. No VPS change or Sync activation is authorized.
+- Accounts backup creation in `09556f9` reserves new snapshots at mode `0600` with `UMask=0077`. The commit is not deployed. The 2026-11-05 read-only preflight still blocks installation because three production snapshots are mode `0644`.
+- Windows installation safety ([ADR-023](decisions/ADR-023-windows-installation-safety.md)) is implemented in this worktree and is not committed. The tested executable is the local installed app and official `dist`. Startup `--lock` is configured and untested on this build.
 - ADR-022 event-first automatic account sync (Accepted, architecture only at `d9d0fe3`; does not replace 18B.5 and does not authorize a client or 18C). Includes replacement overlap preflight and per-account vocabulary isolation. Implementation is not started.
 - AI Local Reading / Listening (next major product priority after sync readiness)
 - Dictionary / pronunciation enrichment

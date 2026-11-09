@@ -54,7 +54,7 @@ The canonical loop is [`agent_playbook/AI_AGENT_WORKFLOW.md`](agent_playbook/AI_
 3. Make the smallest testable change inside the brief
 4. Run the required tests and report passed, failed, and skipped counts
 5. Put the complete review diff in `diff/` and wait for review before commit
-6. Update durable memory only when architecture, schema, invariants, or roadmap changed
+6. Update durable memory in the same change as a completed phase, architectural change, operational change, or safety fix. The work is not fully closed while `.ai/` still describes the old state.
 
 ## What belongs here
 
@@ -84,7 +84,7 @@ The canonical loop is [`agent_playbook/AI_AGENT_WORKFLOW.md`](agent_playbook/AI_
 | [invariants.md](invariants.md) | Rules that must not be broken |
 | [roadmap.md](roadmap.md) | Directional plan |
 | [lessons.md](lessons.md) | Durable engineering lessons |
-| [decisions/](decisions/) | Architecture Decision Records (through ADR-022; ADR-022 is Accepted, architecture only, not implemented) |
+| [decisions/](decisions/) | Architecture Decision Records through ADR-023. ADR-022 is Accepted architecture only and is not implemented. ADR-023 is the uncommitted Windows installation-safety decision. |
 | [procedures/SYNC_DB_OPERATIONS.md](procedures/SYNC_DB_OPERATIONS.md) | Sync backup/restore and activation checklist (not executed) |
 | [plans/PHASE-18B.3-production-readiness.md](plans/PHASE-18B.3-production-readiness.md) | Phase 18B.3 production-readiness plan (Accepted; `97f7b25`) |
 | [procedures/](procedures/) | How-to checklists |

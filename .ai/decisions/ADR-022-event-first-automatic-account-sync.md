@@ -1,10 +1,10 @@
 # ADR-022 Event-first Progress Sync and Automatic Account Sync
 
-Status: **Accepted — architecture only; not implemented.**
+Status: **Accepted — architecture only; not implemented.** Later milestones changed the repository and the VPS; they did not implement this ADR. Live position: [current_state.md](../current_state.md).
 
 This document does not authorize schema changes, HTTP routes, a Windows client, timer installation, deployment, or `STUDY_SYNC_ENABLED=1`. Nothing in this ADR is implemented behavior.
 
-Baseline: `d2777913e7d175fea0ad26c629c5cf7f2c0feca8` (Phase 18B.4). Vocabulary sync remains the Accepted contracts in [ADR-018](ADR-018-account-cloud-sync.md), [ADR-019](ADR-019-vocabulary-sync-http.md), [ADR-020](ADR-020-sync-database-backup.md), and [ADR-021](ADR-021-sync-backup-alerts.md). Production gates remain [PHASE-18B.3-production-readiness.md](../plans/PHASE-18B.3-production-readiness.md). Phase 18B.5 stays the next repo-only milestone and is not started here.
+Baseline: `d2777913e7d175fea0ad26c629c5cf7f2c0feca8` (Phase 18B.4). Vocabulary sync remains the Accepted contracts in [ADR-018](ADR-018-account-cloud-sync.md), [ADR-019](ADR-019-vocabulary-sync-http.md), [ADR-020](ADR-020-sync-database-backup.md), and [ADR-021](ADR-021-sync-backup-alerts.md). Production gates remain [PHASE-18B.3-production-readiness.md](../plans/PHASE-18B.3-production-readiness.md). When this ADR was accepted, Phase 18B.5 was the next repo-only milestone and was not started by this decision.
 
 ## Product decision (approved)
 

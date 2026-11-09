@@ -1,5 +1,7 @@
 # Phase 18B.3 — Production readiness plan
 
+Live position is [current_state.md](../current_state.md). This file remains the accepted plan from `97f7b25`. Repository work later used the name Phase 18B.8 for health-monitoring source. That source is committed and is not the timer installation described below. Cloud Sync remains off.
+
 Status: **Accepted** planning document (`97f7b25`). Acceptance of this plan does not authorize implementation of later milestones, a VPS change, a timer, flag activation, a database write, or Windows client work. Phase 18B.4 may add repository units only. Installing them is Phase 18B.8 and is not started automatically.
 
 Accepted baseline: Phase 18B.2 commit `5f4251a9e88b434621c8f0ac7eb281de6d4ee174` (`5f4251a`).
@@ -21,7 +23,7 @@ Related decisions, still Accepted and unchanged by this plan:
 - On POSIX the backup directory must be mode `0700` or the sync backup publishes nothing. That chmod applies to the directory the tool is given. Today that default directory is the same directory the accounts backups use.
 - Publish and restore use `os.link` inside the destination directory, so the destination directory has to be on one filesystem. The SQLite copy itself can read a source on another filesystem. Restore refuses an existing destination and does not delete the source or the backup.
 - There is no `OnFailure=` unit, no off-box copy, and no restore probe. A retention warning is invisible to `systemctl` because the process exits 0.
-- Windows Startup stays deferred. AI Local Reading/Listening stays the next major product priority after sync readiness. No desktop sync client exists.
+- When this plan was accepted, Windows Startup remediation was deferred. The live Startup state is in [current_state.md](../current_state.md). AI Local Reading/Listening stays the next major product priority after sync readiness. No desktop sync client exists.
 
 ## 1. Separate sync backup schedule, retention, and monitoring
 
