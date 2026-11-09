@@ -169,7 +169,7 @@ destination and langstudyguard.lnk both absent → exclusive first install, then
 - A failed first install removes only the executable and link that the same attempt created.
 - Process spawn is not application initialization.
 - The updater can still replace the installed executable after the learner accepts an update inside the installed app. It does not recreate Startup. An external copy cannot use that path while an install exists.
-- The decision is implemented in this worktree and is not committed. Local binary status is in [current_state.md](current_state.md).
+- The decision is committed at `3dff28d3f78a22da0fda73a50168ed9c3d6e9d57`. Local binary status is in [current_state.md](current_state.md).
 
 ## Languages
 

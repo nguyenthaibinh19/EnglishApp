@@ -84,7 +84,7 @@ The canonical loop is [`agent_playbook/AI_AGENT_WORKFLOW.md`](agent_playbook/AI_
 | [invariants.md](invariants.md) | Rules that must not be broken |
 | [roadmap.md](roadmap.md) | Directional plan |
 | [lessons.md](lessons.md) | Durable engineering lessons |
-| [decisions/](decisions/) | Architecture Decision Records through ADR-023. ADR-022 is Accepted architecture only and is not implemented. ADR-023 is the uncommitted Windows installation-safety decision. |
+| [decisions/](decisions/) | Architecture Decision Records through ADR-023. ADR-022 is Accepted architecture only and is not implemented. ADR-023 is Accepted at `3dff28d3f78a22da0fda73a50168ed9c3d6e9d57` and is not a release. |
 | [procedures/SYNC_DB_OPERATIONS.md](procedures/SYNC_DB_OPERATIONS.md) | Sync backup/restore and activation checklist (not executed) |
 | [plans/PHASE-18B.3-production-readiness.md](plans/PHASE-18B.3-production-readiness.md) | Phase 18B.3 production-readiness plan (Accepted; `97f7b25`) |
 | [procedures/](procedures/) | How-to checklists |

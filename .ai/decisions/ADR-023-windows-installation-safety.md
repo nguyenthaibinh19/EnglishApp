@@ -1,8 +1,8 @@
 # ADR-023 Windows installation safety
 
-Status: **Accepted — source implemented in the `fix/windows-install-safety` worktree; not committed.**
+Status: **Accepted. Source committed at `3dff28d3f78a22da0fda73a50168ed9c3d6e9d57`.**
 
-This decision is the uncommitted `app/install.py` behavior and `tests/test_install.py`. It is not on `main` until a later, separate Git operation. It does not authorize a GitHub Release, a VPS change, or Cloud Sync.
+This decision is the `app/install.py` behavior and `tests/test_install.py` committed at `3dff28d3f78a22da0fda73a50168ed9c3d6e9d57`. Remote `main` is not claimed by this status update. It does not authorize a GitHub Release, a VPS change, or Cloud Sync.
 
 Baseline before the patch: `09556f909b0ce6d8dcc27816800ef6bcd308f1ab`.
 
@@ -36,6 +36,6 @@ The user confirmed a normal Home Dashboard open and close. That launch did not c
 
 ## Consequences
 
-- Windows installation safety is not closed. Source integration, automatic Startup `--lock`, and Emergency Exit under `--lock` remain separate decisions.
+- Windows installation safety is not closed. The source is committed at `3dff28d3f78a22da0fda73a50168ed9c3d6e9d57`. Automatic Startup `--lock` and Emergency Exit under `--lock` remain unverified.
 - Future installer edits must keep the tests in `tests/test_install.py` aligned with this decision.
 - See [current_state.md](../current_state.md) and [invariants.md](../invariants.md).

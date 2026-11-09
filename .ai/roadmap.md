@@ -50,8 +50,8 @@ Phase 18B.8 is **OPEN / NOT CLOSED**. Its source is on `main`. Production monito
 - Three production accounts backups from 2026-11-03 through 2026-11-05 are mode `0644`. They block the next operations step. Do not install the monitoring units or grant verifier traverse while they remain looser than `0600`.
 
 ```text
-GitHub main: 09556f909b0ce6d8dcc27816800ef6bcd308f1ab (read 2026-11-08)
-Worktree fix/windows-install-safety is that commit plus uncommitted installer safety
+Pre-integration baseline: 09556f909b0ce6d8dcc27816800ef6bcd308f1ab (read 2026-11-08)
+Windows installer patch committed at 3dff28d3f78a22da0fda73a50168ed9c3d6e9d57
 Phase 18B.7 CLOSED — controlled dark deploy; server source still d0f2f00
 Phase 18B.8 OPEN / NOT CLOSED — source on main, operations not installed
 Cloud Sync OFF; study_sync.db absent at the 18B.7 deploy; no sync timer
@@ -64,8 +64,6 @@ ADR-022 remains architecture only; Phase 18C is not implemented
 ## Next
 
 ```text
-Integrate the uncommitted Windows installation-safety patch and these docs
-only after a separate Git authorization
 Production accounts-backup remediation is a blocker, not an authorized task
 Do not install 18B.8 units, grant verifier traverse, or set STUDY_SYNC_ENABLED
 Phase 18C stays unimplemented
@@ -86,7 +84,7 @@ Directional only. Source on `main` is not deployment. The Windows client in ADR-
 - Phase 18B.7 controlled dark deploy is closed. Server source `d0f2f00` is on the VPS with `STUDY_SYNC_ENABLED` unset, sync routes at 404, and no sync timer. The seven Linux tests remain deferred.
 - Phase 18B.8 health-monitoring source is on `main` (`24e600b`, merge `65b045a`) and is not installed. The 18B.3 plan used the same number for a later timer installation; that installation has not started. No VPS change or Sync activation is authorized.
 - Accounts backup creation in `09556f9` reserves new snapshots at mode `0600` with `UMask=0077`. The commit is not deployed. The 2026-11-05 read-only preflight still blocks installation because three production snapshots are mode `0644`.
-- Windows installation safety ([ADR-023](decisions/ADR-023-windows-installation-safety.md)) is implemented in this worktree and is not committed. The tested executable is the local installed app and official `dist`. Startup `--lock` is configured and untested on this build.
+- Windows installation safety ([ADR-023](decisions/ADR-023-windows-installation-safety.md)) is committed at `3dff28d3f78a22da0fda73a50168ed9c3d6e9d57`. The tested executable is the local installed app and official `dist`. Startup `--lock` is configured and untested on this build.
 - ADR-022 event-first automatic account sync (Accepted, architecture only at `d9d0fe3`; does not replace 18B.5 and does not authorize a client or 18C). Includes replacement overlap preflight and per-account vocabulary isolation. Implementation is not started.
 - AI Local Reading / Listening (next major product priority after sync readiness)
 - Dictionary / pronunciation enrichment
