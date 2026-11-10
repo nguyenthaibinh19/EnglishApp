@@ -1,6 +1,10 @@
 # ADR-021 Sync Backup Alert Contract
 
-Status: Accepted (source alert contract only — production paging is **not** configured or operational; units are **not** installed or enabled; sync flag stays off)
+Status: Accepted (source alert contract). The decision below is the original contract. The 2026-11-10 production note records what was later installed.
+
+## Production status, 2026-11-10
+
+Phase 18B.8 installed `language-guard-sync-backup.service` and `.timer` into `/etc/systemd/system`. The timer is disabled and inactive. It has not run. Cloud Sync remains OFF, and `study_sync.db` is absent. `language-guard-sync-verify.timer` is a separate monitoring unit. It is enabled, and its natural run at `2026-11-10 07:00:00 UTC` recorded `SKIPPED`. That result is not a successful sync backup. This note does not change the decision: `setup.sh` must not enable the sync-backup timer, and enabling it still needs a separate authorization. Production sync-backup paging is not operational.
 
 ## Context
 

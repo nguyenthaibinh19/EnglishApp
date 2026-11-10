@@ -29,7 +29,7 @@ Skip means there is no validly named backup and the live path does not exist. It
 
 Configuration is `STUDY_SYNC_BACKUP_DIR`, `STUDY_SYNC_VERIFY_DIR`, and `STUDY_SYNC_DB` (the live path, used only to see whether a file is present). Tests pass temporary paths and do not call the script against production paths.
 
-Repository health checks, the daily report, disappearance witness, and freshness monitoring are Phase 18B.8 source in [HEALTH_MONITORING.md](HEALTH_MONITORING.md). They are not installed. The RPO threshold stays inactive until an approved value is set. A 30-minute poll can miss a database that is created and deleted between checks. Before Phase 18B.11, activation stays blocked until a check has recorded the witness while the live file is still present.
+Repository health checks, the daily report, disappearance witness, and freshness monitoring are Phase 18B.8. The health timers and the sync-verify timer are enabled. The 2026-11-10 natural verifier recorded `SKIPPED`, which is not a successful restore. The natural 09:00 report passed, and the user received both notifications. The sync-backup timer is installed, disabled, and inactive. Cloud Sync stays OFF. Documentation synchronization is in progress, and the phase is not closed. Live status is in [HEALTH_MONITORING.md](HEALTH_MONITORING.md). The RPO threshold stays inactive until an approved value is set. A 30-minute poll can miss a database that is created and deleted between checks. Before Phase 18B.11, activation stays blocked until a check has recorded the witness while the live file is still present.
 
 ## Local staging (repository only, do not deploy)
 

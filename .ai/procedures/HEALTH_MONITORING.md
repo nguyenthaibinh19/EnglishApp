@@ -1,6 +1,6 @@
 # Health monitoring
 
-Repository templates for Phase 18B.8. The source is committed at `24e600b` and merged at `65b045a`. These templates are not installed, enabled, or started. `setup.sh` copies them into the application tree and does not copy them into `/etc/systemd/system`. The accounts backup timer is unchanged. `STUDY_SYNC_ENABLED` stays unset.
+Repository templates for Phase 18B.8. The source is committed at `24e600b` and merged at `65b045a`. On 2026-11-09 the health socket and the health check and report timers were enabled on the VPS from `5f0c3c3`. The sync-backup timer was installed and left disabled. The sync-verify timer is enabled and operational. `setup.sh` was not used. The accounts backup timer was not changed. `STUDY_SYNC_ENABLED` stays unset. Cloud Sync stays OFF. Production deployment and the 2026-11-10 natural runs passed. The user received the scheduled Telegram and email. Documentation synchronization is in progress, and phase closure is pending Leader review. On 2026-11-09 the production unit and this repository template changed `ReadOnlyPaths` to `/opt/language-guard/venv -/opt/language-guard/app /opt/language-guard/deploy/hetzner -/var/backups/language-guard/study-sync`. The natural verifier fired at `2026-11-10 07:00:00 UTC`, exited 0 at `07:00:01 UTC`, and recorded `SKIPPED` at `2026-11-10T07:00:01Z`. That result is not a successful sync backup or restore. The natural report fired at `2026-11-10 08:00:00 UTC` and finished at `08:00:07 UTC`. The latest observed 30-minute check was `2026-11-10 11:30:20 UTC`. The repository template change is not committed.
 
 `PROVIDER_ACCEPTED` means the provider API returned success. It does not prove that a person received or read the message. A finished collector process also does not mean the report was delivered. If the VPS is down, neither Telegram nor email can be sent. UptimeRobot is the public-outage signal, and Healthchecks.io is the missed-report signal.
 
@@ -10,11 +10,11 @@ Repository templates for Phase 18B.8. The source is committed at `24e600b` and m
 |---|---|---|
 | `language-guard-health-check.timer` | `*-*-* *:0/30:00 Europe/Amsterdam` | state-change alerts and retries of a rejected channel |
 | `language-guard-health-report.timer` | `*-*-* 09:00:00 Europe/Amsterdam` | one daily report per Amsterdam civil date |
-| `language-guard-sync-backup.timer` | `*-*-* 04:45:00 UTC` plus `RandomizedDelaySec=10m` | existing sync backup template, not enabled |
-| `language-guard-sync-verify.timer` | `*-*-* 08:00:00 Europe/Amsterdam` | restore verification template, not enabled |
+| `language-guard-sync-backup.timer` | `*-*-* 04:45:00 UTC` plus `RandomizedDelaySec=10m` | installed on the VPS; timer disabled and inactive |
+| `language-guard-sync-verify.timer` | `*-*-* 08:00:00 Europe/Amsterdam` | enabled; first natural run `2026-11-10 07:00:00 UTC`, result `SKIPPED` |
 | `language-guard-backup.timer` | unchanged `03:15` plus up to 20 minutes | accounts backups only |
 
-No unit contains a `Timezone=` directive. The zone is part of the calendar expression. `systemd-analyze calendar` on a systemd host is still required before installation. That check was skipped where `systemd-analyze` is absent and is not a pass.
+No unit contains a `Timezone=` directive. The zone is part of the calendar expression. `systemd-analyze calendar` was run on the VPS on 2026-11-09 for these expressions, including the 2026-03-29 and 2026-10-25 transitions. The 09:00 Europe/Amsterdam elapse occurred once on each of those days.
 
 09:00 Europe/Amsterdam occurs once on the DST transition days. The overlapping hour is 02:30, not 09:00. `Persistent=true` runs one catch-up for the current civil date. It does not send a second report for that date, and it does not replay every missed day. A missed day is the Healthchecks alert.
 
@@ -55,9 +55,9 @@ The socket inode is `lg-notify:lg-notify-client` mode `0660`. systemd creates `/
 
 The notifier runs as `lg-notify`. It is the only unit that loads the credentials. Its executable is `python -I` from `/opt/language-guard-notify/venv`, and its only inserted import path is `/opt/language-guard-notify/app`. That tree is installed by a separate operations plan as `root:root` mode `0755`, with files mode `0644`, and `setup.sh` must not chown it to `guard`. The whole `/opt/language-guard` tree is inaccessible to the notifier. The process refuses to start when its own file is under `/opt/language-guard`. Its namespace also hides backups and the collector state. Attempt timestamps live in `/var/lib/language-guard-notify`, mode `0700`, owned by `lg-notify`. It does not open a path from the request. Logs still contain only the channel, result, HTTP status, and attempt.
 
-The verifier runs as `lg-verify`, group `lg-health`. Its state directory is `/var/lib/language-guard-verify`, mode `0750`. The collector's supplementary group `lg-health` can read the published result and cannot write the directory or the verifier lock. The collector does not need write access to read `result.json`. The account server is not in that group. Before the verify unit is installed, the sync backup directory needs a traverse grant for `lg-verify` without giving it read access to the accounts backup files. The contract is mode `0600`. Commit `09556f9` makes new snapshots request that mode and sets `UMask=0077` on the accounts unit template. That commit is not deployed, and it does not chmod files that already exist. The 2026-11-05 read-only preflight found three production snapshots at mode `0644`. Do not add the traverse grant while any accounts backup is looser than `0600`.
+The verifier runs as `lg-verify`, group `lg-health`. Its state directory is `/var/lib/language-guard-verify`, mode `0750`. The collector's supplementary group `lg-health` can read the published result and cannot write the directory or the verifier lock. The collector does not need write access to read `result.json`. The account server is not in that group. Accounts snapshots are mode `0600` after Step A. No traverse ACL was added on `/var/backups/language-guard`. The one `SKIPPED` run did not need to read that directory because no sync backup directory or live sync database exists. Do not add a traverse grant unless a later sync-backup design still cannot expose the `0600` accounts files.
 
-Root can still inspect any process. A process that can connect to the socket can submit a structured event, not arbitrary prose. It cannot read the bot token, the Brevo key, or the heartbeat URL. The notifier tree is not created by this repository's deploy script. Until that operations plan installs it, the unit is a template only.
+Root can still inspect any process. A process that can connect to the socket can submit a structured event, not arbitrary prose. It cannot read the bot token, the Brevo key, or the heartbeat URL. The notifier tree was created at `/opt/language-guard-notify` as root-owned files on 2026-11-09. `setup.sh` did not create it and must not chown it to `guard`.
 
 ## Operator setup, not done here
 
@@ -84,8 +84,8 @@ The backup script does not send Telegram or email itself. A check that finds an 
 - A unit would be enabled or a service restarted.
 - `STUDY_SYNC_ENABLED` would be set, or `study_sync.db` would be created by the checker.
 - Secrets would be committed or placed in the application `.env`.
-- `systemd-analyze calendar` has not been run on the target systemd for the four expressions, including the 2026-03-29 and 2026-10-25 transitions.
+- `systemd-analyze calendar` for the four expressions, including 2026-03-29 and 2026-10-25, was run on the VPS on 2026-11-09. The 09:00 expression occurred once on each transition day.
 - A skipped sync backup would be reported as success.
 - This work would be treated as off-box recovery (18B.9) or Sync activation (18B.11).
 
-Phase 18B.8 source is committed and is not a production closure. Phase 18B.7 remains closed. Cloud Sync remains off.
+Phase 18B.8 source is installed on the VPS and is not a production closure. The natural health timers are not yet observed. Phase 18B.7 remains closed. Cloud Sync remains off.

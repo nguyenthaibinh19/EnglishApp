@@ -15,7 +15,7 @@ ProtectSystem=strict
 StateDirectory=language-guard-verify
 StateDirectoryMode=0750
 InaccessiblePaths=-/opt/language-guard/accounts.db -/opt/language-guard/.env
-ReadOnlyPaths=/opt/language-guard/venv /opt/language-guard/app /opt/language-guard/deploy/hetzner /var/backups/language-guard/study-sync
+ReadOnlyPaths=/opt/language-guard/venv -/opt/language-guard/app /opt/language-guard/deploy/hetzner -/var/backups/language-guard/study-sync
 ReadWritePaths=/var/lib/language-guard-verify
 Environment=STUDY_SYNC_DB=/opt/language-guard/study_sync.db
 Environment=STUDY_SYNC_BACKUP_DIR=/var/backups/language-guard/study-sync
