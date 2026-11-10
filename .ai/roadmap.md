@@ -39,12 +39,13 @@ Architecture phases 1–14 (summary only):
 | 18B.6 | Isolated local staging (CLOSED `39f3a0b`; repository-only; staging unit not installed) |
 | 18B.7 | Controlled dark deploy (CLOSED; server source `d0f2f00`; Sync OFF; no sync timer in that deploy; seven Linux tests deferred) |
 | 18B.8 | Production health monitoring (CLOSED — Leader Accepted, 2026-11-10; monitoring only; Cloud Sync OFF; sync-verify enabled; sync-backup timer installed and disabled) |
+| 18B.9B | Local encrypted recovery proof (CLOSED — Leader Accepted, 2026-11-10, `274156e`; synthetic restic only; historical suite 30 passed, 1 skipped; later wrong-password check passed; full suite not rerun; not a production uploader) |
 
-Phase 18B.8 is the last fully CLOSED milestone.
+Phase 18B.9B is the latest CLOSED sub-milestone. Phase 18B.9 itself remains OPEN.
 
 ## Current
 
-The active next task is the Windows Startup `--lock` hotfix. It is not diagnosed. Phase 18B.9 has not started.
+The active work is Phase 18B.9C1. Google Drive 5 TB is the accepted preferred pre-public store and adds no storage subscription. Backblaze B2 is the fallback. Phase 18B.9C1 is DESIGN ACCEPTED, 2026-11-10. A standalone age `.age` artifact is the approved architecture. A pinned age version and a post-quantum hybrid recipient still require validation before implementation. The production encryption pipeline is not implemented. Daily off-box monitoring, failure and stale alerts, and a restore drill are mandatory and are not installed. No remote backup has been run. Phase 18B.9 remains OPEN. Phase 18B.9C2 is NOT AUTHORIZED. The Windows Startup `--lock` hotfix is DEFERRED until the affected computer is available. It is not diagnosed. Website W1 is handled by Antigravity in a separate workspace.
 
 Phase 18B.8 is **CLOSED — Leader Accepted, 2026-11-10**. The closure is monitoring infrastructure. Vocabulary Cloud Sync stays OFF. `study_sync.db` is absent.
 
@@ -71,8 +72,17 @@ ADR-022 remains architecture only; Phase 18C is not implemented
 ## Next
 
 ```text
-Windows Startup --lock hotfix is NEXT and is not yet diagnosed
-Then Phase 18B.9 off-box recovery; do not start it before the Windows hotfix
+Phase 18B.9 remains OPEN. Google Drive 5 TB is the preferred pre-public store. No new storage subscription
+Backblaze B2 EU Central is the fallback and is not provisioned
+B2 is not assumed to be append-only. Object Lock and a deleting lifecycle stay off
+Phase 18B.9C1 DESIGN ACCEPTED, 2026-11-10. age `.age` artifact is the approved architecture. Version pin and hybrid recipient await validation. Pipeline is not implemented
+Daily 09:00 Europe/Amsterdam off-box status, failure and stale alerts, and a restore drill are mandatory
+Before activation, Google Drive is NOT CONFIGURED. No remote backup has been run
+No production uploader exists. Cloud Sync stays OFF
+18B.9C2 external synthetic drill is NOT AUTHORIZED
+RPO 26h and RTO target 4h remain proposals, not accepted guarantees
+Windows Startup --lock hotfix is DEFERRED until the affected computer is available
+Website W1 is handled by Antigravity in a separate workspace
 Do not enable the sync backup timer
 Do not set STUDY_SYNC_ENABLED
 Phase 18C stays unimplemented
@@ -93,10 +103,10 @@ Directional only. Source on `main` is not deployment. The Windows client in ADR-
 - Phase 18B.7 controlled dark deploy is closed. Server source `d0f2f00` is on the VPS with `STUDY_SYNC_ENABLED` unset and sync routes at 404. No sync timer was installed in that deploy. The seven Linux tests remain deferred.
 - Phase 18B.8 is CLOSED — Leader Accepted, 2026-11-10. Monitoring is operational. The natural verifier at 07:00 UTC recorded `SKIPPED`, which is not a successful restore. The natural 09:00 report was provider-accepted, and the user received Telegram and email. The sync-verify timer is enabled. The sync-backup timer is installed and disabled. Cloud Sync is OFF. UptimeRobot is UNVERIFIED / DEFERRED.
 - Accounts backup creation in `09556f9` is deployed. The 2026-11-10 snapshot `accounts-20261110-032712.db` is mode `0600`. Retention is 14.
-- Windows installation safety ([ADR-023](decisions/ADR-023-windows-installation-safety.md)) is committed at `3dff28d3f78a22da0fda73a50168ed9c3d6e9d57`. The next task is a Startup `--lock` hotfix. The shortcut targets the installed executable with `--lock`. Normal GUI launch passed. Automatic Startup and Emergency Exit under `--lock` are not verified, and the failure is not diagnosed.
-- After that hotfix, resume Phase 18B.9 off-box recovery. Do not start 18B.9 first.
+- Windows installation safety ([ADR-023](decisions/ADR-023-windows-installation-safety.md)) is committed at `3dff28d3f78a22da0fda73a50168ed9c3d6e9d57`. The Startup `--lock` hotfix is DEFERRED until the affected computer is available. The shortcut targets the installed executable with `--lock`. Normal GUI launch passed. Automatic Startup and Emergency Exit under `--lock` are not verified, and the failure is not diagnosed.
+- Phase 18B.9B is CLOSED — Leader Accepted, 2026-11-10, commit `274156e`. It is a local synthetic restic proof, not a production uploader. The historical suite was 30 passed and 1 skipped. A later wrong-password check passed, and the full suite was not rerun. Phase 18B.9 remains OPEN. Google Drive 5 TB is the preferred pre-public store and adds no storage subscription. Backblaze B2 is the fallback and is not provisioned. B2 is not assumed to be append-only. Object Lock and a deleting lifecycle stay off. Phase 18B.9C1 is DESIGN ACCEPTED, 2026-11-10. A standalone age `.age` artifact is the approved architecture. A pinned age version and a post-quantum hybrid recipient still require validation before implementation. The production encryption pipeline is not implemented. Daily off-box monitoring, failure and stale alerts, and a restore drill are mandatory and are not installed. No remote backup has been run. No production uploader exists. Phase 18B.9C2 is NOT AUTHORIZED. A 26-hour RPO and a 4-hour RTO remain proposals.
 - ADR-022 event-first automatic account sync (Accepted, architecture only at `d9d0fe3`; does not replace 18B.5 and does not authorize a client or 18C). Includes replacement overlap preflight and per-account vocabulary isolation. Implementation is not started.
-- AI Local Reading / Listening remains the product priority after the sync sequence, including Phase 18B.9. It does not jump ahead of the Startup `--lock` hotfix.
+- AI Local Reading / Listening remains the product priority after the sync sequence, including the still-open Phase 18B.9. Website W1 is handled by Antigravity in a separate workspace.
 - Dictionary / pronunciation enrichment
 - Reading Lab improvements
 - Optional Listening attempt history / analytics (not mastery)

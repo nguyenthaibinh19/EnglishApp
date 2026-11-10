@@ -89,3 +89,19 @@ The backup script does not send Telegram or email itself. A check that finds an 
 - This work would be treated as off-box recovery (18B.9) or Sync activation (18B.11).
 
 Phase 18B.8 source is installed on the VPS and is not a production closure. The natural health timers are not yet observed. Phase 18B.7 remains closed. Cloud Sync remains off.
+
+The paragraph above is the pre-closure stop note. The opening paragraph is the accepted state: Phase 18B.8 is CLOSED — Leader Accepted, 2026-11-10, and the natural timers were observed.
+
+## Phase 18B.9 off-box monitoring design, not installed
+
+This monitoring design is accepted as of 2026-11-10. Nothing in this section is installed. No remote backup has run. No production uploader exists. Until a later reviewed change is active, the Google Drive line is **NOT CONFIGURED**. It is not SUCCESS. Cloud Sync stays OFF.
+
+The 09:00 Europe/Amsterdam report is the daily place for that status. The future lines are fixed phrases for local VPS backup, Google Drive, last attempt, last successful remote backup, age of the last valid backup, remote artifact check, last successful restore drill, and Cloud Sync. An upload is not a remote checksum match. A checksum match is not a restore. A restore drill decrypts one artifact onto a new path and passes SQLite `integrity_check`.
+
+The current socket still accepts only `check`, `report`, `backup-incident`, and `recovery`, at most 12 check lines, and no free text, path, token, or extra field. Fitting the new lines into that closed request is a later review. The collector and the notifier do not receive the age identity or the OAuth refresh token. The word "age" in the incident rules above means elapsed time. The encryptor named age is a separate tool and is not installed.
+
+When a later off-box job is active, it reports failure at the time of the failure through `backup-incident`. The 30-minute check retries a channel that has not reached `PROVIDER_ACCEPTED`. A missed run uses a new Healthchecks.io check with its own grace. That ping is not the 09:00 report ping. The 26-hour figure is not an approved stale threshold. Stale alerting starts only after a threshold is approved.
+
+The conditions that alert are backup failure, upload failure, OAuth or permission failure, remote checksum mismatch, age past the approved threshold, a failed restore drill, a missing scheduled result, and insufficient remote space. The message names the condition. It contains no token, encryption key, database content, or personal data.
+
+The same incident fingerprint is not sent again after both Telegram and email accept it. A different condition is a new incident. The change back to a healthy condition sends `recovery` once.

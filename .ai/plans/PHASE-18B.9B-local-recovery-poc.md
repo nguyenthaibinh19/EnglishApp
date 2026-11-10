@@ -1,6 +1,6 @@
 # Phase 18B.9B — Local recovery proof of concept
 
-Status: **DRAFT for Leader review.** Not accepted. Not a production design approval.
+Status: **CLOSED — Leader Accepted, 2026-11-10.** Local synthetic proof only, commit `274156e`. Not a production uploader. The historical results below stay as written: the full suite was 30 passed and 1 skipped; the later wrong-password check passed; the full suite was not rerun after the final wording change.
 
 ## Production-reuse warning
 
@@ -17,11 +17,11 @@ The following controls are not implemented:
 
 18B.9A is conditionally accepted. This draft corrects the earlier storage assumptions and records the local proof in `app/offbox_poc.py`. It does not choose a production RPO or RTO, does not purchase storage, and does not authorize a VPS change.
 
-Phase 18B.8 stays closed. Cloud Sync stays off. The Windows Startup `--lock` hotfix stays deferred because that computer is unavailable. This draft does not edit `.ai/current_state.md` or `.ai/roadmap.md`.
+Phase 18B.8 stays closed. Cloud Sync stays off. The Windows Startup `--lock` hotfix stays deferred because that computer is unavailable. This proof document, as written, did not edit `.ai/current_state.md` or `.ai/roadmap.md`. A later memory sync recorded the closure there. The evidence below is unchanged.
 
 ## Corrected assumptions
 
-- Backblaze B2 is the preferred storage **candidate**. It is not purchased and not approved for production.
+- Backblaze B2 is the fallback storage candidate recorded by this local proof. It is not purchased and not approved for production. A later decision prefers the existing Google Drive allowance for pre-public copies. The later accepted remote architecture is a standalone age `.age` file. This local proof did not implement it. This proof did not upload anywhere.
 - The production candidate, if later approved, uses restic through B2's **S3-compatible API**. This local proof does not open that API. Compatibility is untested.
 - B2 append-only behavior is **not** a property of restic or of the repository password. A disposable local repository can delete a snapshot with `restic forget` when the caller has the password. That result is not evidence that a B2 key is append-only. A B2 key that cannot delete objects still has to be demonstrated before production.
 - Four credentials have different jobs. They are not one shared secret.
