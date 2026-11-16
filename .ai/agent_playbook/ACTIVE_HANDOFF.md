@@ -4,63 +4,62 @@ Rolling coordination checkpoint. It does not replace [current_state.md](../curre
 
 ## 1. Checkpoint metadata
 
-- Written: 2026-11-16T17:20:00Z.
-- Observed `origin/main`: `e8ab4bba31d51986f690dcb18f9afc068f26b109`.
+- Written: 2026-11-16T17:30:03Z.
+- Observed `origin/main`: `ade2c456c9054be2070244bca12ba26174f8c988`.
 - Documentation worktree: `phase18b9/local-recovery-poc` at that same SHA.
-- Verified here: `git rev-parse HEAD`, `git fetch origin main`, and `git status` in that worktree. One Desktop OAuth client JSON on `D:` was validated by structure only. Secrets were not printed. No consent, token refresh, Google call, live script, or VPS access occurred.
+- Verified here: remote HEAD, Desktop client fingerprint, one interactive OAuth consent, and credential-file metadata. Token values were not printed. No Google Drive API call, live synthetic script, or VPS access occurred.
 
 ## 2. Last Leader decision
 
 Phase 18B.9D5A2C1 remains **CLOSED — Leader Accepted, 2026-11-16**.
 
-Phase 18B.9D5A2C2-P1 remains **ACCEPTED, 2026-11-16**, for the local WSL gate and private ext4 evidence root.
+Phase 18B.9D5A2C2-P1 remains **ACCEPTED, 2026-11-16**.
 
-Owner assigned local OAuth client preparation only. The live Google Drive test stays **NOT AUTHORIZED**. Phase 18B.9 stays **OPEN**. Google Drive production stays **NOT CONFIGURED**. Cloud Sync stays **OFF**.
+Owner authorized one interactive OAuth consent and authorization-code exchange only, 2026-11-16. That approval did not authorize the live Google Drive synthetic test.
 
-Detail: [PHASE-18B.9-offbox-status.md](../plans/PHASE-18B.9-offbox-status.md).
+Phase 18B.9 stays **OPEN**. Google Drive production stays **NOT CONFIGURED**. Cloud Sync stays **OFF**.
 
 ## 3. Active work
 
-- ChatGPT Leader: review the proposed Desktop-client import procedure before any credential import or consent.
-- Cursor: OAuth client preparation completed to the safe-metadata stage. Private empty credential directory created on WSL ext4. No import yet.
+- ChatGPT Leader: review the OAuth consent result. Decide the next brief; the live synthetic test is still not authorized.
+- Cursor: OAuth consent completed and the refresh-token file was stored. Documentation checkpoint of that result is this update.
 - Antigravity, Website W1: separate workspace. Live execution state: **UNKNOWN**.
 - Codex: no assignment observed.
 
 ## 4. Working tree and evidence
 
-- This worktree matches observed `origin/main`. Untracked `diff/` remains local and is not part of GitHub.
-- One Google OAuth Desktop client JSON was found under `D:\Secret\`. Filename pattern `client_secret_*.apps.googleusercontent.com.json`. Structure validation: `installed` section, expected Google auth/token/cert URIs, `client_id` and `client_secret` keys present. Values were not printed. Client-id fingerprint `sha256_12=76459cc5d090`.
-- Private credential directory prepared: `/home/nguyenthaibinh19/language-guard/oauth-d5a2c2-credentials`. Filesystem ext4, owner uid 1000, mode `0700`, empty, not a symlink. No `oauth-refresh` file is present.
-- D5A2C2-P1 script still reads a separate `oauth-refresh` from the credential directory argument and an optional `LG_OAUTH_CLIENT_SECRET` environment value. It does not load the Desktop client JSON.
-- Accepted P1 script SHA-256 remains `90f987c78c21c9a212eb14ed16ac3944ed4d5eac4b1550ea378ce8cd76cbf78a`.
+- This worktree matches observed `origin/main`. Untracked `diff/` remains local.
+- Desktop client JSON under `D:\Secret\` rechecked. Fingerprint `sha256_12=76459cc5d090` **MATCH**. Structure remains a valid `installed` Desktop client. Values were not printed.
+- Client identity: **MATCH** to the owner-confirmed `Language Guard Backup Desktop` file previously validated for the Backup Test project. Display names are not stored inside the JSON; the match is the fingerprint plus that owner confirmation.
+- OAuth consent: **SUCCESS**, 2026-11-16. Scope requested: `https://www.googleapis.com/auth/drive.file` only. `access_type=offline`. PKCE S256. Loopback `127.0.0.1` only. One attempt.
+- Refresh token saved: **YES** at `/home/nguyenthaibinh19/language-guard/oauth-d5a2c2-credentials/oauth-refresh`. Regular file, not a symlink, mode `0600`, owner uid 1000, size 127 bytes, nonempty. Parent directory remains mode `0700` on ext4. Contents were not read back for reporting.
+- Expected limitation: External Testing refresh tokens expire about seven days after consent. Validity after that remains **UNKNOWN** without a later authorized check.
+- Google Drive API access remains untested. No folder listing, upload, or download was performed.
 
 ## 5. Pending review
 
-D5A2C2-P1: accepted.
-
-OAuth client preparation: **PENDING LEADER REVIEW** of the proposed import procedure. No consent and no import are authorized.
+OAuth consent result: ready for Leader review.
 
 Live synthetic Drive test: **NOT AUTHORIZED**.
 
 ## 6. Current risks
 
-- No `oauth-refresh` exists for the one-shot. Desktop client JSON is not a refresh token.
-- Folder id and token validity remain **UNKNOWN**. C2D did not leave a durable `oauth-refresh`.
-- `drive.file` access to an existing folder remains **UNKNOWN**.
-- Do not copy the Desktop JSON into the credential directory or into GitHub.
-- The live script has not been executed. The approval phrase was not set.
+- Testing-app refresh token expiry is expected in about seven days.
+- Drive folder id and `drive.file` access to a chosen folder remain **UNKNOWN**.
+- The live script has not been executed. `LG_LIVE_APPROVAL` was not set.
+- Do not copy the Desktop JSON or the refresh token into GitHub, a lab, or an evidence directory.
 - Google Drive production stays **NOT CONFIGURED**. Cloud Sync stays **OFF**.
 
 ## 7. Next action
 
-Leader reviews the proposed safe import procedure for the Desktop client metadata and a future separately obtained `oauth-refresh`.
+Leader decides whether a later brief may prepare the synthetic Google Drive test inputs.
 
-That is not permission to import, consent, refresh, or run the live test.
+That is not permission to run the test.
 
 ## 8. Authorization / STOP
 
 Permitted: documentation-only checkpoints under `.ai/`, using [AI_AGENT_WORKFLOW.md](AI_AGENT_WORKFLOW.md) section 11, fast-forward only.
 
-Prohibited: copying credentials, OAuth consent, token refresh, Google API calls, executing the live script, setting the approval phrase, VPS changes, service or timer activation, application source commit or push, production database operations, Cloud Sync activation, and remote deletion.
+Prohibited: Google Drive API calls, a second consent without a new brief, token refresh tests, executing the live script, setting `LG_LIVE_APPROVAL`, VPS changes, service or timer activation, application source commit or push, production database operations, Cloud Sync activation, and remote deletion.
 
 STOP after publishing this checkpoint.
