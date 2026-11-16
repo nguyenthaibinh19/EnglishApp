@@ -14,7 +14,7 @@ The implementation is not in this repository. `app/offbox_poc.py` is the closed 
 | 18B.9B | Closed local Restic proof, commit `274156e` |
 | 18B.9C1 | Design accepted on 2026-11-10, commit `d4b8588` |
 | 18B.9C2 | Named future external drill. **Not authorized.** D5A2C1 is not 18B.9C2 |
-| 18B.9D4C through 18B.9D5A2C1 | Local and approved-operation steps after the design. The letter suffix is the step id |
+| 18B.9D4C through 18B.9D5A2C2 | Local and approved-operation steps after the design. The letter suffix is the step id. D5A2C2 is a static preflight, not a live test |
 
 ## Closed before these steps
 
@@ -37,6 +37,7 @@ Phase 18B.9C1 is **DESIGN ACCEPTED, 2026-11-10**. The standalone age `.age` arti
 | 18B.9D5A2B3 | `D:\Tools\age-c2d5a2b3-nativeage-20261116T1044Z-c25771fb` | **Leader accepted.** Native encryption integration is closed. Result PASS | The recorded state is `ENCRYPTED`. `download_verified` is false. This is not off-box success |
 | 18B.9D5A2C | `D:\Tools\age-c2d5a2c-drive-20261116T1119Z-c8e4a21b` | **Leader accepted.** Fake-transport tests 30 passed, 0 failed, 0 blocked | No Google call. `fakefile001` is not a Drive file. A fake `VERIFIED` is not production evidence |
 | 18B.9D5A2C1 | `D:\Tools\age-c2d5a2c1-http-20261116T1155Z-b7d3e91a` | Original localhost run reported 37 passed, 0 failed, 0 blocked. R1 then corrected checkpoint numbering and the synthetic-restore exit | **CLOSED — Leader Accepted, 2026-11-16.** Localhost milestone only. Not a Google call and not a deployment |
+| 18B.9D5A2C2 | `D:\Tools\age-c2d5a2c2-preflight-20261116T1344Z-ada71f3f` | Static preflight completed. Conclusion: ready for owner review. The live script was not executed | **NOT AUTHORIZED** as a Google call. Not a deployment. D5A2C1 stays closed |
 
 Earlier local labs C2B, C2C, C2D, D3, D3A, and D3B informed the adapter. They are not re-opened by this map. The one C2D synthetic upload does not validate the D5A2C adapter. Their OAuth files were not read for this record.
 
@@ -79,6 +80,8 @@ The original D5A2C1 run reported 37 passed, 0 failed, 0 blocked. R1 reported 17 
 The live script SHA-256 recorded before R1 was `36973802cf63073e927871770bb467ba1bb3a4ac43389d77f28aae6f0cd147aa`. R1 changed that script. It has not been executed. The Google Drive live synthetic integration is **NOT AUTHORIZED**. The script still does nothing unless a later brief sets `LG_LIVE_APPROVAL` to exactly `APPROVE D5A2C1 SYNTHETIC DRIVE ONLY`. That phrase has not been approved. A future approved run would be one synthetic file, one upload, one download, and one hash compare, with no `DELETE`, `PATCH`, or second create. An `UNKNOWN` result stops. The object would remain in Drive until a separate deletion approval. Success would also require the synthetic restore. Acceptance of the localhost code does not approve that run.
 
 No production credential is in the repository. The C2D OAuth files were not opened. Reuse of that test folder is unconfirmed. The long-term configuration remains a dedicated production Google Cloud project, scope `https://www.googleapis.com/auth/drive.file`, and a root-owned refresh token visible only to the backup worker through `LoadCredential`. An External Testing refresh token expires after seven days. `invalid_grant` fails closed.
+
+Phase 18B.9D5A2C2 is a completed static preflight, 2026-11-16. It inspected the accepted R1 script and did not run it. The preflight conclusion is ready for owner review. That is not permission to run the synthetic test. Owner inputs for the client, refresh token, and folder id remain required, and no existing token is assumed valid. The evidence directory is local and is not in GitHub. A future success would not change the daily report: Google Drive stays **NOT CONFIGURED** until a separately reviewed production activation. The Phase 18B.8 report remains the only notification path, and the off-box lines are not installed.
 
 ## Still unknown
 
