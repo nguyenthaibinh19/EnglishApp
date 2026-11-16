@@ -154,6 +154,10 @@ vocabulary_entities + vocabulary_changes
 - `operation_id` retries are idempotent only when the mutation matches; mismatched reuse conflicts.
 - Do not store auth tokens or API keys in sync payloads.
 
+## Off-box backup (Phase 18B.9)
+
+Phase 18B.9 is open. The preferred store is Google Drive and the fallback is an unprovisioned Backblaze B2 bucket. [ADR-024](decisions/ADR-024-offbox-age-drive.md) accepts a local age `.age` artifact and a Drive adapter through step 18B.9D5A2C. `VERIFIED` means the downloaded ciphertext SHA-256 matches. It does not mean the daily report, a restore drill, or a production schedule. The VPS has the `lg-backup` user and an empty backup directory, and it does not have the adapter, age, or an OAuth token. `app/offbox_poc.py` remains the closed Restic proof. The step ids D4C through D5A2C1 are defined in [PHASE-18B.9-offbox-status.md](plans/PHASE-18B.9-offbox-status.md). D5A2C1 is waiting for review and is not Phase 18B.9C2.
+
 ## Windows installation and Startup
 
 Frozen `prepare()` in `app/install.py` is the installation boundary ([ADR-023](decisions/ADR-023-windows-installation-safety.md)). A source run does nothing.

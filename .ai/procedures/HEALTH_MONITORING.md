@@ -94,11 +94,11 @@ The paragraph above is the pre-closure stop note. The opening paragraph is the a
 
 ## Phase 18B.9 off-box monitoring design, not installed
 
-This monitoring design is accepted as of 2026-11-10. Nothing in this section is installed. No remote backup has run. No production uploader exists. Until a later reviewed change is active, the Google Drive line is **NOT CONFIGURED**. It is not SUCCESS. Cloud Sync stays OFF.
+This monitoring design is accepted as of 2026-11-10. Nothing in this section is installed. No production remote backup has run. A local Drive adapter exists and is not deployed. Until a later reviewed change is active, the Google Drive line is **NOT CONFIGURED**. It is not SUCCESS. A localhost or fake-transport `VERIFIED` result is not this line. Cloud Sync stays OFF. The step map is [PHASE-18B.9-offbox-status.md](../plans/PHASE-18B.9-offbox-status.md).
 
 The 09:00 Europe/Amsterdam report is the daily place for that status. The future lines are fixed phrases for local VPS backup, Google Drive, last attempt, last successful remote backup, age of the last valid backup, remote artifact check, last successful restore drill, and Cloud Sync. An upload is not a remote checksum match. A checksum match is not a restore. A restore drill decrypts one artifact onto a new path and passes SQLite `integrity_check`.
 
-The current socket still accepts only `check`, `report`, `backup-incident`, and `recovery`, at most 12 check lines, and no free text, path, token, or extra field. Fitting the new lines into that closed request is a later review. The collector and the notifier do not receive the age identity or the OAuth refresh token. The word "age" in the incident rules above means elapsed time. The encryptor named age is a separate tool and is not installed.
+The current socket still accepts only `check`, `report`, `backup-incident`, and `recovery`, at most 12 check lines, and no free text, path, token, or extra field. Fitting the new lines into that closed request is a later review. The collector and the notifier do not receive the age identity or the OAuth refresh token. The word "age" in the incident rules above means elapsed time. The encryptor named age is a separate tool. Age v1.3.2 is installed only in the WSL lab. It is not on the VPS, and the collector and notifier do not run it.
 
 When a later off-box job is active, it reports failure at the time of the failure through `backup-incident`. The 30-minute check retries a channel that has not reached `PROVIDER_ACCEPTED`. A missed run uses a new Healthchecks.io check with its own grace. That ping is not the 09:00 report ping. The 26-hour figure is not an approved stale threshold. Stale alerting starts only after a threshold is approved.
 

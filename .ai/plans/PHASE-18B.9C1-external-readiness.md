@@ -1,6 +1,8 @@
 # Phase 18B.9C1 — External storage readiness
 
-Status: **DESIGN ACCEPTED, 2026-11-10.** Planning only. Not a production deployment. Not a provisioned folder. Google Drive 5 TB is the preferred pre-public store. Backblaze B2 is the fallback. A standalone age `.age` artifact is the approved architecture. A pinned age version and a post-quantum hybrid recipient still require validation before implementation. The production encryption pipeline is not implemented. Phase 18B.9 remains **OPEN**. Phase 18B.9C2 is **NOT AUTHORIZED**. No remote backup has been run. No production uploader exists. No real user data upload is authorized.
+Status: **DESIGN ACCEPTED, 2026-11-10.** Planning only. Not a production deployment. Not a provisioned folder. Google Drive 5 TB is the preferred pre-public store. Backblaze B2 is the fallback. A standalone age `.age` artifact is the approved architecture. Phase 18B.9 remains **OPEN**. Phase 18B.9C2 is **NOT AUTHORIZED**. No production remote backup has been run. No real user data upload is authorized.
+
+Correction, 2026-11-16: age v1.3.2 and an `age1pq1` recipient were validated on WSL after this design. The implemented transfer is the Drive adapter in [ADR-024](../decisions/ADR-024-offbox-age-drive.md), not the `rclone copy` sentence below. The adapter is not installed. Read [PHASE-18B.9-offbox-status.md](PHASE-18B.9-offbox-status.md) for steps D4C through D5A2C1. D5A2C1 is not Phase 18B.9C2.
 
 Phase 18B.9B is **CLOSED — Leader Accepted, 2026-11-10**, commit `274156e`. That proof is local and synthetic. Its historical full suite was 30 passed and 1 skipped. A later wrong-password check passed, and the full suite was not rerun after that correction. Windows symlink handling was not verified. `app/offbox_poc.py` is not a production uploader and must not be installed as one. The local Restic proof does not produce a standalone encrypted file.
 
@@ -10,7 +12,7 @@ Cloud Sync stays OFF. The Windows Startup `--lock` hotfix stays **DEFERRED** unt
 
 Google Drive is the preferred pre-public store. The owner already has 5 TB through Google AI Pro Student, so this choice adds no storage subscription while that allowance remains. No backup folder is provisioned. No file has been uploaded. The OAuth token does not exist in this repository and does not belong on the development machine.
 
-The backup folder is private to a `drive.file` client created later by the owner. That scope can create and modify files that client created. It is not a view of the owner's other Drive files, and it is not an upload-only scope. `rclone copy` of one new filename is the transfer. `rclone sync` is not used.
+The backup folder is private to a `drive.file` client created later by the owner. That scope can create and modify files that client created. It is not a view of the owner's other Drive files, and it is not an upload-only scope. The 2026-11-10 proposal said `rclone copy` of one new filename, and `rclone sync` is not used. ADR-024 replaces that proposal with the Drive adapter. `rclone sync` remains forbidden.
 
 ## Fallback store
 
@@ -56,7 +58,7 @@ age -r <public-recipient> -o <new-unique-name>.age <integrity-checked-snapshot.d
 age -d -i <identity-file> -o <new-restore-path.db> <artifact.age>
 ```
 
-age exits 0 only when the whole input succeeds. The ciphertext is authenticated. Decryption releases no unauthenticated plaintext. A later `PRAGMA integrity_check` on the new database is still required. age does not delete the input file. `age-keygen -o` refuses to replace an existing identity file. `age -o` does replace an existing output, so the procedure uses a new name and stops when that name already exists. Official builds exist for Windows and Linux. No age binary is pinned or installed here. The current age manual recommends a post-quantum hybrid recipient from `age-keygen -pq` for most uses. The version and hash stay for a later approval.
+age exits 0 only when the whole input succeeds. The ciphertext is authenticated. Decryption releases no unauthenticated plaintext. A later `PRAGMA integrity_check` on the new database is still required. age does not delete the input file. `age-keygen -o` refuses to replace an existing identity file. `age -o` does replace an existing output, so the procedure uses a new name and stops when that name already exists. Official builds exist for Windows and Linux. This 2026-11-10 design did not pin a binary. Phase 18B.9D5A2B3 later pinned age v1.3.2 on WSL and validated the `age1pq1` recipient. That binary is not on the VPS. The current age manual recommends a post-quantum hybrid recipient from `age-keygen -pq` for most uses.
 
 The backup host receives only the public recipient. The identity file stays offline and on the recovery machine. The daily reporter receives neither the identity nor the OAuth refresh token.
 
