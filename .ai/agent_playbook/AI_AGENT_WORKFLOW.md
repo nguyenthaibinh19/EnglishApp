@@ -26,7 +26,7 @@ If documents disagree, name the inconsistency; check Git, code, tests and dated 
 
 ## 3. Startup protocol for a new chat or agent
 
-Read `.ai/README.md`, `current_state.md`, `invariants.md`, `roadmap.md`, relevant ADRs and `AI_AGENT_WORKFLOW.md`. Inspect `architecture.md`, `lessons.md`, relevant procedures, code and tests. Read the live Git baseline, `git status --short`, staged changes, untracked files, and the **active task handoff**. Never assume the last GitHub commit contains a pending implementation.
+Read `.ai/README.md`, `current_state.md`, `agent_playbook/ACTIVE_HANDOFF.md`, `invariants.md`, `roadmap.md`, relevant ADRs and `AI_AGENT_WORKFLOW.md`. Inspect `architecture.md`, `lessons.md`, relevant procedures, code and tests. Read the live Git baseline, `git status --short`, staged changes, untracked files, and the **active task handoff**. `current_state.md` is the accepted product state. `ACTIVE_HANDOFF.md` is the latest coordination checkpoint and does not replace it. Cursor records a Leader decision only when the Leader or the owner stated it. Never assume the last GitHub commit contains a pending implementation.
 
 Ask only for genuinely missing blockers. If the latest Cursor report already answers a question, use it. The owner usually delegates code execution to Cursor through a detailed, copy-ready brief and brings results back for Leader review.
 
@@ -93,7 +93,7 @@ See `ENGINEERING_AND_DIFF_STANDARD.md` and `CHAT_HANDOFF_PROTOCOL.md` for the co
 2. In the worktree named by the brief, run `git rev-parse HEAD`, `git branch --show-current`, and `git status --short`. Uncommitted files are part of the baseline when the brief says so.
 3. Treat three trees as different facts: this worktree, GitHub `main` (`git ls-remote origin refs/heads/main` when a push or deploy is in scope), and the deployed VPS source SHA in `current_state.md`. A matching Git SHA does not mean the VPS is running it.
 4. Prefer code, tests, ADRs, and dated evidence over a chat summary. If they disagree, name the disagreement and stop before "correcting" production.
-5. Update `.ai/` in the same authorized change when a phase, architecture rule, operational state, or safety fix changes. A dated handoff is a snapshot; do not let it override `current_state.md`.
+5. Update `.ai/` in the same authorized change when a phase, architecture rule, operational state, or safety fix changes. A dated handoff is an immutable snapshot. `ACTIVE_HANDOFF.md` is the rolling coordination checkpoint. Neither overrides `current_state.md`. Cursor does not invent a Leader decision.
 6. Report commands, counts, skips, SHAs, and what was not run. Label `UNVERIFIED` when the evidence was not read.
 7. Source commit, source push, deploy, timer install, Startup change, release, and `STUDY_SYNC_ENABLED=1` each need their own approval. A documentation-only checkpoint under `.ai/` does not. A brief that says "implement" does not include a source commit, a push of source, or a deploy.
 8. Do not write passwords, tokens, `.env` values, learner progress, or private user paths into `.ai/`, diffs meant for GitHub, or issue comments. Use `%LOCALAPPDATA%`, `%APPDATA%`, and repository-relative paths.
@@ -125,7 +125,7 @@ Publish a checkpoint to `origin/main` at these moments:
 
 Do not wait for ACCEPTED. A failed experiment stays in the history. Do not commit a keystroke, temporary output, or an unchanged status.
 
-Use `.ai/current_state.md` for the active gate, `.ai/roadmap.md` for direction, `.ai/plans/` for task evidence, `.ai/decisions/` for architecture, and `.ai/agent_playbook/handoffs/` for a chat snapshot. Label each fact as one of: IMPLEMENTED, TESTED, REPORTED, PENDING REVIEW, CHANGES REQUIRED, ACCEPTED, COMMITTED, PUSHED, DEPLOYED, ACTIVE. A reported pass is not an independent verification. A documentation commit is not a source commit and not a deployment. A failure is not a successful milestone.
+Use `.ai/current_state.md` for the active gate, `.ai/roadmap.md` for direction, `.ai/plans/` for task evidence, `.ai/decisions/` for architecture, and `.ai/agent_playbook/handoffs/` for a historical chat snapshot. Refresh `.ai/agent_playbook/ACTIVE_HANDOFF.md` when coordination changes, and publish it through this section. It does not replace `current_state.md`. Label each fact as one of: IMPLEMENTED, TESTED, REPORTED, PENDING REVIEW, CHANGES REQUIRED, ACCEPTED, COMMITTED, PUSHED, DEPLOYED, ACTIVE. A reported pass is not an independent verification. A documentation commit is not a source commit and not a deployment. A failure is not a successful milestone.
 
 For FAILED, BLOCKED, or REJECTED work, record the step, the time, what was attempted, the environment, the result and reason, the lab or worktree identifier, sanitized hashes, what is still unverified, and the STOP condition. When a later correction succeeds, add a new checkpoint that names the earlier failure. Do not rewrite Git history to hide a result.
 
