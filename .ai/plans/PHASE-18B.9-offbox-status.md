@@ -41,7 +41,7 @@ Phase 18B.9C1 is **DESIGN ACCEPTED, 2026-11-10**. The standalone age `.age` arti
 | 18B.9D5A2C2-P1 | `D:\Tools\age-c2d5a2c2p1-wsl-20261116T1546Z-c91e4a27` | **Leader accepted, 2026-11-16**, for the local WSL gate and ext4 evidence root. Cursor reported 32 passed, 0 failed, 0 skipped. The Leader did not rerun them | Safety hardening for the later one-shot. Not a deployment |
 | 18B.9D5A2C3 | [PHASE-18B.9D5A2C3-production-readiness.md](PHASE-18B.9D5A2C3-production-readiness.md) | **Leader Accepted as PLANNING COMPLETE, 2026-11-16.** Overall **NOT READY**. Recommendations are not automatic authorizations | Not implementation, deploy, or another live test |
 | 18B.9D5A2D0 | [PHASE-18B.9D5A2D0-canonical-source-inventory.md](PHASE-18B.9D5A2D0-canonical-source-inventory.md) | Canonical source inventory and packaging plan. Proposed 15-module freeze from C1R1 hashes | Inventory only. Not a deploy |
-| 18B.9D5A2D0-P1 | branch `phase18b9/d5a2d0-p1-source-import` commit `98b590e` | Byte-preserving import of 15 modules into `deploy/hetzner/offbox/` plus SHA256SUMS and SOURCE_AUTHORITY.md. SHA match 15/15 | **Review branch only.** Not merged. Not installed. Not production acceptance |
+| 18B.9D5A2D0-P1 | branch `phase18b9/d5a2d0-p1-source-import` commit `98b590e` | **CLOSED — Leader Accepted, 2026-11-16**, controlled source import only. Leader verified 17-file allowlist and 15/15 SHA-256 MATCH | Review branch unchanged. Not merged. Not installed. Not production activation |
 
 Earlier local labs C2B, C2C, C2D, D3, D3A, and D3B informed the adapter. They are not re-opened by this map. The one C2D synthetic upload does not validate the D5A2C adapter. Their OAuth files were not read for this record.
 
@@ -83,7 +83,7 @@ Phase 18B.9D5A2C2 is **CLOSED — Leader Accepted, 2026-11-16**. The one-shot sy
 
 **18B.9D5A2D0 — Canonical Source Inventory** remains the planning basis. See [PHASE-18B.9D5A2D0-canonical-source-inventory.md](PHASE-18B.9D5A2D0-canonical-source-inventory.md).
 
-**18B.9D5A2D0-P1 — Controlled Canonical Source Import** placed the fifteen modules on review branch `phase18b9/d5a2d0-p1-source-import` at `98b590e`. That branch is not merged into main, not installed on the VPS, and not production acceptance. D5A2D1 and deployment remain unauthorized.
+**18B.9D5A2D0-P1 — Controlled Canonical Source Import** is **CLOSED — Leader Accepted, 2026-11-16**, for controlled source import only. Leader independently verified branch commit `98b590e`, the 17-file allowlist, and 15/15 SHA-256 MATCH. The review branch remains unchanged and is not merged. It is not installed on the VPS and is not production activation. Next proposed blocker: production-shaped systemd isolation correction and WSL verification — **NOT STARTED**, separately authorized.
 
 D5A2C1 evidence remains: original localhost 37 reported passes; R1 17 focused passes reproduced by the Leader; 37 regression passes not independently rerun. R1 review archive SHA-256 `9d9473f8d16b77b4ed1bbc2c855bde12fd907ffbecfbae5f249d9b6d57061819`.
 

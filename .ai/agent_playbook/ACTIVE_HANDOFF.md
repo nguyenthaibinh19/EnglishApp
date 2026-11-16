@@ -4,56 +4,60 @@ Rolling coordination checkpoint. It does not replace [current_state.md](../curre
 
 ## 1. Checkpoint metadata
 
-- Written: 2026-11-16T20:12:00Z.
-- Observed `origin/main` before this docs checkpoint: `3463971b7255696ceea205215392315868d8ae91`.
-- Review branch observed: `phase18b9/d5a2d0-p1-source-import` at `98b590ef5707e0c84bf68175ed59cdc17d8753c5`.
-- Verified here: remote main and review-branch HEADs. No Google API call, VPS access, credential change, merge to main, or live operation occurred.
+- Written: 2026-11-16T20:22:00Z.
+- Observed `origin/main`: `f845632a942b5078d99140a6d04ba4756e629343`.
+- Review branch unchanged: `phase18b9/d5a2d0-p1-source-import` at `98b590ef5707e0c84bf68175ed59cdc17d8753c5`.
+- Verified here: remote main HEAD. No merge, source edit, unit draft, test run, Google API call, VPS access, or service activation occurred.
 
 ## 2. Last Leader decision
 
-Phase 18B.9D5A2D0-P1 controlled canonical source import is **AUTHORIZED for review-branch import only, 2026-11-16**.
+Phase 18B.9D5A2D0-P1 is **CLOSED — Leader Accepted, 2026-11-16**, for controlled source import only.
 
-Cursor reported SUCCESS: fifteen C1R1 modules imported byte-for-byte into `deploy/hetzner/offbox/` on branch `phase18b9/d5a2d0-p1-source-import`, commit `98b590e`. SHA-256 match **15/15**. Metadata: `SHA256SUMS` and `SOURCE_AUTHORITY.md`.
+Leader independently verified GitHub branch commit `98b590ef5707e0c84bf68175ed59cdc17d8753c5`, the exact 17-file allowlist, and SHA-256 MATCH for all 15 Python modules.
 
-That branch is **not merged**. It is **not** production acceptance, not installed, and not activated.
+Accepted scope: review-branch archive of the fifteen C1R1 modules under `deploy/hetzner/offbox/` plus `SHA256SUMS` and `SOURCE_AUTHORITY.md`.
 
-D5A2C3 remains **Leader Accepted as PLANNING COMPLETE**. Overall production status remains **NOT READY**. Phase 18B.9 remains **OPEN**. Google Drive production remains **NOT CONFIGURED**. Cloud Sync remains **OFF**.
+Excluded scope: merge to main, production install, unit drafting, tests, Google calls, VPS access, and service activation. The review branch remains unchanged.
+
+Overall production status remains **NOT READY**. Phase 18B.9 remains **OPEN**. Google Drive production remains **NOT CONFIGURED**. Cloud Sync remains **OFF**.
+
+Next proposed blocker: production-shaped systemd isolation correction and WSL verification. **NOT STARTED.** Separately authorized only.
 
 ## 3. Active work
 
-- ChatGPT Leader: review the import branch; decide accept/amend before any packaging or D5A2D1.
-- Cursor: import complete on the review branch; documentation checkpoint only on main.
+- ChatGPT Leader: may authorize the isolation-correction milestone later; nothing is started by this acceptance.
+- Cursor: recording this acceptance. No source or unit work is in progress.
 - Antigravity, Website W1: separate workspace. Live execution state: **UNKNOWN**.
 - Codex: no assignment observed.
 
 ## 4. Working tree and evidence
 
+- Accepted import branch: `phase18b9/d5a2d0-p1-source-import` @ `98b590e`
+- URL: https://github.com/nguyenthaibinh19/EnglishApp/tree/phase18b9/d5a2d0-p1-source-import
 - Inventory: [PHASE-18B.9D5A2D0-canonical-source-inventory.md](../plans/PHASE-18B.9D5A2D0-canonical-source-inventory.md)
-- Review branch URL: https://github.com/nguyenthaibinh19/EnglishApp/tree/phase18b9/d5a2d0-p1-source-import
-- Source authority lab: `D:\Tools\age-c2d5a2c1r1-http-20261116T1303Z-b4e81c20\offbox\`
-- Excluded from import: `fake_drive.py`, `loopback_drive.py`, `live_synthetic_once.py`, units, credentials.
+- Main still does not contain the offbox import as a merge.
 
 ## 5. Pending review
 
-D5A2D0-P1 source import branch: **READY FOR LEADER REVIEW**.
+D5A2D0-P1: **NONE**. Leader accepted for controlled source import only.
 
-D5A2D1 and production deployment: **NOT AUTHORIZED**.
+Systemd isolation correction / WSL verification: **NOT STARTED**. Not authorized by this checkpoint.
 
 ## 6. Current risks
 
+- Accepted import is branch-only; not merged and not installed.
+- D5A2B1-class isolation failures remain open.
 - No accepted production systemd unit set.
-- D5A2B1 isolation failures remain open.
-- Branch-only archive must not be treated as merged or installed.
 - Google Drive production stays **NOT CONFIGURED**. Cloud Sync stays **OFF**.
 
 ## 7. Next action
 
-Leader reviews `phase18b9/d5a2d0-p1-source-import` at `98b590e`. Do not merge, deploy, or start D5A2D1 without a new Leader decision.
+Await a separate Leader brief before any isolation-correction or packaging work. Do not merge `phase18b9/d5a2d0-p1-source-import` without an explicit decision.
 
 ## 8. Authorization / STOP
 
-Permitted on main: documentation-only checkpoints under `.ai/`, fast-forward only.
+Permitted: documentation-only checkpoints under `.ai/`, fast-forward only.
 
-Prohibited: merge of the import branch without Leader decision, VPS install, Google calls, Cloud Sync activation, and claiming production readiness.
+Prohibited: merge of the import branch, source modification, unit drafting, tests, Google API calls, VPS access, Cloud Sync activation, and claiming production readiness.
 
 STOP after publishing this checkpoint.
