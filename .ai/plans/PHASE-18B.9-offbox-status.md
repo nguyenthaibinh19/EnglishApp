@@ -39,7 +39,7 @@ Phase 18B.9C1 is **DESIGN ACCEPTED, 2026-11-10**. The standalone age `.age` arti
 | 18B.9D5A2C1 | `D:\Tools\age-c2d5a2c1-http-20261116T1155Z-b7d3e91a` | Original localhost run reported 37 passed, 0 failed, 0 blocked. R1 then corrected checkpoint numbering and the synthetic-restore exit | **CLOSED — Leader Accepted, 2026-11-16.** Localhost milestone only. Not a Google call and not a deployment |
 | 18B.9D5A2C2 | `D:\Tools\age-c2d5a2c2-preflight-20261116T1344Z-ada71f3f` | Static preflight, then owner-approved one-shot live test. Cursor reported one-invocation PASS | **CLOSED — Leader Accepted, 2026-11-16.** Synthetic live shot only. Not production backup |
 | 18B.9D5A2C2-P1 | `D:\Tools\age-c2d5a2c2p1-wsl-20261116T1546Z-c91e4a27` | **Leader accepted, 2026-11-16**, for the local WSL gate and ext4 evidence root. Cursor reported 32 passed, 0 failed, 0 skipped. The Leader did not rerun them | Safety hardening for the later one-shot. Not a deployment |
-| 18B.9D5A2C3 | not started | Production readiness review | **Planning only.** Not authorized as implementation, deploy, or another live test |
+| 18B.9D5A2C3 | [PHASE-18B.9D5A2C3-production-readiness.md](PHASE-18B.9D5A2C3-production-readiness.md) | Planning and read-only audit delivered. Overall **NOT READY**. Awaiting Leader review | Not implementation, deploy, or another live test. Does not claim production readiness |
 
 Earlier local labs C2B, C2C, C2D, D3, D3A, and D3B informed the adapter. They are not re-opened by this map. The one C2D synthetic upload does not validate the D5A2C adapter. Their OAuth files were not read for this record.
 
@@ -77,7 +77,7 @@ On WSL, these four units exist, are inactive, and are not enabled: `lgd5a2b1-han
 
 Phase 18B.9D5A2C2 is **CLOSED — Leader Accepted, 2026-11-16**. The one-shot synthetic Google Drive live test is closed. Phase 18B.9D5A2C1 remains closed as the localhost milestone. Phase 18B.9 remains **OPEN**. Google Drive production remains **NOT CONFIGURED**. Cloud Sync remains **OFF**. No VPS change was made and no production backup was activated.
 
-The next milestone is **18B.9D5A2C3 — Production Readiness Review**, planning only. It is not authorized as implementation, deployment, another live test, or remote deletion.
+**18B.9D5A2C3 — Production Readiness Review** is delivered as planning only and awaits Leader review. See [PHASE-18B.9D5A2C3-production-readiness.md](PHASE-18B.9D5A2C3-production-readiness.md). Overall production readiness remains **NOT READY**. It is not authorized as implementation, deployment, another live test, or remote deletion.
 
 D5A2C1 evidence remains: original localhost 37 reported passes; R1 17 focused passes reproduced by the Leader; 37 regression passes not independently rerun. R1 review archive SHA-256 `9d9473f8d16b77b4ed1bbc2c855bde12fd907ffbecfbae5f249d9b6d57061819`.
 
