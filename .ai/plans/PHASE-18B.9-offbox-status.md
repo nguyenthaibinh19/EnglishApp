@@ -14,7 +14,7 @@ The implementation is not in this repository. `app/offbox_poc.py` is the closed 
 | 18B.9B | Closed local Restic proof, commit `274156e` |
 | 18B.9C1 | Design accepted on 2026-11-10, commit `d4b8588` |
 | 18B.9C2 | Named future external drill. **Not authorized.** D5A2C1 is not 18B.9C2 |
-| 18B.9D4C through 18B.9D5A2C2-P1 | Local and approved-operation steps after the design. The letter suffix is the step id. D5A2C2 is a static preflight. P1 is the local safety correction and is Leader accepted. Neither is a live test |
+| 18B.9D4C through 18B.9D5A2C3 | Local and approved-operation steps after the design. The letter suffix is the step id. D5A2C2 includes the accepted one-shot live test. D5A2C3 is production-readiness planning only |
 
 ## Closed before these steps
 
@@ -37,8 +37,9 @@ Phase 18B.9C1 is **DESIGN ACCEPTED, 2026-11-10**. The standalone age `.age` arti
 | 18B.9D5A2B3 | `D:\Tools\age-c2d5a2b3-nativeage-20261116T1044Z-c25771fb` | **Leader accepted.** Native encryption integration is closed. Result PASS | The recorded state is `ENCRYPTED`. `download_verified` is false. This is not off-box success |
 | 18B.9D5A2C | `D:\Tools\age-c2d5a2c-drive-20261116T1119Z-c8e4a21b` | **Leader accepted.** Fake-transport tests 30 passed, 0 failed, 0 blocked | No Google call. `fakefile001` is not a Drive file. A fake `VERIFIED` is not production evidence |
 | 18B.9D5A2C1 | `D:\Tools\age-c2d5a2c1-http-20261116T1155Z-b7d3e91a` | Original localhost run reported 37 passed, 0 failed, 0 blocked. R1 then corrected checkpoint numbering and the synthetic-restore exit | **CLOSED — Leader Accepted, 2026-11-16.** Localhost milestone only. Not a Google call and not a deployment |
-| 18B.9D5A2C2 | `D:\Tools\age-c2d5a2c2-preflight-20261116T1344Z-ada71f3f` | Static preflight completed. Conclusion: ready for owner review. The live script was not executed | **NOT AUTHORIZED** as a Google call. Not a deployment. D5A2C1 stays closed |
-| 18B.9D5A2C2-P1 | `D:\Tools\age-c2d5a2c2p1-wsl-20261116T1546Z-c91e4a27` | **Leader accepted, 2026-11-16**, for the local WSL gate and ext4 evidence root. Cursor reported 32 passed, 0 failed, 0 skipped. The Leader did not rerun them | Not a Google call. The Drive adapter was not changed. D5A2C1 stays closed |
+| 18B.9D5A2C2 | `D:\Tools\age-c2d5a2c2-preflight-20261116T1344Z-ada71f3f` | Static preflight, then owner-approved one-shot live test. Cursor reported one-invocation PASS | **CLOSED — Leader Accepted, 2026-11-16.** Synthetic live shot only. Not production backup |
+| 18B.9D5A2C2-P1 | `D:\Tools\age-c2d5a2c2p1-wsl-20261116T1546Z-c91e4a27` | **Leader accepted, 2026-11-16**, for the local WSL gate and ext4 evidence root. Cursor reported 32 passed, 0 failed, 0 skipped. The Leader did not rerun them | Safety hardening for the later one-shot. Not a deployment |
+| 18B.9D5A2C3 | not started | Production readiness review | **Planning only.** Not authorized as implementation, deploy, or another live test |
 
 Earlier local labs C2B, C2C, C2D, D3, D3A, and D3B informed the adapter. They are not re-opened by this map. The one C2D synthetic upload does not validate the D5A2C adapter. Their OAuth files were not read for this record.
 
@@ -74,17 +75,15 @@ On WSL, these four units exist, are inactive, and are not enabled: `lgd5a2b1-han
 
 ## Current gate
 
-Phase 18B.9D5A2C1 is **CLOSED — Leader Accepted, 2026-11-16**. The localhost HTTPS transport milestone is closed. Phase 18B.9 remains **OPEN**. Google Drive production remains **NOT CONFIGURED**. Cloud Sync remains **OFF**. No VPS change was made and no production backup was activated.
+Phase 18B.9D5A2C2 is **CLOSED — Leader Accepted, 2026-11-16**. The one-shot synthetic Google Drive live test is closed. Phase 18B.9D5A2C1 remains closed as the localhost milestone. Phase 18B.9 remains **OPEN**. Google Drive production remains **NOT CONFIGURED**. Cloud Sync remains **OFF**. No VPS change was made and no production backup was activated.
 
-The original D5A2C1 run reported 37 passed, 0 failed, 0 blocked. R1 reported 17 focused passes and 37 regression passes. The Leader independently reproduced the 17 focused tests in an isolated local copy. The 37 regression tests were not independently rerun. The R1 review archive SHA-256 is `9d9473f8d16b77b4ed1bbc2c855bde12fd907ffbecfbae5f249d9b6d57061819`. That archive and the accepted source are outside GitHub.
+The next milestone is **18B.9D5A2C3 — Production Readiness Review**, planning only. It is not authorized as implementation, deployment, another live test, or remote deletion.
 
-The live script SHA-256 recorded before R1 was `36973802cf63073e927871770bb467ba1bb3a4ac43389d77f28aae6f0cd147aa`. R1 changed that script. It has not been executed. The Google Drive live synthetic integration is **NOT AUTHORIZED**. The script still does nothing unless a later brief sets `LG_LIVE_APPROVAL` to exactly `APPROVE D5A2C1 SYNTHETIC DRIVE ONLY`. That phrase has not been approved. A future approved run would be one synthetic file, one upload, one download, and one hash compare, with no `DELETE`, `PATCH`, or second create. An `UNKNOWN` result stops. The object would remain in Drive until a separate deletion approval. Success would also require the synthetic restore. Acceptance of the localhost code does not approve that run.
+D5A2C1 evidence remains: original localhost 37 reported passes; R1 17 focused passes reproduced by the Leader; 37 regression passes not independently rerun. R1 review archive SHA-256 `9d9473f8d16b77b4ed1bbc2c855bde12fd907ffbecfbae5f249d9b6d57061819`.
 
-No production credential is in the repository. The C2D OAuth files were not opened. Reuse of that test folder is unconfirmed. The long-term configuration remains a dedicated production Google Cloud project, scope `https://www.googleapis.com/auth/drive.file`, and a root-owned refresh token visible only to the backup worker through `LoadCredential`. An External Testing refresh token expires after seven days. `invalid_grant` fails closed.
+D5A2C2 live evidence: one authorized invocation. Cursor reported PASS with status `VERIFIED`, detail `downloaded-sha256`, restore integrity `ok`, marker `1`. Ciphertext SHA-256 `a423f281ca55ae1a833cf40d2df854e84678fed24a28d89742215b101593f97c`. Documentation checkpoint `29317d0`. The accepted P1 script SHA-256 is `90f987c78c21c9a212eb14ed16ac3944ed4d5eac4b1550ea378ce8cd76cbf78a`. A second live attempt is **NOT AUTHORIZED**. The synthetic Drive object remains until a separate deletion approval. No `DELETE` or `PATCH` was performed.
 
-Phase 18B.9D5A2C2 is a completed static preflight, 2026-11-16. It inspected the accepted R1 script and did not run it. The preflight conclusion is ready for owner review. That is not permission to run the synthetic test. Owner inputs for the client, refresh token, and folder id remain required, and no existing token is assumed valid. The evidence directory is local and is not in GitHub. A future success would not change the daily report: Google Drive stays **NOT CONFIGURED** until a separately reviewed production activation. The Phase 18B.8 report remains the only notification path, and the off-box lines are not installed.
-
-The Leader then accepted that preflight **with conditions**. Phase 18B.9D5A2C2-P1 applied the two conditions in a new lab and did not modify the accepted R1 lab. Focused offline checks passed 32, failed 0, and skipped 0. The corrected script SHA-256 is `90f987c78c21c9a212eb14ed16ac3944ed4d5eac4b1550ea378ce8cd76cbf78a`. It requires both `/proc/sys/kernel/osrelease` and `/proc/version` to show WSL, keeps the production hostname exclusion, and takes an absolute private mode-0700 evidence root on ext4. There is no default evidence path. The credential directory stays separate. The Drive adapter, HTTP transport, and encryption modules were not changed. The approval phrase was not set, and the live script was not executed. The Leader accepted this local hardening on 2026-11-16 after reviewing the script, the diff, the assertions, and the hashes. The 32 passes remain a Cursor report. The Leader did not independently rerun them. Acceptance does not authorize the Google call. Access by `drive.file` to an existing folder remains **UNKNOWN**. No existing token is assumed valid. C2D credentials were not opened.
+Local evidence stays outside GitHub under the private WSL evidence root. Credentials and folder id are not in this repository. An External Testing refresh token is expected to expire about seven days after the 2026-11-16 consent. The daily report stays **NOT CONFIGURED** until a separately reviewed production activation. The Phase 18B.8 report remains the only notification path, and the off-box lines are not installed.
 
 ## Still unknown
 

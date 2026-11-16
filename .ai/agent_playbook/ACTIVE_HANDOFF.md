@@ -4,66 +4,65 @@ Rolling coordination checkpoint. It does not replace [current_state.md](../curre
 
 ## 1. Checkpoint metadata
 
-- Written: 2026-11-16T18:01:27Z.
-- Observed `origin/main` before this checkpoint: `14d8d6568ee73244f9ec64294498d8ddcf958d69`.
-- Documentation worktree: `phase18b9/local-recovery-poc`.
-- Verified here: offline preflight, one secure live invocation, sanitized evidence files. Secrets, folder id, and remote file id were not written into GitHub.
+- Written: 2026-11-16T18:07:25Z.
+- Observed `origin/main`: `29317d0bcdb4e8d8cf51affd7a3422d9ed5a5993`.
+- Documentation worktree: `phase18b9/local-recovery-poc` at that same SHA.
+- Verified here: remote HEAD and working-tree status. No Google API call, VPS access, credential change, or source edit occurred.
 
 ## 2. Last Leader decision
 
-Phase 18B.9D5A2C1 remains **CLOSED — Leader Accepted, 2026-11-16**.
+Phase 18B.9D5A2C2 one-shot synthetic Google Drive live test is **CLOSED — Leader Accepted, 2026-11-16**.
 
-Phase 18B.9D5A2C2-P1 remains **ACCEPTED, 2026-11-16**.
+Basis: Cursor reported one-invocation PASS, and GitHub checkpoint `29317d0` was verified.
 
-Leader and owner authorized exactly one synthetic Google Drive live test. That one attempt has now been executed.
+Accepted scope: one authorized synthetic upload, independent ciphertext verification, and local synthetic restore.
 
-Phase 18B.9 stays **OPEN**. Google Drive production stays **NOT CONFIGURED**. Cloud Sync stays **OFF**.
+Excluded scope: production Google Drive backup, a second live attempt, remote deletion, VPS changes, and Cloud Sync.
+
+Phase 18B.9D5A2C1 remains **CLOSED**. Phase 18B.9 remains **OPEN**. Google Drive production remains **NOT CONFIGURED**. Cloud Sync remains **OFF**.
+
+Next milestone: **D5A2C3 — Production Readiness Review (planning only)**.
+
+Detail: [PHASE-18B.9-offbox-status.md](../plans/PHASE-18B.9-offbox-status.md) and [current_state.md](../current_state.md).
 
 ## 3. Active work
 
-- ChatGPT Leader: review the live result and decide the next gate. No second live attempt is authorized.
-- Cursor: one-shot live test completed. Documentation checkpoint of the observed result is this update.
+- ChatGPT Leader: own the D5A2C3 planning brief. No implementation is authorized by this acceptance.
+- Cursor: recording this acceptance. No application implementation is in progress.
 - Antigravity, Website W1: separate workspace. Live execution state: **UNKNOWN**.
 - Codex: no assignment observed.
 
 ## 4. Working tree and evidence
 
-- P1 script SHA-256 `90f987c78c21c9a212eb14ed16ac3944ed4d5eac4b1550ea378ce8cd76cbf78a` matched before launch.
-- Secure launch used in-memory Desktop client fields and a WSL child environment. No shell `export` of the client secret or approval phrase.
-- Invocation count: **1**.
-- Observed outcome: **PASS**.
-- Status `VERIFIED`, detail `downloaded-sha256`, `download_verified=true`.
-- Ciphertext SHA-256 `a423f281ca55ae1a833cf40d2df854e84678fed24a28d89742215b101593f97c`.
-- Restore: `integrity-ok`, integrity `ok`, marker `1`.
-- Exit code 0. Stop line `STOP VERIFIED`.
-- Evidence root: `/home/nguyenthaibinh19/language-guard/d5a2c2-live-evidence` on ext4.
-- Sanitized report: `SANITIZED_LIVE_REPORT.txt` mode `0600`.
-- Remote object id recorded only in private local file `private-remote-object.txt` mode `0600`. Not published.
-- The synthetic Drive object may remain until a later deletion approval. No DELETE or PATCH was performed.
+- Live-result documentation checkpoint: `29317d0`.
+- Ciphertext SHA-256 from the accepted one-shot: `a423f281ca55ae1a833cf40d2df854e84678fed24a28d89742215b101593f97c`.
+- Local evidence remains under `/home/nguyenthaibinh19/language-guard/d5a2c2-live-evidence`.
+- Remote synthetic object remains until a later deletion approval. Its id is private and not in GitHub.
+- No second live attempt is authorized.
 
 ## 5. Pending review
 
-D5A2C2 one-shot live result: **PENDING LEADER REVIEW**.
+D5A2C2 live result: **NONE**. Leader accepted.
 
-Second live attempt: **NOT AUTHORIZED**.
+D5A2C3 production-readiness planning: not started. Planning only when a later brief assigns it.
 
 ## 6. Current risks
 
-- This PASS is a synthetic one-shot only. It does not configure production Google Drive backup.
-- External Testing refresh tokens are still expected to expire about seven days after the 2026-11-16 consent.
-- The remote synthetic object remains until separately approved deletion.
-- Cloud Sync stays **OFF**. Google Drive production stays **NOT CONFIGURED**.
+- The accepted PASS is synthetic only. It does not configure production off-box backup.
+- The synthetic Drive object remains until separately approved deletion.
+- External Testing refresh tokens are expected to expire about seven days after the 2026-11-16 consent.
+- Google Drive production stays **NOT CONFIGURED**. Cloud Sync stays **OFF**.
 
 ## 7. Next action
 
-Leader reviews the PASS evidence and decides the next milestone. Options may include documenting retention of the synthetic object or a later deletion brief.
+Leader prepares D5A2C3 — Production Readiness Review as planning only.
 
-No second live upload is authorized.
+That is not permission to deploy, delete the synthetic object, call Google again, or change the VPS.
 
 ## 8. Authorization / STOP
 
 Permitted: documentation-only checkpoints under `.ai/`, using [AI_AGENT_WORKFLOW.md](AI_AGENT_WORKFLOW.md) section 11, fast-forward only.
 
-Prohibited: a second live attempt, Drive DELETE/PATCH, broader OAuth scopes, VPS changes, source commit or push, Cloud Sync activation, and publishing secrets or the folder id.
+Prohibited: a second live attempt, Drive DELETE/PATCH, Google API calls, credential changes, VPS changes, source edits, Cloud Sync activation, and claiming production Drive is configured.
 
 STOP after publishing this checkpoint.
