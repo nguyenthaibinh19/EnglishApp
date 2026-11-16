@@ -1,5 +1,7 @@
 # Handoff — Phase 18B.9 off-box, 2026-11-16
 
+Post-handoff acceptance, 2026-11-16: Leader accepted Phase 18B.9D5A2C1. The localhost HTTPS transport milestone is CLOSED. The paragraphs below are the snapshot from before that acceptance. The durable record is [current_state.md](../../current_state.md). The live Google Drive synthetic test is NOT AUTHORIZED. Phase 18B.9 remains OPEN. Google Drive production is NOT CONFIGURED. Cloud Sync stays OFF. No production backup was activated.
+
 This is the chat-boundary snapshot. After this documentation commit, [current_state.md](../../current_state.md) and [PHASE-18B.9-offbox-status.md](../../plans/PHASE-18B.9-offbox-status.md) are the durable record. The 2026-11-03 handoff is historical and stops before Phase 18B.8 was accepted.
 
 ## Repository

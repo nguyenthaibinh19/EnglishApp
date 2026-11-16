@@ -62,7 +62,11 @@ Run `git diff HEAD --check`; report any line-ending warning separately from whit
 - QA: tests are appropriate, counts exact, skipped cases visible, synthetic fixtures isolated.
 - Documentation: ADR/invariants and milestone status accurately updated; no future work declared completed.
 
-## 5. After explicit commit approval
+## 5. Commits
+
+Application source still needs an explicit commit approval. Documentation-only checkpoints under `.ai/` use the standing rule in `AI_AGENT_WORKFLOW.md` section 11 and do not wait for a separate approval. Neither kind of commit authorizes a deploy.
+
+### Source commit, after explicit approval
 
 ```bash
 git status --short
@@ -72,12 +76,13 @@ git add -- <approved paths explicitly>
 git diff --cached --check
 git diff --cached --name-status
 git diff --cached
-# Inspect the entire staged diff, then commit only if the Leader authorized it.
+# Inspect the entire staged diff. Commit source only when that source commit was authorized.
+# A documentation checkpoint may be committed under the standing .ai/ rule.
 ```
 
 After an authorized push, report full SHA, parent, exact filenames, commit message, remote branch SHA and final `git status --short`. The Leader should independently verify the remote commit. A clean *tracked* status may coexist with pre-existing untracked local artifacts.
 
-**Important:** Commit/push, production installation, service restart, cron/systemd enablement, `.env` or credential edits, DNS edits, Sync activation, and Windows release are separate explicitly authorized actions. Never infer one from another.
+**Important:** A source commit, a source push, production installation, service restart, cron/systemd enablement, `.env` or credential edits, DNS edits, Sync activation, and a Windows release are separate explicitly authorized actions. A documentation checkpoint is not one of those actions. Never infer one from another.
 
 ## 6. Operational changes require extra gates
 

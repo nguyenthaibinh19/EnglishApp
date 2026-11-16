@@ -18,6 +18,8 @@ They do not own product position or design:
 
 A dated file under [`handoffs/`](handoffs/) is a historical snapshot of one chat. It is not a second current state. When a handoff and `current_state.md` disagree about a committed fact, `current_state.md` on the reviewed commit wins. A handoff may describe uncommitted work that is not yet in `current_state.md`. That description does not make the work merged.
 
+Documentation checkpoints are standing owner authorization as of 2026-11-16. The rule is [AI_AGENT_WORKFLOW.md](AI_AGENT_WORKFLOW.md) section 11. It covers `.ai/` status, plans, decisions, and handoffs. It does not cover application source or production actions.
+
 ## Reading order
 
 1. [`../current_state.md`](../current_state.md)

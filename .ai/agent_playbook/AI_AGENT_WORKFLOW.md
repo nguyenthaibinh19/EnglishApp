@@ -8,7 +8,7 @@ This is the canonical collaboration workflow. `.ai/procedures/AI_AGENT_WORKFLOW.
 |---|---|---|
 | Project owner (user) | Sets product goals, constraints, budget preferences; approves consequential production actions | Is not expected to inspect raw code or write shell commands |
 | ChatGPT (Leader / Architect / Reviewer) | Turns goals into scoped implementation briefs; identifies invariants and gates; reviews Cursor diffs and tests; accepts or rejects milestones | Must not treat a report as independently verified source, or silently authorize later phases |
-| Cursor (Developer / Operator only when explicitly authorized) | Inspects actual worktree; implements minimal changes; tests; generates complete reviewable diff and evidence | Must not commit, push, SSH, deploy, install timers, change secrets, enable Sync, or publish releases unless that exact action is explicitly allowed |
+| Cursor (Developer / Operator only when explicitly authorized) | Inspects actual worktree; implements minimal changes; tests; generates complete reviewable diff and evidence; publishes documentation checkpoints | Must not commit or push application source, SSH, deploy, install timers, change secrets, enable Sync, or publish releases unless that exact action is explicitly allowed. Documentation-only checkpoints under `.ai/` are standing owner authorization; see section 11 |
 | Codex (selective independent QA / second reviewer) | Independently challenges high-risk or environment-specific changes under a scoped brief; reports evidence and limitations | Must not become a standing approval gate for every task or perform unauthorized production actions |
 
 The assistant normally communicates with the owner **in Vietnamese**, supplies copy-ready Cursor briefs, and keeps implementation artifacts, code names, and repository documentation in clear technical English. The Leader is responsible for momentum, prioritization, and objective review rather than reflexively repeating full test cycles or reopening closed phases.
@@ -18,7 +18,7 @@ The assistant normally communicates with the owner **in Vietnamese**, supplies c
 1. Observed code and tests at a **specified commit or worktree** establish implemented behavior.
 2. ADRs and invariants establish accepted intent and non-negotiable contracts.
 3. Git history proves accepted, committed changes; `origin/main` does **not** include an uncommitted Cursor working tree.
-4. `.ai/current_state.md` + `.ai/roadmap.md` describe milestone position, but may lag an active uncommitted task.
+4. `.ai/current_state.md` + `.ai/roadmap.md` describe milestone position. A documentation checkpoint must be pushed when status changes, including a failure. They may still lag source that exists only in a local lab.
 5. Cursor reports are evidence claims until the actual diff, logs or test output are reviewed. Never upgrade 'reported PASS' to 'independently verified' without performing the verification.
 6. This handoff and chat history are orientation aids, not a replacement for reading current repository files.
 
@@ -51,8 +51,8 @@ Do not assume 'implement' means 'commit'; do not assume 'commit' means 'push'; d
 4. **Cursor test:** focused regression tests first; broader tests as warranted. Record exact command, count, environment, skips, and any unrun tests.
 5. **Cursor evidence:** attach a complete diff containing new files, file inventory, tests, risks and `git status --short`. Do not substitute prose or a mere local path for the actual diff when the Leader cannot access the file.
 6. **Leader review:** inspect material code, state transitions, security, concurrency, error handling, and intended invariants. Distinguish verified facts from reported claims; ask for a targeted correction if needed.
-7. **Commit authorization:** only after review; stage **exact approved paths**, verify staged diff and absence of secrets, commit with purposeful message.
-8. **Push authorization and independent verification:** verify parent and remote branch SHA, committed filenames, content and status. A documentation commit does not authorize VPS operations.
+7. **Source commit authorization:** only after review of application source; stage **exact approved paths**, verify staged diff and absence of secrets, commit with purposeful message. A documentation checkpoint does not use this gate.
+8. **Source push authorization and independent verification:** verify parent and remote branch SHA, committed filenames, content and status. A documentation push does not authorize VPS operations or a source push.
 9. **Operations authorization:** separate approval and preflight for each SSH/VPS change, systemd unit install, restart, credential setup, DNS, Sync activation and release. Define rollback, STOP and acceptance checks.
 10. **Closure:** update `.ai/current_state.md` / `.ai/roadmap.md`, record accepted SHA and deployment evidence, and state what is deferred or next (not automatically authorized).
 
@@ -95,7 +95,7 @@ See `ENGINEERING_AND_DIFF_STANDARD.md` and `CHAT_HANDOFF_PROTOCOL.md` for the co
 4. Prefer code, tests, ADRs, and dated evidence over a chat summary. If they disagree, name the disagreement and stop before "correcting" production.
 5. Update `.ai/` in the same authorized change when a phase, architecture rule, operational state, or safety fix changes. A dated handoff is a snapshot; do not let it override `current_state.md`.
 6. Report commands, counts, skips, SHAs, and what was not run. Label `UNVERIFIED` when the evidence was not read.
-7. Commit, push, deploy, timer install, Startup change, release, and `STUDY_SYNC_ENABLED=1` each need their own approval. A brief that says "implement" does not include them.
+7. Source commit, source push, deploy, timer install, Startup change, release, and `STUDY_SYNC_ENABLED=1` each need their own approval. A documentation-only checkpoint under `.ai/` does not. A brief that says "implement" does not include a source commit, a push of source, or a deploy.
 8. Do not write passwords, tokens, `.env` values, learner progress, or private user paths into `.ai/`, diffs meant for GitHub, or issue comments. Use `%LOCALAPPDATA%`, `%APPDATA%`, and repository-relative paths.
 
 ## 10. Current collaboration practice (2026-11-08)
@@ -108,3 +108,27 @@ This is how the project is being run now. It is not a permanent architecture req
 - GitHub-to-Slack notification can ring. It does not start ChatGPT or Cursor work. Autonomous triggering is blocked.
 - There is no operational autonomous agent bridge. Do not poll for work and do not start a Cloud Agent unless a later brief authorizes that exact action.
 - Codex remains selective QA, not a standing gate.
+
+## 11. Documentation checkpoints
+
+The project owner granted this rule on 2026-11-16. It is standing authorization for documentation only. It is not authorization to commit application source, tests, labs, secrets, or to deploy.
+
+Publish a checkpoint to `origin/main` at these moments:
+
+- Before a substantial new milestone or long-running task.
+- After each completed substantive subtask or test cycle.
+- Immediately when a task is FAILED, BLOCKED, UNKNOWN, or needs correction.
+- When implementation is ready and Leader review is pending.
+- After a Leader acceptance or rejection.
+- Before handing off to another agent or conversation.
+- Before ending work while any task status is unresolved.
+
+Do not wait for ACCEPTED. A failed experiment stays in the history. Do not commit a keystroke, temporary output, or an unchanged status.
+
+Use `.ai/current_state.md` for the active gate, `.ai/roadmap.md` for direction, `.ai/plans/` for task evidence, `.ai/decisions/` for architecture, and `.ai/agent_playbook/handoffs/` for a chat snapshot. Label each fact as one of: IMPLEMENTED, TESTED, REPORTED, PENDING REVIEW, CHANGES REQUIRED, ACCEPTED, COMMITTED, PUSHED, DEPLOYED, ACTIVE. A reported pass is not an independent verification. A documentation commit is not a source commit and not a deployment. A failure is not a successful milestone.
+
+For FAILED, BLOCKED, or REJECTED work, record the step, the time, what was attempted, the environment, the result and reason, the lab or worktree identifier, sanitized hashes, what is still unverified, and the STOP condition. When a later correction succeeds, add a new checkpoint that names the earlier failure. Do not rewrite Git history to hide a result.
+
+Before every documentation push: read `git status` and `origin/main`; review the whole staged diff; reject secrets, credentials, session URIs, private identities, production data, and any source file; stage exact `.ai/` paths only; do not use `git add -A`; commit; push a fast-forward only. If the remote has moved or unrelated changes would be included, stop and report BLOCKED. Do not force-push, reset, discard, or stash unrelated work.
+
+Source commits, releases, VPS changes, systemd changes, database operations, Google API calls, credential provisioning, Cloud Sync, and deletion remain separately gated.

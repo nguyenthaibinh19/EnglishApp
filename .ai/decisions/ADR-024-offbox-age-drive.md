@@ -1,6 +1,6 @@
 # ADR-024 Off-box age artifact and Google Drive adapter
 
-Status: **Accepted as the local architecture through Phase 18B.9D5A2C, 2026-11-16.** This is not a production deployment. Phase 18B.9D5A2C1 is not accepted by this record. Phase 18B.9C2 is not authorized.
+Status: **Accepted as the local architecture through Phase 18B.9D5A2C1, 2026-11-16.** D5A2C1 is a localhost milestone. This is not a production deployment. The live Google synthetic test is not authorized. Phase 18B.9C2 is not authorized.
 
 The 2026-11-10 design in [PHASE-18B.9C1-external-readiness.md](../plans/PHASE-18B.9C1-external-readiness.md) chose a standalone age `.age` artifact. This decision records the implementation that followed. It replaces that plan's `rclone copy` transfer. It does not replace the choice of Google Drive as the preferred store or Backblaze B2 as the unprovisioned fallback.
 
@@ -17,6 +17,6 @@ The 2026-11-10 design in [PHASE-18B.9C1-external-readiness.md](../plans/PHASE-18
 
 ## Consequences
 
-Phase 18B.9 stays open. Google Drive remains **NOT CONFIGURED** in the daily report. The D5A2C1 HTTPS transport and its live-test script stay outside this acceptance until a later Leader decision. No production age identity, OAuth client, or Drive folder is created by this decision.
+Phase 18B.9 stays open. Google Drive remains **NOT CONFIGURED** in the daily report. The D5A2C1 localhost transport is accepted, including the R1 corrections, and its source is outside this repository. Its live-test script is not authorized to run. No production age identity, OAuth client, or Drive folder is created by this decision.
 
 See [PHASE-18B.9-offbox-status.md](../plans/PHASE-18B.9-offbox-status.md).

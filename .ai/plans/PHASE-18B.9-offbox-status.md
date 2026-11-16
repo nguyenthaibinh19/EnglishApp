@@ -36,7 +36,7 @@ Phase 18B.9C1 is **DESIGN ACCEPTED, 2026-11-10**. The standalone age `.age` arti
 | 18B.9D5A2B2 | `D:\Tools\age-c2d5a2b2-socket-20261116T1016Z-8dfcab54` | Socket transfer of that one run passed. Encryption failed. The empty `snapshot.age` stays 0 bytes | Frame verification is not Drive verification and not `VERIFIED` |
 | 18B.9D5A2B3 | `D:\Tools\age-c2d5a2b3-nativeage-20261116T1044Z-c25771fb` | **Leader accepted.** Native encryption integration is closed. Result PASS | The recorded state is `ENCRYPTED`. `download_verified` is false. This is not off-box success |
 | 18B.9D5A2C | `D:\Tools\age-c2d5a2c-drive-20261116T1119Z-c8e4a21b` | **Leader accepted.** Fake-transport tests 30 passed, 0 failed, 0 blocked | No Google call. `fakefile001` is not a Drive file. A fake `VERIFIED` is not production evidence |
-| 18B.9D5A2C1 | `D:\Tools\age-c2d5a2c1-http-20261116T1155Z-b7d3e91a` | Localhost transport report ready. 37 passed, 0 failed, 0 blocked | **Not accepted and not run against Google.** Stop for Leader review |
+| 18B.9D5A2C1 | `D:\Tools\age-c2d5a2c1-http-20261116T1155Z-b7d3e91a` | Original localhost run reported 37 passed, 0 failed, 0 blocked. R1 then corrected checkpoint numbering and the synthetic-restore exit | **CLOSED — Leader Accepted, 2026-11-16.** Localhost milestone only. Not a Google call and not a deployment |
 
 Earlier local labs C2B, C2C, C2D, D3, D3A, and D3B informed the adapter. They are not re-opened by this map. The one C2D synthetic upload does not validate the D5A2C adapter. Their OAuth files were not read for this record.
 
@@ -48,7 +48,7 @@ Earlier local labs C2B, C2C, C2D, D3, D3A, and D3B informed the adapter. They ar
 - The Drive adapter reserves one file id, uploads, then downloads that same id and compares SHA-256. HTTP 200 or 201 alone is not `VERIFIED`. A restore drill is a separate record and does not create `VERIFIED`.
 - Multipart is used at or below 5 MiB. Above that, the upload is resumable in 256 KiB chunks. `DELETE`, `PATCH`, copy, trash, and a metadata update are refused.
 - An ambiguous result keeps the reserved id. A missing object stays `UNKNOWN` and does not allocate a second id.
-- D5A2C1 adds the real HTTPS transport and changes one branch in its own copy: a resumable HTTP 404 reconciles the original file id. The accepted D5A2C lab still records an expired session as `UNKNOWN` with detail `session-expired`. Do not rewrite that lab.
+- D5A2C1 adds the real HTTPS transport and changes one branch in its own copy: a resumable HTTP 404 reconciles the original file id. The accepted D5A2C lab still records an expired session as `UNKNOWN` with detail `session-expired`. Do not rewrite that lab. The accepted D5A2C1 copy is the later R1 lab, which is not in this repository. R1 parses the full checkpoint index, selects the latest checkpoint numerically, and returns success from the one-shot script only when remote verification and the synthetic restore both succeed. Fifteen other `offbox` modules are unchanged from D5A2C1. R1 changed `drive_upload.py`, `loopback_drive.py`, `live_synthetic_once.py`, and the associated tests.
 - New attempts record `transport` as `fake`, `localhost`, or `https`. Only `transport=https`, state `VERIFIED`, `download_verified` true, and detail `downloaded-sha256` can satisfy a production gate. No such live record exists. Older records without the field are not production evidence.
 - `VERIFYING` is the download check inside the transition. It is not a persisted state.
 
@@ -72,9 +72,11 @@ On WSL, these four units exist, are inactive, and are not enabled: `lgd5a2b1-han
 
 ## Current gate
 
-Phase 18B.9D5A2C1 is waiting for Leader review. The live script is `live_synthetic_once.py` in that lab. Its SHA-256 is `36973802cf63073e927871770bb467ba1bb3a4ac43389d77f28aae6f0cd147aa`. It was syntax-checked and not executed.
+Phase 18B.9D5A2C1 is **CLOSED — Leader Accepted, 2026-11-16**. The localhost HTTPS transport milestone is closed. Phase 18B.9 remains **OPEN**. Google Drive production remains **NOT CONFIGURED**. Cloud Sync remains **OFF**. No VPS change was made and no production backup was activated.
 
-The script does nothing unless `LG_LIVE_APPROVAL` equals `APPROVE D5A2C1 SYNTHETIC DRIVE ONLY`. That phrase has not been approved. Running it would be one synthetic file, one upload, one download, and one hash compare, with no `DELETE`, `PATCH`, or second create. An `UNKNOWN` result stops. The object would remain in Drive until a separate deletion approval.
+The original D5A2C1 run reported 37 passed, 0 failed, 0 blocked. R1 reported 17 focused passes and 37 regression passes. The Leader independently reproduced the 17 focused tests in an isolated local copy. The 37 regression tests were not independently rerun. The R1 review archive SHA-256 is `9d9473f8d16b77b4ed1bbc2c855bde12fd907ffbecfbae5f249d9b6d57061819`. That archive and the accepted source are outside GitHub.
+
+The live script SHA-256 recorded before R1 was `36973802cf63073e927871770bb467ba1bb3a4ac43389d77f28aae6f0cd147aa`. R1 changed that script. It has not been executed. The Google Drive live synthetic integration is **NOT AUTHORIZED**. The script still does nothing unless a later brief sets `LG_LIVE_APPROVAL` to exactly `APPROVE D5A2C1 SYNTHETIC DRIVE ONLY`. That phrase has not been approved. A future approved run would be one synthetic file, one upload, one download, and one hash compare, with no `DELETE`, `PATCH`, or second create. An `UNKNOWN` result stops. The object would remain in Drive until a separate deletion approval. Success would also require the synthetic restore. Acceptance of the localhost code does not approve that run.
 
 No production credential is in the repository. The C2D OAuth files were not opened. Reuse of that test folder is unconfirmed. The long-term configuration remains a dedicated production Google Cloud project, scope `https://www.googleapis.com/auth/drive.file`, and a root-owned refresh token visible only to the backup worker through `LoadCredential`. An External Testing refresh token expires after seven days. `invalid_grant` fails closed.
 
