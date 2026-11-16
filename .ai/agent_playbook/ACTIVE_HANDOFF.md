@@ -4,61 +4,65 @@ Rolling coordination checkpoint. It does not replace [current_state.md](../curre
 
 ## 1. Checkpoint metadata
 
-- Written: 2026-11-16T13:46:00Z.
-- Observed `origin/main`: `82ddea5d1fc1ce88088246ac7778486c6a1d0d2e`.
+- Written: 2026-11-16T14:51:02Z.
+- Observed `origin/main`: `5f7ab3dd251d2ba3cfa36d95398e4947da5abd7c`.
 - Documentation worktree: `phase18b9/local-recovery-poc` at that same SHA.
-- Verified here: `git rev-parse HEAD`, `git fetch origin main`, and `git status` in that worktree. The R1 lab was hashed and read. It was not modified. The live script was not imported or executed. Google, the VPS, and credential files were not contacted.
+- Verified here: `git rev-parse HEAD`, `git fetch origin main`, and `git status` in that worktree. The accepted R1 script hash was re-read and is unchanged. The new lab was tested offline. The live script was not executed. Google, the VPS, and credential files were not contacted.
 
 ## 2. Last Leader decision
 
-Phase 18B.9D5A2C1 is **CLOSED — Leader Accepted, 2026-11-16**.
+Phase 18B.9D5A2C1 remains **CLOSED — Leader Accepted, 2026-11-16**. Localhost HTTPS transport, including the R1 corrections. The live Google test was excluded.
 
-Accepted scope: localhost HTTPS transport, including the R1 corrections.
+Phase 18B.9D5A2C2 static preflight: **REVIEWED — ACCEPTED WITH CONDITIONS**. The conditions were a positive WSL gate and a private ext4 evidence location.
 
-Excluded scope: production deployment, a VPS change, and the live Google Drive synthetic test. Phase 18B.9 stays **OPEN**.
-
-The later assignment was a static preflight only. It did not change that acceptance.
+That acceptance does not authorize the live test. Phase 18B.9 stays **OPEN**.
 
 Detail: [PHASE-18B.9-offbox-status.md](../plans/PHASE-18B.9-offbox-status.md).
 
 ## 3. Active work
 
-- ChatGPT Leader: review of the D5A2C2 preflight is the next decision. No other Leader task was observed.
-- Cursor: static preflight completed. Documentation checkpoint of that result is this update. No application implementation is in progress.
+- ChatGPT Leader: review of the P1 correction is the next decision.
+- Cursor: P1 focused checks completed in a new lab. 32 passed, 0 failed, 0 skipped. Documentation checkpoint of that result is this update. No application implementation is in progress in this worktree.
 - Antigravity, Website W1: separate workspace. Live execution state: **UNKNOWN**.
 - Codex: no assignment observed.
 
 ## 4. Working tree and evidence
 
-- This worktree matches observed `origin/main`. Untracked `diff/` is a local review diff and is not part of GitHub.
-- Accepted R1 source remains outside GitHub. `live_synthetic_once.py` SHA-256 `25cb4f3e0dee2459abc54d5e5ee5c9388176113f1722fb3c571defb24523d7d5`, matched. The pre-R1 script was not used.
-- Preflight evidence, not in GitHub: `D:\Tools\age-c2d5a2c2-preflight-20261116T1344Z-ada71f3f`.
-- The accepted lab was not modified. `results-live-once` is absent there.
+- This worktree matches observed `origin/main`. Untracked `diff/` includes the local P1 review diff and is not part of GitHub.
+- Accepted R1 script remains `25cb4f3e0dee2459abc54d5e5ee5c9388176113f1722fb3c571defb24523d7d5`. That lab was not modified.
+- P1 lab, outside GitHub: `D:\Tools\age-c2d5a2c2p1-wsl-20261116T1546Z-c91e4a27`.
+- Corrected `live_synthetic_once.py` SHA-256 `90f987c78c21c9a212eb14ed16ac3944ed4d5eac4b1550ea378ce8cd76cbf78a`.
+- Review archive SHA-256 `cfdf8c3e3ad21ff74caf1582dd30607010354d4075b8c0e843a539e0f7c2feda`.
+- Every `offbox` module in the new lab matches the accepted R1 hash. The Drive adapter was not changed.
 
 ## 5. Pending review
 
 D5A2C1 code review: **NONE**. That milestone is accepted.
 
-D5A2C2 preflight: **PENDING REVIEW**. Conclusion recorded locally as ready for owner review. The live test is not authorized.
+D5A2C2 preflight: reviewed and accepted with conditions.
+
+D5A2C2-P1 safety correction: **PENDING REVIEW**. The live test is not authorized.
 
 ## 6. Current risks
 
-- Owner client id, optional client secret, refresh token, and folder id are **OWNER ACTION REQUIRED**. Token validity and C2D reuse are **UNKNOWN**. No token was read.
-- The live script has not been executed. A future run must be one copy, one synthetic file, one reserved id, and no remote deletion.
-- The R1 regression of 37 passes was not rerun. Timeouts, the response cap, and a rejected certificate were not exercised.
-- `.ai/architecture.md` still says the adapter is accepted through step 18B.9D5A2C in the same paragraph that records D5A2C1 as closed. The verdict is the ADR-024 status line and `current_state.md`.
-- Google Drive production stays **NOT CONFIGURED**. Cloud Sync stays **OFF**. The Phase 18B.8 off-box report lines are not installed.
+- The owner must still supply a Desktop client id, the optional client secret if that client requires it, a separate `oauth-refresh` file, a Drive folder id, and an absolute private mode-0700 directory on WSL ext4. Token validity and C2D reuse are **UNKNOWN**. No token was read.
+- `drive.file` access to an existing folder is **UNKNOWN**. The scope was not broadened.
+- `/tmp` on this WSL is tmpfs, and the Windows drive is 9p. Both are rejected. Only ext4 is accepted.
+- The live script has not been executed. The approval phrase was not set.
+- The R1 regression of 37 passes was not rerun.
+- `.ai/architecture.md` still says the adapter is accepted through step 18B.9D5A2C in the same paragraph that records D5A2C1 as closed.
+- Google Drive production stays **NOT CONFIGURED**. Cloud Sync stays **OFF**.
 
 ## 7. Next action
 
-The Leader reviews the D5A2C2 preflight and decides whether a later brief may ask the owner for the live-test inputs.
+The Leader reviews the P1 diff, hashes, and focused results.
 
-That recommendation is not permission to execute the test.
+That recommendation is not permission to execute the synthetic Google Drive test.
 
 ## 8. Authorization / STOP
 
 Permitted: documentation-only checkpoints under `.ai/`, using [AI_AGENT_WORKFLOW.md](AI_AGENT_WORKFLOW.md) section 11, fast-forward only.
 
-Prohibited: Google API calls, OAuth refresh, the live synthetic script, VPS changes, service or timer activation, application source commit or push, secret provisioning, production database operations, Cloud Sync activation, and remote deletion.
+Prohibited: Google API calls, OAuth refresh, executing the live script, setting the approval phrase, VPS changes, service or timer activation, application source commit or push, secret provisioning, production database operations, Cloud Sync activation, and remote deletion.
 
 STOP after publishing this checkpoint. Do not start the synthetic test or production staging.
