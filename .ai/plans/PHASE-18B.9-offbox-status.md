@@ -14,7 +14,7 @@ The implementation is not in this repository. `app/offbox_poc.py` is the closed 
 | 18B.9B | Closed local Restic proof, commit `274156e` |
 | 18B.9C1 | Design accepted on 2026-11-10, commit `d4b8588` |
 | 18B.9C2 | Named future external drill. **Not authorized.** D5A2C1 is not 18B.9C2 |
-| 18B.9D4C through 18B.9D5A2D0-P1 | Local and approved-operation steps after the design. The letter suffix is the step id. D5A2C2 includes the accepted one-shot live test. D5A2C3 is accepted planning. D5A2D0 is source inventory. D5A2D0-P1 is review-branch import only |
+| 18B.9D4C through 18B.9D5A2D2 | Local and approved-operation steps after the design. The letter suffix is the step id. D5A2D0-P1 is accepted review-branch import. D5A2D2 is WSL isolation correction |
 
 ## Closed before these steps
 
@@ -42,6 +42,7 @@ Phase 18B.9C1 is **DESIGN ACCEPTED, 2026-11-10**. The standalone age `.age` arti
 | 18B.9D5A2C3 | [PHASE-18B.9D5A2C3-production-readiness.md](PHASE-18B.9D5A2C3-production-readiness.md) | **Leader Accepted as PLANNING COMPLETE, 2026-11-16.** Overall **NOT READY**. Recommendations are not automatic authorizations | Not implementation, deploy, or another live test |
 | 18B.9D5A2D0 | [PHASE-18B.9D5A2D0-canonical-source-inventory.md](PHASE-18B.9D5A2D0-canonical-source-inventory.md) | Canonical source inventory and packaging plan. Proposed 15-module freeze from C1R1 hashes | Inventory only. Not a deploy |
 | 18B.9D5A2D0-P1 | branch `phase18b9/d5a2d0-p1-source-import` commit `98b590e` | **CLOSED — Leader Accepted, 2026-11-16**, controlled source import only. Leader verified 17-file allowlist and 15/15 SHA-256 MATCH | Review branch unchanged. Not merged. Not installed. Not production activation |
+| 18B.9D5A2D2 | `D:\Tools\age-c2d5a2d2-isolation-20261116T2030Z-e7c4b921` | Focused WSL isolation run. Automated score **OVERALL FAIL**. B/C/F/G/H PASS; A/D/E FAIL on formal journal criteria | Not VPS install. Canonical hashes unchanged. Units inactive |
 
 Earlier local labs C2B, C2C, C2D, D3, D3A, and D3B informed the adapter. They are not re-opened by this map. The one C2D synthetic upload does not validate the D5A2C adapter. Their OAuth files were not read for this record.
 
@@ -83,7 +84,9 @@ Phase 18B.9D5A2C2 is **CLOSED — Leader Accepted, 2026-11-16**. The one-shot sy
 
 **18B.9D5A2D0 — Canonical Source Inventory** remains the planning basis. See [PHASE-18B.9D5A2D0-canonical-source-inventory.md](PHASE-18B.9D5A2D0-canonical-source-inventory.md).
 
-**18B.9D5A2D0-P1 — Controlled Canonical Source Import** is **CLOSED — Leader Accepted, 2026-11-16**, for controlled source import only. Leader independently verified branch commit `98b590e`, the 17-file allowlist, and 15/15 SHA-256 MATCH. The review branch remains unchanged and is not merged. It is not installed on the VPS and is not production activation. Next proposed blocker: production-shaped systemd isolation correction and WSL verification — **NOT STARTED**, separately authorized.
+**18B.9D5A2D0-P1 — Controlled Canonical Source Import** is **CLOSED — Leader Accepted, 2026-11-16**, for controlled source import only. Leader independently verified branch commit `98b590e`, the 17-file allowlist, and 15/15 SHA-256 MATCH. The review branch remains unchanged and is not merged.
+
+**18B.9D5A2D2 — WSL Systemd Isolation Correction** completed one focused run with automated score **OVERALL FAIL**. See [PHASE-18B.9D5A2D2-wsl-isolation.md](PHASE-18B.9D5A2D2-wsl-isolation.md). Not a VPS install. Canonical hashes unchanged. New `lgd5a2d2-*` units inactive.
 
 D5A2C1 evidence remains: original localhost 37 reported passes; R1 17 focused passes reproduced by the Leader; 37 regression passes not independently rerun. R1 review archive SHA-256 `9d9473f8d16b77b4ed1bbc2c855bde12fd907ffbecfbae5f249d9b6d57061819`.
 
