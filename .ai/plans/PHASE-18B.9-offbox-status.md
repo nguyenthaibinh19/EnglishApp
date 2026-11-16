@@ -14,7 +14,7 @@ The implementation is not in this repository. `app/offbox_poc.py` is the closed 
 | 18B.9B | Closed local Restic proof, commit `274156e` |
 | 18B.9C1 | Design accepted on 2026-11-10, commit `d4b8588` |
 | 18B.9C2 | Named future external drill. **Not authorized.** D5A2C1 is not 18B.9C2 |
-| 18B.9D4C through 18B.9D5A2C2-P1 | Local and approved-operation steps after the design. The letter suffix is the step id. D5A2C2 is a static preflight. P1 is the local safety correction. Neither is a live test |
+| 18B.9D4C through 18B.9D5A2C2-P1 | Local and approved-operation steps after the design. The letter suffix is the step id. D5A2C2 is a static preflight. P1 is the local safety correction and is Leader accepted. Neither is a live test |
 
 ## Closed before these steps
 
@@ -38,7 +38,7 @@ Phase 18B.9C1 is **DESIGN ACCEPTED, 2026-11-10**. The standalone age `.age` arti
 | 18B.9D5A2C | `D:\Tools\age-c2d5a2c-drive-20261116T1119Z-c8e4a21b` | **Leader accepted.** Fake-transport tests 30 passed, 0 failed, 0 blocked | No Google call. `fakefile001` is not a Drive file. A fake `VERIFIED` is not production evidence |
 | 18B.9D5A2C1 | `D:\Tools\age-c2d5a2c1-http-20261116T1155Z-b7d3e91a` | Original localhost run reported 37 passed, 0 failed, 0 blocked. R1 then corrected checkpoint numbering and the synthetic-restore exit | **CLOSED — Leader Accepted, 2026-11-16.** Localhost milestone only. Not a Google call and not a deployment |
 | 18B.9D5A2C2 | `D:\Tools\age-c2d5a2c2-preflight-20261116T1344Z-ada71f3f` | Static preflight completed. Conclusion: ready for owner review. The live script was not executed | **NOT AUTHORIZED** as a Google call. Not a deployment. D5A2C1 stays closed |
-| 18B.9D5A2C2-P1 | `D:\Tools\age-c2d5a2c2p1-wsl-20261116T1546Z-c91e4a27` | Preflight accepted with conditions. Focused checks then passed 32, failed 0, skipped 0. New lab only | **PENDING REVIEW.** Not a Google call. The Drive adapter was not changed. D5A2C1 stays closed |
+| 18B.9D5A2C2-P1 | `D:\Tools\age-c2d5a2c2p1-wsl-20261116T1546Z-c91e4a27` | **Leader accepted, 2026-11-16**, for the local WSL gate and ext4 evidence root. Cursor reported 32 passed, 0 failed, 0 skipped. The Leader did not rerun them | Not a Google call. The Drive adapter was not changed. D5A2C1 stays closed |
 
 Earlier local labs C2B, C2C, C2D, D3, D3A, and D3B informed the adapter. They are not re-opened by this map. The one C2D synthetic upload does not validate the D5A2C adapter. Their OAuth files were not read for this record.
 
@@ -84,7 +84,7 @@ No production credential is in the repository. The C2D OAuth files were not open
 
 Phase 18B.9D5A2C2 is a completed static preflight, 2026-11-16. It inspected the accepted R1 script and did not run it. The preflight conclusion is ready for owner review. That is not permission to run the synthetic test. Owner inputs for the client, refresh token, and folder id remain required, and no existing token is assumed valid. The evidence directory is local and is not in GitHub. A future success would not change the daily report: Google Drive stays **NOT CONFIGURED** until a separately reviewed production activation. The Phase 18B.8 report remains the only notification path, and the off-box lines are not installed.
 
-The Leader then accepted that preflight **with conditions**. Phase 18B.9D5A2C2-P1 applied the two conditions in a new lab and did not modify the accepted R1 lab. Focused offline checks passed 32, failed 0, and skipped 0. The corrected script SHA-256 is `90f987c78c21c9a212eb14ed16ac3944ed4d5eac4b1550ea378ce8cd76cbf78a`. It requires both `/proc/sys/kernel/osrelease` and `/proc/version` to show WSL, keeps the production hostname exclusion, and takes an absolute private mode-0700 evidence root on ext4. There is no default evidence path. The credential directory stays separate. The Drive adapter, HTTP transport, and encryption modules were not changed. The approval phrase was not set, and the live script was not executed. The correction is **PENDING REVIEW**. It does not authorize the Google call. Access by `drive.file` to an existing folder remains **UNKNOWN**. No existing token is assumed valid. C2D credentials were not opened.
+The Leader then accepted that preflight **with conditions**. Phase 18B.9D5A2C2-P1 applied the two conditions in a new lab and did not modify the accepted R1 lab. Focused offline checks passed 32, failed 0, and skipped 0. The corrected script SHA-256 is `90f987c78c21c9a212eb14ed16ac3944ed4d5eac4b1550ea378ce8cd76cbf78a`. It requires both `/proc/sys/kernel/osrelease` and `/proc/version` to show WSL, keeps the production hostname exclusion, and takes an absolute private mode-0700 evidence root on ext4. There is no default evidence path. The credential directory stays separate. The Drive adapter, HTTP transport, and encryption modules were not changed. The approval phrase was not set, and the live script was not executed. The Leader accepted this local hardening on 2026-11-16 after reviewing the script, the diff, the assertions, and the hashes. The 32 passes remain a Cursor report. The Leader did not independently rerun them. Acceptance does not authorize the Google call. Access by `drive.file` to an existing folder remains **UNKNOWN**. No existing token is assumed valid. C2D credentials were not opened.
 
 ## Still unknown
 

@@ -4,25 +4,25 @@ Rolling coordination checkpoint. It does not replace [current_state.md](../curre
 
 ## 1. Checkpoint metadata
 
-- Written: 2026-11-16T14:51:02Z.
-- Observed `origin/main`: `5f7ab3dd251d2ba3cfa36d95398e4947da5abd7c`.
+- Written: 2026-11-16T16:29:04Z.
+- Observed `origin/main`: `3be2b2fa9ff8e8f78ba95cb4fa356747ac97c9de`.
 - Documentation worktree: `phase18b9/local-recovery-poc` at that same SHA.
-- Verified here: `git rev-parse HEAD`, `git fetch origin main`, and `git status` in that worktree. The accepted R1 script hash was re-read and is unchanged. The new lab was tested offline. The live script was not executed. Google, the VPS, and credential files were not contacted.
+- Verified here: `git rev-parse HEAD`, `git fetch origin main`, and `git status` in that worktree. Labs were not reopened. Tests were not rerun. The live script was not executed. Google, the VPS, and credential files were not contacted.
 
 ## 2. Last Leader decision
 
 Phase 18B.9D5A2C1 remains **CLOSED — Leader Accepted, 2026-11-16**. Localhost HTTPS transport, including the R1 corrections. The live Google test was excluded.
 
-Phase 18B.9D5A2C2 static preflight: **REVIEWED — ACCEPTED WITH CONDITIONS**. The conditions were a positive WSL gate and a private ext4 evidence location.
+Phase 18B.9D5A2C2-P1 is **ACCEPTED, 2026-11-16**, for the local WSL gate and the private ext4 evidence root only. The Leader reviewed the changed script, the diff, the test assertions, and the matching hashes. Cursor reported 32 passed, 0 failed, and 0 skipped. The Leader did not independently rerun those checks.
 
-That acceptance does not authorize the live test. Phase 18B.9 stays **OPEN**.
+The live Google Drive test stays **NOT AUTHORIZED**. Phase 18B.9 stays **OPEN**. Google Drive production stays **NOT CONFIGURED**. Cloud Sync stays **OFF**.
 
 Detail: [PHASE-18B.9-offbox-status.md](../plans/PHASE-18B.9-offbox-status.md).
 
 ## 3. Active work
 
-- ChatGPT Leader: review of the P1 correction is the next decision.
-- Cursor: P1 focused checks completed in a new lab. 32 passed, 0 failed, 0 skipped. Documentation checkpoint of that result is this update. No application implementation is in progress in this worktree.
+- ChatGPT Leader: no further review is waiting on P1. No new implementation brief was observed.
+- Cursor: recording this acceptance. No application implementation is in progress in this worktree.
 - Antigravity, Website W1: separate workspace. Live execution state: **UNKNOWN**.
 - Codex: no assignment observed.
 
@@ -39,9 +39,9 @@ Detail: [PHASE-18B.9-offbox-status.md](../plans/PHASE-18B.9-offbox-status.md).
 
 D5A2C1 code review: **NONE**. That milestone is accepted.
 
-D5A2C2 preflight: reviewed and accepted with conditions.
+D5A2C2 preflight: accepted with conditions, and those conditions are the accepted P1 correction.
 
-D5A2C2-P1 safety correction: **PENDING REVIEW**. The live test is not authorized.
+D5A2C2-P1 code review: **NONE**. The local safety hardening is accepted. The live test is not authorized.
 
 ## 6. Current risks
 
@@ -49,15 +49,15 @@ D5A2C2-P1 safety correction: **PENDING REVIEW**. The live test is not authorized
 - `drive.file` access to an existing folder is **UNKNOWN**. The scope was not broadened.
 - `/tmp` on this WSL is tmpfs, and the Windows drive is 9p. Both are rejected. Only ext4 is accepted.
 - The live script has not been executed. The approval phrase was not set.
-- The R1 regression of 37 passes was not rerun.
+- The P1 count of 32 passes was reported by Cursor. The Leader did not independently rerun it. The R1 regression of 37 passes was not rerun.
 - `.ai/architecture.md` still says the adapter is accepted through step 18B.9D5A2C in the same paragraph that records D5A2C1 as closed.
 - Google Drive production stays **NOT CONFIGURED**. Cloud Sync stays **OFF**.
 
 ## 7. Next action
 
-The Leader reviews the P1 diff, hashes, and focused results.
+No Cursor engineering task is assigned. A later brief is required before any synthetic Google Drive test.
 
-That recommendation is not permission to execute the synthetic Google Drive test.
+That is not permission to execute the test.
 
 ## 8. Authorization / STOP
 
