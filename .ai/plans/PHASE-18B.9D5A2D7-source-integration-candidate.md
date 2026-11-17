@@ -1,7 +1,14 @@
 # Phase 18B.9D5A2D7 — Source integration candidate & regression tests
 
-Status: **CANDIDATE READY FOR LEADER REVIEW — `READY_FOR_SOURCE_COMMIT_REVIEW`.**  
+Status: **R2 COMPLETE — `READY_FOR_SOURCE_COMMIT_REVIEW`** (after R1 NEEDS MINOR CORRECTIONS).  
 Source remains **uncommitted / unpushed / no PR**. Not a merge. Not production.
+
+## R1 → R2
+
+- **R1 Leader finding:** NEEDS MINOR CORRECTIONS (tests only; frozen modules accepted).
+- **R2 corrections:** `__pycache__` tolerance; pinned D5A2D0-P1 SHA-256 inventory; stronger E1 state-history + encrypt/upload spies; tighter setup.sh enable assertion.
+- **R2 verification:** import→integrity and integrity→import both pass without `PYTHONDONTWRITEBYTECODE`; focused suites pass; 15/15 hashes unchanged.
+- Review bundle: `diff/d5a2d7-r2-review-package/` (local; not committed).
 
 ## Baselines
 

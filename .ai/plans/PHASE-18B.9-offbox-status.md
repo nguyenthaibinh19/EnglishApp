@@ -47,7 +47,7 @@ Phase 18B.9C1 is **DESIGN ACCEPTED, 2026-11-10**. The standalone age `.age` arti
 | 18B.9D5A2D4 | [PHASE-18B.9D5A2D4-interrupted-transfer-semantics.md](PHASE-18B.9D5A2D4-interrupted-transfer-semantics.md) | **CLOSED — Leader Accepted: REVISE TEST.** E1/E2 accepted; suite 7/7 PASS; no ACK | Lab `D:\Tools\age-c2d5a2d4-interrupt-20261117T1500Z-a8f3c1e2`; D5A2D2/D3 FAIL preserved |
 | 18B.9D5A2D5 | [PHASE-18B.9D5A2D5-revised-isolation-evidence.md](PHASE-18B.9D5A2D5-revised-isolation-evidence.md) | **CLOSED — Leader Accepted:** revised WSL isolation safety gate. Historical D2/D3 FAIL preserved. Not production | Composite A/B/C/D/E1/E2/F/G/H |
 | 18B.9D5A2D6 | [PHASE-18B.9D5A2D6-source-integration-readiness.md](PHASE-18B.9D5A2D6-source-integration-readiness.md) | **CLOSED — Leader Accepted:** READY_FOR_SOURCE_INTEGRATION_REVIEW. **Not** merge approval. Import unmerged | 17-file allowlist frozen |
-| 18B.9D5A2D7 | [PHASE-18B.9D5A2D7-source-integration-candidate.md](PHASE-18B.9D5A2D7-source-integration-candidate.md) | Local candidate **READY_FOR_SOURCE_COMMIT_REVIEW**. Source uncommitted/no PR | Worktree `phase18b9-d5a2d7-source-candidate`; 37 focused tests passed |
+| 18B.9D5A2D7 | [PHASE-18B.9D5A2D7-source-integration-candidate.md](PHASE-18B.9D5A2D7-source-integration-candidate.md) | R2 test corrections; **READY_FOR_SOURCE_COMMIT_REVIEW**. Source uncommitted/no PR | Worktree `phase18b9-d5a2d7-source-candidate`; ordered import/integrity + E1/E2 pass |
 
 Earlier local labs C2B, C2C, C2D, D3, D3A, and D3B informed the adapter. They are not re-opened by this map. The one C2D synthetic upload does not validate the D5A2C adapter. Their OAuth files were not read for this record.
 
