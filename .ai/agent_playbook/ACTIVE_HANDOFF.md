@@ -4,29 +4,23 @@ Rolling coordination checkpoint. It does not replace [current_state.md](../curre
 
 ## 1. Checkpoint metadata
 
-- Written: 2026-11-17T17:30:00Z.
-- Observed `origin/main`: `108bf068735081cc15d4c96c03154dad5a9f2b4f`.
-- Stage 0 documentation only. No source commit, push, PR, or merge.
+- Written: 2026-11-17T17:40:00Z.
+- Stage 0 `origin/main`: `1ee179e8397903ea167597b16d9dcb335566bfaa`.
+- Docs-only checkpoint after D5A2D7 candidate work. Source candidate remains uncommitted.
 
-## 2. Last Leader decision
+## 2. Last Leader / work status
 
-**D5A2D6 CLOSED — LEADER ACCEPTED: READY_FOR_SOURCE_INTEGRATION_REVIEW.**
+- D5A2D6 CLOSED — Leader Accepted READY_FOR_SOURCE_INTEGRATION_REVIEW (not merge).
+- D5A2D7 candidate: **READY_FOR_SOURCE_COMMIT_REVIEW** — [PHASE-18B.9D5A2D7-source-integration-candidate.md](../plans/PHASE-18B.9D5A2D7-source-integration-candidate.md).
 
-Means: import is suitable for preparing an integration candidate. **Not** merge approval.
+Candidate worktree: `D:\EnglishApp-worktrees\phase18b9-d5a2d7-source-candidate` on `phase18b9/d5a2d7-source-candidate` @ `1ee179e` + uncommitted 17-file offbox + tests. Focused tests 37 passed. No source commit/push/PR.
 
-Explicit:
+Gates: Phase 18B.9 OPEN; production NOT READY; Drive NOT CONFIGURED; Cloud Sync OFF; D2/D3 FAIL preserved.
 
-- Import source is **not** merged (`98b590e` branch-only).
-- 17-file frozen import remains unchanged.
-- In-repo regression tests are required before integration acceptance.
-- No source commit/push/PR authorized yet.
+## 3. Pending review
 
-D5A2D5 revised WSL gate remains CLOSED — Leader Accepted. Historical D5A2D2/D5A2D3 FAIL unchanged. Phase 18B.9 OPEN; production NOT READY; Drive NOT CONFIGURED; Cloud Sync OFF.
-
-## 3. Active work
-
-- Cursor: D5A2D7 — isolated source candidate + in-repo tests (no source commit/PR).
+Leader review of D5A2D7. Separate brief required before any source commit/PR/merge.
 
 ## 4. Authorization / STOP
 
-After D5A2D7 publish: STOP for Leader review. Do not commit/push/merge source without a separate brief.
+STOP for ChatGPT Leader review.
