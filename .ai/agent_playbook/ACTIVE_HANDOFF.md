@@ -4,59 +4,59 @@ Rolling coordination checkpoint. It does not replace [current_state.md](../curre
 
 ## 1. Checkpoint metadata
 
-- Written: 2026-11-16T20:40:00Z.
-- Observed `origin/main`: `82f26bc8d95240671a4e030270e49fbe06d65814`.
-- Import branch unchanged: `phase18b9/d5a2d0-p1-source-import` @ `98b590ef5707e0c84bf68175ed59cdc17d8753c5`.
-- Verified here: remote main HEAD and local WSL evidence. No VPS, Google, OAuth, merge, or canonical source edit occurred.
+- Written: 2026-11-17T13:28:00Z.
+- Observed `origin/main`: `4b32180e045cd2bcd6d05969a1314146464fd9cd`.
+- Verified here: remote main HEAD. Documentation/planning only. No VPS, Google, Website edit, AI-repo creation, source edit, or production activation occurred.
 
 ## 2. Last Leader decision
 
-Phase 18B.9D5A2D0-P1 remains **CLOSED — Leader Accepted** for controlled source import only.
+**GOV-0A Leadership Model Amendment** is recorded as planning only.
 
-This checkpoint records **D5A2D2 WSL systemd isolation correction**: one focused run completed with automated score **OVERALL FAIL**.
+ChatGPT remains **System Leader / Architect** and, while EnglishApp is the current priority, **Active Workstream Lead** for App → Cursor.
 
-Report: [PHASE-18B.9D5A2D2-wsl-isolation.md](../plans/PHASE-18B.9D5A2D2-wsl-isolation.md).
+Product Owner directly leads Web and AI agents; ChatGPT receives milestone-level reports from those streams only.
 
-PASS: B stderr isolation, C unauthorized peers, F missing credentials, G disposable StateDirectory observation, H historical unchanged / new units inactive. Canonical hashes unchanged: YES.
+Blueprint: [GOV-0A-governance-blueprint.md](../plans/GOV-0A-governance-blueprint.md)  
+Proposed protocol: [GOV-0A-LEADERSHIP_HANDOFF_PROTOCOL.md](../plans/GOV-0A-LEADERSHIP_HANDOFF_PROTOCOL.md)
 
-FAIL (formal score): A positive transfer, D invalid cgroup, E interrupted fail-closed — largely due to missing helper-instance journal lines in the collected evidence, despite raw artifacts showing `ENCRYPTED`, exact `REFUSED`, and `LGS1` interrupt prefix.
+**D5A2D2 remains FAIL.** It is not reopened or reclassified by GOV-0A.
 
 Phase 18B.9 remains **OPEN**. Production remains **NOT READY**. Google Drive remains **NOT CONFIGURED**. Cloud Sync remains **OFF**.
 
 ## 3. Active work
 
-- ChatGPT Leader: review the FAIL report; decide whether to authorize a narrow journal-collection/re-score follow-up.
-- Cursor: D5A2D2 focused run finished; documentation checkpoint only.
-- Antigravity, Website W1: separate workspace. Live execution state: **UNKNOWN**.
+- ChatGPT Leader: review GOV-0A blueprint and Website gap assessment; App remains the active workstream.
+- Cursor: GOV-0A docs delivered; no implementation in progress.
+- Web / AI agents: Product Owner–led; milestone reports only to ChatGPT.
 - Codex: no assignment observed.
 
 ## 4. Working tree and evidence
 
-- Lab: `D:\Tools\age-c2d5a2d2-isolation-20261116T2030Z-e7c4b921`
-- Evidence: `/home/nguyenthaibinh19/language-guard/d5a2d2-evidence/results-r1` and lab `results-r1/`
-- Production unit drafts remain local under `units-production/` (not installed)
-- WSL test units `lgd5a2d2-*` are inactive; historical `lgd5a2b1-*` untouched
+- GOV-0A plans under `.ai/plans/`
+- Website audit was read-only against `D:\langstudyguard-web\.ai\`
+- Import branch unchanged: `phase18b9/d5a2d0-p1-source-import` @ `98b590e`
+- D5A2D2 report remains [PHASE-18B.9D5A2D2-wsl-isolation.md](../plans/PHASE-18B.9D5A2D2-wsl-isolation.md)
 
 ## 5. Pending review
 
-D5A2D2 isolation result: **READY FOR LEADER REVIEW** (OVERALL FAIL).
+GOV-0A governance blueprint: **READY FOR LEADER / PRODUCT OWNER REVIEW**.
 
-VPS deployment: **NOT AUTHORIZED**.
+GOV-0B documentation implementation: **NOT AUTHORIZED**.
 
 ## 6. Current risks
 
-- Formal isolation gate not passed.
-- `StateDirectory=` re-owned a disposable pre-existing directory on WSL; must not be used on the VPS backup directory without separate approval.
-- Import branch still not merged.
+- Cross-repo leadership wording on Website still reflects an older single-Leader framing; must not be silently rewritten until GOV-0B.
+- D5A2D2 isolation FAIL still blocks production-shaped unit confidence.
+- Shared integration contracts remain easy to drift without an ecosystem index.
 
 ## 7. Next action
 
-Await Leader decision. Do not begin VPS deployment or the next milestone without a separate brief.
+Product Owner / Leader accept or amend GOV-0A. Do not start GOV-0B, Website doc edits, or AI-repo init without a separate decision.
 
 ## 8. Authorization / STOP
 
 Permitted: documentation-only checkpoints under `.ai/`, fast-forward only.
 
-Prohibited: unrestricted repair loops, VPS install, Google calls, merge of the import branch, Cloud Sync activation, and claiming production readiness.
+Prohibited: Website modifications, AI-repo creation, source edits, VPS/Google/production activation, and changing D5A2D2 from FAIL.
 
 STOP after publishing this checkpoint.
