@@ -18,13 +18,13 @@ Separate **implemented** from **planned**. Do not claim Web, App, and AI are alr
 | Website | Live account registration UI | Not implemented |
 | App | Google Drive off-box production backup | **NOT CONFIGURED**; Phase 18B.9 open; D5A2D2 FAIL |
 | App | Vocabulary Cloud Sync | **OFF** |
-| Any repo | `langstudyguard-ai` | AI repo **does not exist** |
+| App | Local AI runtime (`langstudyguard-ai`) | AI repo **exists**; integration **not implemented**; `C-APP-AI-001` still PROPOSED |
 
 ## Planned (proposed only)
 
 | From | To | Prerequisite |
 |---|---|---|
-| App | Local AI runtime | Create AI repo; accept C-APP-AI-001; compatibility tests |
+| App | Local AI runtime | Accept C-APP-AI-001 (owner TBD in GOV-0C); compatibility tests; Owner approval |
 | Web | App API (future account/download flows) | Owner-approved routing topology; C-WEB-APP-001 |
 | Web | Signed release portal | App release contract C-REL-001; verification gates |
 

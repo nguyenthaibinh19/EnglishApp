@@ -2,7 +2,7 @@
 
 ## Repository isolation
 
-- App, Web, and future AI are separate repositories and workspaces.
+- App, Web, and AI are separate repositories and workspaces.
 - Agents must not modify another repository without an explicit brief naming that repo.
 - Website zero-deletion and EnglishApp zero-deletion / off-box non-deletion rules remain in force in their home repos.
 
@@ -27,7 +27,7 @@ If a governance fact needs a private detail, record a **safe reference** and mar
 |---|---|---|
 | EnglishApp | Public | Hosts `.ai/ecosystem/`; content must be public-safe |
 | langstudyguard-web | Private | Link from ecosystem; do not copy private code/docs here |
-| langstudyguard-ai | Proposed private | Not created |
+| langstudyguard-ai | Private (exists) | Link from ecosystem; do not copy private AI datasets, weights indexes, or ops detail here |
 
 Access to private repositories requires GitHub permission. Reading EnglishApp does not grant Web/AI access.
 

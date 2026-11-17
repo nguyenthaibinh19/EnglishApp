@@ -29,15 +29,16 @@ Future public download/marketing surface (deployment NOT authorized in W1)
 | Desktop study lock, local DBs, updater client | App |
 | Account server, VPS units, health monitoring, off-box backup design | App |
 | Marketing site, download portal UX, static legal drafts | Web |
-| Local AI runtime / eval / datasets | AI (**proposed**, not created) |
+| Local AI runtime / eval / datasets | AI (`langstudyguard-ai`, private; exists) |
 | Cross-repo governance docs | App `.ai/ecosystem/` |
 
 ## Explicit non-claims
 
 - Web does **not** import App Python modules or production databases.
-- AI repository does **not** exist yet; no App↔AI or Web↔AI technical integration is implemented.
+- AI repository **exists** but no App↔AI or Web↔AI technical integration is implemented or accepted.
 - Website deployment to production DNS/Cloudflare/Caddy is **not** authorized by this document.
 - Off-box Google Drive backup remains **NOT CONFIGURED**; Cloud Sync remains **OFF**.
+- Repository existence is not the same as ACCEPTED, MERGED, or DEPLOYED product milestones.
 
 ## Integration discipline
 

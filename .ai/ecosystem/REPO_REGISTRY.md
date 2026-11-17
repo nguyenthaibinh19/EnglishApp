@@ -1,6 +1,6 @@
 # Repository registry
 
-Facts and proposals only. Do not treat proposals as created repositories.
+Facts and proposals only. Distinguish **confirmed** repository existence from product milestones (ACCEPTED / COMMITTED / MERGED / DEPLOYED).
 
 ## Confirmed
 
@@ -15,6 +15,7 @@ Facts and proposals only. Do not treat proposals as created repositories.
 | Local memory | `.ai/` |
 | Current priority | **Yes** — active workstream |
 | Day-to-day lead | ChatGPT (Active Workstream Lead) → Cursor |
+| Reporting | Detailed implementation reports to ChatGPT |
 | Access note | Public clone does not grant production SSH, secrets, or private-repo access |
 
 ### WEB — langstudyguard-web
@@ -27,22 +28,49 @@ Facts and proposals only. Do not treat proposals as created repositories.
 | Role | Public marketing/download portal (static Astro site) |
 | Local memory | `.ai/` (Website-authoritative for Web implementation) |
 | Current priority | No — non-active |
-| Day-to-day lead | Product Owner → Web agent |
+| Day-to-day lead | Product Owner → Antigravity Web |
+| Reporting to ChatGPT | Milestone-level only (unless shared contract/security escalation) |
 | Access note | Private. Agents that can read EnglishApp **must not assume** Web access. Requires appropriate GitHub permission. |
 
-## Proposed
+Public-safe remote observations (2026-11-17, D5A2D3 Stage 0; do not treat branch tips as merged/deployed):
+
+| Ref | Observed tip | vs `origin/main` |
+|---|---|---|
+| `origin/main` | `c17c218` | — |
+| `origin/gov0b2/web-documentation-standard` | `c1296181` | **not** ancestor of main (not merged) |
+| `origin/feature/w1.3-hybrid-redesign` | `b0b5c8a1` | **not** ancestor of main (not merged) |
+
+Website production deployment remains **NOT AUTHORIZED**. GOV-0B2 documentation was accepted by the System Architect on the review branch; that acceptance is not a merge or deploy.
 
 ### AI — langstudyguard-ai
 
 | Field | Value |
 |---|---|
-| Intended GitHub name | `langstudyguard-ai` |
-| Visibility | **Expected private** (proposal) |
-| Status | **PROPOSED — not created** |
+| GitHub | `nguyenthaibinh19/langstudyguard-ai` |
+| Visibility | **Private** (confirmed) |
+| Status | **EXISTS** — repository created; bootstrap milestone AI-M0 |
+| Local path (this workstation) | `D:\langstudyguard-ai` (canonical). Inactive safety copy on C must not be modified. |
 | Role | Local/runtime AI development, evaluation, datasets, model artifacts (planned) |
-| Local memory | Future `.ai/` per [REPOSITORY_DOC_STANDARD.md](REPOSITORY_DOC_STANDARD.md) |
-| Day-to-day lead (when created) | Product Owner → AI agent (unless Owner changes Active Lead) |
-| Access note | Not available. Do not invent commits, branches, or integrations. |
+| Local memory | `.ai/` (private; do not copy private content into public App docs) |
+| Current priority | No — non-active |
+| Day-to-day lead | Product Owner → Antigravity AI |
+| Reporting to ChatGPT | Milestone-level only (unless shared contract/security escalation) |
+| Access note | Private. Reading EnglishApp does not grant AI access. |
+
+Public-safe remote observations (2026-11-17):
+
+| Ref | Observed tip |
+|---|---|
+| `origin/main` | `fc021cd4675aedad6cc13d119b44eacb67b7d460` |
+
+AI-M0: **System Architect Accepted**. Distinguish from a formally recorded Product Owner closure if that Owner closure is not yet recorded in App docs. No model inference, training, or App integration is accepted. `C-APP-AI-001` remains **PROPOSED** (canonical owner TBD during GOV-0C).
+
+## Proposed / deferred (not repositories)
+
+| Item | Status |
+|---|---|
+| Shared GitHub Project for App/Web/AI | Owner accepted **future** use; track as **GOV-0E — GitHub Project Setup** = **PLANNED / DEFERRED**. Do not create now. |
+| GOV-0C | Not automatically authorized |
 
 ## Governance hosting rule
 

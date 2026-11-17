@@ -80,12 +80,12 @@ Each entry uses:
 | Field | Value |
 |---|---|
 | contract_id | C-APP-AI-001 |
-| owner_repository | **TBD — single canonical owner to be decided during GOV-0C** (AI repo not created; no API contract approved or invented here) |
+| owner_repository | **TBD — single canonical owner to be decided during GOV-0C** (AI repo exists; no API contract approved or invented here) |
 | canonical_document_path | **UNKNOWN** |
 | version | **PROPOSED** |
 | status | proposed |
-| consumer_repositories | App; AI (proposed) |
-| compatibility_policy | No implementation claim until AI repo exists and a single owner plus contract are accepted |
+| consumer_repositories | App; AI |
+| compatibility_policy | No implementation claim until a single owner plus contract are accepted; repo existence alone is not acceptance |
 | last_accepted_decision | none |
 | change_approval_required | Yes |
 

@@ -4,52 +4,48 @@ Rolling coordination checkpoint. It does not replace [current_state.md](../curre
 
 ## 1. Checkpoint metadata
 
-- Written: 2026-11-17T13:45:00Z.
-- Observed `origin/main`: `41a86e5e282a22f0865a2eb6282abf3ec6e3c0d5` (GOV-0B1 foundation; this checkpoint records acceptance corrections).
-- Verified here: remote main HEAD. Documentation only under EnglishApp. No Website edit, AI-repo creation, source edit, VPS, Google, or production activation occurred.
+- Written: 2026-11-17T14:50:00Z.
+- Observed `origin/main`: `3b01491199a84a1230ef508d6ca91a277e94f8ed`.
+- Verified here: remote main HEAD. EnglishApp documentation only for Stage 0. No Website edit, AI-repo edit, App source edit, VPS, Google, or production activation in Stage 0.
 
 ## 2. Last Leader decision
 
-**GOV-0B1 CLOSED — Leader Accepted**, with documentation clarifications:
+**D5A2D3 AUTHORIZED** — ecosystem state sync + focused WSL helper-journal evidence recovery for A/D/E.
 
-- `C-APP-AI-001`: owner = TBD — single canonical owner during GOV-0C; no API contract approved or invented.
-- `C-WEB-APP-001`: App is canonical API/domain owner; Web is consumer and retains its implementation + ADR-001.
-- Leadership handoff protocol status: Leader Accepted.
+Active Lead remains **ChatGPT → Cursor on App**. Product Owner directly leads Web (Antigravity Web) and AI (Antigravity AI). ChatGPT remains System Architect. Web/AI reports are milestone-level only.
 
-**GOV-0B2** and **GOV-0C**: **NOT STARTED / NOT AUTHORIZED**.
+**D5A2D2 remains OVERALL FAIL** (do not rewrite as PASS). Phase 18B.9 **OPEN**. Production **NOT READY**. Drive **NOT CONFIGURED**. Cloud Sync **OFF**. Import branch `98b590e` not merged.
 
-Active Lead remains **ChatGPT → Cursor on App**. Product Owner directly leads Web/AI.
-
-**D5A2D2 remains OVERALL FAIL.** Phase 18B.9 **OPEN**. Production **NOT READY**. Drive **NOT CONFIGURED**. Cloud Sync **OFF**. Import branch `98b590e` not merged.
+Ecosystem: three confirmed repos (App public; Web private; AI private exists). `C-APP-AI-001` still PROPOSED. GOV-0E GitHub Project **PLANNED / DEFERRED**. GOV-0C not authorized.
 
 ## 3. Active work
 
-- ChatGPT: System Leader + Active App Lead.
-- Cursor: App documentation/implementation under Active Lead direction.
-- Web/AI: Product Owner–led; milestone reports to ChatGPT.
+- Cursor: Stage 0 ecosystem docs → Stage 1 WSL journal investigation (after Stage 0 push).
+- Web/AI: Product Owner–led; not modified by this task.
 
 ## 4. Working tree and evidence
 
-- Ecosystem clarifications under `.ai/ecosystem/`
-- Indexes / ACTIVE_HANDOFF / current_state updated for GOV-0B1 CLOSED
+- Updated `.ai/ecosystem/*` registry/board/architecture/integration/contracts/security/active workstream
+- New plan: [PHASE-18B.9D5A2D3-helper-journal-evidence.md](../plans/PHASE-18B.9D5A2D3-helper-journal-evidence.md)
+- Historical lab preserved: `D:\Tools\age-c2d5a2d2-isolation-20261116T2030Z-e7c4b921`
 
 ## 5. Pending review
 
-None for GOV-0B1. Next governance phases not authorized.
+Stage 0 docs for Leader awareness; Stage 1 results pending after investigation.
 
 ## 6. Current risks
 
-- Shared AI contract ownership still TBD until GOV-0C.
-- D5A2D2 FAIL still blocks production-shaped isolation confidence.
+- Helper journal collection may still be a query defect or genuine missing logs.
+- AI/Web private detail must not leak into public App docs.
 
 ## 7. Next action
 
-Await separate Leader/Owner authorization before GOV-0B2, GOV-0C, Web doc implementation, AI-repo creation, or App isolation repair.
+After Stage 0 FF push: read-only journal investigation; at most one focused A/D/E revalidation if needed; Stage 2 docs; STOP for Leader review.
 
 ## 8. Authorization / STOP
 
-Permitted: EnglishApp `.ai/` documentation checkpoints, fast-forward only.
+Permitted: EnglishApp `.ai/` checkpoints; isolated WSL synthetic A/D/E journal work per D5A2D3 brief.
 
-Prohibited: Website modifications, AI-repo creation, source edits, systemd repair, VPS/Google ops, import merge, production activation, auto-start of GOV-0B2/GOV-0C.
+Prohibited: App source edits, Web/AI repo mods, VPS/SSH, Google/OAuth, import merge, production activation, GitHub Project creation, automatic next phase.
 
-STOP after publishing this checkpoint.
+STOP after Stage 2 documentation publish for detailed ChatGPT Leader review.

@@ -43,6 +43,7 @@ Phase 18B.9C1 is **DESIGN ACCEPTED, 2026-11-10**. The standalone age `.age` arti
 | 18B.9D5A2D0 | [PHASE-18B.9D5A2D0-canonical-source-inventory.md](PHASE-18B.9D5A2D0-canonical-source-inventory.md) | Canonical source inventory and packaging plan. Proposed 15-module freeze from C1R1 hashes | Inventory only. Not a deploy |
 | 18B.9D5A2D0-P1 | branch `phase18b9/d5a2d0-p1-source-import` commit `98b590e` | **CLOSED — Leader Accepted, 2026-11-16**, controlled source import only. Leader verified 17-file allowlist and 15/15 SHA-256 MATCH | Review branch unchanged. Not merged. Not installed. Not production activation |
 | 18B.9D5A2D2 | `D:\Tools\age-c2d5a2d2-isolation-20261116T2030Z-e7c4b921` | Focused WSL isolation run. Automated score **OVERALL FAIL**. B/C/F/G/H PASS; A/D/E FAIL on formal journal criteria | Not VPS install. Canonical hashes unchanged. Units inactive |
+| 18B.9D5A2D3 | [PHASE-18B.9D5A2D3-helper-journal-evidence.md](PHASE-18B.9D5A2D3-helper-journal-evidence.md) | Ecosystem sync + focused helper-journal A/D/E recovery. Does not rewrite D5A2D2 as PASS | Not VPS install. At most one WSL A/D/E revalidation if journals unrecovered |
 
 Earlier local labs C2B, C2C, C2D, D3, D3A, and D3B informed the adapter. They are not re-opened by this map. The one C2D synthetic upload does not validate the D5A2C adapter. Their OAuth files were not read for this record.
 

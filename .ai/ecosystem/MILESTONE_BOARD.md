@@ -2,6 +2,8 @@
 
 High-level only. Detailed App phase maps stay in App `plans/` and `roadmap.md`.
 
+Preserve ACCEPTED ≠ COMMITTED ≠ MERGED ≠ DEPLOYED.
+
 ## Active workstream — App
 
 | Milestone | Status | Notes |
@@ -10,25 +12,33 @@ High-level only. Detailed App phase maps stay in App `plans/` and `roadmap.md`.
 | Phase 18B.9 off-box | **OPEN** | Production NOT READY |
 | D5A2D0-P1 source import | CLOSED — accepted import-only | Branch `phase18b9/d5a2d0-p1-source-import` @ `98b590e`; **not merged** |
 | D5A2D2 WSL isolation | **OVERALL FAIL** | Formal A/D/E not proven; do not reclassify |
+| D5A2D3 helper journal evidence | **AUTHORIZED** | Ecosystem sync + focused WSL A/D/E journal recovery |
 | GOV-0A governance planning | **Leader Accepted with corrections** | Planning milestone |
-| GOV-0B1 ecosystem docs | **CLOSED — Leader Accepted** | Contract clarifications applied (C-APP-AI-001 owner TBD; C-WEB-APP-001 App-owned API/domain) |
-| GOV-0B2 / GOV-0C | **NOT STARTED / NOT AUTHORIZED** | Do not start automatically |
+| GOV-0B1 ecosystem docs | **CLOSED — Leader Accepted** | Hosted under `.ai/ecosystem/` |
+| GOV-0C | **NOT AUTHORIZED** | Not started automatically |
+| GOV-0E GitHub Project Setup | **PLANNED / DEFERRED** | Owner accepted future use; project not created |
 
 ## Non-active — Web
 
 | Milestone | Status (public-safe) |
 |---|---|
-| W1 static site implementation | In progress / QA per Web `.ai/` (private detail stays in Web repo) |
+| GOV-0B2 documentation standard | System Architect Accepted on review branch `gov0b2/web-documentation-standard` @ `c1296181`; **not merged** to `main` (`c17c218`) |
+| W1.3 hybrid redesign | Owner Approved on feature branch @ `b0b5c8a1`; **not merged** to `main` |
 | Website production deploy | **NOT AUTHORIZED** |
 
-ChatGPT receives Web **milestone summaries** only, unless shared contracts/security escalate.
+ChatGPT receives Web **milestone summaries** only, unless shared contracts/security escalate. Day-to-day: Product Owner → Antigravity Web.
 
 ## Non-active — AI
 
 | Milestone | Status |
 |---|---|
-| Create `langstudyguard-ai` | **PROPOSED** — not started |
-| App↔AI runtime contract | **PROPOSED** |
+| Create `langstudyguard-ai` | **DONE** — private repo exists |
+| AI-M0 bootstrap | System Architect Accepted; Owner closure may be separate / not yet recorded here |
+| Workspace migration | Verified and documented in AI repo (private detail stays there) |
+| App↔AI runtime contract `C-APP-AI-001` | **PROPOSED** — owner TBD (GOV-0C); not accepted |
+| Model inference / training / App integration | **Not accepted** |
+
+Day-to-day: Product Owner → Antigravity AI. Milestone reports to ChatGPT only.
 
 ## Failure durability
 
