@@ -4,24 +4,25 @@ Rolling coordination checkpoint. It does not replace [current_state.md](../curre
 
 ## 1. Checkpoint metadata
 
-- Written: 2026-11-17T18:00:00Z.
-- Observed docs `origin/main`: `f7472ab019764136c47512c55c986877d14c7fe1` before this checkpoint.
-- Docs-only. Source candidate remains uncommitted. No PR/merge.
+- Written: 2026-11-17T17:20:00Z.
+- Observed docs `origin/main` before this checkpoint: `182a4a7681255b5932130744c98a4ad6732f0156`.
+- Docs-only on main. Source lives only on the review branch.
 
 ## 2. Last Leader / work status
 
-- D5A2D7-R1 reviewed: **NEEDS MINOR CORRECTIONS**.
-- D5A2D7-R2: test-only fixes applied; verdict **READY_FOR_SOURCE_COMMIT_REVIEW** — [PHASE-18B.9D5A2D7-source-integration-candidate.md](../plans/PHASE-18B.9D5A2D7-source-integration-candidate.md).
-- Bundle: `diff/d5a2d7-r2-review-package/`.
-
-Candidate: `D:\EnglishApp-worktrees\phase18b9-d5a2d7-source-candidate` @ `1ee179e` + uncommitted offbox + tests. Frozen modules unchanged.
+- **D5A2D7-R2 CLOSED — LEADER ACCEPTED.**
+- **D5A2D7-P1 SOURCE COMMITTED AND PUSHED TO REVIEW BRANCH — NOT MERGED.**
+- Plan: [PHASE-18B.9D5A2D7-source-integration-candidate.md](../plans/PHASE-18B.9D5A2D7-source-integration-candidate.md).
+- Source commit: `e2160e77c4849606cad5e614dedfd2f79d8088dc` on `phase18b9/d5a2d7-source-candidate`.
+- Parent: `182a4a7681255b5932130744c98a4ad6732f0156`.
+- 23 files; committed blob hashes 15/15 MATCH; P1 focused+adjacent 39 PASS.
 
 Gates unchanged: Phase 18B.9 OPEN; production NOT READY; Drive NOT CONFIGURED; Cloud Sync OFF; D2/D3 FAIL preserved.
 
 ## 3. Pending review
 
-Leader review of R2. Separate brief required before source commit/PR.
+Leader review of P1. Separate brief required before PR/merge.
 
 ## 4. Authorization / STOP
 
-STOP for ChatGPT Leader review. Do not commit/push source.
+STOP for ChatGPT Leader review. **PR NOT CREATED. NOT MERGED. NOT DEPLOYED.**

@@ -1,14 +1,29 @@
 # Phase 18B.9D5A2D7 — Source integration candidate & regression tests
 
-Status: **R2 COMPLETE — `READY_FOR_SOURCE_COMMIT_REVIEW`** (after R1 NEEDS MINOR CORRECTIONS).  
-Source remains **uncommitted / unpushed / no PR**. Not a merge. Not production.
+Status:
 
-## R1 → R2
+- **D5A2D7-R2 CLOSED — LEADER ACCEPTED**
+- **D5A2D7-P1 SOURCE COMMITTED AND PUSHED TO REVIEW BRANCH — NOT MERGED**
+
+Not a merge. Not production. **PR NOT CREATED.**
+
+## P1 source commit
+
+| Field | Value |
+|---|---|
+| Review branch | `phase18b9/d5a2d7-source-candidate` |
+| Source commit | `e2160e77c4849606cad5e614dedfd2f79d8088dc` |
+| Parent | `182a4a7681255b5932130744c98a4ad6732f0156` |
+| Remote | `origin/phase18b9/d5a2d7-source-candidate` @ same SHA |
+| Files | Exact 23 (17 offbox + 6 tests/support) |
+| Module hashes | Committed Git blob bytes **15/15 MATCH** accepted D5A2D0-P1 inventory |
+| `origin/main` | Docs only; **no** `deploy/hetzner/offbox/` |
+
+## R1 → R2 → P1
 
 - **R1 Leader finding:** NEEDS MINOR CORRECTIONS (tests only; frozen modules accepted).
-- **R2 corrections:** `__pycache__` tolerance; pinned D5A2D0-P1 SHA-256 inventory; stronger E1 state-history + encrypt/upload spies; tighter setup.sh enable assertion.
-- **R2 verification:** import→integrity and integrity→import both pass without `PYTHONDONTWRITEBYTECODE`; focused suites pass; 15/15 hashes unchanged.
-- Review bundle: `diff/d5a2d7-r2-review-package/` (local; not committed).
+- **R2 corrections:** `__pycache__` tolerance; pinned D5A2D0-P1 SHA-256 inventory; stronger E1 state-history + encrypt/upload spies; tighter setup.sh enable assertion. Leader Accepted.
+- **P1:** Candidate fast-forwarded to docs main `182a4a7`; one source commit; non-force push to review branch only.
 
 ## Baselines
 
@@ -16,8 +31,9 @@ Source remains **uncommitted / unpushed / no PR**. Not a merge. Not production.
 |---|---|
 | Expected main before Stage 0 | `108bf068735081cc15d4c96c03154dad5a9f2b4f` |
 | Stage 0 docs (D5A2D6 CLOSED) | `1ee179e8397903ea167597b16d9dcb335566bfaa` |
-| Candidate branch HEAD (docs base; **no source commit**) | `1ee179e8397903ea167597b16d9dcb335566bfaa` |
-| Approved import | `98b590ef5707e0c84bf68175ed59cdc17d8753c5` |
+| Docs main at P1 commit parent | `182a4a7681255b5932130744c98a4ad6732f0156` |
+| Source commit (review branch) | `e2160e77c4849606cad5e614dedfd2f79d8088dc` |
+| Approved import authority | `98b590ef5707e0c84bf68175ed59cdc17d8753c5` |
 
 ## Candidate location
 
@@ -25,10 +41,7 @@ Source remains **uncommitted / unpushed / no PR**. Not a merge. Not production.
 |---|---|
 | Worktree | `D:\EnglishApp-worktrees\phase18b9-d5a2d7-source-candidate` |
 | Branch | `phase18b9/d5a2d7-source-candidate` |
-| Working tree | Uncommitted allowlist + new tests only |
-| Review diff | `diff/d5a2d7-source-candidate.diff` (local; **not** committed) |
-
-**Divergence note:** Documentation checkpoints continue on the docs worktree → `main`. The candidate branch stays at Stage 0 SHA with local uncommitted source/tests. Reconcile (bring docs + candidate together) before any later authorized PR — do **not** silently rebase/merge.
+| State | Source committed and pushed to review branch; **not** on main |
 
 ## Leader context
 
@@ -61,7 +74,7 @@ SHA256SUMS
 SOURCE_AUTHORITY.md
 ```
 
-**15/15 SHA-256 MATCH** against `SHA256SUMS` after materialization (rechecked after git autocrlf warnings; working-tree hashes still match).
+**15/15 SHA-256 MATCH** against accepted pinned inventory for working-tree, staged, and committed Git blob bytes.
 
 No units, keys, tokens, binaries, fake Drive servers, or lab-only scripts imported.
 
@@ -84,11 +97,13 @@ Interpreter: **Python 3.13.13** (Windows win32), pytest 9.1.1. Runtime assumptio
 
 | Suite | Result | Exit |
 |---|---|---|
-| Focused offbox groups A–E | **37 passed** | 0 |
-| Adjacent `tests/test_hetzner_package.py` | **1 passed** | 0 |
-| Full pytest | **626 passed**, **14 skipped**, **8 errors** | 1 |
+| R1 focused offbox A–E | **37 passed** | 0 |
+| R1 adjacent `tests/test_hetzner_package.py` | **1 passed** | 0 |
+| R2 focused + adjacent | **39 passed** | 0 |
+| P1 pre-commit focused + adjacent | **39 passed** (0 skipped) | 0 |
+| Full pytest (historical) | **626 passed**, **14 skipped**, **8 errors** | 1 |
 
-Full-suite errors are **pre-existing** `tests/test_offbox_recovery_poc.py` setup failures (`restic is not installed. Refusing to download or install`). Not introduced by the offbox allowlist or new D5A2D7 tests. Skips left as skips.
+Full-suite errors are **pre-existing** `tests/test_offbox_recovery_poc.py` setup failures (`restic is not installed. Refusing to download or install`). Not introduced by the offbox allowlist or D5A2D7 tests. Skips left as skips.
 
 ## Setup.sh boundary
 
@@ -101,20 +116,20 @@ Static inspection (setup.sh **not** executed):
 
 ## Risks and remaining blockers
 
-### Before source commit/PR acceptance
+### Before merge / PR acceptance
 
-- Leader must authorize source commit / PR (this milestone does not).
-- Reconcile candidate uncommitted tree with post-D5A2D7 docs on `main` before PR.
+- Separate Leader brief required before PR creation or merge into main.
 - Full-suite restic POC errors remain an environment caveat (optional skip/mark or install restic in CI — out of scope here).
 
 ### Production (unchanged)
 
 - No merge yet; no units; Python on VPS unread; journal mode unread; StateDirectory risk; Drive NOT CONFIGURED; monitoring/drill absent; Cloud Sync OFF.
+- Historical D5A2D2/D5A2D3 FAIL preserved.
 
 ## Next approval needed
 
-**ChatGPT Leader:** accept `READY_FOR_SOURCE_COMMIT_REVIEW` and issue a **separate** brief if/when source may be committed, pushed, or PR’d.
+**ChatGPT Leader:** authorize PR creation and/or merge separately. P1 does **not** authorize merge or production.
 
 ## Authorization confirmation
 
-No source commit, push, PR, merge, VPS/SSH, setup.sh execution, Google/OAuth, Web/AI changes, Cloud Sync, or production operations.
+Source commit and review-branch push completed under D5A2D7-P1. **PR NOT CREATED. NOT MERGED. NOT DEPLOYED.** No VPS/SSH, setup.sh execution, Google/OAuth, Web/AI changes, Cloud Sync, or production operations.
