@@ -1,6 +1,6 @@
 # GOV-0A — Cross-repository governance blueprint
 
-Status: **PLANNING COMPLETE — awaiting Leader / Product Owner review.** Documentation only. No source, Website, AI-repo, VPS, Google, or production changes were made.
+Status: **Leader Accepted with corrections, 2026-11-17** (planning milestone). Corrections applied in GOV-0B1: canonical governance lives under `EnglishApp/.ai/ecosystem/` only; no fourth governance repo; no independently editable mirrors in Web/AI; no separate global Technical Lead. Documentation only at acceptance time.
 
 Written: 2026-11-17. EnglishApp baseline `origin/main` at documentation time: `4b32180e045cd2bcd6d05969a1314146464fd9cd`.
 

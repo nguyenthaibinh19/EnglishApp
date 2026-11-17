@@ -1,10 +1,8 @@
 # GOV-0A proposal — Leadership handoff protocol
 
-Status: **PROPOSED** (not yet adopted as ecosystem law). Documentation only.
+Status: **Historical proposal.** The adopted operating protocol is [../ecosystem/LEADERSHIP_HANDOFF_PROTOCOL.md](../ecosystem/LEADERSHIP_HANDOFF_PROTOCOL.md) (GOV-0B1). Keep this file for provenance.
 
-Related: [GOV-0A-governance-blueprint.md](GOV-0A-governance-blueprint.md).
-
-This protocol will later live at `.ai/ecosystem/LEADERSHIP_HANDOFF_PROTOCOL.md` if GOV-0B creates the ecosystem tree. Until then, this plan file is the draft.
+Related: [GOV-0A-governance-blueprint.md](GOV-0A-governance-blueprint.md) (Leader Accepted with corrections).
 
 ## 1. Roles
 

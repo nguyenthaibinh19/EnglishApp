@@ -36,12 +36,13 @@ If documentation conflicts with tested current behavior, **investigate the confl
 
 ## Recommended reading order
 
-1. Read [`current_state.md`](current_state.md)
-2. Read [`invariants.md`](invariants.md)
-3. Read [`agent_playbook/README.md`](agent_playbook/README.md) and then [`agent_playbook/AI_AGENT_WORKFLOW.md`](agent_playbook/AI_AGENT_WORKFLOW.md)
-4. Read the ADR, architecture page, or procedure for the task
-5. Inspect the code and tests named by the brief
-6. Read a dated file under [`agent_playbook/handoffs/`](agent_playbook/handoffs/) only when resuming that snapshot
+1. If the task is cross-repo, read [`ecosystem/ACTIVE_WORKSTREAM.md`](ecosystem/ACTIVE_WORKSTREAM.md) and [`ecosystem/README.md`](ecosystem/README.md)
+2. Read [`current_state.md`](current_state.md)
+3. Read [`invariants.md`](invariants.md)
+4. Read [`agent_playbook/README.md`](agent_playbook/README.md) and then [`agent_playbook/AI_AGENT_WORKFLOW.md`](agent_playbook/AI_AGENT_WORKFLOW.md)
+5. Read the ADR, architecture page, or procedure for the task
+6. Inspect the code and tests named by the brief
+7. Read a dated file under [`agent_playbook/handoffs/`](agent_playbook/handoffs/) only when resuming that snapshot
 
 `current_state.md`, `invariants.md`, `architecture.md`, the ADRs, and `roadmap.md` remain authoritative for their subjects. The playbook owns collaboration, diffs, and handoff rules. A dated handoff is a historical snapshot and is not a second current state.
 
@@ -92,3 +93,4 @@ The canonical loop is [`agent_playbook/AI_AGENT_WORKFLOW.md`](agent_playbook/AI_
 | [agent_playbook/README.md](agent_playbook/README.md) | Collaboration playbook: workflow, diff standard, and chat handoffs |
 | [agent_playbook/AI_AGENT_WORKFLOW.md](agent_playbook/AI_AGENT_WORKFLOW.md) | Canonical User / Leader / Developer / Codex workflow |
 | [procedures/AI_AGENT_WORKFLOW.md](procedures/AI_AGENT_WORKFLOW.md) | Pointer to the canonical workflow |
+| [ecosystem/README.md](ecosystem/README.md) | Canonical cross-repo governance (GOV-0B1); other repos link here |

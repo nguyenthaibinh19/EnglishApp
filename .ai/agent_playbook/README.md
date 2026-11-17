@@ -12,6 +12,7 @@ They do not own product position or design:
 |---|---|
 | Position snapshot | [`../current_state.md`](../current_state.md) |
 | Latest coordination checkpoint | [`ACTIVE_HANDOFF.md`](ACTIVE_HANDOFF.md) |
+| Cross-repo governance | [`../ecosystem/README.md`](../ecosystem/README.md) |
 | Rules that must hold | [`../invariants.md`](../invariants.md) |
 | Subsystem boundaries | [`../architecture.md`](../architecture.md) |
 | Why a decision was made | [`../decisions/`](../decisions/) |
