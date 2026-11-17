@@ -4,48 +4,34 @@ Rolling coordination checkpoint. It does not replace [current_state.md](../curre
 
 ## 1. Checkpoint metadata
 
-- Written: 2026-11-17T15:00:00Z.
-- Observed Stage 0 `origin/main` before Stage 2: `23917a5f77bdde7af18c9d8a8b166683d42e8aec`.
-- Verified here: EnglishApp documentation only for this checkpoint. No Website edit, AI-repo edit, App source edit, VPS, Google, or production activation.
+- Written: 2026-11-17T16:05:00Z.
+- Observed `origin/main`: `6bfee89fc30edcd47528ae4ef27cccea642e7606`.
+- Documentation only under EnglishApp. No App source, Web/AI, VPS, Google, or production changes.
 
-## 2. Last Leader decision
+## 2. Last Leader decision / work
 
-**D5A2D3** executed: ecosystem sync + helper journal recovery.
+**D5A2D4** interrupted-transfer safety review complete.
 
-Result: **OVERALL FAIL** (E still unproven). Original D5A2D2 remains **FAIL** (not rewritten as PASS). Recovered journals prove A/D predicates; E logged `frame-sent` not `incomplete`. No synthetic rerun.
+Recommendation: **REVISE TEST** (E1 receiver fail-closed + E2 sender OSError path). Original D5A2D2 E race does not prove intended safety. Deterministic suite 7/7 PASS in lab `age-c2d5a2d4-interrupt-20261117T1500Z-a8f3c1e2/results-e1e2-r3`. Does **not** rewrite D5A2D2/D3 as PASS. No ACK protocol implemented.
 
-Active Lead remains **ChatGPT → Cursor on App**. Product Owner leads Web/AI. GOV-0C not authorized. GOV-0E **PLANNED / DEFERRED**.
+Active Lead: ChatGPT → Cursor on App. Product Owner leads Web/AI.
 
-Gates unchanged: Phase 18B.9 **OPEN**; production **NOT READY**; Drive **NOT CONFIGURED**; Cloud Sync **OFF**; import `98b590e` not merged.
+Gates: Phase 18B.9 OPEN; production NOT READY; Drive NOT CONFIGURED; Cloud Sync OFF; D5A2D2 FAIL; import `98b590e` not merged.
 
 ## 3. Active work
 
-- Cursor: D5A2D3 Stage 2 documentation publish; STOP for Leader review.
-- Web/AI: Product Owner–led; unmodified by this task.
+- Cursor: D5A2D4 docs published; STOP for Leader review.
+- Web/AI: unmodified.
 
-## 4. Working tree and evidence
+## 4. Evidence
 
-- Plan: [PHASE-18B.9D5A2D3-helper-journal-evidence.md](../plans/PHASE-18B.9D5A2D3-helper-journal-evidence.md)
-- Lab: `D:\Tools\age-c2d5a2d2-isolation-20261116T2030Z-e7c4b921`
-- `results-r1/` preserved; `results-r1-recovered/` holds corrected journal query + re-score
+- Plan: [PHASE-18B.9D5A2D4-interrupted-transfer-semantics.md](../plans/PHASE-18B.9D5A2D4-interrupted-transfer-semantics.md)
+- Lab: `D:\Tools\age-c2d5a2d4-interrupt-20261117T1500Z-a8f3c1e2`
 
 ## 5. Pending review
 
-Detailed ChatGPT Leader review of D5A2D3 FAIL (E) and collection root cause.
+Leader acceptance of REVISE TEST vs any other decision. No automatic next isolation run or deploy.
 
-## 6. Current risks
+## 6. Authorization / STOP
 
-- E may need a separately authorized interrupt-race experiment; not done here.
-- WSL PASS/FAIL is not production readiness.
-
-## 7. Next action
-
-Await Leader decision. Do not auto-start another correction cycle or production-readiness phase.
-
-## 8. Authorization / STOP
-
-Permitted completed: Stage 0 docs; read-only journal recovery; Stage 2 docs.
-
-Prohibited and not done: App source, Web/AI mods, VPS/Google/OAuth, import merge, GitHub Project, production activation.
-
-STOP for detailed ChatGPT Leader review.
+STOP for ChatGPT Leader review.
