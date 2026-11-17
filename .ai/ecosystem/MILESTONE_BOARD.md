@@ -16,11 +16,11 @@ Preserve ACCEPTED ≠ COMMITTED ≠ MERGED ≠ DEPLOYED.
 | D5A2D4 interrupted-transfer semantics | **CLOSED — Leader Accepted: REVISE TEST** | E1/E2 accepted; no ACK; historical D2/D3 FAIL preserved |
 | D5A2D5 revised isolation evidence | **CLOSED — Leader Accepted** | Revised WSL isolation safety gate A/B/C/D/E1/E2/F/G/H; historical D2/D3 FAIL preserved; not production |
 | D5A2D6 source integration readiness | **CLOSED — Leader Accepted** | READY_FOR_SOURCE_INTEGRATION_REVIEW; **not** merge approval; import unmerged; tests required before acceptance |
-| D5A2D7 source integration candidate | **R2 CLOSED — Leader Accepted; P1 on review branch** | `e2160e7` on `phase18b9/d5a2d7-source-candidate`; **NOT MERGED**; PR NOT CREATED |
+| D5A2D7 source integration candidate | **R2 CLOSED — Leader Accepted; P1 CLOSED — Leader Accepted** | `e2160e7` on `phase18b9/d5a2d7-source-candidate`; **NOT MERGED**; PR NOT CREATED; NOT DEPLOYED |
 | GOV-0A governance planning | **Leader Accepted with corrections** | Planning milestone |
 | GOV-0B1 ecosystem docs | **CLOSED — Leader Accepted** | Hosted under `.ai/ecosystem/` |
 | GOV-0C | **NOT AUTHORIZED** | Not started automatically |
-| GOV-0E GitHub Project Setup | **PLANNED / DEFERRED** | Owner accepted future use; project not created |
+| GOV-0E GitHub Project Setup | **PROJECT CONFIGURED — DOCUMENTATION REGISTRATION IN PROGRESS** | Private Project `LangstudyGuard`; ops: [GITHUB_PROJECT_OPERATIONS.md](GITHUB_PROJECT_OPERATIONS.md); not CLOSED |
 
 ## Non-active — Web
 

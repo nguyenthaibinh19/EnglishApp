@@ -65,11 +65,11 @@ Public-safe remote observations (2026-11-17):
 
 AI-M0: **System Architect Accepted**. Distinguish from a formally recorded Product Owner closure if that Owner closure is not yet recorded in App docs. No model inference, training, or App integration is accepted. `C-APP-AI-001` remains **PROPOSED** (canonical owner TBD during GOV-0C).
 
-## Proposed / deferred (not repositories)
+## Shared coordination (not a source repository)
 
 | Item | Status |
 |---|---|
-| Shared GitHub Project for App/Web/AI | Owner accepted **future** use; track as **GOV-0E — GitHub Project Setup** = **PLANNED / DEFERRED**. Do not create now. |
+| Shared GitHub Project `LangstudyGuard` | **EXISTS** (Owner-created, private). GOV-0E = **PROJECT CONFIGURED — DOCUMENTATION REGISTRATION IN PROGRESS**. Ops: [GITHUB_PROJECT_OPERATIONS.md](GITHUB_PROJECT_OPERATIONS.md). Do **not** create another Project. |
 | GOV-0C | Not automatically authorized |
 
 ## Governance hosting rule

@@ -3,9 +3,9 @@
 Status:
 
 - **D5A2D7-R2 CLOSED — LEADER ACCEPTED**
-- **D5A2D7-P1 SOURCE COMMITTED AND PUSHED TO REVIEW BRANCH — NOT MERGED**
+- **D5A2D7-P1 CLOSED — LEADER ACCEPTED** (source committed and pushed to review branch only)
 
-Not a merge. Not production. **PR NOT CREATED.**
+Not a merge. Not production. **PR NOT CREATED. NOT MERGED. NOT DEPLOYED.**
 
 ## P1 source commit
 
@@ -128,8 +128,8 @@ Static inspection (setup.sh **not** executed):
 
 ## Next approval needed
 
-**ChatGPT Leader:** authorize PR creation and/or merge separately. P1 does **not** authorize merge or production.
+**ChatGPT Leader:** authorize PR creation and/or merge separately. P1 acceptance does **not** authorize merge or production.
 
 ## Authorization confirmation
 
-Source commit and review-branch push completed under D5A2D7-P1. **PR NOT CREATED. NOT MERGED. NOT DEPLOYED.** No VPS/SSH, setup.sh execution, Google/OAuth, Web/AI changes, Cloud Sync, or production operations.
+D5A2D7-P1 **CLOSED — Leader Accepted**. Source remains on `phase18b9/d5a2d7-source-candidate` only. **PR NOT CREATED. NOT MERGED. NOT DEPLOYED.** No VPS/SSH, setup.sh execution, Google/OAuth, Web/AI changes, Cloud Sync, or production operations.
