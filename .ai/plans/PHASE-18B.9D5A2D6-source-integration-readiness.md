@@ -1,7 +1,10 @@
 # Phase 18B.9D5A2D6 — Source integration readiness audit
 
-Status: **AUDIT COMPLETE — `READY_FOR_SOURCE_INTEGRATION_REVIEW`.**  
-Not a merge. Not a deployment. Not production activation.
+Status: **CLOSED — LEADER ACCEPTED: `READY_FOR_SOURCE_INTEGRATION_REVIEW`** (2026-11-17).
+
+Leader acceptance means the import is technically suitable for preparing an integration candidate. It is **not** approval to merge source into main. Import remains **unmerged**. The 17-file frozen import is unchanged. In-repo regression tests are required before integration acceptance. No source commit/push/PR is authorized by this acceptance alone.
+
+Follow-on: D5A2D7 prepares a local source candidate and in-repo tests without merge authorization.
 
 Audit baseline `origin/main`: `e80ce2e7cb9fa4f17b8b7466d8ade2d8bf019ea0` (includes D5A2D5 Leader acceptance docs).  
 D5A2D5 acceptance checkpoint (Stage 0 of this task): same `e80ce2e…` after Stage 0 push from parent `5ce081c…`.

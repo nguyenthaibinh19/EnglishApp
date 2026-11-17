@@ -4,28 +4,29 @@ Rolling coordination checkpoint. It does not replace [current_state.md](../curre
 
 ## 1. Checkpoint metadata
 
-- Written: 2026-11-17T17:05:00Z.
-- Observed Stage 0 `origin/main`: `e80ce2e7cb9fa4f17b8b7466d8ade2d8bf019ea0`.
-- Documentation only. No merge, source edit, VPS, Google, Web/AI, or production actions.
+- Written: 2026-11-17T17:30:00Z.
+- Observed `origin/main`: `108bf068735081cc15d4c96c03154dad5a9f2b4f`.
+- Stage 0 documentation only. No source commit, push, PR, or merge.
 
-## 2. Last Leader decisions
+## 2. Last Leader decision
 
-- **D5A2D5 CLOSED — Leader Accepted: REVISED WSL ISOLATION SAFETY GATE.**
-- **D5A2D6** audit: **READY_FOR_SOURCE_INTEGRATION_REVIEW** — [PHASE-18B.9D5A2D6-source-integration-readiness.md](../plans/PHASE-18B.9D5A2D6-source-integration-readiness.md).
+**D5A2D6 CLOSED — LEADER ACCEPTED: READY_FOR_SOURCE_INTEGRATION_REVIEW.**
 
-Import `98b590e` remains **unmerged**. Historical D2/D3 FAIL preserved. Phase 18B.9 OPEN; production NOT READY; Drive NOT CONFIGURED; Cloud Sync OFF.
+Means: import is suitable for preparing an integration candidate. **Not** merge approval.
 
-Active Lead: ChatGPT → Cursor on App.
+Explicit:
+
+- Import source is **not** merged (`98b590e` branch-only).
+- 17-file frozen import remains unchanged.
+- In-repo regression tests are required before integration acceptance.
+- No source commit/push/PR authorized yet.
+
+D5A2D5 revised WSL gate remains CLOSED — Leader Accepted. Historical D5A2D2/D5A2D3 FAIL unchanged. Phase 18B.9 OPEN; production NOT READY; Drive NOT CONFIGURED; Cloud Sync OFF.
 
 ## 3. Active work
 
-- Cursor: D5A2D6 docs published; STOP for Leader review.
-- No automatic merge or production step.
+- Cursor: D5A2D7 — isolated source candidate + in-repo tests (no source commit/PR).
 
-## 4. Pending review
+## 4. Authorization / STOP
 
-Leader: accept audit verdict; separately authorize any merge PR + minimal offbox tests.
-
-## 5. Authorization / STOP
-
-STOP for ChatGPT Leader review. Do not merge the source branch or proceed to production.
+After D5A2D7 publish: STOP for Leader review. Do not commit/push/merge source without a separate brief.
