@@ -1,6 +1,6 @@
 # Leadership handoff protocol
 
-**Status:** Adopted for ecosystem use as of GOV-0B1 documentation foundation (subject to Leader review of GOV-0B1).  
+**Status:** **Leader Accepted** with GOV-0B1 CLOSED (2026-11-17). This is the operating handoff protocol for the ecosystem.  
 **Supersedes as operating protocol:** [GOV-0A-LEADERSHIP_HANDOFF_PROTOCOL.md](../plans/GOV-0A-LEADERSHIP_HANDOFF_PROTOCOL.md) (kept as historical proposal).
 
 ## Principle

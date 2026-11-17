@@ -4,47 +4,47 @@ Rolling coordination checkpoint. It does not replace [current_state.md](../curre
 
 ## 1. Checkpoint metadata
 
-- Written: 2026-11-17T13:36:00Z.
-- Observed `origin/main`: `cad4e6e2acce71a5cdee2c417a9fb38603e17ee7`.
+- Written: 2026-11-17T13:45:00Z.
+- Observed `origin/main`: `41a86e5e282a22f0865a2eb6282abf3ec6e3c0d5` (GOV-0B1 foundation; this checkpoint records acceptance corrections).
 - Verified here: remote main HEAD. Documentation only under EnglishApp. No Website edit, AI-repo creation, source edit, VPS, Google, or production activation occurred.
 
 ## 2. Last Leader decision
 
-**GOV-0A** is **Leader Accepted with corrections** (planning). Corrections: governance docs are canonical under `EnglishApp/.ai/ecosystem/` only; no fourth governance repo; no independently editable mirrors; no separate global Technical Lead.
+**GOV-0B1 CLOSED — Leader Accepted**, with documentation clarifications:
 
-**GOV-0B1** creates that ecosystem documentation foundation for Leader review: [../ecosystem/README.md](../ecosystem/README.md).
+- `C-APP-AI-001`: owner = TBD — single canonical owner during GOV-0C; no API contract approved or invented.
+- `C-WEB-APP-001`: App is canonical API/domain owner; Web is consumer and retains its implementation + ADR-001.
+- Leadership handoff protocol status: Leader Accepted.
 
-Active workstream remains **APP**. ChatGPT is System Leader and Active App Lead → Cursor (detailed reports). Product Owner leads Web/AI day-to-day (milestone reports to ChatGPT).
+**GOV-0B2** and **GOV-0C**: **NOT STARTED / NOT AUTHORIZED**.
+
+Active Lead remains **ChatGPT → Cursor on App**. Product Owner directly leads Web/AI.
 
 **D5A2D2 remains OVERALL FAIL.** Phase 18B.9 **OPEN**. Production **NOT READY**. Drive **NOT CONFIGURED**. Cloud Sync **OFF**. Import branch `98b590e` not merged.
 
 ## 3. Active work
 
-- ChatGPT Leader: review GOV-0B1 twelve-document set.
-- Cursor: GOV-0B1 docs delivered; no GOV-0B2/GOV-0C started.
-- Web/AI: Product Owner–led; no repo modifications from this task.
+- ChatGPT: System Leader + Active App Lead.
+- Cursor: App documentation/implementation under Active Lead direction.
+- Web/AI: Product Owner–led; milestone reports to ChatGPT.
 
 ## 4. Working tree and evidence
 
-- New tree: `.ai/ecosystem/` (twelve Markdown files)
-- GOV-0A plans updated to accepted-with-corrections / historical proposal pointers
-- Website and AI repositories were not modified
+- Ecosystem clarifications under `.ai/ecosystem/`
+- Indexes / ACTIVE_HANDOFF / current_state updated for GOV-0B1 CLOSED
 
 ## 5. Pending review
 
-GOV-0B1 global docs: **READY FOR LEADER REVIEW**.
-
-GOV-0B2 / GOV-0C: **NOT AUTHORIZED**.
+None for GOV-0B1. Next governance phases not authorized.
 
 ## 6. Current risks
 
-- Web/AI still lack automatic docs-push parity with App (by design).
-- Shared contracts are mostly `proposed`/`unknown` version tags until later design work.
+- Shared AI contract ownership still TBD until GOV-0C.
 - D5A2D2 FAIL still blocks production-shaped isolation confidence.
 
 ## 7. Next action
 
-Leader reviews GOV-0B1. Do not start GOV-0B2, Website doc implementation, or AI-repo creation without a separate decision.
+Await separate Leader/Owner authorization before GOV-0B2, GOV-0C, Web doc implementation, AI-repo creation, or App isolation repair.
 
 ## 8. Authorization / STOP
 

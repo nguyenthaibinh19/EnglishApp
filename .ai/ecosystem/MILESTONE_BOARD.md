@@ -11,8 +11,8 @@ High-level only. Detailed App phase maps stay in App `plans/` and `roadmap.md`.
 | D5A2D0-P1 source import | CLOSED — accepted import-only | Branch `phase18b9/d5a2d0-p1-source-import` @ `98b590e`; **not merged** |
 | D5A2D2 WSL isolation | **OVERALL FAIL** | Formal A/D/E not proven; do not reclassify |
 | GOV-0A governance planning | **Leader Accepted with corrections** | Planning milestone |
-| GOV-0B1 ecosystem docs | **In review** | This documentation set |
-| GOV-0B2 / GOV-0C | **NOT AUTHORIZED** | Do not start automatically |
+| GOV-0B1 ecosystem docs | **CLOSED — Leader Accepted** | Contract clarifications applied (C-APP-AI-001 owner TBD; C-WEB-APP-001 App-owned API/domain) |
+| GOV-0B2 / GOV-0C | **NOT STARTED / NOT AUTHORIZED** | Do not start automatically |
 
 ## Non-active — Web
 

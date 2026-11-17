@@ -80,12 +80,12 @@ Each entry uses:
 | Field | Value |
 |---|---|
 | contract_id | C-APP-AI-001 |
-| owner_repository | **PROPOSED** joint; AI repo not created |
+| owner_repository | **TBD — single canonical owner to be decided during GOV-0C** (AI repo not created; no API contract approved or invented here) |
 | canonical_document_path | **UNKNOWN** |
 | version | **PROPOSED** |
 | status | proposed |
 | consumer_repositories | App; AI (proposed) |
-| compatibility_policy | No implementation claim until AI repo exists and contract is accepted |
+| compatibility_policy | No implementation claim until AI repo exists and a single owner plus contract are accepted |
 | last_accepted_decision | none |
 | change_approval_required | Yes |
 
@@ -94,8 +94,8 @@ Each entry uses:
 | Field | Value |
 |---|---|
 | contract_id | C-WEB-APP-001 |
-| owner_repository | App (API/domain); Web (static consumers) |
-| canonical_document_path | Website ADR-001 routing options; App Caddy/API ownership |
+| owner_repository | **App** — canonical API/domain contract owner. Web is a **consumer** and retains ownership of its own implementation and Website ADR-001. |
+| canonical_document_path | App API/domain docs and Caddy/API ownership; Web ADR-001 remains Web-owned implementation/routing policy |
 | version | **PROPOSED** for future website deployment topology |
 | status | proposed (production website deploy not authorized) |
 | consumer_repositories | Web |

@@ -1,7 +1,8 @@
 # Active workstream
 
-**Effective:** 2026-11-17 (GOV-0B1 documentation).  
-**Product Owner final authority:** yes.
+**Effective:** 2026-11-17 (GOV-0B1 CLOSED — Leader Accepted).  
+**Product Owner final authority:** yes.  
+**Next governance phases:** GOV-0B2 and GOV-0C are **NOT STARTED / NOT AUTHORIZED**.
 
 ## Current assignment
 
