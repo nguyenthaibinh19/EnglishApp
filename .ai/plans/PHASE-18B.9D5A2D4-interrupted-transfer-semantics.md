@@ -1,6 +1,6 @@
 # Phase 18B.9D5A2D4 — Interrupted transfer safety contract review
 
-Status: **INVESTIGATION COMPLETE — recommendation REVISE TEST.** Not a VPS install. Not production activation. Does **not** rewrite D5A2D2/D5A2D3 as PASS. Isolation gate remains FAIL until Leader revises E acceptance criteria and accepts a replacement proof.
+Status: **CLOSED — Leader Accepted: REVISE TEST** (2026-11-17). E1/E2 are the accepted interrupted-transfer criteria. No ACK protocol required. Does **not** rewrite D5A2D2/D5A2D3 as PASS. Consolidation of revised WSL evidence is [PHASE-18B.9D5A2D5-revised-isolation-evidence.md](PHASE-18B.9D5A2D5-revised-isolation-evidence.md).
 
 Baseline `origin/main`: `6bfee89fc30edcd47528ae4ef27cccea642e7606`.  
 Import source inspected at `98b590ef5707e0c84bf68175ed59cdc17d8753c5` (branch-only; **not merged**).
