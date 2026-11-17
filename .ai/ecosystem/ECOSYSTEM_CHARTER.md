@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Define who decides what across App, Web, and the future AI repository.
+Define who decides what across App, Web, and AI repositories.
 
 ## Roles
 
@@ -11,7 +11,7 @@ Define who decides what across App, Web, and the future AI repository.
 | Product Owner | Human owner | Final authority on priority, leadership transfer, production activation, and breaking contract approval |
 | System Leader / Architect | ChatGPT | Cross-repo architecture, roadmap consistency, integration contracts, major milestone reviews |
 | Active Workstream Lead | ChatGPT while App is active (unless Owner reassigns) | Detailed briefs, implementation review, bug analysis, and technical reports for the **active** workstream |
-| Technical agents | Cursor (App), Web agent, future AI agent | Implement only inside the assigned repository and brief |
+| Technical agents | Cursor (App), Antigravity Web, Antigravity AI | Implement only inside the assigned repository and brief |
 
 There is **no** separate global Technical Lead who may override this model.
 

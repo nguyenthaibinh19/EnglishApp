@@ -4,48 +4,48 @@ Rolling coordination checkpoint. It does not replace [current_state.md](../curre
 
 ## 1. Checkpoint metadata
 
-- Written: 2026-11-17T14:50:00Z.
-- Observed `origin/main`: `3b01491199a84a1230ef508d6ca91a277e94f8ed`.
-- Verified here: remote main HEAD. EnglishApp documentation only for Stage 0. No Website edit, AI-repo edit, App source edit, VPS, Google, or production activation in Stage 0.
+- Written: 2026-11-17T15:00:00Z.
+- Observed Stage 0 `origin/main` before Stage 2: `23917a5f77bdde7af18c9d8a8b166683d42e8aec`.
+- Verified here: EnglishApp documentation only for this checkpoint. No Website edit, AI-repo edit, App source edit, VPS, Google, or production activation.
 
 ## 2. Last Leader decision
 
-**D5A2D3 AUTHORIZED** — ecosystem state sync + focused WSL helper-journal evidence recovery for A/D/E.
+**D5A2D3** executed: ecosystem sync + helper journal recovery.
 
-Active Lead remains **ChatGPT → Cursor on App**. Product Owner directly leads Web (Antigravity Web) and AI (Antigravity AI). ChatGPT remains System Architect. Web/AI reports are milestone-level only.
+Result: **OVERALL FAIL** (E still unproven). Original D5A2D2 remains **FAIL** (not rewritten as PASS). Recovered journals prove A/D predicates; E logged `frame-sent` not `incomplete`. No synthetic rerun.
 
-**D5A2D2 remains OVERALL FAIL** (do not rewrite as PASS). Phase 18B.9 **OPEN**. Production **NOT READY**. Drive **NOT CONFIGURED**. Cloud Sync **OFF**. Import branch `98b590e` not merged.
+Active Lead remains **ChatGPT → Cursor on App**. Product Owner leads Web/AI. GOV-0C not authorized. GOV-0E **PLANNED / DEFERRED**.
 
-Ecosystem: three confirmed repos (App public; Web private; AI private exists). `C-APP-AI-001` still PROPOSED. GOV-0E GitHub Project **PLANNED / DEFERRED**. GOV-0C not authorized.
+Gates unchanged: Phase 18B.9 **OPEN**; production **NOT READY**; Drive **NOT CONFIGURED**; Cloud Sync **OFF**; import `98b590e` not merged.
 
 ## 3. Active work
 
-- Cursor: Stage 0 ecosystem docs → Stage 1 WSL journal investigation (after Stage 0 push).
-- Web/AI: Product Owner–led; not modified by this task.
+- Cursor: D5A2D3 Stage 2 documentation publish; STOP for Leader review.
+- Web/AI: Product Owner–led; unmodified by this task.
 
 ## 4. Working tree and evidence
 
-- Updated `.ai/ecosystem/*` registry/board/architecture/integration/contracts/security/active workstream
-- New plan: [PHASE-18B.9D5A2D3-helper-journal-evidence.md](../plans/PHASE-18B.9D5A2D3-helper-journal-evidence.md)
-- Historical lab preserved: `D:\Tools\age-c2d5a2d2-isolation-20261116T2030Z-e7c4b921`
+- Plan: [PHASE-18B.9D5A2D3-helper-journal-evidence.md](../plans/PHASE-18B.9D5A2D3-helper-journal-evidence.md)
+- Lab: `D:\Tools\age-c2d5a2d2-isolation-20261116T2030Z-e7c4b921`
+- `results-r1/` preserved; `results-r1-recovered/` holds corrected journal query + re-score
 
 ## 5. Pending review
 
-Stage 0 docs for Leader awareness; Stage 1 results pending after investigation.
+Detailed ChatGPT Leader review of D5A2D3 FAIL (E) and collection root cause.
 
 ## 6. Current risks
 
-- Helper journal collection may still be a query defect or genuine missing logs.
-- AI/Web private detail must not leak into public App docs.
+- E may need a separately authorized interrupt-race experiment; not done here.
+- WSL PASS/FAIL is not production readiness.
 
 ## 7. Next action
 
-After Stage 0 FF push: read-only journal investigation; at most one focused A/D/E revalidation if needed; Stage 2 docs; STOP for Leader review.
+Await Leader decision. Do not auto-start another correction cycle or production-readiness phase.
 
 ## 8. Authorization / STOP
 
-Permitted: EnglishApp `.ai/` checkpoints; isolated WSL synthetic A/D/E journal work per D5A2D3 brief.
+Permitted completed: Stage 0 docs; read-only journal recovery; Stage 2 docs.
 
-Prohibited: App source edits, Web/AI repo mods, VPS/SSH, Google/OAuth, import merge, production activation, GitHub Project creation, automatic next phase.
+Prohibited and not done: App source, Web/AI mods, VPS/Google/OAuth, import merge, GitHub Project, production activation.
 
-STOP after Stage 2 documentation publish for detailed ChatGPT Leader review.
+STOP for detailed ChatGPT Leader review.

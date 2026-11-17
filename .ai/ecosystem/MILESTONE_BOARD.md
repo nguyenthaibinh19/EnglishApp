@@ -12,7 +12,7 @@ Preserve ACCEPTED ≠ COMMITTED ≠ MERGED ≠ DEPLOYED.
 | Phase 18B.9 off-box | **OPEN** | Production NOT READY |
 | D5A2D0-P1 source import | CLOSED — accepted import-only | Branch `phase18b9/d5a2d0-p1-source-import` @ `98b590e`; **not merged** |
 | D5A2D2 WSL isolation | **OVERALL FAIL** | Formal A/D/E not proven; do not reclassify |
-| D5A2D3 helper journal evidence | **AUTHORIZED** | Ecosystem sync + focused WSL A/D/E journal recovery |
+| D5A2D3 helper journal evidence | **OVERALL FAIL** (E) | Original journals recovered; A/D predicates met; E still unproven; no rerun; D5A2D2 not rewritten PASS |
 | GOV-0A governance planning | **Leader Accepted with corrections** | Planning milestone |
 | GOV-0B1 ecosystem docs | **CLOSED — Leader Accepted** | Hosted under `.ai/ecosystem/` |
 | GOV-0C | **NOT AUTHORIZED** | Not started automatically |
