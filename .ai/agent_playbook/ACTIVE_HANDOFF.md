@@ -4,26 +4,28 @@ Rolling coordination checkpoint. It does not replace [current_state.md](../curre
 
 ## 1. Checkpoint metadata
 
-- Written: 2026-11-17T17:00:00Z.
-- Observed `origin/main`: `5ce081c914f0542fa9057ca79b20a62c21642915`.
-- Documentation only for Stage 0 (D5A2D5 acceptance). Stage 1 audit follows in the same authorized task after this checkpoint.
+- Written: 2026-11-17T17:05:00Z.
+- Observed Stage 0 `origin/main`: `e80ce2e7cb9fa4f17b8b7466d8ade2d8bf019ea0`.
+- Documentation only. No merge, source edit, VPS, Google, Web/AI, or production actions.
 
-## 2. Last Leader decision
+## 2. Last Leader decisions
 
-**D5A2D5 CLOSED — Leader Accepted: REVISED WSL ISOLATION SAFETY GATE** (A/B/C/D/E1/E2/F/G/H).
+- **D5A2D5 CLOSED — Leader Accepted: REVISED WSL ISOLATION SAFETY GATE.**
+- **D5A2D6** audit: **READY_FOR_SOURCE_INTEGRATION_REVIEW** — [PHASE-18B.9D5A2D6-source-integration-readiness.md](../plans/PHASE-18B.9D5A2D6-source-integration-readiness.md).
 
-Historical D5A2D2/D5A2D3 OVERALL FAIL preserved. No production readiness. Phase 18B.9 OPEN; Drive NOT CONFIGURED; Cloud Sync OFF.
+Import `98b590e` remains **unmerged**. Historical D2/D3 FAIL preserved. Phase 18B.9 OPEN; production NOT READY; Drive NOT CONFIGURED; Cloud Sync OFF.
 
 Active Lead: ChatGPT → Cursor on App.
 
 ## 3. Active work
 
-- Cursor: Stage 0 acceptance docs → Stage 1 D5A2D6 source-integration readiness audit (read-only; no merge).
+- Cursor: D5A2D6 docs published; STOP for Leader review.
+- No automatic merge or production step.
 
 ## 4. Pending review
 
-After D5A2D6 audit publish: Leader reviews source-integration readiness. No automatic merge.
+Leader: accept audit verdict; separately authorize any merge PR + minimal offbox tests.
 
 ## 5. Authorization / STOP
 
-No source merge, VPS, Google, Web/AI, or production actions in Stage 0.
+STOP for ChatGPT Leader review. Do not merge the source branch or proceed to production.
