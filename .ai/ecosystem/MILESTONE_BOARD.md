@@ -14,7 +14,7 @@ Preserve ACCEPTED ≠ COMMITTED ≠ MERGED ≠ DEPLOYED.
 | D5A2D2 WSL isolation | **OVERALL FAIL** | Formal A/D/E not proven; do not reclassify |
 | D5A2D3 helper journal evidence | **OVERALL FAIL** (E) | Original journals recovered; A/D predicates met; E still unproven under original predicate; D5A2D2 not rewritten PASS |
 | D5A2D4 interrupted-transfer semantics | **CLOSED — Leader Accepted: REVISE TEST** | E1/E2 accepted; no ACK; historical D2/D3 FAIL preserved |
-| D5A2D5 revised isolation evidence | **Ready for Leader review** | Read-only composite A/B/C/D/E1/E2/F/G/H; milestone not auto-CLOSED; not production |
+| D5A2D5 revised isolation evidence | **CLOSED — Leader Accepted** | Revised WSL isolation safety gate A/B/C/D/E1/E2/F/G/H; historical D2/D3 FAIL preserved; not production |
 | GOV-0A governance planning | **Leader Accepted with corrections** | Planning milestone |
 | GOV-0B1 ecosystem docs | **CLOSED — Leader Accepted** | Hosted under `.ai/ecosystem/` |
 | GOV-0C | **NOT AUTHORIZED** | Not started automatically |

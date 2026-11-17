@@ -1,10 +1,18 @@
 # Phase 18B.9D5A2D5 — Revised WSL isolation evidence consolidation
 
-Status: **READ-ONLY REVIEW COMPLETE — `REVISED_WSL_GATE_READY_FOR_LEADER_REVIEW`.**  
-Final CLOSED acceptance of the isolation milestone remains with ChatGPT. This step does **not** auto-close Phase 18B.9 isolation and does **not** authorize production.
+Status: **CLOSED — LEADER ACCEPTED: REVISED WSL ISOLATION SAFETY GATE** (2026-11-17).
 
-Baseline `origin/main`: `5d178934b5d9d0fe3588ac7f29bed50186bec033`.  
-No new tests, source edits, unit changes, or historical evidence modifications.
+Accepted composite criteria: **A / B / C / D / E1 / E2 / F / G / H** from D5A2D2 + D5A2D3 + D5A2D4 evidence.
+
+Still true after acceptance:
+
+- Historical D5A2D2 remains **OVERALL FAIL** (unchanged artifacts).
+- Historical D5A2D3 remains **OVERALL FAIL** (unchanged artifacts).
+- E1/E2 are deterministic contract tests, not a repeated systemd interrupt campaign.
+- G is disposable **WSL-only** StateDirectory evidence.
+- **No** production readiness implied. Phase 18B.9 **OPEN**. Production **NOT READY**. Drive **NOT CONFIGURED**. Cloud Sync **OFF**.
+
+Baseline at consolidation: `5ce081c914f0542fa9057ca79b20a62c21642915`. Follow-on audit: [PHASE-18B.9D5A2D6-source-integration-readiness.md](PHASE-18B.9D5A2D6-source-integration-readiness.md).
 
 ## Leader decision already in force (D5A2D4)
 

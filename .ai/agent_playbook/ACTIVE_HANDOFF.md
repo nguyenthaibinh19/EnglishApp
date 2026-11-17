@@ -4,33 +4,26 @@ Rolling coordination checkpoint. It does not replace [current_state.md](../curre
 
 ## 1. Checkpoint metadata
 
-- Written: 2026-11-17T16:25:00Z.
-- Observed `origin/main`: `5d178934b5d9d0fe3588ac7f29bed50186bec033`.
-- Documentation only. No new tests, source edits, VPS, Google, Web/AI, or production actions.
+- Written: 2026-11-17T17:00:00Z.
+- Observed `origin/main`: `5ce081c914f0542fa9057ca79b20a62c21642915`.
+- Documentation only for Stage 0 (D5A2D5 acceptance). Stage 1 audit follows in the same authorized task after this checkpoint.
 
-## 2. Last Leader decisions
+## 2. Last Leader decision
 
-- **D5A2D4 CLOSED — Leader Accepted: REVISE TEST** (E1/E2; no ACK required).
-- **D5A2D5** read-only consolidation: proposed revised WSL gate **ready for Leader review** — [PHASE-18B.9D5A2D5-revised-isolation-evidence.md](../plans/PHASE-18B.9D5A2D5-revised-isolation-evidence.md).
+**D5A2D5 CLOSED — Leader Accepted: REVISED WSL ISOLATION SAFETY GATE** (A/B/C/D/E1/E2/F/G/H).
 
-Historical D5A2D2/D5A2D3 **OVERALL FAIL** unchanged. Isolation milestone **not** auto-CLOSED. Phase 18B.9 OPEN; production NOT READY; Drive NOT CONFIGURED; Cloud Sync OFF; import `98b590e` not merged.
+Historical D5A2D2/D5A2D3 OVERALL FAIL preserved. No production readiness. Phase 18B.9 OPEN; Drive NOT CONFIGURED; Cloud Sync OFF.
 
-Active Lead: ChatGPT → Cursor on App. Product Owner leads Web/AI.
+Active Lead: ChatGPT → Cursor on App.
 
 ## 3. Active work
 
-- Cursor: D5A2D5 docs published; STOP for Leader acceptance of the revised composite gate.
-- No further WSL test proposed (no unmet revised criterion).
+- Cursor: Stage 0 acceptance docs → Stage 1 D5A2D6 source-integration readiness audit (read-only; no merge).
 
-## 4. Evidence roots
+## 4. Pending review
 
-- D2/D3: `D:\Tools\age-c2d5a2d2-isolation-20261116T2030Z-e7c4b921`
-- D4: `D:\Tools\age-c2d5a2d4-interrupt-20261117T1500Z-a8f3c1e2\results-e1e2-r3`
+After D5A2D6 audit publish: Leader reviews source-integration readiness. No automatic merge.
 
-## 5. Pending review
+## 5. Authorization / STOP
 
-ChatGPT: accept or reject D5A2D5 revised WSL isolation safety gate. Do not auto-start production install or next phase.
-
-## 6. Authorization / STOP
-
-STOP for ChatGPT Leader review.
+No source merge, VPS, Google, Web/AI, or production actions in Stage 0.
