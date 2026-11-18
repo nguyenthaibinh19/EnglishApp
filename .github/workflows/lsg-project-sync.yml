@@ -5,6 +5,10 @@
 # Concurrency: one in-flight sync per repository+issue. cancel-in-progress=false
 # so a multi-step add+status update is not aborted mid-mutation. Pending runs
 # still re-read live issue labels before mutating (stale-event convergence).
+#
+# Remaining race: Project "Item added → Backlog" may run alongside the script's
+# first Status write (not compare-and-swap). Live smoke should confirm final Status
+# after add+lifecycle labels; Done/Ready protection reads Status before write.
 
 name: lsg-project-sync
 

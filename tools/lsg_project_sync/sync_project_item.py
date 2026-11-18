@@ -31,6 +31,8 @@ LABEL_DOING = "lsg:doing"
 LABEL_REVIEW = "lsg:review"
 LABEL_BLOCKED = "lsg:blocked"
 TRACKED_LABELS = frozenset({LABEL_TRACKED, LABEL_DOING, LABEL_REVIEW, LABEL_BLOCKED})
+# Explicit lifecycle labels that may move an item out of Ready.
+EXPLICIT_LIFECYCLE_LABELS = frozenset({LABEL_DOING, LABEL_REVIEW, LABEL_BLOCKED})
 
 # Highest priority wins when multiple lifecycle labels are present.
 STATUS_PRIORITY = (
@@ -39,6 +41,9 @@ STATUS_PRIORITY = (
     (LABEL_DOING, "In Progress"),
     (LABEL_TRACKED, "Backlog"),
 )
+
+# Project V2 field reads/writes are not compare-and-swap. A concurrent Owner/Leader
+# approval can still race an in-flight sync; this pilot never claims absolute protection.
 
 TRACKING_DISABLED_MESSAGE = (
     "lsg:tracked absent; automation will not change Project Status; "
@@ -222,40 +227,79 @@ def fetch_current_issue_labels(
     node_id: str,
     issue_number: int,
 ) -> frozenset[str]:
-    """Re-read live issue labels so stale Actions payloads cannot drive the final Status."""
-    query = """
-    query($id: ID!) {
-      node(id: $id) {
-        ... on Issue {
-          id
-          number
-          labels(first: 100) {
-            nodes { name }
-          }
-        }
-      }
-    }
-    """
-    data = client(query, {"id": node_id})
-    node = data.get("node")
-    if not isinstance(node, Mapping) or node.get("id") != node_id:
-        raise SyncError(
-            "issue_not_found",
-            operation="fetch_current_issue_labels",
-            issue_number=issue_number,
-        )
-    labels_obj = node.get("labels")
-    if not isinstance(labels_obj, Mapping):
-        raise SyncError(
-            "unexpected_issue_schema",
-            operation="fetch_current_issue_labels",
-            issue_number=issue_number,
-        )
+    """Re-read live issue labels (all pages). Fail closed if a page is incomplete/unusable."""
     names: set[str] = set()
-    for item in labels_obj.get("nodes") or []:
-        if isinstance(item, Mapping) and isinstance(item.get("name"), str):
-            names.add(item["name"])
-    return frozenset(names)
+    cursor: Optional[str] = None
+    while True:
+        if cursor is None:
+            query = """
+            query($id: ID!) {
+              node(id: $id) {
+                ... on Issue {
+                  id
+                  number
+                  labels(first: 100) {
+                    nodes { name }
+                    pageInfo { hasNextPage endCursor }
+                  }
+                }
+              }
+            }
+            """
+            variables: dict[str, Any] = {"id": node_id}
+        else:
+            query = """
+            query($id: ID!, $after: String!) {
+              node(id: $id) {
+                ... on Issue {
+                  id
+                  number
+                  labels(first: 100, after: $after) {
+                    nodes { name }
+                    pageInfo { hasNextPage endCursor }
+                  }
+                }
+              }
+            }
+            """
+            variables = {"id": node_id, "after": cursor}
+        data = client(query, variables)
+        node = data.get("node")
+        if not isinstance(node, Mapping) or node.get("id") != node_id:
+            raise SyncError(
+                "issue_not_found",
+                operation="fetch_current_issue_labels",
+                issue_number=issue_number,
+            )
+        labels_obj = node.get("labels")
+        if not isinstance(labels_obj, Mapping):
+            raise SyncError(
+                "unexpected_issue_schema",
+                operation="fetch_current_issue_labels",
+                issue_number=issue_number,
+            )
+        nodes = labels_obj.get("nodes")
+        if not isinstance(nodes, list):
+            raise SyncError(
+                "incomplete_label_page",
+                operation="fetch_current_issue_labels",
+                issue_number=issue_number,
+            )
+        for item in nodes:
+            if isinstance(item, Mapping) and isinstance(item.get("name"), str):
+                names.add(item["name"])
+        page_info = labels_obj.get("pageInfo") or {}
+        if page_info.get("hasNextPage"):
+            end = page_info.get("endCursor")
+            if not isinstance(end, str) or not end:
+                raise SyncError(
+                    "incomplete_label_pagination",
+                    operation="fetch_current_issue_labels",
+                    issue_number=issue_number,
+                )
+            cursor = end
+            continue
+        return frozenset(names)
 
 
 def resolve_project(
@@ -307,12 +351,20 @@ def resolve_project(
             issue_number=issue_number,
         )
     option_ids: dict[str, str] = {}
+    seen_names: set[str] = set()
     for opt in options:
         if not isinstance(opt, Mapping):
             continue
         name = opt.get("name")
         oid = opt.get("id")
         if isinstance(name, str) and isinstance(oid, str):
+            if name in seen_names:
+                raise SyncError(
+                    "duplicate_status_option",
+                    operation="resolve_project",
+                    issue_number=issue_number,
+                )
+            seen_names.add(name)
             option_ids[name] = oid
     for required in ALLOWED_STATUS_NAMES:
         if required not in option_ids:
@@ -326,6 +378,67 @@ def resolve_project(
         status_field_id=field_id,
         status_option_ids=option_ids,
     )
+
+
+def read_item_status(
+    client: GraphQLClient,
+    *,
+    item_id: str,
+    issue_number: int,
+) -> Optional[str]:
+    """Read current Project Status for an item. Returns None if unset/unknown."""
+    query = """
+    query($itemId: ID!) {
+      node(id: $itemId) {
+        ... on ProjectV2Item {
+          fieldValueByName(name: "Status") {
+            ... on ProjectV2ItemFieldSingleSelectValue {
+              name
+            }
+          }
+        }
+      }
+    }
+    """
+    data = client(query, {"itemId": item_id})
+    node = data.get("node")
+    if not isinstance(node, Mapping):
+        raise SyncError(
+            "item_status_unavailable",
+            operation="read_item_status",
+            issue_number=issue_number,
+        )
+    field_value = node.get("fieldValueByName")
+    if field_value is None:
+        return None
+    if not isinstance(field_value, Mapping):
+        raise SyncError(
+            "unexpected_status_value",
+            operation="read_item_status",
+            issue_number=issue_number,
+        )
+    name = field_value.get("name")
+    if name is None:
+        return None
+    if not isinstance(name, str):
+        raise SyncError(
+            "unexpected_status_value",
+            operation="read_item_status",
+            issue_number=issue_number,
+        )
+    return name
+
+
+def protection_action(
+    current_status: Optional[str],
+    labels: frozenset[str],
+) -> Optional[str]:
+    """Return protected_* action if Status must not be overwritten; else None."""
+    if current_status == "Done":
+        return "protected_done"
+    if current_status == "Ready" and not (labels & EXPLICIT_LIFECYCLE_LABELS):
+        return "protected_ready"
+    return None
 
 
 def find_project_item_id(
@@ -500,7 +613,7 @@ def ensure_item_and_status(
     desired_status: str,
     state: Optional[MutableMapping[str, Any]] = None,
 ) -> dict[str, Any]:
-    """Idempotent add + status update. Partial failure never reports success."""
+    """Idempotent add + conditional status update. Never overwrites Done; guards Ready."""
     assert_status_allowed(desired_status)
     option_id = refs.status_option_ids.get(desired_status)
     if not option_id:
@@ -527,6 +640,39 @@ def ensure_item_and_status(
         created = True
         if state is not None:
             state["added_item_id"] = item_id
+
+    current_status = read_item_status(
+        client, item_id=item_id, issue_number=issue.number
+    )
+    protected = protection_action(current_status, issue.labels)
+    if protected is not None:
+        result = {
+            "action": protected,
+            "issue_number": issue.number,
+            "item_id": item_id,
+            "created": created,
+            "current_status": current_status,
+            "desired_status": desired_status,
+            "project_mutated": False,
+            "status": current_status,
+        }
+        if state is not None:
+            state["last"] = result
+        return result
+
+    if current_status == desired_status:
+        result = {
+            "action": "synced",
+            "issue_number": issue.number,
+            "item_id": item_id,
+            "created": created,
+            "status": desired_status,
+            "project_mutated": False,
+        }
+        if state is not None:
+            state["last"] = result
+        return result
+
     try:
         set_status(
             client,
@@ -552,6 +698,8 @@ def ensure_item_and_status(
         "created": created,
         "status": desired_status,
         "action": "synced",
+        "project_mutated": True,
+        "previous_status": current_status,
     }
     if state is not None:
         state["last"] = result

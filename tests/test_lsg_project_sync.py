@@ -27,6 +27,7 @@ from lsg_project_sync.sync_project_item import (  # noqa: E402
     find_project_item_id,
     http_graphql_client,
     parse_issue_event,
+    protection_action,
     resolve_project,
     sync_from_event,
     tracking_disabled,
@@ -79,6 +80,9 @@ class FakeClient:
         # Pagination: ordered content ids; page size 2 for tests.
         self.item_order: list[str] = []
         self.page_size = 100
+        self.label_page_size = 100
+        self.duplicate_status_name: str | None = None
+        self.incomplete_label_pagination = False
 
     def set_live_labels(self, node_id: str, labels: set[str] | frozenset[str] | list[str]) -> None:
         self.live_labels[node_id] = frozenset(labels)
@@ -94,14 +98,47 @@ class FakeClient:
         if self.fail_graphql:
             raise SyncError("graphql_errors", operation="graphql")
 
-        if "labels(first:" in query and "node(id: $id)" in query.replace("\n", ""):
+        if "fieldValueByName(name: \"Status\")" in query or "fieldValueByName(name: \"Status\")" in query.replace(
+            "\n", " "
+        ):
+            item_id = variables["itemId"]
+            name = self.status_by_item.get(item_id)
+            if name is None:
+                return {"node": {"fieldValueByName": None}}
+            return {"node": {"fieldValueByName": {"name": name}}}
+
+        if "labels(first:" in query and "$id" in query:
             node_id = variables["id"]
-            labels = self.live_labels.get(node_id, frozenset())
+            labels = sorted(self.live_labels.get(node_id, frozenset()))
+            after = variables.get("after")
+            start = 0
+            if after:
+                start = int(str(after).split("-")[1]) + 1
+            page = labels[start : start + self.label_page_size]
+            last = start + len(page) - 1
+            has_next = (start + self.label_page_size) < len(labels)
+            if self.incomplete_label_pagination and has_next:
+                return {
+                    "node": {
+                        "id": node_id,
+                        "number": 1,
+                        "labels": {
+                            "nodes": [{"name": n} for n in page],
+                            "pageInfo": {"hasNextPage": True, "endCursor": None},
+                        },
+                    }
+                }
             return {
                 "node": {
                     "id": node_id,
                     "number": 1,
-                    "labels": {"nodes": [{"name": n} for n in sorted(labels)]},
+                    "labels": {
+                        "nodes": [{"name": n} for n in page],
+                        "pageInfo": {
+                            "hasNextPage": has_next,
+                            "endCursor": f"cursor-{last}" if page else None,
+                        },
+                    },
                 }
             }
 
@@ -111,6 +148,13 @@ class FakeClient:
                 for name, oid in self.options.items()
                 if name != self.missing_status_option
             ]
+            if self.duplicate_status_name:
+                options.append(
+                    {
+                        "id": "opt_dup",
+                        "name": self.duplicate_status_name,
+                    }
+                )
             return {
                 "user": {
                     "projectV2": {
@@ -708,3 +752,156 @@ def test_fetch_current_issue_labels():
     client.set_live_labels("I_1", {"lsg:tracked", "lsg:doing", "bug"})
     labels = fetch_current_issue_labels(client, node_id="I_1", issue_number=1)
     assert labels == frozenset({"lsg:tracked", "lsg:doing", "bug"})
+
+
+# --- R3: Done / Ready protection ---
+
+
+def test_existing_done_with_tracked_remains_done():
+    client = FakeClient()
+    client.items["I_1"] = "PVTI_1"
+    client.item_order = ["I_1"]
+    client.status_by_item["PVTI_1"] = "Done"
+    client.set_live_labels("I_1", {"lsg:tracked"})
+    event = _issue_event(
+        action="labeled",
+        label="lsg:tracked",
+        number=1,
+        node_id="I_1",
+        labels=["lsg:tracked"],
+    )
+    result = sync_from_event(
+        event, project_client=client, issue_client=client, owner="nguyenthaibinh19", number=1
+    )
+    assert result["action"] == "protected_done"
+    assert result["project_mutated"] is False
+    assert client.status_by_item["PVTI_1"] == "Done"
+    assert all("updateProjectV2ItemFieldValue" not in q for q, _ in client.calls)
+
+
+def test_existing_done_with_review_event_remains_done():
+    client = FakeClient()
+    client.items["I_1"] = "PVTI_1"
+    client.item_order = ["I_1"]
+    client.status_by_item["PVTI_1"] = "Done"
+    client.set_live_labels("I_1", {"lsg:tracked", "lsg:review"})
+    event = _issue_event(
+        action="labeled",
+        label="lsg:review",
+        number=1,
+        node_id="I_1",
+        labels=["lsg:tracked", "lsg:review"],
+    )
+    result = sync_from_event(
+        event, project_client=client, issue_client=client, owner="nguyenthaibinh19", number=1
+    )
+    assert result["action"] == "protected_done"
+    assert client.status_by_item["PVTI_1"] == "Done"
+
+
+def test_removing_lifecycle_cannot_reopen_done():
+    client = FakeClient()
+    client.items["I_1"] = "PVTI_1"
+    client.item_order = ["I_1"]
+    client.status_by_item["PVTI_1"] = "Done"
+    client.set_live_labels("I_1", {"lsg:tracked"})
+    event = _issue_event(
+        action="unlabeled",
+        label="lsg:review",
+        number=1,
+        node_id="I_1",
+        labels=["lsg:tracked"],
+    )
+    result = sync_from_event(
+        event, project_client=client, issue_client=client, owner="nguyenthaibinh19", number=1
+    )
+    assert result["action"] == "protected_done"
+    assert result["desired_status"] == "Backlog"
+    assert client.status_by_item["PVTI_1"] == "Done"
+
+
+def test_existing_ready_tracking_only_remains_ready():
+    client = FakeClient()
+    client.items["I_1"] = "PVTI_1"
+    client.item_order = ["I_1"]
+    client.status_by_item["PVTI_1"] = "Ready"
+    client.set_live_labels("I_1", {"lsg:tracked"})
+    event = _issue_event(
+        action="labeled",
+        label="lsg:tracked",
+        number=1,
+        node_id="I_1",
+        labels=["lsg:tracked"],
+    )
+    result = sync_from_event(
+        event, project_client=client, issue_client=client, owner="nguyenthaibinh19", number=1
+    )
+    assert result["action"] == "protected_ready"
+    assert client.status_by_item["PVTI_1"] == "Ready"
+
+
+def test_existing_ready_plus_doing_transitions_to_in_progress():
+    client = FakeClient()
+    client.items["I_1"] = "PVTI_1"
+    client.item_order = ["I_1"]
+    client.status_by_item["PVTI_1"] = "Ready"
+    client.set_live_labels("I_1", {"lsg:tracked", "lsg:doing"})
+    event = _issue_event(
+        action="labeled",
+        label="lsg:doing",
+        number=1,
+        node_id="I_1",
+        labels=["lsg:tracked", "lsg:doing"],
+    )
+    result = sync_from_event(
+        event, project_client=client, issue_client=client, owner="nguyenthaibinh19", number=1
+    )
+    assert result["action"] == "synced"
+    assert result["status"] == "In Progress"
+    assert client.status_by_item["PVTI_1"] == "In Progress"
+
+
+def test_duplicate_status_option_names_fail_closed():
+    client = FakeClient()
+    client.duplicate_status_name = "Backlog"
+    client.set_live_labels("I_1", {"lsg:tracked"})
+    event = _issue_event(
+        action="labeled",
+        label="lsg:tracked",
+        number=1,
+        node_id="I_1",
+        labels=["lsg:tracked"],
+    )
+    with pytest.raises(SyncError) as ei:
+        sync_from_event(
+            event, project_client=client, issue_client=client, owner="nguyenthaibinh19", number=1
+        )
+    assert ei.value.category == "duplicate_status_option"
+
+
+def test_incomplete_label_pagination_fails_closed():
+    client = FakeClient()
+    # More labels than one page; next page cursor missing → fail closed
+    many = {f"label-{i}" for i in range(5)} | {"lsg:tracked"}
+    client.set_live_labels("I_1", many)
+    client.label_page_size = 3
+    client.incomplete_label_pagination = True
+    with pytest.raises(SyncError) as ei:
+        fetch_current_issue_labels(client, node_id="I_1", issue_number=1)
+    assert ei.value.category == "incomplete_label_pagination"
+
+
+def test_label_pagination_collects_all_pages():
+    client = FakeClient()
+    many = {f"label-{i}" for i in range(5)} | {"lsg:tracked", "lsg:doing"}
+    client.set_live_labels("I_1", many)
+    client.label_page_size = 3
+    labels = fetch_current_issue_labels(client, node_id="I_1", issue_number=1)
+    assert labels == frozenset(many)
+
+
+def test_protection_action_matrix():
+    assert protection_action("Done", frozenset({"lsg:tracked"})) == "protected_done"
+    assert protection_action("Ready", frozenset({"lsg:tracked"})) == "protected_ready"
+    assert protection_action("Ready", frozenset({"lsg:tracked", "lsg:doing"})) is None
+    assert protection_action("In Progress", frozenset({"lsg:tracked"})) is None
