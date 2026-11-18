@@ -4,19 +4,20 @@ Rolling coordination checkpoint. It does not replace [current_state.md](../curre
 
 ## 1. Checkpoint metadata
 
-- Written: 2026-11-18T16:15:00Z.
-- Observed origin/main after PR #13 merge: d6643e0a5d83ee1d6d548ca80f8accb88f0ff99f.
+- Written: 2026-11-18T16:45:00Z.
+- Observed origin/main after PR #14 merge: 6692dfd3360ea64c2f9ebdf73ad1110c84a2460f.
 
 ## 2. Last Leader / work status
 
-- **D5A2D7 SOURCE MERGED — NOT DEPLOYED** (PR #12 / c03a0f5).
-- **18B.9 accelerated readiness SOURCE MERGED — NOT DEPLOYED** (PR #13 / d6643e0); pinned D5A2D0-P1 verify-before-copy included; frozen modules unchanged.
-- Phase 18B.9 OPEN; production NOT READY; Drive NOT CONFIGURED; Cloud Sync OFF; D2/D3 FAIL preserved.
+- **CONFORMANCE TESTS MERGED — NO LOCAL AI INTEGRATION** (PR #14 / 6692dfd; head 4773d5c). Test/docs-only App consumer evidence for accepted C-APP-AI-001 v0.2.0.
+- AI-M4 / LocalAIProvider remain **NOT AUTHORIZED**.
+- **D5A2D7 SOURCE MERGED — NOT DEPLOYED** (PR #12). **18B.9 accelerated readiness SOURCE MERGED — NOT DEPLOYED** (PR #13).
+- Phase 18B.9 remains **P0 / OPEN**; production NOT READY; Drive NOT CONFIGURED; Cloud Sync OFF; D2/D3 FAIL preserved.
 
 ## 3. Next recommended App task
 
-**STOP at VPS access boundary.** Read-only VPS prerequisite probe is prepared in docs; SSH still requires a separate explicit Product Owner authorization.
+Continue Phase 18B.9 readiness: Product Owner read-only VPS prerequisite probe authorization remains the live-access gate (checklist prepared; SSH not authorized by this handoff).
 
 ## 4. Authorization / STOP
 
-No VPS/SSH, live setup.sh, unit enablement, Drive/OAuth, Cloud Sync, or production backup without a new brief.
+No LocalAIProvider, production AI routing change, VPS/SSH, unit enablement, Drive/OAuth, Cloud Sync, or deploy without a new brief.
