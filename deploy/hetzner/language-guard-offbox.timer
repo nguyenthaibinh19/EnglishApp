@@ -1,0 +1,14 @@
+# TEMPLATE ONLY — not installed by default. Not enabled by setup.sh.
+# Proposed calendar only. RPO/RTO and stale thresholds remain proposals until
+# a separate Product Owner acceptance. Do not enable this timer.
+[Unit]
+Description=Proposed Language Guard off-box backup schedule (DISABLED BY DEFAULT)
+
+[Timer]
+OnCalendar=*-*-* 05:15:00 UTC
+Persistent=true
+RandomizedDelaySec=15m
+Unit=language-guard-offbox-worker.service
+
+[Install]
+WantedBy=timers.target

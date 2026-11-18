@@ -1,0 +1,7 @@
+# Frozen offbox modules and Linux unit templates must stay LF so SHA-256
+# inventory and VPS installs match the accepted D5A2D0-P1 blob bytes.
+deploy/hetzner/offbox/** text eol=lf
+deploy/hetzner/language-guard-offbox* text eol=lf
+deploy/hetzner/install_offbox_packaging.py text eol=lf
+deploy/hetzner/offbox_report_lines.py text eol=lf
+deploy/hetzner/setup.sh text eol=lf

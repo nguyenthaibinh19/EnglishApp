@@ -1,0 +1,43 @@
+# TEMPLATE ONLY — not installed by default. Not enabled by setup.sh.
+# No StateDirectory= on /var/lib/language-guard-backup (D5A2A ownership hazard).
+# No age private identity on the host. OAuth refresh via LoadCredential only.
+# Live upload stays fail-closed: do not set LG_DRIVE_FOLDER or LG_UPLOAD_ENABLED
+# until a separate activation gate. Missing oauth-refresh fails closed on start.
+[Unit]
+Description=Language Guard off-box backup worker
+Requires=language-guard-offbox-handoff.socket
+After=language-guard-offbox-handoff.socket
+
+[Service]
+Type=oneshot
+User=lg-backup
+Group=lg-backup
+UMask=0077
+NoNewPrivileges=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectSystem=strict
+ProtectHome=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictNamespaces=yes
+LockPersonality=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+SystemCallArchitectures=native
+CapabilityBoundingSet=
+AmbientCapabilities=
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+WorkingDirectory=/var/lib/language-guard-backup
+Environment=PYTHONDONTWRITEBYTECODE=1
+Environment=LG_STATE_DIR=/var/lib/language-guard-backup
+Environment=LG_SOURCE_DB=/opt/language-guard/accounts.db
+Environment=LG_SOCKET=/run/language-guard-offbox/handoff.sock
+Environment=LG_RECIPIENT_FILE=/etc/language-guard/age-recipient
+Environment=LG_AGE_BIN=/usr/local/lib/language-guard-age/age
+ReadWritePaths=/var/lib/language-guard-backup
+InaccessiblePaths=-/opt/language-guard/accounts.db -/var/lib/language-guard-helper
+LoadCredential=oauth-refresh:/etc/language-guard/oauth-refresh
+ExecStart=/opt/language-guard/venv/bin/python /opt/language-guard/offbox/backup_worker.py
+TimeoutStartSec=300

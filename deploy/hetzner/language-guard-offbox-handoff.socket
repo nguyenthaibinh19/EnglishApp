@@ -1,0 +1,17 @@
+# TEMPLATE ONLY — not installed by default. Not enabled by setup.sh.
+# Copy into /etc/systemd/system only under an authorized install session.
+# Leave inactive; do not systemctl enable or start without a separate Leader brief.
+[Unit]
+Description=Language Guard off-box handoff socket
+
+[Socket]
+ListenStream=/run/language-guard-offbox/handoff.sock
+SocketUser=lg-backup
+SocketGroup=lg-backup
+SocketMode=0600
+# Parent dir must be traversable; connect permission is SocketMode + ownership.
+DirectoryMode=0755
+Accept=yes
+
+[Install]
+WantedBy=sockets.target
