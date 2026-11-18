@@ -1,20 +1,20 @@
 # Phase 18B.9 — Accelerated source-side readiness package
 
-Status: **IMPLEMENTED ON BRANCH — awaiting PR review / merge authorization.**
+Status: **SOURCE MERGE AUTHORIZED AFTER PINNED-VERIFY FIX (PR #13).**
 Not deployed. Not production-ready. No VPS/SSH, unit enablement, Drive, or Cloud Sync.
 
-Baseline `origin/main`: `3d8a2727baf0bf901b7a74db6ddd90369126ea17`.
+Baseline at branch open: `3d8a2727baf0bf901b7a74db6ddd90369126ea17`.
 Frozen offbox Python modules: **unchanged** (15/15 D5A2D0-P1 hashes).
 
 ## Delivered in this package
 
-1. Reproducible packaging verifier/stager: `deploy/hetzner/install_offbox_packaging.py`
+1. Reproducible packaging verifier/stager: `deploy/hetzner/install_offbox_packaging.py` (pinned D5A2D0-P1 inventory; local SHA256SUMS alone cannot authorize)
 2. Disabled-by-default unit templates (stderr/journal separation; no StateDirectory on backup dir)
 3. Proposed timer template (not enabled)
-4. `setup.sh` opt-in copy via `LG_INSTALL_OFFBOX=1` (never enables offbox units)
+4. `setup.sh` opt-in via `LG_INSTALL_OFFBOX=1` → mandatory `install-app-tree` verify-before-copy (never enables offbox units)
 5. Monitoring line helper template: `deploy/hetzner/offbox_report_lines.py` (not wired into health_report)
 6. Runbooks/checklists under `.ai/procedures/OFFBOX_*.md`
-7. Offline regression tests for packaging, permissions markers, idempotency, incorrect configs, report lines
+7. Offline regression tests for packaging, tamper rejection, permissions markers, idempotency, incorrect configs, report lines
 
 ## Readiness matrix (source package)
 

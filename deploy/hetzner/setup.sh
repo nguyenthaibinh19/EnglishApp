@@ -111,29 +111,19 @@ cp "${SRC}/deploy/hetzner/language-guard-health-notify.socket" "${APP_DIR}/deplo
 cp "${SRC}/deploy/hetzner/language-guard-health-notify@.service" "${APP_DIR}/deploy/hetzner/language-guard-health-notify@.service"
 cp "${SRC}/deploy/hetzner/language-guard-notify.sysusers" "${APP_DIR}/deploy/hetzner/language-guard-notify.sysusers"
 # Off-box packaging stays in the app tree only when explicitly opted in.
-# LG_INSTALL_OFFBOX=1 copies frozen modules + inactive unit templates.
-# This block never copies them into /etc/systemd/system and never enables
+# LG_INSTALL_OFFBOX=1 verifies against the pinned D5A2D0-P1 inventory, then
+# installs frozen modules + inactive unit templates through the packaging
+# helper. Verification is mandatory before any offbox file is written.
+# This block never copies units into /etc/systemd/system and never enables
 # or starts off-box sockets, workers, or timers.
+# setup.sh remains a full server provisioning script; LG_INSTALL_OFFBOX is
+# not a harmless packaging-only mode for a live VPS.
 if [[ "${LG_INSTALL_OFFBOX:-0}" == "1" ]]; then
-  mkdir -p "${APP_DIR}/offbox" "${APP_DIR}/deploy/hetzner"
-  while IFS= read -r offbox_name; do
-    [[ -z "${offbox_name}" || "${offbox_name}" == \#* ]] && continue
-    # SHA256SUMS lines are "<digest>  <name>"; accept plain names too.
-    offbox_file="${offbox_name##* }"
-    if [[ ! -f "${SRC}/deploy/hetzner/offbox/${offbox_file}" ]]; then
-      echo "Thieu ${SRC}/deploy/hetzner/offbox/${offbox_file}"
-      exit 1
-    fi
-    cp "${SRC}/deploy/hetzner/offbox/${offbox_file}" "${APP_DIR}/offbox/${offbox_file}"
-  done < "${SRC}/deploy/hetzner/offbox/SHA256SUMS"
-  cp "${SRC}/deploy/hetzner/offbox/SHA256SUMS" "${APP_DIR}/offbox/SHA256SUMS"
-  cp "${SRC}/deploy/hetzner/offbox/SOURCE_AUTHORITY.md" "${APP_DIR}/offbox/SOURCE_AUTHORITY.md"
-  cp "${SRC}/deploy/hetzner/install_offbox_packaging.py" "${APP_DIR}/deploy/hetzner/install_offbox_packaging.py"
-  cp "${SRC}/deploy/hetzner/offbox_report_lines.py" "${APP_DIR}/deploy/hetzner/offbox_report_lines.py"
-  cp "${SRC}/deploy/hetzner/language-guard-offbox-handoff.socket" "${APP_DIR}/deploy/hetzner/language-guard-offbox-handoff.socket"
-  cp "${SRC}/deploy/hetzner/language-guard-offbox-handoff@.service" "${APP_DIR}/deploy/hetzner/language-guard-offbox-handoff@.service"
-  cp "${SRC}/deploy/hetzner/language-guard-offbox-worker.service" "${APP_DIR}/deploy/hetzner/language-guard-offbox-worker.service"
-  cp "${SRC}/deploy/hetzner/language-guard-offbox.timer" "${APP_DIR}/deploy/hetzner/language-guard-offbox.timer"
+  if ! command -v python3 >/dev/null 2>&1; then
+    echo "python3 required for LG_INSTALL_OFFBOX verification"
+    exit 1
+  fi
+  python3 "${SRC}/deploy/hetzner/install_offbox_packaging.py" install-app-tree --dest "${APP_DIR}"
   # Ownership for copied offbox tree is applied with the later chown of APP_DIR.
   # Units remain outside /etc/systemd/system until a separate authorized session.
 fi

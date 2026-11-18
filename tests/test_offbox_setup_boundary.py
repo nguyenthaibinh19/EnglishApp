@@ -8,12 +8,23 @@ from pathlib import Path
 from offbox_support import EXPECTED_MODULES, ROOT
 
 SETUP = ROOT / "deploy" / "hetzner" / "setup.sh"
+OPT_IN_GATE = '[[ "${LG_INSTALL_OFFBOX:-0}" == "1" ]]'
+INSTALL_APP_TREE = "install_offbox_packaging.py\" install-app-tree --dest"
 
 
 def _files_list(text: str) -> list[str]:
     match = re.search(r"FILES=\((.*?)\)", text, re.S)
     assert match, "setup.sh FILES list missing"
     return re.findall(r"[A-Za-z0-9_./-]+", match.group(1))
+
+
+def _opt_in_block(text: str) -> str:
+    assert OPT_IN_GATE in text
+    _, gate, after = text.partition(OPT_IN_GATE)
+    assert gate
+    # First `fi` closes the opt-in block.
+    block, _sep, _rest = after.partition("\nfi")
+    return block
 
 
 def test_setup_sh_exists() -> None:
@@ -31,16 +42,27 @@ def test_files_list_excludes_all_offbox_modules() -> None:
 
 def test_setup_sh_default_path_does_not_copy_offbox_unconditionally() -> None:
     text = SETUP.read_text(encoding="utf-8")
-    assert '[[ "${LG_INSTALL_OFFBOX:-0}" == "1" ]]' in text
-    # Default production behavior stays free of unconditional offbox install paths.
-    before_gate, gate, after_gate = text.partition('[[ "${LG_INSTALL_OFFBOX:-0}" == "1" ]]')
+    before_gate, gate, after_gate = text.partition(OPT_IN_GATE)
     assert gate, "missing LG_INSTALL_OFFBOX opt-in gate"
     assert "deploy/hetzner/offbox/" not in before_gate
     assert "language-guard-offbox" not in before_gate
     assert "snapshot_helper" not in before_gate
     assert "backup_worker" not in before_gate
-    assert "deploy/hetzner/offbox/" in after_gate
-    assert "language-guard-offbox-handoff.socket" in after_gate
+    assert "install-app-tree" in after_gate
+
+
+def test_setup_opt_in_requires_packager_before_any_offbox_copy() -> None:
+    text = SETUP.read_text(encoding="utf-8")
+    block = _opt_in_block(text)
+    assert "install-app-tree" in block
+    assert "install_offbox_packaging.py" in block
+    # No raw module copy loop remains inside the opt-in path.
+    assert "done <" not in block
+    assert "SHA256SUMS" not in block or "install-app-tree" in block
+    for line in block.splitlines():
+        stripped = line.strip()
+        if stripped.startswith("cp ") and "offbox/" in stripped:
+            raise AssertionError(f"raw offbox cp before/without packager: {stripped}")
 
 
 def test_setup_sh_never_installs_offbox_units_into_systemd() -> None:

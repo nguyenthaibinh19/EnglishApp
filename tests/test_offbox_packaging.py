@@ -94,20 +94,71 @@ def test_stage_refuses_content_conflict(tmp_path: Path) -> None:
     assert "FAIL" in conflict.stderr
 
 
-def test_verify_fails_on_module_hash_mismatch(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    packager = _load_packager()
-    # Copy tree then mutate one module via a temporary offbox path.
+def _clone_hetzner_tree(tmp_path: Path) -> Path:
     fake_root = tmp_path / "hetzner"
     fake_offbox = fake_root / "offbox"
     fake_offbox.mkdir(parents=True)
-    src_offbox = HETZNER / "offbox"
-    for path in src_offbox.iterdir():
+    for path in (HETZNER / "offbox").iterdir():
         if path.is_file():
             (fake_offbox / path.name).write_bytes(path.read_bytes())
-    target = fake_offbox / "logutil.py"
+    for name in UNIT_NAMES + ("install_offbox_packaging.py", "offbox_report_lines.py"):
+        (fake_root / name).write_bytes((HETZNER / name).read_bytes())
+    return fake_root
+
+
+def test_verify_fails_on_module_hash_mismatch(tmp_path: Path) -> None:
+    packager = _load_packager()
+    fake_root = _clone_hetzner_tree(tmp_path)
+    target = fake_root / "offbox" / "logutil.py"
     target.write_bytes(target.read_bytes() + b"\n# tamper\n")
     with pytest.raises(ValueError, match="hash mismatch"):
-        packager.verify_modules(fake_offbox)
+        packager.verify_modules(fake_root / "offbox")
+
+
+def test_verify_rejects_tampered_module_even_if_manifest_rewritten(tmp_path: Path) -> None:
+    """Local SHA256SUMS alone cannot authorize packaging."""
+    packager = _load_packager()
+    fake_root = _clone_hetzner_tree(tmp_path)
+    offbox = fake_root / "offbox"
+    target = offbox / "framing.py"
+    target.write_bytes(b"tampered-source-bytes\n")
+    # Rewrite the mutable manifest to match the tampered bytes.
+    lines = []
+    for name, digest in packager.ACCEPTED_D5A2D0_P1_SHA256.items():
+        if name == "framing.py":
+            digest = hashlib.sha256(target.read_bytes()).hexdigest()
+        lines.append(f"{digest}  {name}")
+    (offbox / "SHA256SUMS").write_text("\n".join(lines) + "\n", encoding="utf-8")
+    with pytest.raises(ValueError, match="D5A2D0-P1|hash mismatch"):
+        packager.verify_modules(offbox)
+
+
+def test_install_app_tree_refuses_tampered_source_and_writes_nothing(tmp_path: Path) -> None:
+    packager = _load_packager()
+    fake_root = _clone_hetzner_tree(tmp_path)
+    (fake_root / "offbox" / "age_encrypt.py").write_bytes(b"not-canonical\n")
+    dest = tmp_path / "app"
+    dest.mkdir()
+    with pytest.raises(ValueError, match="hash mismatch|D5A2D0-P1"):
+        packager.install_app_tree(dest, hetzner_dir=fake_root)
+    assert list(dest.rglob("*")) == []
+
+
+def test_install_app_tree_ok_against_pinned_inventory(tmp_path: Path) -> None:
+    result = subprocess.run(
+        [PY, str(PACKAGER), "install-app-tree", "--dest", str(tmp_path / "app")],
+        cwd=str(ROOT),
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode == 0, result.stderr
+    assert "INSTALL_OK" in result.stdout
+    assert "inventory=D5A2D0-P1" in result.stdout
+    for name, expected in ACCEPTED_D5A2D0_P1_SHA256.items():
+        staged = tmp_path / "app" / "offbox" / name
+        assert hashlib.sha256(staged.read_bytes()).hexdigest() == expected
+    assert (tmp_path / "app" / "deploy" / "hetzner" / "language-guard-offbox-worker.service").is_file()
 
 
 def test_unit_templates_have_isolation_markers() -> None:
