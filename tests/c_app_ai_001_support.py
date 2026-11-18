@@ -24,10 +24,36 @@ MINIMUM_LOCAL_AI_INFERENCE_TIMEOUT_SEC = 25.0
 PROPOSED_TIMEOUT_ENV = "LOCAL_AI_INFERENCE_TIMEOUT"
 PROPOSED_BASE_URL_ENV = "LOCAL_AI_BASE_URL"
 
+# Known Local AI HTTP statuses with fixed learner-safe messages.
+# Unknown statuses/codes must never be echoed into AIError text.
+_KNOWN_HTTP_STATUS_MESSAGES = {
+    400: "Local AI rejected a malformed request.",
+    401: "Local AI authorization failed.",
+    403: "Local AI request was rejected by the loopback security policy.",
+    404: "Local AI endpoint was not found.",
+    413: "Local AI request payload is too large.",
+    415: "Local AI request media type must be application/json.",
+    422: "Local AI request failed validation.",
+    502: "Local AI returned an invalid or incomplete result.",
+    503: "Local AI runtime is unavailable.",
+}
+
 
 def load_fixture(name: str) -> Any:
     path = FIXTURES / name
     return json.loads(path.read_text(encoding="utf-8"))
+
+
+def _require_nonempty_str(data: Mapping[str, Any], key: str) -> str:
+    if key not in data:
+        raise AIError(f"Local AI grade response missing field: {key}")
+    raw = data.get(key)
+    if not isinstance(raw, str):
+        raise AIError(f"Local AI grade field {key} must be text.")
+    text = raw.strip()
+    if not text:
+        raise AIError(f"Local AI grade field {key} is empty.")
+    return text
 
 
 def validate_grade_wire_payload(data: Any) -> GradeResult:
@@ -49,20 +75,29 @@ def validate_grade_wire_payload(data: Any) -> GradeResult:
     for key in required:
         if key not in data:
             raise AIError(f"Local AI grade response missing field: {key}")
+
+    usage = data.get("is_correct_usage")
+    if not isinstance(usage, bool):
+        raise AIError("Local AI grade is_correct_usage must be a boolean.")
+
     score_raw = data.get("score")
+    # bool is a subclass of int; reject before numeric coercion.
+    if isinstance(score_raw, bool) or score_raw is None:
+        raise AIError("Local AI grade score must be a finite number.")
+    if isinstance(score_raw, str):
+        raise AIError("Local AI grade score must be a finite number.")
     try:
         score = float(score_raw)
     except (TypeError, ValueError) as exc:
         raise AIError("Local AI grade score must be a finite number.") from exc
     if not math.isfinite(score) or score < 0.0 or score > 1.0:
         raise AIError("Local AI grade score must be finite and within [0.0, 1.0].")
-    feedback = str(data.get("feedback_vi") or "").strip()
-    corrected = str(data.get("corrected_sentence") or "").strip()
-    suggested = str(data.get("suggested_sentence") or "").strip()
-    if not feedback or not corrected or not suggested:
-        raise AIError("Local AI grade response has empty required text fields.")
+
+    feedback = _require_nonempty_str(data, "feedback_vi")
+    corrected = _require_nonempty_str(data, "corrected_sentence")
+    suggested = _require_nonempty_str(data, "suggested_sentence")
     return GradeResult(
-        is_correct_usage=bool(data.get("is_correct_usage")),
+        is_correct_usage=usage,
         score=score,
         feedback_vi=feedback,
         corrected_sentence=corrected,
@@ -78,33 +113,16 @@ def map_local_ai_http_error(
 ) -> AIError:
     """Documented Local AI HTTP / runtime error → App AIError mapping.
 
-    Sanitized messages only. Never includes tokens, Origin, Host, or raw bodies.
+    Sanitized messages only. Never includes tokens, Origin, Host, raw bodies,
+    or untrusted/unknown error codes.
     """
-    code = ""
-    if isinstance(payload, Mapping):
-        error = payload.get("error")
-        if isinstance(error, Mapping):
-            code = str(error.get("code") or "").strip()
+    del payload  # Payload codes/messages are untrusted; do not echo them.
     if unavailable or status == 503:
-        return AIError("Local AI runtime is unavailable.")
-    if status == 502:
-        return AIError("Local AI returned an invalid or incomplete result.")
-    if status == 401:
-        return AIError("Local AI authorization failed.")
-    if status == 403:
-        return AIError("Local AI request was rejected by the loopback security policy.")
-    if status == 413:
-        return AIError("Local AI request payload is too large.")
-    if status == 415:
-        return AIError("Local AI request media type must be application/json.")
-    if status == 422:
-        return AIError("Local AI request failed validation.")
-    if status == 400:
-        return AIError("Local AI rejected a malformed request.")
-    if status == 404:
-        return AIError("Local AI endpoint was not found.")
-    label = code or f"http_{status}"
-    return AIError(f"Local AI request failed ({label}).")
+        return AIError(_KNOWN_HTTP_STATUS_MESSAGES[503])
+    message = _KNOWN_HTTP_STATUS_MESSAGES.get(int(status))
+    if message is None:
+        return AIError("Local AI request failed.")
+    return AIError(message)
 
 
 def recommended_local_timeout_sec(configured: float | None = None) -> float:

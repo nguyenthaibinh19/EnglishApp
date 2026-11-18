@@ -1,10 +1,10 @@
 # C-APP-AI-001 — App consumer conformance (test-only)
 
-Status: **READY FOR CONTRACT ACCEPTANCE REVIEW** — not ACCEPTED, not implemented.
+Status: **FINAL CONFORMANCE CORRECTION READY FOR PR REVIEW** — contract **C-APP-AI-001 v0.2.0 ACCEPTED**; App consumer helpers remain test-only.
 Branch: `app/c-app-ai-001-consumer-conformance`. Phase 18B.9 remains the active App roadmap priority.
 No `LocalAIProvider`, no production routing change, no merge/deploy authorized by this note.
 
-Contract version under review: `0.2.0-draft`. Wire owner: private `langstudyguard-ai` proposal (not copied here). App owns consumer validators.
+Contract version: `0.2.0` ACCEPTED. Wire owner: private `langstudyguard-ai` proposal (not copied here). App owns consumer validators.
 
 ## Four-capability matrix
 
@@ -47,8 +47,9 @@ Observed cold grade ≈ **18.83s**. Recommended future `LOCAL_AI_INFERENCE_TIMEO
 | 422 | request failed validation |
 | 400 | malformed request |
 | 404 | endpoint not found |
+| unknown / malicious code | generic `Local AI request failed.` (never echo status/code/body) |
 
-Messages stay sanitized; no tokens, Host, Origin, or raw bodies.
+Messages stay sanitized; no tokens, Host, Origin, raw bodies, or untrusted error codes.
 
 ## Recommended minimal AI-M4 implementation boundary
 

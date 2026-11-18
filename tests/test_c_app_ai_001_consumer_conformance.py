@@ -122,11 +122,57 @@ def test_listening_ungrounded_answer_rejected():
 
 @pytest.mark.parametrize(
     "score",
-    [1.5, -0.1, float("nan"), float("inf"), "not-a-number", None],
+    [1.5, -0.1, float("nan"), float("inf"), "not-a-number", None, True, False],
 )
 def test_grade_invalid_scores_rejected_by_consumer_validator(score):
     payload = dict(load_fixture("grade_ok.json"))
     payload["score"] = score
+    with pytest.raises(AIError):
+        validate_grade_wire_payload(payload)
+
+
+@pytest.mark.parametrize(
+    "usage",
+    ["false", "true", "False", 0, 1, None, [], {}],
+)
+def test_grade_non_boolean_is_correct_usage_rejected(usage):
+    payload = dict(load_fixture("grade_ok.json"))
+    payload["is_correct_usage"] = usage
+    with pytest.raises(AIError, match="boolean"):
+        validate_grade_wire_payload(payload)
+
+
+@pytest.mark.parametrize(
+    "missing",
+    [
+        "is_correct_usage",
+        "score",
+        "feedback_vi",
+        "corrected_sentence",
+        "suggested_sentence",
+    ],
+)
+def test_grade_missing_required_fields_rejected(missing):
+    payload = dict(load_fixture("grade_ok.json"))
+    del payload[missing]
+    with pytest.raises(AIError, match="missing field"):
+        validate_grade_wire_payload(payload)
+
+
+@pytest.mark.parametrize(
+    "field,value",
+    [
+        ("feedback_vi", ""),
+        ("feedback_vi", "   "),
+        ("feedback_vi", 123),
+        ("corrected_sentence", None),
+        ("corrected_sentence", True),
+        ("suggested_sentence", ["not", "text"]),
+    ],
+)
+def test_grade_invalid_required_text_fields_rejected(field, value):
+    payload = dict(load_fixture("grade_ok.json"))
+    payload[field] = value
     with pytest.raises(AIError):
         validate_grade_wire_payload(payload)
 
@@ -209,6 +255,31 @@ def test_security_and_validation_http_statuses_map_to_aierror(status, needle):
     err = map_local_ai_http_error(status, {"error": {"code": "x", "status": status}})
     assert isinstance(err, AIError)
     assert needle in str(err).lower()
+    assert "x" not in str(err)
+
+
+@pytest.mark.parametrize(
+    "status,code",
+    [
+        (418, "i_am_a_teapot"),
+        (500, "<script>alert(1)</script>"),
+        (599, "Bearer sk-live-secret"),
+        (777, "origin=evil.example; host=attacker"),
+    ],
+)
+def test_unknown_or_malicious_error_codes_are_not_echoed(status, code):
+    err = map_local_ai_http_error(
+        status,
+        {"error": {"code": code, "message": code, "status": status}},
+    )
+    text = str(err)
+    assert isinstance(err, AIError)
+    assert text == "Local AI request failed."
+    assert code not in text
+    assert "script" not in text.lower()
+    assert "bearer" not in text.lower()
+    assert "evil.example" not in text
+    assert str(status) not in text
 
 
 # ---------------------------------------------------------------------------
