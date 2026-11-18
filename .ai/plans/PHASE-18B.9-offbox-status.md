@@ -48,7 +48,7 @@ Phase 18B.9C1 is **DESIGN ACCEPTED, 2026-11-10**. The standalone age `.age` arti
 | 18B.9D5A2D5 | [PHASE-18B.9D5A2D5-revised-isolation-evidence.md](PHASE-18B.9D5A2D5-revised-isolation-evidence.md) | **CLOSED — Leader Accepted:** revised WSL isolation safety gate. Historical D2/D3 FAIL preserved. Not production | Composite A/B/C/D/E1/E2/F/G/H |
 | 18B.9D5A2D6 | [PHASE-18B.9D5A2D6-source-integration-readiness.md](PHASE-18B.9D5A2D6-source-integration-readiness.md) | **CLOSED — Leader Accepted:** READY_FOR_SOURCE_INTEGRATION_REVIEW. **Not** merge approval. Import unmerged | 17-file allowlist frozen |
 | 18B.9D5A2D7 | [PHASE-18B.9D5A2D7-source-integration-candidate.md](PHASE-18B.9D5A2D7-source-integration-candidate.md) | **SOURCE MERGED — NOT DEPLOYED** (PR #12 / `c03a0f5`) | 23 files on main; no VPS/units/Drive/Cloud Sync |
-| 18B.9 accelerated readiness | [PHASE-18B.9-accelerated-readiness.md](PHASE-18B.9-accelerated-readiness.md) | Source packaging/units/templates on feature branch | Not merged/deployed; frozen modules unchanged; D2/D3 FAIL preserved |
+| 18B.9 accelerated readiness | [PHASE-18B.9-accelerated-readiness.md](PHASE-18B.9-accelerated-readiness.md) | **SOURCE MERGED — NOT DEPLOYED** (PR #13 / d6643e0) | Packaging/units on main; not installed/enabled; D2/D3 FAIL preserved |
 
 Earlier local labs C2B, C2C, C2D, D3, D3A, and D3B informed the adapter. They are not re-opened by this map. The one C2D synthetic upload does not validate the D5A2C adapter. Their OAuth files were not read for this record.
 

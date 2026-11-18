@@ -1,6 +1,6 @@
 # Phase 18B.9 — Accelerated source-side readiness package
 
-Status: **SOURCE MERGE AUTHORIZED AFTER PINNED-VERIFY FIX (PR #13).**
+Status: **SOURCE MERGED — NOT DEPLOYED** (PR #13 / d6643e0).
 Not deployed. Not production-ready. No VPS/SSH, unit enablement, Drive, or Cloud Sync.
 
 Baseline at branch open: `3d8a2727baf0bf901b7a74db6ddd90369126ea17`.
