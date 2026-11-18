@@ -3,9 +3,10 @@
 Status:
 
 - **D5A2D7-R2 CLOSED — LEADER ACCEPTED**
-- **D5A2D7-P1 CLOSED — LEADER ACCEPTED** (source committed and pushed to review branch only)
+- **D5A2D7-P1 CLOSED — LEADER ACCEPTED**
+- **D5A2D7 SOURCE MERGED — NOT DEPLOYED** (PR #12 → merge `c03a0f5`)
 
-Not a merge. Not production. **PR NOT CREATED. NOT MERGED. NOT DEPLOYED.**
+Source is on `main`. **Not production.** No VPS install, units, Drive, or Cloud Sync authorized by this merge.
 
 ## P1 source commit
 
