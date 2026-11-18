@@ -110,6 +110,23 @@ cp "${SRC}/deploy/hetzner/health_notify_service.py" "${APP_DIR}/deploy/hetzner/h
 cp "${SRC}/deploy/hetzner/language-guard-health-notify.socket" "${APP_DIR}/deploy/hetzner/language-guard-health-notify.socket"
 cp "${SRC}/deploy/hetzner/language-guard-health-notify@.service" "${APP_DIR}/deploy/hetzner/language-guard-health-notify@.service"
 cp "${SRC}/deploy/hetzner/language-guard-notify.sysusers" "${APP_DIR}/deploy/hetzner/language-guard-notify.sysusers"
+# Off-box packaging stays in the app tree only when explicitly opted in.
+# LG_INSTALL_OFFBOX=1 verifies against the pinned D5A2D0-P1 inventory, then
+# installs frozen modules + inactive unit templates through the packaging
+# helper. Verification is mandatory before any offbox file is written.
+# This block never copies units into /etc/systemd/system and never enables
+# or starts off-box sockets, workers, or timers.
+# setup.sh remains a full server provisioning script; LG_INSTALL_OFFBOX is
+# not a harmless packaging-only mode for a live VPS.
+if [[ "${LG_INSTALL_OFFBOX:-0}" == "1" ]]; then
+  if ! command -v python3 >/dev/null 2>&1; then
+    echo "python3 required for LG_INSTALL_OFFBOX verification"
+    exit 1
+  fi
+  python3 "${SRC}/deploy/hetzner/install_offbox_packaging.py" install-app-tree --dest "${APP_DIR}"
+  # Ownership for copied offbox tree is applied with the later chown of APP_DIR.
+  # Units remain outside /etc/systemd/system until a separate authorized session.
+fi
 cp "${SRC}/deploy/hetzner/language-guard.service" /etc/systemd/system/language-guard.service
 cp "${SRC}/deploy/hetzner/language-guard-backup.service" /etc/systemd/system/language-guard-backup.service
 cp "${SRC}/deploy/hetzner/language-guard-backup.timer" /etc/systemd/system/language-guard-backup.timer
@@ -139,6 +156,13 @@ fi
 # notifier runtime and must stay non-writable by guard. This script does
 # not create it and does not install the notifier units.
 chown -R "${APP_USER}:${APP_USER}" "${APP_DIR}" /var/backups/language-guard
+# Offbox modules are root-owned and not writable by guard when opted in.
+# Units remain only under deploy/hetzner/ in the app tree (not enabled).
+if [[ "${LG_INSTALL_OFFBOX:-0}" == "1" && -d "${APP_DIR}/offbox" ]]; then
+  chown -R root:root "${APP_DIR}/offbox"
+  find "${APP_DIR}/offbox" -type f -exec chmod 0644 {} \;
+  chmod 0755 "${APP_DIR}/offbox"
+fi
 
 sed "s/TEN_MIEN/${DOMAIN}/g" "${SRC}/deploy/hetzner/Caddyfile" > /etc/caddy/Caddyfile
 
