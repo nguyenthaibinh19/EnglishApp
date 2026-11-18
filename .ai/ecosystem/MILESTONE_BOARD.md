@@ -17,7 +17,7 @@ Preserve ACCEPTED ≠ COMMITTED ≠ MERGED ≠ DEPLOYED.
 | D5A2D5 revised isolation evidence | **CLOSED — Leader Accepted** | Revised WSL isolation safety gate A/B/C/D/E1/E2/F/G/H; historical D2/D3 FAIL preserved; not production |
 | D5A2D6 source integration readiness | **CLOSED — Leader Accepted** | READY_FOR_SOURCE_INTEGRATION_REVIEW; **not** merge approval; import unmerged; tests required before acceptance |
 | D5A2D7 source integration candidate | **SOURCE MERGED — NOT DEPLOYED** | PR #12 → `c03a0f5`; 23 files on main; production still NOT READY |
-| 18B.9 accelerated readiness package | **PR OPEN / source-only** | Branch `phase18b9/accelerated-readiness`; packaging + inactive units + runbooks; not deployed |
+| 18B.9 accelerated readiness package | **SOURCE MERGED — NOT DEPLOYED** | PR #13 → d6643e0; pinned verify-before-copy; not installed/enabled |
 | GOV-0A governance planning | **Leader Accepted with corrections** | Planning milestone |
 | GOV-0B1 ecosystem docs | **CLOSED — Leader Accepted** | Hosted under `.ai/ecosystem/` |
 | GOV-0C | **NOT AUTHORIZED** | Not started automatically |
