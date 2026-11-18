@@ -1,27 +1,31 @@
 # GOV-0E-A1 — Agent Project automation pilot
 
-Status: **DESIGN + LOCAL CANDIDATE PREPARED — AWAITING LEADER REVIEW**  
-Not activated. No live Project mutations. No token created. No merge.
+Status: **GOV-0E-A1 SOURCE MERGED — LIVE AUTOMATION NOT ACTIVATED**
+
+Merged via PR #10. Workflow is on `main` but **not operationally accepted**. No `LSG_PROJECT_TOKEN`, no `lsg:*` labels created by this milestone, no live Project mutations, no smoke tests.
+
+Known pilot risks retained: non-CAS Project field race with manual approval; built-in Item-added→Backlog race with first Status write.
 
 ## Baselines
 
 | Ref | Value |
 |---|---|
-| Docs / candidate base | `60f6a9a9a2c2c4142d3bb38587cf9a6aa5d5d798` (`origin/main`) |
+| Pre-merge main | `76b8cf64f53bc602d80c4adc93213805e7040209` |
+| Review head (R3) | `e9f5ad29a376106a9b920e289d97b5af47e03b03` |
+| Merge commit / current main | `9c36a4f50a62fab533488fb3eee261bfea3f6616` |
+| PR | https://github.com/nguyenthaibinh19/EnglishApp/pull/10 |
 | Project | Private `LangstudyGuard` — https://github.com/users/nguyenthaibinh19/projects/1 |
 | Owner / number | `nguyenthaibinh19` / `1` |
 | GOV-0E | **CLOSED — Leader Accepted** (setup/docs only) |
 | Pilot repo | EnglishApp only |
 
-## Candidate location
+## Merge location
 
 | Field | Value |
 |---|---|
-| Worktree | `D:\EnglishApp-worktrees\gov0e-a1-project-automation` |
-| Branch | `gov0e/a1-project-automation` |
-| State | Uncommitted workflow + script + offline tests only |
-| Production App code | Untouched |
-| Deployment scripts | Untouched |
+| Review branch (preserved) | `gov0e/a1-project-automation` @ `e9f5ad2` |
+| Merged files | workflow + `tools/lsg_project_sync/*` + `tests/test_lsg_project_sync.py` |
+| Activation | **NOT AUTHORIZED** — no token/labels/smoke |
 
 ## 1. Proposed architecture
 

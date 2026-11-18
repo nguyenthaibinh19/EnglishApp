@@ -4,24 +4,25 @@ Rolling coordination checkpoint. It does not replace [current_state.md](../curre
 
 ## 1. Checkpoint metadata
 
-- Written: 2026-11-18T13:25:00Z.
-- Observed docs `origin/main` before this checkpoint: `60f6a9a9a2c2c4142d3bb38587cf9a6aa5d5d798`.
-- Docs-only on main for the plan. Automation candidate remains uncommitted on its branch.
+- Written: 2026-11-18T14:10:00Z.
+- Observed `origin/main` after P3 merge: `9c36a4f50a62fab533488fb3eee261bfea3f6616`.
 
 ## 2. Last Leader / work status
 
 - **GOV-0E CLOSED — LEADER ACCEPTED.**
-- **GOV-0E-A1:** design + local candidate prepared — [GOV-0E-A1-agent-project-automation.md](../plans/GOV-0E-A1-agent-project-automation.md).
-- Candidate worktree: `D:\EnglishApp-worktrees\gov0e-a1-project-automation` on `gov0e/a1-project-automation` @ base `60f6a9a` (uncommitted workflow/script/tests).
-- Offline tests: **14 passed**, exit 0. **No live Project mutations.**
-- D5A2D7-P1 remains CLOSED — Leader Accepted on review branch `e2160e7` only (PR NOT CREATED / NOT MERGED / NOT DEPLOYED).
+- **GOV-0E-A1 SOURCE MERGED — LIVE AUTOMATION NOT ACTIVATED** — PR #10 merge `9c36a4f` — [GOV-0E-A1-agent-project-automation.md](../plans/GOV-0E-A1-agent-project-automation.md).
+- R3 head `e9f5ad2` preserved on `gov0e/a1-project-automation`.
+- Offline tests at merge: **38 passed**. No `LSG_PROJECT_TOKEN` listed. No intentional workflow trigger / Project mutation.
+- D5A2D7 remains on review branch `e2160e7` only — **NOT MERGED**.
 
 Gates unchanged: Phase 18B.9 OPEN; production NOT READY; Drive NOT CONFIGURED; Cloud Sync OFF; D2/D3 FAIL preserved.
 
+Known pilot risks: manual approval race (non-CAS); Item-added→Backlog race.
+
 ## 3. Pending review
 
-Leader review of GOV-0E-A1 design. Separate brief required before token setup, workflow merge, or live smoke tests.
+Leader review of P3 merge. Separate brief required before token, labels, activation, or live smoke.
 
 ## 4. Authorization / STOP
 
-STOP for ChatGPT Leader review. No Project mutation, secret creation, issue label changes, PR, merge, or production action.
+STOP for ChatGPT Leader review. No token/labels/Project mutation/smoke/activation in this milestone.

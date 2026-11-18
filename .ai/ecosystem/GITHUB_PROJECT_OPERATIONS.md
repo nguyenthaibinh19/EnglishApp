@@ -4,6 +4,8 @@ Status: **GOV-0E CLOSED — LEADER ACCEPTED**
 
 Closure covers Project setup and documentation registration only. It does **not** authorize new cross-repository integrations, merges, or deployments.
 
+**GOV-0E-A1:** EnglishApp label→Status sync **SOURCE MERGED** (PR #10 / `9c36a4f`) — **LIVE AUTOMATION NOT ACTIVATED**. No Owner token/labels/smoke by that merge. Known risks: non-CAS Status race; Item-added→Backlog race. See [GOV-0E-A1-agent-project-automation.md](../plans/GOV-0E-A1-agent-project-automation.md).
+
 ## 1. Purpose and scope
 
 The private GitHub Project **LangstudyGuard** is the shared coordination board for App, Web, AI, Integration, and Governance workstreams.
