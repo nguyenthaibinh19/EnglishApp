@@ -1,0 +1,46 @@
+# GOV-0E-A1 pilot — EnglishApp issue labels → LangstudyGuard Project Status.
+# Activation requires Owner secret LSG_PROJECT_TOKEN and Leader acceptance.
+# Does not set Done or Approval Gate. Never uses pull_request_target.
+#
+# Concurrency: one in-flight sync per repository+issue. cancel-in-progress=false
+# so a multi-step add+status update is not aborted mid-mutation. Pending runs
+# still re-read live issue labels before mutating (stale-event convergence).
+
+name: lsg-project-sync
+
+on:
+  issues:
+    types: [labeled, unlabeled]
+
+permissions:
+  contents: read
+  issues: read
+
+concurrency:
+  group: lsg-project-sync-${{ github.repository }}-issue-${{ github.event.issue.number }}
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    if: >
+      github.event.label != null &&
+      startsWith(github.event.label.name, 'lsg:')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Sync Project item
+        env:
+          LSG_PROJECT_TOKEN: ${{ secrets.LSG_PROJECT_TOKEN }}
+          GITHUB_TOKEN: ${{ github.token }}
+          LSG_PROJECT_OWNER: nguyenthaibinh19
+          LSG_PROJECT_NUMBER: "1"
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_EVENT_PATH: ${{ github.event_path }}
+        run: python tools/lsg_project_sync/sync_project_item.py
