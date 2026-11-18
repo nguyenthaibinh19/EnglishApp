@@ -82,11 +82,11 @@ Each entry uses:
 | contract_id | C-APP-AI-001 |
 | owner_repository | **AI** (`langstudyguard-ai`) — canonical wire/API specification and server schema; **App** (`EnglishApp`) owns the separate `AIProvider` domain interface and consumer mappings |
 | canonical_document_path | Private `langstudyguard-ai/.ai/proposals/C-APP-AI-001-PROPOSAL.md` — **single wire-contract source of truth**, not copied into public App docs |
-| version | `0.2.0-draft` (technical design reviewed; no accepted release version yet) |
-| status | proposed — owner ratified; actual App consumer conformance pending |
+| version | `0.2.0` (System Architect accepted wire contract 2026-11-18) |
+| status | active — accepted **wire specification only**; App integration **not implemented** |
 | consumer_repositories | App (consumer); AI (producer) |
 | compatibility_policy | Account-server remains the default App route; no hidden cloud fallback in explicit local mode; App validates all responses; breaking wire changes need Architect review and Product Owner approval |
-| last_accepted_decision | **2026-11-18 Product Owner ratified canonical ownership** as a GOV-0C scope-limited decision; this is **not** formal contract acceptance or permission for `LocalAIProvider` integration |
+| last_accepted_decision | **2026-11-18:** Product Owner ratified AI wire/App domain ownership; System Architect accepted wire contract v0.2.0 after App-side synthetic conformance review (`57ad1bd`); **no** `LocalAIProvider` implementation, integration, deployment or production acceptance authorized |
 | change_approval_required | Yes |
 
 ### C-WEB-APP-001 — Web ↔ App backend
