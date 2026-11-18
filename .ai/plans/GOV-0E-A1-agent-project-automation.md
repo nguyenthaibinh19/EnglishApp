@@ -1,8 +1,8 @@
 # GOV-0E-A1 — Agent Project automation pilot
 
-Status: **GOV-0E-A1 SOURCE MERGED — LIVE AUTOMATION NOT ACTIVATED**
+Status: **SOURCE MERGED**; live validation completed under **GOV-0E-A2 CLOSED — Leader Accepted**.
 
-Merged via PR #10. Workflow is on `main` but **not operationally accepted**. No `LSG_PROJECT_TOKEN`, no `lsg:*` labels created by this milestone, no live Project mutations, no smoke tests.
+Merged via PR #10. Owner configured labels + `LSG_PROJECT_TOKEN`; S1/S2 smoke on #11 accepted. Ordinary milestone label→Status use is authorized. Done still requires explicit approval. See [GOV-0E-A2-live-smoke.md](GOV-0E-A2-live-smoke.md).
 
 Known pilot risks retained: non-CAS Project field race with manual approval; built-in Item-added→Backlog race with first Status write.
 

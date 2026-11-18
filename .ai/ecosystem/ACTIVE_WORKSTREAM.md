@@ -2,7 +2,7 @@
 
 **Effective:** 2026-11-18 (GOV-0E CLOSED — Leader Accepted).  
 **Product Owner final authority:** yes.  
-**Next governance phases:** GOV-0C **NOT AUTHORIZED**. GOV-0E **CLOSED — Leader Accepted** (Project setup/docs only; see [GITHUB_PROJECT_OPERATIONS.md](GITHUB_PROJECT_OPERATIONS.md)). Do not create another Project; do not mutate Project unless separately authorized.
+**Next governance phases:** GOV-0C **NOT AUTHORIZED**. GOV-0E **CLOSED**; GOV-0E-A2 **CLOSED — Leader Accepted** (live smoke). Ordinary Project label tracking in use; see [GITHUB_PROJECT_OPERATIONS.md](GITHUB_PROJECT_OPERATIONS.md).
 
 ## Current assignment
 

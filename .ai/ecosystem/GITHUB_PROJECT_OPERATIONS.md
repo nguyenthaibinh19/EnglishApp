@@ -151,12 +151,22 @@ Product Owner confirmed **EnglishApp #9** (`GOV: GOV-0E Project Governance Setup
 
 ## 10. How future sessions should use the Project
 
+**GOV-0E-A2 CLOSED — Leader Accepted** (live S1/S2 on EnglishApp #11). Ordinary milestone tracking may use the Project without new governance review cycles unless a concrete new risk appears. Retained limits: non-CAS Status race; Item-added→Backlog race; automation never sets Done/Approval Gate.
+
+Ordinary App flow:
+
+1. Create an Issue when starting an authorized milestone.
+2. Add it to LangstudyGuard (or apply `lsg:tracked`).
+3. Use `lsg:doing` / `lsg:review` / `lsg:blocked` for automated Status.
+4. Report completion as **In Review**.
+5. Set **Done** and close the Issue only after explicit valid approval.
+
+Also:
+
 1. Read [ACTIVE_WORKSTREAM.md](ACTIVE_WORKSTREAM.md) and this file before coordinating cross-repo work.
 2. Prefer repository docs + Git history as source of truth for acceptance and SHAs.
-3. Use Project views filtered by Workstream for board hygiene.
-4. Do **not** create a second GitHub Project.
-5. Do **not** start GOV-0C, LocalAIProvider work, merges, or production actions from Project presence alone.
-6. ChatGPT / Cursor / Antigravity sessions: update Project cards only when a brief authorizes Project mutation; otherwise document in `.ai/` and leave Project edits to the Owner or an authorized follow-up.
+3. Do **not** create a second GitHub Project.
+4. Do **not** start GOV-0C, LocalAIProvider work, merges, or production actions from Project presence alone.
 
 ## Related App state (not authorized by GOV-0E)
 
