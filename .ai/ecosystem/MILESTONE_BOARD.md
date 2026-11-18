@@ -21,6 +21,7 @@ Preserve ACCEPTED ≠ COMMITTED ≠ MERGED ≠ DEPLOYED.
 | GOV-0B1 ecosystem docs | **CLOSED — Leader Accepted** | Hosted under `.ai/ecosystem/` |
 | GOV-0C | **NOT AUTHORIZED** | Not started automatically |
 | GOV-0E GitHub Project Setup | **CLOSED — Leader Accepted** | Private Project `LangstudyGuard`; ops: [GITHUB_PROJECT_OPERATIONS.md](GITHUB_PROJECT_OPERATIONS.md); setup/docs only — no integration/merge/deploy auth |
+| GOV-0E-A1 Project automation pilot | **DESIGN PREPARED — awaiting Leader review** | EnglishApp label→Status sync candidate; not activated; [GOV-0E-A1-agent-project-automation.md](../plans/GOV-0E-A1-agent-project-automation.md) |
 
 ## Non-active — Web
 

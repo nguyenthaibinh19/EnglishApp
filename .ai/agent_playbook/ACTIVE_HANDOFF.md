@@ -4,25 +4,24 @@ Rolling coordination checkpoint. It does not replace [current_state.md](../curre
 
 ## 1. Checkpoint metadata
 
-- Written: 2026-11-18T13:10:00Z.
-- Observed docs `origin/main` before this checkpoint: `e6431905322c30dccf30bf8d034d472a5723bd90`.
-- Docs-only on main. Source remains on the review branch only.
+- Written: 2026-11-18T13:25:00Z.
+- Observed docs `origin/main` before this checkpoint: `60f6a9a9a2c2c4142d3bb38587cf9a6aa5d5d798`.
+- Docs-only on main for the plan. Automation candidate remains uncommitted on its branch.
 
 ## 2. Last Leader / work status
 
-- **GOV-0E CLOSED — LEADER ACCEPTED** — Project setup and documentation registration only — [GITHUB_PROJECT_OPERATIONS.md](../ecosystem/GITHUB_PROJECT_OPERATIONS.md).
-- Project: private `LangstudyGuard` — https://github.com/users/nguyenthaibinh19/projects/1
-- EnglishApp #9 Workstream confirmed **`Governance`** (Owner screenshot).
-- **D5A2D7-R2 / D5A2D7-P1 CLOSED — LEADER ACCEPTED** — `e2160e77c4849606cad5e614dedfd2f79d8088dc` on `phase18b9/d5a2d7-source-candidate`.
-- **PR NOT CREATED. NOT MERGED. NOT DEPLOYED.**
-- AI public-safe: AI-M2 implementation committed @ `5cd4dd26a01779322a9d1f638ef20bc9131fda31`; architectural acceptance pending; `C-APP-AI-001` PROPOSED / IN REVIEW; App LocalAIProvider **NOT AUTHORIZED**.
+- **GOV-0E CLOSED — LEADER ACCEPTED.**
+- **GOV-0E-A1:** design + local candidate prepared — [GOV-0E-A1-agent-project-automation.md](../plans/GOV-0E-A1-agent-project-automation.md).
+- Candidate worktree: `D:\EnglishApp-worktrees\gov0e-a1-project-automation` on `gov0e/a1-project-automation` @ base `60f6a9a` (uncommitted workflow/script/tests).
+- Offline tests: **14 passed**, exit 0. **No live Project mutations.**
+- D5A2D7-P1 remains CLOSED — Leader Accepted on review branch `e2160e7` only (PR NOT CREATED / NOT MERGED / NOT DEPLOYED).
 
 Gates unchanged: Phase 18B.9 OPEN; production NOT READY; Drive NOT CONFIGURED; Cloud Sync OFF; D2/D3 FAIL preserved.
 
 ## 3. Pending review
 
-STOP for Leader review of this closure sync. Do not start GOV-0C or merge D5A2D7 automatically.
+Leader review of GOV-0E-A1 design. Separate brief required before token setup, workflow merge, or live smoke tests.
 
 ## 4. Authorization / STOP
 
-No Project mutation, source edit, PR, merge, or production action in this milestone.
+STOP for ChatGPT Leader review. No Project mutation, secret creation, issue label changes, PR, merge, or production action.
