@@ -24,7 +24,7 @@ Separate **implemented** from **planned**. Do not claim Web, App, and AI are alr
 
 | From | To | Prerequisite |
 |---|---|---|
-| App | Local AI runtime | Accept C-APP-AI-001 (owner TBD in GOV-0C); compatibility tests; Owner approval |
+| App | Local AI runtime | Accept C-APP-AI-001 (wire owner ratified: langstudyguard-ai); actual App consumer conformance tests; explicit Owner integration approval |
 | Web | App API (future account/download flows) | Owner-approved routing topology; C-WEB-APP-001 |
 | Web | Signed release portal | App release contract C-REL-001; verification gates |
 
