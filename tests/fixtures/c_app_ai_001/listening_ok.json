@@ -1,0 +1,8 @@
+{
+  "text": "The train leaves at nine.",
+  "question": "What time does the train leave?",
+  "answer": "at nine",
+  "alternatives": ["nine"],
+  "meaning": "Tau khoi hanh luc chin gio.",
+  "schema_version": 1
+}

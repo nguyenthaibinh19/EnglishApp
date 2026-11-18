@@ -1,0 +1,55 @@
+{
+  "title": "A Short Trip",
+  "level": "A2",
+  "passage": "Anna takes the train to the city. The train leaves at nine. She buys a ticket and finds a quiet seat near the window.",
+  "translation_vi": "Anna di tau vao thanh pho. Tau khoi hanh luc chin gio. Co mua ve va tim mot cho ngoi yen gan cua so.",
+  "glossary": [
+    {"word": "train", "vi": "tau hoa"},
+    {"word": "ticket", "vi": "ve"}
+  ],
+  "question_groups": [
+    {
+      "type": "multiple_choice_single",
+      "instructions": "Choose the best answer.",
+      "questions": [
+        {
+          "number": 1,
+          "prompt": "When does the train leave?",
+          "options": [
+            {"key": "A", "text": "at eight"},
+            {"key": "B", "text": "at nine"},
+            {"key": "C", "text": "at ten"}
+          ],
+          "answer": "B",
+          "explanation_vi": "Bai doc noi tau khoi hanh luc chin gio."
+        }
+      ]
+    },
+    {
+      "type": "true_false_notgiven",
+      "instructions": "TRUE / FALSE / NOT GIVEN",
+      "questions": [
+        {
+          "number": 2,
+          "prompt": "Anna buys a ticket.",
+          "answer": "TRUE",
+          "explanation_vi": "Bai doc ghi ro co mua ve."
+        }
+      ]
+    },
+    {
+      "type": "vocab_matching",
+      "instructions": "Match the word to the meaning.",
+      "options": [
+        {"code": "A", "text": "tau hoa"},
+        {"code": "B", "text": "ve"}
+      ],
+      "prompts": [
+        {"number": 3, "text": "train"},
+        {"number": 4, "text": "ticket"}
+      ],
+      "answers": ["A", "B"]
+    }
+  ],
+  "source": "local-ai-fixture"
+}
