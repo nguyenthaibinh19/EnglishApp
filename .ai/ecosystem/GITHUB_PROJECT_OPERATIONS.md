@@ -1,7 +1,8 @@
 # GitHub Project operations — LangstudyGuard
 
-Status: **GOV-0E — PROJECT CONFIGURED — DOCUMENTATION REGISTRATION IN PROGRESS**  
-Not CLOSED. Awaiting ChatGPT Leader acceptance of this registration.
+Status: **GOV-0E CLOSED — LEADER ACCEPTED**
+
+Closure covers Project setup and documentation registration only. It does **not** authorize new cross-repository integrations, merges, or deployments.
 
 ## 1. Purpose and scope
 
@@ -142,15 +143,9 @@ Owner-added tracking items (titles and numbers only; not acceptance proof):
 
 These items are **tracking only**. They do not prove the corresponding milestones are accepted.
 
-### Known configuration gap (manual Owner action)
+### Issue field confirmation
 
-An earlier Owner screenshot showed **EnglishApp #9 (GOV-0E)** assigned to Workstream **`App`**. Correct Workstream for GOV-0E is **`Governance`**.
-
-This registration does **not** mutate the Project. Until Owner confirms the field is corrected, treat as:
-
-**REMAINING MANUAL SETUP:** set EnglishApp #9 Workstream → `Governance`.
-
-Do not claim every issue field is completed unless independently verified.
+Product Owner confirmed **EnglishApp #9** (`GOV: GOV-0E Project Governance Setup`) has **Workstream = `Governance`**. No Project mutation by agents.
 
 ## 10. How future sessions should use the Project
 

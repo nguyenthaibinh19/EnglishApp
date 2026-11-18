@@ -20,7 +20,7 @@ Preserve ACCEPTED ≠ COMMITTED ≠ MERGED ≠ DEPLOYED.
 | GOV-0A governance planning | **Leader Accepted with corrections** | Planning milestone |
 | GOV-0B1 ecosystem docs | **CLOSED — Leader Accepted** | Hosted under `.ai/ecosystem/` |
 | GOV-0C | **NOT AUTHORIZED** | Not started automatically |
-| GOV-0E GitHub Project Setup | **PROJECT CONFIGURED — DOCUMENTATION REGISTRATION IN PROGRESS** | Private Project `LangstudyGuard`; ops: [GITHUB_PROJECT_OPERATIONS.md](GITHUB_PROJECT_OPERATIONS.md); not CLOSED |
+| GOV-0E GitHub Project Setup | **CLOSED — Leader Accepted** | Private Project `LangstudyGuard`; ops: [GITHUB_PROJECT_OPERATIONS.md](GITHUB_PROJECT_OPERATIONS.md); setup/docs only — no integration/merge/deploy auth |
 
 ## Non-active — Web
 
@@ -39,8 +39,10 @@ ChatGPT receives Web **milestone summaries** only, unless shared contracts/secur
 | Create `langstudyguard-ai` | **DONE** — private repo exists |
 | AI-M0 bootstrap | System Architect Accepted; Owner closure may be separate / not yet recorded here |
 | Workspace migration | Verified and documented in AI repo (private detail stays there) |
-| App↔AI runtime contract `C-APP-AI-001` | **PROPOSED** — owner TBD (GOV-0C); not accepted |
-| Model inference / training / App integration | **Not accepted** |
+| AI-M2 Local AI Service | **Implementation committed** @ `5cd4dd26a01779322a9d1f638ef20bc9131fda31`; **architectural acceptance pending** |
+| App↔AI runtime contract `C-APP-AI-001` | **PROPOSED / IN REVIEW** — not ACCEPTED |
+| App LocalAIProvider / App integration | **NOT AUTHORIZED** |
+| Model inference / training as accepted product capability | **Not accepted** |
 
 Day-to-day: Product Owner → Antigravity AI. Milestone reports to ChatGPT only.
 

@@ -1,8 +1,8 @@
 # Active workstream
 
-**Effective:** 2026-11-17 (GOV-0E documentation registration).  
+**Effective:** 2026-11-18 (GOV-0E CLOSED — Leader Accepted).  
 **Product Owner final authority:** yes.  
-**Next governance phases:** GOV-0C **NOT AUTHORIZED**. GOV-0E **PROJECT CONFIGURED — DOCUMENTATION REGISTRATION IN PROGRESS** (see [GITHUB_PROJECT_OPERATIONS.md](GITHUB_PROJECT_OPERATIONS.md)); do not create another Project; do not mutate Project unless separately authorized.
+**Next governance phases:** GOV-0C **NOT AUTHORIZED**. GOV-0E **CLOSED — Leader Accepted** (Project setup/docs only; see [GITHUB_PROJECT_OPERATIONS.md](GITHUB_PROJECT_OPERATIONS.md)). Do not create another Project; do not mutate Project unless separately authorized.
 
 ## Current assignment
 
@@ -35,8 +35,8 @@
 ## Confirmed sibling repositories (existence ≠ integration)
 
 - Web: `nguyenthaibinh19/langstudyguard-web` (private) — exists
-- AI: `nguyenthaibinh19/langstudyguard-ai` (private) — exists; no App↔AI integration accepted
-- `C-APP-AI-001`: **PROPOSED / IN REVIEW** — not ACCEPTED; no LocalAIProvider authorization from GOV-0E
+- AI: `nguyenthaibinh19/langstudyguard-ai` (private) — exists; AI-M2 implementation committed @ `5cd4dd2`; architectural acceptance pending; no App↔AI integration accepted
+- `C-APP-AI-001`: **PROPOSED / IN REVIEW** — not ACCEPTED; App LocalAIProvider **NOT AUTHORIZED**
 
 ## Change control
 

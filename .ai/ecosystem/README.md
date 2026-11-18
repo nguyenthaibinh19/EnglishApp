@@ -4,7 +4,7 @@ Canonical cross-repository governance for LanguageGuard / StudyGuard.
 
 **Location:** `EnglishApp/.ai/ecosystem/` (this directory).  
 **Host repository:** public `nguyenthaibinh19/EnglishApp`.  
-**Status:** GOV-0B1 **CLOSED — Leader Accepted** (2026-11-17). GOV-0E **PROJECT CONFIGURED — DOCUMENTATION REGISTRATION IN PROGRESS** ([GITHUB_PROJECT_OPERATIONS.md](GITHUB_PROJECT_OPERATIONS.md)). GOV-0C is **NOT AUTHORIZED**.
+**Status:** GOV-0B1 **CLOSED — Leader Accepted** (2026-11-17). GOV-0E **CLOSED — Leader Accepted** ([GITHUB_PROJECT_OPERATIONS.md](GITHUB_PROJECT_OPERATIONS.md); Project setup/docs only). GOV-0C is **NOT AUTHORIZED**.
 
 Other repositories should **link** here. Do not maintain independently editable copies of these global documents in Web or AI repos.
 

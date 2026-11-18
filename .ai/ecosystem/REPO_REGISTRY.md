@@ -48,7 +48,7 @@ Website production deployment remains **NOT AUTHORIZED**. GOV-0B2 documentation 
 |---|---|
 | GitHub | `nguyenthaibinh19/langstudyguard-ai` |
 | Visibility | **Private** (confirmed) |
-| Status | **EXISTS** — repository created; bootstrap milestone AI-M0 |
+| Status | **EXISTS** — AI-M0 accepted; AI-M2 implementation committed (acceptance pending) |
 | Local path (this workstation) | `D:\langstudyguard-ai` (canonical). Inactive safety copy on C must not be modified. |
 | Role | Local/runtime AI development, evaluation, datasets, model artifacts (planned) |
 | Local memory | `.ai/` (private; do not copy private content into public App docs) |
@@ -57,19 +57,19 @@ Website production deployment remains **NOT AUTHORIZED**. GOV-0B2 documentation 
 | Reporting to ChatGPT | Milestone-level only (unless shared contract/security escalation) |
 | Access note | Private. Reading EnglishApp does not grant AI access. |
 
-Public-safe remote observations (2026-11-17):
+Public-safe remote observations (2026-11-18):
 
 | Ref | Observed tip |
 |---|---|
-| `origin/main` | `fc021cd4675aedad6cc13d119b44eacb67b7d460` |
+| `origin/main` | `5cd4dd26a01779322a9d1f638ef20bc9131fda31` |
 
-AI-M0: **System Architect Accepted**. Distinguish from a formally recorded Product Owner closure if that Owner closure is not yet recorded in App docs. No model inference, training, or App integration is accepted. `C-APP-AI-001` remains **PROPOSED** (canonical owner TBD during GOV-0C).
+AI-M0: **System Architect Accepted**. AI-M2 Local AI Service **implementation committed** at the tip above; **architectural acceptance pending**. `C-APP-AI-001` remains **PROPOSED / IN REVIEW**. App `LocalAIProvider` integration is **NOT AUTHORIZED**. Do not treat AI commits as App integration acceptance.
 
 ## Shared coordination (not a source repository)
 
 | Item | Status |
 |---|---|
-| Shared GitHub Project `LangstudyGuard` | **EXISTS** (Owner-created, private). GOV-0E = **PROJECT CONFIGURED — DOCUMENTATION REGISTRATION IN PROGRESS**. Ops: [GITHUB_PROJECT_OPERATIONS.md](GITHUB_PROJECT_OPERATIONS.md). Do **not** create another Project. |
+| Shared GitHub Project `LangstudyGuard` | **EXISTS** (Owner-created, private). GOV-0E **CLOSED — Leader Accepted**. Ops: [GITHUB_PROJECT_OPERATIONS.md](GITHUB_PROJECT_OPERATIONS.md). Do **not** create another Project. |
 | GOV-0C | Not automatically authorized |
 
 ## Governance hosting rule
