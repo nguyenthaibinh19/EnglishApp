@@ -17,6 +17,7 @@ import sync_store
 ROOT = Path(__file__).resolve().parents[1]
 SETUP = ROOT / "deploy" / "hetzner" / "setup.sh"
 REQUIRED = (
+    "app_environment.py",
     "sync_http.py",
     "sync_store.py",
     "vocab_identity.py",

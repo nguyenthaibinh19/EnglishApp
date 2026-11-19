@@ -198,6 +198,9 @@ def start_for_session(
     poll_seconds: float = 60.0,
 ) -> AccountSyncEngine:
     """Replace any previous engine (logout / account switch)."""
+    import app_environment
+
+    app_environment.assert_network_writes_allowed(base_url)
     global _active_engine
     with _active_lock:
         if _active_engine is not None:

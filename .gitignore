@@ -7,6 +7,9 @@ progress.json
 build/
 dist/
 bundled_secrets.json
+build_manifest.json
+dist-staging/
+build-staging/
 languages/
 settings.json
 dicts/

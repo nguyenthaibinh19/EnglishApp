@@ -12,7 +12,8 @@ import ui_common
 def run(root: tk.Tk) -> bool:
     """Hỏi ngôn ngữ và tải từ điển. Trả về True khi đã lưu lựa chọn."""
     ui_common.reset_window(root)
-    root.title(config.APP_NAME)
+    identity = config.environment_identity()
+    root.title(identity.display_title("Language Guard"))
     ui_common.apply_theme(root)
     guard = ui_common.ScreenGuard(root, on_close_attempt=lambda: None)
 
@@ -25,6 +26,17 @@ def run(root: tk.Tk) -> bool:
     card.place(relx=0.5, rely=0.5, anchor="center")
 
     ttk.Label(card, text="Chọn ngôn ngữ", style="Title.TLabel").pack(anchor="w")
+    if identity.identity_error:
+        banner, color = "ENVIRONMENT ERROR", ui_common.COLOR_BAD
+    elif identity.runtime_environment == "production":
+        banner, color = "PRODUCTION", ui_common.COLOR_OK
+    elif identity.runtime_environment == "staging":
+        banner, color = "STAGING", ui_common.COLOR_WARN
+    else:
+        banner, color = "DEVELOPMENT", ui_common.COLOR_WARN
+    ttk.Label(card, text=banner, foreground=color, style="Muted.TLabel").pack(
+        anchor="w", pady=(4, 0)
+    )
     ttk.Label(
         card,
         text=(
