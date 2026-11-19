@@ -1,5 +1,5 @@
 {
-  "staging_base": "http://127.0.0.1:50949",
+  "staging_base": "http://127.0.0.1:58130",
   "device_a_words": [],
   "device_b_words": [],
   "device_b_attempts": 0,

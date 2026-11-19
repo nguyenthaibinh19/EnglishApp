@@ -973,8 +973,13 @@ class AccountLocalStore:
     def mark_reading_done(
         self, language_code: str, score: int = None, total: int = None
     ) -> None:
+        """Mark reading complete for this device only (not cross-device synced).
+
+        Uses the UTC calendar day key so signed-in Today() aligns with attempt
+        buckets; the flag itself remains local to this account store / device.
+        """
         language_code = language_code.strip().lower()
-        day_key = date.today().isoformat()
+        day_key = utc_now().date().isoformat()
         with self._lock:
             row = self._conn.execute(
                 "SELECT asked_json, correct_json, wrong_json FROM daily_activity "

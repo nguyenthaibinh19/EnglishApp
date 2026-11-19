@@ -4,6 +4,10 @@ When an account session is active, Vocabulary / Quiz / Progress / Mistake Book
 read and write ``AccountLocalStore``. Guest mode keeps ``languages/{code}/`` files.
 
 Never dual-writes guest files while signed in. Never auto-imports guest data.
+
+Signed-in Today / day streak use UTC calendar days (same as
+``AccountLocalStore.account_day_buckets``). Guest ``Progress`` keeps device-local
+``today_key()`` and is unchanged.
 """
 
 from __future__ import annotations
@@ -16,7 +20,7 @@ from typing import Any, List, Optional
 
 import config
 from attempt_history import AttemptHistory, LearningAttempt
-from progress import Progress, _default_word_stats, today_key
+from progress import Progress, _default_word_stats
 from srs import apply_review_to_stats, parse_utc, to_utc_iso, utc_now
 from text_utils import entry_word, normalize, strip_tags
 from vocab_identity import entry_id, is_vocab_id, new_vocab_id
@@ -29,6 +33,12 @@ from vocabulary_model import (
     normalize_part_of_speech,
     normalize_pronunciation,
 )
+
+
+def account_utc_today_key(when=None) -> str:
+    """UTC calendar day for signed-in Today / in-memory day projection."""
+    stamp = when or utc_now()
+    return stamp.date().isoformat()
 
 
 def is_signed_in() -> bool:
@@ -364,8 +374,10 @@ class AccountProgress:
             stats["wrong"] = int(stats.get("wrong") or 0) + 1
             stats["streak"] = 0
         apply_review_to_stats(stats, mastered=correct, reviewed_at=reviewed_at)
+        # Same UTC day key as account_day_buckets / occurred_at attribution.
         day = self.data["days"].setdefault(
-            today_key(), {"asked": [], "correct": [], "wrong": [], "reading_done": False}
+            account_utc_today_key(reviewed_at),
+            {"asked": [], "correct": [], "wrong": [], "reading_done": False},
         )
         for bucket in ("asked", "correct" if correct else "wrong"):
             if vid not in day[bucket]:
@@ -379,8 +391,10 @@ class AccountProgress:
         self.reload()
 
     def today(self) -> dict:
+        """Signed-in Today uses the UTC calendar day (not device-local today_key)."""
         return self.data["days"].get(
-            today_key(), {"asked": [], "correct": [], "wrong": [], "reading_done": False}
+            account_utc_today_key(),
+            {"asked": [], "correct": [], "wrong": [], "reading_done": False},
         )
 
     def words_studied_today(self) -> list:

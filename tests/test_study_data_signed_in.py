@@ -210,3 +210,36 @@ def test_account_day_buckets_utc_midnight_boundary(tmp_path):
     # Streak anchored on UTC 2026-11-02 with activity that day and previous day.
     assert progress.account_day_streak(today=__import__("datetime").date(2026, 11, 2)) == 2
     store.close()
+
+
+def test_signed_in_today_uses_utc_not_local_calendar(tmp_path, monkeypatch):
+    """In-memory Today/record align with UTC day buckets around local midnight."""
+    from datetime import datetime, timezone
+    from study_data import AccountProgress, account_utc_today_key
+
+    store = AccountLocalStore(13, data_root=str(tmp_path))
+    vid = new_vocab_id()
+    store.upsert_vocabulary(
+        language_code="nl",
+        vocab_id=vid,
+        payload={"id": vid, "word": "ster", "meaning": "star"},
+    )
+    # Fixed "now": just after UTC midnight; a UTC-5 local calendar is still Nov 1.
+    fixed_now = datetime(2026, 11, 2, 0, 30, tzinfo=timezone.utc)
+    monkeypatch.setattr("study_data.utc_now", lambda: fixed_now)
+    monkeypatch.setattr("progress.today_key", lambda: "2026-11-01")
+
+    progress = AccountProgress(store, "nl")
+    assert account_utc_today_key() == "2026-11-02"
+    from progress import today_key as local_today_key
+
+    assert local_today_key() == "2026-11-01"
+
+    progress.record("ster", correct=True, reviewed_at=fixed_now, vocab_id=vid)
+    today = progress.today()
+    assert vid in today["asked"]
+    assert "2026-11-02" in progress.data["days"]
+    assert vid in progress.data["days"]["2026-11-02"]["asked"]
+    # Must not attribute the in-memory projection to the local calendar day.
+    assert vid not in (progress.data["days"].get("2026-11-01") or {}).get("asked", [])
+    store.close()
