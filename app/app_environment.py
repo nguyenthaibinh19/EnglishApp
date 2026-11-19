@@ -569,11 +569,14 @@ def cloud_sync_ui_state(
 ) -> tuple[str, str]:
     """Return (label, detail) for Cloud Sync — never guess 'Synced'."""
     if not signed_in:
-        return "Disabled", "Guest mode — account sync off"
+        return "Guest / Disabled", "Local-only guest data — account sync inactive"
     if feature_flag_known is False:
         return "Unavailable", "Server feature flag could not be verified"
     if not engine_running:
-        return "Disabled", "Sync worker not running"
+        return (
+            "Signed in / Server Sync disabled",
+            "Signed in locally; server sync worker is not running",
+        )
     status = (engine_status or "").strip().lower()
     if status in {"conflict"}:
         return "Conflict", engine_detail or "Action required"

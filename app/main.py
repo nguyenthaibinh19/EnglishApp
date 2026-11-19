@@ -160,6 +160,17 @@ class StudyMasterApp:
         )
         self.listening_check_label.pack(anchor="w", pady=(0, 4))
 
+        from account_panel import AccountPanel
+
+        # Account UX: login/logout/switch without restart. Under --lock, logout is
+        # allowed but must not finish/bypass ScreenGuard (session stays open).
+        self.account_panel = AccountPanel(
+            card,
+            on_session_changed=self._on_account_session_changed,
+            allow_logout=True,
+        )
+        self.account_panel.pack(anchor="w", fill=tk.X, pady=(0, 10))
+
         activities = ttk.LabelFrame(
             card, text=config.ui("Phần cần làm", "Parts to study"), padding=8
         )
@@ -605,33 +616,30 @@ class StudyMasterApp:
 
     def _cloud_sync_state(self) -> tuple[str, str]:
         """Accurate Cloud Sync label — never claim Synced without catch-up proof."""
-        import app_environment
-        from study_data import is_signed_in
+        import account_session
 
-        if not is_signed_in():
-            return app_environment.cloud_sync_ui_state(signed_in=False, engine_running=False)
+        return account_session.describe_cloud_sync()
+
+    def _on_account_session_changed(self):
+        """Rebind StudyMaster data after login/logout/switch. Does not bypass lock."""
+        # Close child study windows that may hold the previous account's stores.
+        for attr in ("vocab_window", "reading_window", "listening_window"):
+            window = getattr(self, attr, None)
+            if window is not None:
+                try:
+                    window.destroy()
+                except Exception:
+                    pass
+                setattr(self, attr, None)
+        bundle = open_study_data()
+        self.store = bundle.vocab
+        self.progress = bundle.progress
+        self._rebuild_sessions()
+        self._refresh_status()
         try:
-            from account_sync_engine import active_engine
-
-            engine = active_engine()
-            if engine is None:
-                return app_environment.cloud_sync_ui_state(
-                    signed_in=True,
-                    engine_running=False,
-                )
-            snap = engine.status()
-            caught_up = bool(snap.vocab_caught_up and snap.progress_caught_up) and not (
-                snap.pending_vocab or snap.pending_progress or snap.conflict or snap.offline
-            )
-            return app_environment.cloud_sync_ui_state(
-                signed_in=True,
-                engine_running=True,
-                engine_status=snap.status,
-                engine_detail=snap.detail,
-                caught_up=caught_up,
-            )
+            self.account_panel.refresh()
         except Exception:
-            return "Unknown", "Could not read sync engine"
+            pass
 
     def _refresh_sync_status(self):
         label = getattr(self, "sync_status_label", None)
@@ -654,6 +662,11 @@ class StudyMasterApp:
         except Exception:
             extra = ""
         label.config(text=f"Cloud Sync: {status}{extra} — {detail}")
+        try:
+            if getattr(self, "account_panel", None) is not None:
+                self.account_panel.refresh()
+        except Exception:
+            pass
         try:
             self.root.after(5000, self._refresh_sync_status)
         except Exception:

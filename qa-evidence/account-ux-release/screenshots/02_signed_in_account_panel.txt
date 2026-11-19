@@ -1,0 +1,3 @@
+status=Đã đăng nhập: devtest (id 1)
+detail=Môi trường development · máy chủ 127.0.0.1
+sync=Cloud Sync: Signed in / Server Sync disabled — Đã đăng nhập nhưng đồng bộ tài khoản trên máy chủ chưa bật hoặc worker chưa chạy. Dữ liệu vẫn lưu local theo tài khoản.

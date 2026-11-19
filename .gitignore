@@ -10,6 +10,8 @@ bundled_secrets.json
 build_manifest.json
 dist-staging/
 build-staging/
+dist-rc/
+build-rc/
 languages/
 settings.json
 dicts/

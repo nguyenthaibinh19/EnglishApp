@@ -44,13 +44,27 @@ class FreeHome:
         # Header
         header = ttk.Frame(shell)
         header.pack(fill=tk.X)
-        ttk.Label(header, text=config.APP_NAME, style="Page.TLabel").pack(side=tk.LEFT)
+        identity = config.environment_identity()
+        ttk.Label(
+            header,
+            text=identity.display_title("Language Guard"),
+            style="Page.TLabel",
+        ).pack(side=tk.LEFT)
         ttk.Button(
             header,
             text=config.ui("Cài đặt học", "Study settings"),
             style="Small.TButton",
             command=self._open_settings,
         ).pack(side=tk.RIGHT)
+
+        from account_panel import AccountPanel
+
+        self.account_panel = AccountPanel(
+            shell,
+            on_session_changed=self._on_account_session_changed,
+            allow_logout=True,
+        )
+        self.account_panel.pack(fill=tk.X, pady=(ui_common.GAP_SECTION, 0))
 
         self.greeting_label = ttk.Label(shell, text="", style="Muted.TLabel")
         self.greeting_label.pack(anchor="w", pady=(ui_common.GAP_SECTION, 4))
@@ -222,6 +236,14 @@ class FreeHome:
             self.empty_hint.config(text="")
 
     # ---------- actions ----------
+
+    def _on_account_session_changed(self):
+        """Rebind dashboard after login/logout/switch — no Guest auto-import."""
+        self.refresh()
+        try:
+            self.account_panel.refresh()
+        except Exception:
+            pass
 
     def _start_study(self):
         self.refresh()  # avoid stale plan before launch
