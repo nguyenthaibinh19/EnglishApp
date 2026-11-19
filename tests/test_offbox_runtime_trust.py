@@ -149,7 +149,7 @@ def test_verify_units_rejects_commented_expected_execstart_with_active_override(
         ),
     )
     worker.write_text(text, encoding="utf-8")
-    with pytest.raises(ValueError, match="ExecStart"):
+    with pytest.raises(ValueError, match="ExecStart|contract mismatch"):
         packager.verify_units(unit_dir)
 
 
@@ -163,7 +163,10 @@ def test_verify_units_rejects_duplicate_execstart(tmp_path: Path) -> None:
         "/opt/language-guard-offbox/offbox/backup_worker.py\n"
     )
     worker.write_text(text, encoding="utf-8")
-    with pytest.raises(ValueError, match="duplicate active|exactly one active ExecStart"):
+    with pytest.raises(
+        ValueError,
+        match="duplicate active|exactly one active ExecStart|contract mismatch",
+    ):
         packager.verify_units(unit_dir)
 
 
@@ -503,6 +506,124 @@ def test_setup_sh_installs_execution_tree_not_app_offbox() -> None:
     assert "--production" in text
     assert 'install-app-tree --dest "${APP_DIR}"' not in text
     assert 'chown -R root:root "${OFFBOX_EXEC_DIR}"' in text
+
+
+def test_unit_contract_ignores_comments_and_blank_lines(tmp_path: Path) -> None:
+    packager = _load_packager()
+    unit_dir = _clone_units(tmp_path)
+    worker = unit_dir / "language-guard-offbox-worker.service"
+    text = worker.read_text(encoding="utf-8")
+    text = text.replace(
+        "[Service]\n",
+        "[Service]\n\n# harmless comment must not invalidate contract\n\n",
+    )
+    worker.write_text(text, encoding="utf-8")
+    packager.verify_units(unit_dir)
+
+
+def test_verify_units_rejects_extra_ld_preload_environment(tmp_path: Path) -> None:
+    packager = _load_packager()
+    unit_dir = _clone_units(tmp_path)
+    worker = unit_dir / "language-guard-offbox-worker.service"
+    text = worker.read_text(encoding="utf-8")
+    text = text.replace(
+        "Environment=PYTHONNOUSERSITE=1\n",
+        "Environment=PYTHONNOUSERSITE=1\nEnvironment=LD_PRELOAD=/tmp/evil.so\n",
+    )
+    worker.write_text(text, encoding="utf-8")
+    with pytest.raises(ValueError, match="contract mismatch"):
+        packager.verify_units(unit_dir)
+
+
+def test_verify_units_rejects_protectsystem_no(tmp_path: Path) -> None:
+    packager = _load_packager()
+    unit_dir = _clone_units(tmp_path)
+    helper = unit_dir / "language-guard-offbox-handoff@.service"
+    text = helper.read_text(encoding="utf-8").replace(
+        "ProtectSystem=strict", "ProtectSystem=no"
+    )
+    helper.write_text(text, encoding="utf-8")
+    with pytest.raises(ValueError, match="contract mismatch"):
+        packager.verify_units(unit_dir)
+
+
+def test_verify_units_rejects_nonewprivileges_no(tmp_path: Path) -> None:
+    packager = _load_packager()
+    unit_dir = _clone_units(tmp_path)
+    worker = unit_dir / "language-guard-offbox-worker.service"
+    text = worker.read_text(encoding="utf-8").replace(
+        "NoNewPrivileges=yes", "NoNewPrivileges=no"
+    )
+    worker.write_text(text, encoding="utf-8")
+    with pytest.raises(ValueError, match="contract mismatch"):
+        packager.verify_units(unit_dir)
+
+
+def test_verify_units_rejects_readwritepaths_root(tmp_path: Path) -> None:
+    packager = _load_packager()
+    unit_dir = _clone_units(tmp_path)
+    worker = unit_dir / "language-guard-offbox-worker.service"
+    text = worker.read_text(encoding="utf-8").replace(
+        "ReadWritePaths=/var/lib/language-guard-backup",
+        "ReadWritePaths=/",
+    )
+    worker.write_text(text, encoding="utf-8")
+    with pytest.raises(ValueError, match="contract mismatch"):
+        packager.verify_units(unit_dir)
+
+
+def test_verify_units_rejects_inaccessiblepaths_removal(tmp_path: Path) -> None:
+    packager = _load_packager()
+    unit_dir = _clone_units(tmp_path)
+    worker = unit_dir / "language-guard-offbox-worker.service"
+    text = worker.read_text(encoding="utf-8")
+    text = "\n".join(
+        line
+        for line in text.splitlines()
+        if not line.startswith("InaccessiblePaths=")
+    ) + "\n"
+    worker.write_text(text, encoding="utf-8")
+    with pytest.raises(ValueError, match="contract mismatch"):
+        packager.verify_units(unit_dir)
+
+
+def test_verify_units_rejects_inaccessiblepaths_modification(tmp_path: Path) -> None:
+    packager = _load_packager()
+    unit_dir = _clone_units(tmp_path)
+    helper = unit_dir / "language-guard-offbox-handoff@.service"
+    text = helper.read_text(encoding="utf-8").replace(
+        "InaccessiblePaths=-/etc/language-guard -/var/lib/language-guard-backup "
+        "-/run/credentials -/opt/language-guard/venv",
+        "InaccessiblePaths=-/tmp",
+    )
+    helper.write_text(text, encoding="utf-8")
+    with pytest.raises(ValueError, match="contract mismatch"):
+        packager.verify_units(unit_dir)
+
+
+def test_install_fails_before_write_on_ld_preload_environment(tmp_path: Path) -> None:
+    packager = _load_packager()
+    fake_root = tmp_path / "hetzner"
+    fake_offbox = fake_root / "offbox"
+    fake_offbox.mkdir(parents=True)
+    for path in (HETZNER / "offbox").iterdir():
+        if path.is_file():
+            (fake_offbox / path.name).write_bytes(path.read_bytes())
+    for name in UNIT_NAMES + ("install_offbox_packaging.py", "offbox_report_lines.py"):
+        (fake_root / name).write_bytes((HETZNER / name).read_bytes())
+    worker = fake_root / "language-guard-offbox-worker.service"
+    worker.write_text(
+        worker.read_text(encoding="utf-8").replace(
+            "Environment=PYTHONNOUSERSITE=1\n",
+            "Environment=PYTHONNOUSERSITE=1\nEnvironment=LD_PRELOAD=/tmp/evil.so\n",
+        ),
+        encoding="utf-8",
+    )
+    dest = tmp_path / "language-guard-offbox"
+    dest.mkdir()
+    with pytest.raises(ValueError, match="contract mismatch"):
+        packager.install_execution_tree(dest, hetzner_dir=fake_root, production=False)
+    assert list(dest.rglob("*")) == []
 
 
 def test_verify_units_rejects_execstartpre_even_with_approved_execstart(

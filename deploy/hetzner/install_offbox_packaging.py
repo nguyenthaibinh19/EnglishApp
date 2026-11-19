@@ -45,6 +45,7 @@ import os
 import re
 import shutil
 import sys
+from collections import Counter
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
@@ -103,156 +104,137 @@ FORBIDDEN_ACTIVE_SUBSTRINGS = (
     "venv/bin/python",
 )
 
-# Directives that must appear exactly once with an exact value in service units.
-HELPER_SINGLETONS = {
-    "User": "guard",
-    "Group": "guard",
-    "WorkingDirectory": OFFBOX_EXEC_MODULES,
-    "ExecStart": HELPER_EXEC_START,
-    "StandardError": "journal",
-    "StandardOutput": "socket",
-    "StandardInput": "socket",
-    "Type": "simple",
+# Exact active systemd contracts (section -> multiset of KEY=VALUE).
+# Comments/blank lines are ignored by the parser; any active extra/changed
+# security-sensitive directive (Environment, ProtectSystem, paths, …) fails.
+HELPER_UNIT_CONTRACT: dict[str, list[tuple[str, str]]] = {
+    "Unit": [
+        ("Description", "Language Guard off-box snapshot helper"),
+    ],
+    "Service": [
+        ("Type", "simple"),
+        ("User", "guard"),
+        ("Group", "guard"),
+        ("UMask", "0077"),
+        ("NoNewPrivileges", "yes"),
+        ("PrivateNetwork", "yes"),
+        ("PrivateTmp", "yes"),
+        ("PrivateDevices", "yes"),
+        ("ProtectSystem", "strict"),
+        ("ProtectHome", "yes"),
+        ("ProtectKernelTunables", "yes"),
+        ("ProtectKernelModules", "yes"),
+        ("ProtectControlGroups", "yes"),
+        ("RestrictNamespaces", "yes"),
+        ("LockPersonality", "yes"),
+        ("RestrictRealtime", "yes"),
+        ("RestrictSUIDSGID", "yes"),
+        ("SystemCallArchitectures", "native"),
+        ("CapabilityBoundingSet", ""),
+        ("AmbientCapabilities", ""),
+        ("RestrictAddressFamilies", "AF_UNIX"),
+        ("WorkingDirectory", OFFBOX_EXEC_MODULES),
+        ("Environment", "PYTHONDONTWRITEBYTECODE=1"),
+        ("Environment", "PYTHONNOUSERSITE=1"),
+        ("Environment", f"LG_SOURCE_DB={APP_ACCOUNTS_DB}"),
+        ("Environment", "LG_AUDIT_DIR=/var/lib/language-guard-helper"),
+        ("Environment", "LG_FORBIDDEN_PLAINTEXT_DIR=/var/lib/language-guard-backup"),
+        ("Environment", "LG_EXPECTED_UID=994"),
+        ("Environment", "LG_EXPECTED_GID=977"),
+        ("Environment", "LG_EXPECTED_UNIT=language-guard-offbox-worker.service"),
+        ("ReadOnlyPaths", f"{OFFBOX_EXEC_ROOT} {APP_ACCOUNTS_DB}"),
+        ("ReadWritePaths", "/var/lib/language-guard-helper"),
+        (
+            "InaccessiblePaths",
+            "-/etc/language-guard -/var/lib/language-guard-backup "
+            "-/run/credentials -/opt/language-guard/venv",
+        ),
+        ("StandardInput", "socket"),
+        ("StandardOutput", "socket"),
+        ("StandardError", "journal"),
+        ("ExecStart", HELPER_EXEC_START),
+        ("TimeoutStartSec", "120"),
+    ],
 }
-WORKER_SINGLETONS = {
-    "User": "lg-backup",
-    "Group": "lg-backup",
-    "WorkingDirectory": "/var/lib/language-guard-backup",
-    "ExecStart": WORKER_EXEC_START,
-    "Type": "oneshot",
+WORKER_UNIT_CONTRACT: dict[str, list[tuple[str, str]]] = {
+    "Unit": [
+        ("Description", "Language Guard off-box backup worker"),
+        ("Requires", "language-guard-offbox-handoff.socket"),
+        ("After", "language-guard-offbox-handoff.socket"),
+    ],
+    "Service": [
+        ("Type", "oneshot"),
+        ("User", "lg-backup"),
+        ("Group", "lg-backup"),
+        ("UMask", "0077"),
+        ("NoNewPrivileges", "yes"),
+        ("PrivateTmp", "yes"),
+        ("PrivateDevices", "yes"),
+        ("ProtectSystem", "strict"),
+        ("ProtectHome", "yes"),
+        ("ProtectKernelTunables", "yes"),
+        ("ProtectKernelModules", "yes"),
+        ("ProtectControlGroups", "yes"),
+        ("RestrictNamespaces", "yes"),
+        ("LockPersonality", "yes"),
+        ("RestrictRealtime", "yes"),
+        ("RestrictSUIDSGID", "yes"),
+        ("SystemCallArchitectures", "native"),
+        ("CapabilityBoundingSet", ""),
+        ("AmbientCapabilities", ""),
+        ("RestrictAddressFamilies", "AF_UNIX AF_INET AF_INET6"),
+        ("WorkingDirectory", "/var/lib/language-guard-backup"),
+        ("Environment", "PYTHONDONTWRITEBYTECODE=1"),
+        ("Environment", "PYTHONNOUSERSITE=1"),
+        ("Environment", "LG_STATE_DIR=/var/lib/language-guard-backup"),
+        ("Environment", f"LG_SOURCE_DB={APP_ACCOUNTS_DB}"),
+        ("Environment", "LG_SOCKET=/run/language-guard-offbox/handoff.sock"),
+        ("Environment", "LG_RECIPIENT_FILE=/etc/language-guard/age-recipient"),
+        ("Environment", "LG_AGE_BIN=/usr/local/lib/language-guard-age/age"),
+        ("ReadOnlyPaths", OFFBOX_EXEC_ROOT),
+        ("ReadWritePaths", "/var/lib/language-guard-backup"),
+        (
+            "InaccessiblePaths",
+            f"-{APP_ACCOUNTS_DB} -/var/lib/language-guard-helper -/opt/language-guard/venv",
+        ),
+        ("LoadCredential", "oauth-refresh:/etc/language-guard/oauth-refresh"),
+        ("ExecStart", WORKER_EXEC_START),
+        ("TimeoutStartSec", "300"),
+    ],
 }
-# Security-sensitive keys that must not be duplicated even when values match.
-SERVICE_NO_DUPLICATE_KEYS = frozenset(
-    {
-        "ExecStart",
-        "User",
-        "Group",
-        "WorkingDirectory",
-        "Type",
-        "StandardError",
-        "StandardOutput",
-        "StandardInput",
-        "LoadCredential",
-        "PrivateTmp",
-        "ProtectSystem",
-        "NoNewPrivileges",
-    }
-)
-SOCKET_SINGLETONS = {
-    "ListenStream": "/run/language-guard-offbox/handoff.sock",
-    "SocketUser": "lg-backup",
-    "SocketGroup": "lg-backup",
-    "SocketMode": "0600",
-    "Accept": "yes",
-    "DirectoryMode": "0755",
+SOCKET_UNIT_CONTRACT: dict[str, list[tuple[str, str]]] = {
+    "Unit": [
+        ("Description", "Language Guard off-box handoff socket"),
+    ],
+    "Socket": [
+        ("ListenStream", "/run/language-guard-offbox/handoff.sock"),
+        ("SocketUser", "lg-backup"),
+        ("SocketGroup", "lg-backup"),
+        ("SocketMode", "0600"),
+        ("DirectoryMode", "0755"),
+        ("Accept", "yes"),
+    ],
+    "Install": [
+        ("WantedBy", "sockets.target"),
+    ],
 }
-TIMER_SINGLETONS = {
-    "OnCalendar": "*-*-* 05:15:00 UTC",
-    "Persistent": "true",
-    "RandomizedDelaySec": "15m",
-    "Unit": "language-guard-offbox-worker.service",
+TIMER_UNIT_CONTRACT: dict[str, list[tuple[str, str]]] = {
+    "Unit": [
+        (
+            "Description",
+            "Proposed Language Guard off-box backup schedule (DISABLED BY DEFAULT)",
+        ),
+    ],
+    "Timer": [
+        ("OnCalendar", "*-*-* 05:15:00 UTC"),
+        ("Persistent", "true"),
+        ("RandomizedDelaySec", "15m"),
+        ("Unit", "language-guard-offbox-worker.service"),
+    ],
+    "Install": [
+        ("WantedBy", "timers.target"),
+    ],
 }
-HELPER_REQUIRED_ENV = {
-    "LG_SOURCE_DB": APP_ACCOUNTS_DB,
-    "LG_EXPECTED_UNIT": "language-guard-offbox-worker.service",
-    "PYTHONNOUSERSITE": "1",
-    "PYTHONDONTWRITEBYTECODE": "1",
-}
-WORKER_REQUIRED_ENV = {
-    "LG_SOURCE_DB": APP_ACCOUNTS_DB,
-    "LG_SOCKET": "/run/language-guard-offbox/handoff.sock",
-    "PYTHONNOUSERSITE": "1",
-    "PYTHONDONTWRITEBYTECODE": "1",
-}
-WORKER_REQUIRED_LOAD_CREDENTIAL = "oauth-refresh:/etc/language-guard/oauth-refresh"
-
-# Minimal allowlists: unexpected keys (EnvironmentFile, ExecStartPre, …) fail closed.
-HELPER_UNIT_ALLOWED = frozenset({"Description"})
-HELPER_SERVICE_ALLOWED = frozenset(
-    {
-        "Type",
-        "User",
-        "Group",
-        "UMask",
-        "NoNewPrivileges",
-        "PrivateNetwork",
-        "PrivateTmp",
-        "PrivateDevices",
-        "ProtectSystem",
-        "ProtectHome",
-        "ProtectKernelTunables",
-        "ProtectKernelModules",
-        "ProtectControlGroups",
-        "RestrictNamespaces",
-        "LockPersonality",
-        "RestrictRealtime",
-        "RestrictSUIDSGID",
-        "SystemCallArchitectures",
-        "CapabilityBoundingSet",
-        "AmbientCapabilities",
-        "RestrictAddressFamilies",
-        "WorkingDirectory",
-        "Environment",
-        "ReadOnlyPaths",
-        "ReadWritePaths",
-        "InaccessiblePaths",
-        "StandardInput",
-        "StandardOutput",
-        "StandardError",
-        "ExecStart",
-        "TimeoutStartSec",
-    }
-)
-WORKER_UNIT_ALLOWED = frozenset({"Description", "Requires", "After"})
-WORKER_SERVICE_ALLOWED = frozenset(
-    {
-        "Type",
-        "User",
-        "Group",
-        "UMask",
-        "NoNewPrivileges",
-        "PrivateTmp",
-        "PrivateDevices",
-        "ProtectSystem",
-        "ProtectHome",
-        "ProtectKernelTunables",
-        "ProtectKernelModules",
-        "ProtectControlGroups",
-        "RestrictNamespaces",
-        "LockPersonality",
-        "RestrictRealtime",
-        "RestrictSUIDSGID",
-        "SystemCallArchitectures",
-        "CapabilityBoundingSet",
-        "AmbientCapabilities",
-        "RestrictAddressFamilies",
-        "WorkingDirectory",
-        "Environment",
-        "ReadOnlyPaths",
-        "ReadWritePaths",
-        "InaccessiblePaths",
-        "LoadCredential",
-        "ExecStart",
-        "TimeoutStartSec",
-    }
-)
-SOCKET_UNIT_ALLOWED = frozenset({"Description"})
-SOCKET_SOCKET_ALLOWED = frozenset(
-    {
-        "ListenStream",
-        "SocketUser",
-        "SocketGroup",
-        "SocketMode",
-        "DirectoryMode",
-        "Accept",
-    }
-)
-SOCKET_INSTALL_ALLOWED = frozenset({"WantedBy"})
-TIMER_UNIT_ALLOWED = frozenset({"Description"})
-TIMER_TIMER_ALLOWED = frozenset(
-    {"OnCalendar", "Persistent", "RandomizedDelaySec", "Unit"}
-)
-TIMER_INSTALL_ALLOWED = frozenset({"WantedBy"})
 
 # Expected modes for a future corrective VPS write (documented + tested offline).
 EXPECTED_EXEC_DIR_MODE = 0o755
@@ -347,71 +329,13 @@ def parse_active_unit_directives(text: str) -> list[tuple[str, str]]:
     return flat
 
 
-def _values_for(directives: list[tuple[str, str]], key: str) -> list[str]:
-    return [value for item_key, value in directives if item_key == key]
-
-
-def _require_singleton(
-    directives: list[tuple[str, str]],
-    key: str,
-    expected: str,
-    unit_name: str,
-    *,
-    section: str,
-) -> None:
-    values = _values_for(directives, key)
-    if len(values) != 1:
-        raise ValueError(
-            f"{unit_name}: expected exactly one active [{section}] {key}=, "
-            f"found {len(values)}"
-        )
-    if values[0] != expected:
-        raise ValueError(
-            f"{unit_name}: [{section}] {key}={values[0]!r} does not equal "
-            f"required {expected!r}"
-        )
-
-
-def _reject_duplicate_keys(
-    directives: list[tuple[str, str]],
-    keys: frozenset[str],
-    unit_name: str,
-    *,
-    section: str,
-) -> None:
-    seen: dict[str, int] = {}
-    for key, _value in directives:
-        if key in keys:
-            seen[key] = seen.get(key, 0) + 1
-    for key, count in seen.items():
-        if count > 1:
-            raise ValueError(
-                f"{unit_name}: duplicate active [{section}] {key}= (count={count})"
-            )
-
-
-def _environment_map(directives: list[tuple[str, str]], unit_name: str) -> dict[str, str]:
-    env: dict[str, str] = {}
-    for key, value in directives:
-        if key != "Environment":
-            continue
-        if "=" not in value:
-            raise ValueError(f"{unit_name}: malformed Environment={value!r}")
-        env_key, _, env_val = value.partition("=")
-        if env_key in env:
-            raise ValueError(
-                f"{unit_name}: duplicate active Environment key {env_key}"
-            )
-        env[env_key] = env_val
-    return env
-
-
 def _reject_forbidden_active(
     directives: list[tuple[str, str]],
     unit_name: str,
     *,
     section: str,
 ) -> None:
+    """Defense-in-depth checks in addition to the exact section contract."""
     for key, value in directives:
         rendered = f"{key}={value}"
         lowered = rendered.lower()
@@ -436,35 +360,31 @@ def _reject_forbidden_active(
                 )
 
 
-def _require_section_keys(
+def _require_exact_section_contract(
     sections: dict[str, list[tuple[str, str]]],
     unit_name: str,
-    section: str,
-    allowed: frozenset[str],
-) -> list[tuple[str, str]]:
-    if section not in sections:
-        raise ValueError(f"{unit_name}: missing required section [{section}]")
-    directives = sections[section]
-    for key, _value in directives:
-        if key not in allowed:
-            raise ValueError(
-                f"{unit_name}: [{section}] unexpected directive {key}="
-            )
-    return directives
-
-
-def _reject_unknown_sections(
-    sections: dict[str, list[tuple[str, str]]],
-    unit_name: str,
-    allowed_sections: frozenset[str],
+    contract: dict[str, list[tuple[str, str]]],
 ) -> None:
-    for name in sections:
-        if name not in allowed_sections:
-            raise ValueError(f"{unit_name}: unexpected section [{name}]")
+    """Require exact section set and exact active KEY=VALUE multiplicity."""
+    expected_sections = frozenset(contract)
+    actual_sections = frozenset(sections)
+    if actual_sections != expected_sections:
+        raise ValueError(
+            f"{unit_name}: section set {sorted(actual_sections)} != "
+            f"required {sorted(expected_sections)}"
+        )
+    for section, expected in contract.items():
+        actual = sections.get(section, [])
+        _reject_forbidden_active(actual, unit_name, section=section)
+        if Counter(actual) != Counter(expected):
+            raise ValueError(
+                f"{unit_name}: [{section}] active directive contract mismatch "
+                f"(expected {len(expected)} directives, got {len(actual)})"
+            )
 
 
 def verify_units(unit_dir: Path = HERE) -> None:
-    """Validate section-scoped active unit directives (comments do not satisfy)."""
+    """Validate exact active unit contracts (comments do not affect the check)."""
     for name in UNIT_NAMES:
         path = unit_dir / name
         if not path.is_file():
@@ -475,127 +395,25 @@ def verify_units(unit_dir: Path = HERE) -> None:
     socket_name = "language-guard-offbox-handoff.socket"
     timer_name = "language-guard-offbox.timer"
 
-    helper = parse_unit_sections((unit_dir / helper_name).read_text(encoding="utf-8"))
-    worker = parse_unit_sections((unit_dir / worker_name).read_text(encoding="utf-8"))
-    socket = parse_unit_sections((unit_dir / socket_name).read_text(encoding="utf-8"))
-    timer = parse_unit_sections((unit_dir / timer_name).read_text(encoding="utf-8"))
-
-    _reject_unknown_sections(helper, helper_name, frozenset({"Unit", "Service"}))
-    _reject_unknown_sections(worker, worker_name, frozenset({"Unit", "Service"}))
-    _reject_unknown_sections(
-        socket, socket_name, frozenset({"Unit", "Socket", "Install"})
+    _require_exact_section_contract(
+        parse_unit_sections((unit_dir / helper_name).read_text(encoding="utf-8")),
+        helper_name,
+        HELPER_UNIT_CONTRACT,
     )
-    _reject_unknown_sections(
-        timer, timer_name, frozenset({"Unit", "Timer", "Install"})
+    _require_exact_section_contract(
+        parse_unit_sections((unit_dir / worker_name).read_text(encoding="utf-8")),
+        worker_name,
+        WORKER_UNIT_CONTRACT,
     )
-
-    helper_unit = _require_section_keys(
-        helper, helper_name, "Unit", HELPER_UNIT_ALLOWED
-    )
-    helper_svc = _require_section_keys(
-        helper, helper_name, "Service", HELPER_SERVICE_ALLOWED
-    )
-    worker_unit = _require_section_keys(
-        worker, worker_name, "Unit", WORKER_UNIT_ALLOWED
-    )
-    worker_svc = _require_section_keys(
-        worker, worker_name, "Service", WORKER_SERVICE_ALLOWED
-    )
-    socket_unit = _require_section_keys(
-        socket, socket_name, "Unit", SOCKET_UNIT_ALLOWED
-    )
-    socket_sock = _require_section_keys(
-        socket, socket_name, "Socket", SOCKET_SOCKET_ALLOWED
-    )
-    socket_install = _require_section_keys(
-        socket, socket_name, "Install", SOCKET_INSTALL_ALLOWED
-    )
-    timer_unit = _require_section_keys(
-        timer, timer_name, "Unit", TIMER_UNIT_ALLOWED
-    )
-    timer_timer = _require_section_keys(
-        timer, timer_name, "Timer", TIMER_TIMER_ALLOWED
-    )
-    timer_install = _require_section_keys(
-        timer, timer_name, "Install", TIMER_INSTALL_ALLOWED
-    )
-
-    for unit_name, section, directives in (
-        (helper_name, "Unit", helper_unit),
-        (helper_name, "Service", helper_svc),
-        (worker_name, "Unit", worker_unit),
-        (worker_name, "Service", worker_svc),
-        (socket_name, "Unit", socket_unit),
-        (socket_name, "Socket", socket_sock),
-        (socket_name, "Install", socket_install),
-        (timer_name, "Unit", timer_unit),
-        (timer_name, "Timer", timer_timer),
-        (timer_name, "Install", timer_install),
-    ):
-        _reject_forbidden_active(directives, unit_name, section=section)
-
-    _reject_duplicate_keys(
-        helper_svc, SERVICE_NO_DUPLICATE_KEYS, helper_name, section="Service"
-    )
-    _reject_duplicate_keys(
-        worker_svc, SERVICE_NO_DUPLICATE_KEYS, worker_name, section="Service"
-    )
-
-    for key, expected in HELPER_SINGLETONS.items():
-        _require_singleton(
-            helper_svc, key, expected, helper_name, section="Service"
-        )
-    for key, expected in WORKER_SINGLETONS.items():
-        _require_singleton(
-            worker_svc, key, expected, worker_name, section="Service"
-        )
-    for key, expected in SOCKET_SINGLETONS.items():
-        _require_singleton(
-            socket_sock, key, expected, socket_name, section="Socket"
-        )
-    for key, expected in TIMER_SINGLETONS.items():
-        _require_singleton(
-            timer_timer, key, expected, timer_name, section="Timer"
-        )
-
-    if _values_for(worker_svc, "StateDirectory"):
-        raise ValueError(f"{worker_name}: must not set StateDirectory=")
-
-    helper_env = _environment_map(helper_svc, helper_name)
-    worker_env = _environment_map(worker_svc, worker_name)
-    for key, expected in HELPER_REQUIRED_ENV.items():
-        if helper_env.get(key) != expected:
-            raise ValueError(
-                f"{helper_name}: Environment {key}={helper_env.get(key)!r} "
-                f"!= required {expected!r}"
-            )
-    for key, expected in WORKER_REQUIRED_ENV.items():
-        if worker_env.get(key) != expected:
-            raise ValueError(
-                f"{worker_name}: Environment {key}={worker_env.get(key)!r} "
-                f"!= required {expected!r}"
-            )
-
-    load_creds = _values_for(worker_svc, "LoadCredential")
-    if load_creds != [WORKER_REQUIRED_LOAD_CREDENTIAL]:
-        raise ValueError(
-            f"{worker_name}: LoadCredential must be exactly "
-            f"[{WORKER_REQUIRED_LOAD_CREDENTIAL!r}], found {load_creds!r}"
-        )
-
-    _require_singleton(
-        socket_install,
-        "WantedBy",
-        "sockets.target",
+    _require_exact_section_contract(
+        parse_unit_sections((unit_dir / socket_name).read_text(encoding="utf-8")),
         socket_name,
-        section="Install",
+        SOCKET_UNIT_CONTRACT,
     )
-    _require_singleton(
-        timer_install,
-        "WantedBy",
-        "timers.target",
+    _require_exact_section_contract(
+        parse_unit_sections((unit_dir / timer_name).read_text(encoding="utf-8")),
         timer_name,
-        section="Install",
+        TIMER_UNIT_CONTRACT,
     )
 
 

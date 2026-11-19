@@ -35,11 +35,13 @@ must not chown it to `guard`. Offline/test installs omit `--production` and may
 use a temporary destination; production mode requires the exact trusted root and
 ancestry/symlink/ownership preflight before any copy.
 
-Unit verification parses **systemd sections** explicitly, validates directives
-only in their correct section, requires exactly one approved `[Service]
-ExecStart`, and rejects unexpected executable directives (`ExecStartPre`,
-`ExecCondition`, …), `EnvironmentFile=`, and other non-allowlisted keys.
-Comments do not satisfy checks. Path-trust classification requires resolved
+Unit verification pins the **exact active directive contract** for all four
+templates (section, key, exact value, multiplicity). Extra `Environment=`
+entries (e.g. `LD_PRELOAD`), loosened sandbox settings (`ProtectSystem=no`,
+`NoNewPrivileges=no`, `ReadWritePaths=/`), or
+`InaccessiblePaths` removal/replacement fail closed. Unexpected executable
+directives (`ExecStartPre`, …) and `EnvironmentFile=` remain rejected.
+Comments/blank lines do not affect the contract. Path-trust classification requires resolved
 interpreter identity, leaf+ancestor metadata, and ACL evidence; missing
 metadata yields **UNKNOWN**, not PASS. Production destination preflight covers
 ancestors **and** existing planned descendants (symlink / ownership / mode
