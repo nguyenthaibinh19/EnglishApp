@@ -7,7 +7,7 @@ Directional plan — **not** a rigid release commitment. Update when phases comp
 - **Active priority: Phase 18B.9 OFF-BOX — OPEN / PRODUCTION NOT READY.**
 - **RUNTIME TRUST REMEDIATION SOURCE MERGED — VPS NOT UPDATED.** PR #15 / `adbc3d5f8fd71ee8a2d462d806dc4c4a91fd0241`. Source layout: `/opt/language-guard-offbox` + `/usr/bin/python3 -I` ([OFFBOX_RUNTIME_TRUST.md](procedures/OFFBOX_RUNTIME_TRUST.md)).
 - Inactive VPS packaging still uses old app-tree paths. Historical executable-path audit remains **UNSAFE** ([Issue #8](https://github.com/nguyenthaibinh19/EnglishApp/issues/8#issuecomment-7009010670)) until corrective write + post-fix PASS audit.
-- **Outstanding VPS gate (needs separate Owner auth):** corrective write to install the execution tree and replace inactive unit files; then read-only re-audit must report **PASS**. No daemon-reload/start unless newly authorized.
+- **CURRENT OWNER-AUTHORIZED VPS GATE — NOT YET EXECUTED:** ONE inactive corrective write session to install the verified root-owned execution tree and replace four inactive unit files ([Issue #8 approval](https://github.com/nguyenthaibinh19/EnglishApp/issues/8#issuecomment-7011064958)); STOP after static verification and documentation. No daemon-reload/start/enable, account-server changes, age/OAuth/Drive or backup. Subsequent read-only post-fix audit must be separately approved and report **PASS** before isolation.
 - **Cloud Sync:** OFF. **Google Drive production:** NOT CONFIGURED. **age / recipient / OAuth:** not provisioned for offbox. **Historical D5A2D2 and D5A2D3:** FAIL preserved.
 - **AI:** `C-APP-AI-001` v0.2.0 accepted; PR #14 conformance MERGED. `LocalAIProvider` / AI-M4 NOT AUTHORIZED.
 
