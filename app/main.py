@@ -16,11 +16,11 @@ import languages
 import setup_wizard
 import ui_common
 from daily_study import plan_for_language
-from progress import Progress
 from quiz_app import VocabQuizApp
 from listening import resolve_listening_audio_provider
 from listening_app import ListeningApp
 from reading_app import ReadingApp
+from study_data import open_study_data
 from study_session import (
     KIND_LISTENING,
     KIND_READING,
@@ -29,7 +29,6 @@ from study_session import (
     StudySession,
     build_study_session,
 )
-from vocab_store import VocabStore
 
 
 class StudyMasterApp:
@@ -40,8 +39,9 @@ class StudyMasterApp:
         self.on_finished = on_finished
         self._force_exit = False
 
-        self.store = VocabStore()
-        self.progress = Progress()
+        bundle = open_study_data()
+        self.store = bundle.vocab
+        self.progress = bundle.progress
 
         # Session Runner v1: one StudySession per study language (from DailyStudyPlan).
         self.sessions: dict[str, StudySession] = {}
@@ -205,11 +205,31 @@ class StudyMasterApp:
         )
         self.warning_label.pack(anchor="w", pady=8)
 
+        self.sync_row = ttk.Frame(card)
+        self.sync_row.pack(anchor="w", fill=tk.X, pady=(0, 8))
+        self.sync_status_label = ttk.Label(
+            self.sync_row, text="", style="Muted.TLabel", wraplength=520
+        )
+        self.sync_status_label.pack(side=tk.LEFT, anchor="w")
+        ttk.Button(
+            self.sync_row,
+            text=config.ui("Xung đột đồng bộ", "Sync conflicts"),
+            style="Small.TButton",
+            command=self._open_sync_conflicts,
+        ).pack(side=tk.LEFT, padx=(12, 0))
+        ttk.Button(
+            self.sync_row,
+            text=config.ui("Nhập guest", "Import guest"),
+            style="Small.TButton",
+            command=self._open_legacy_import,
+        ).pack(side=tk.LEFT, padx=(8, 0))
+
         self.emergency_button = ttk.Button(
             backdrop, text="",
             style="Small.TButton", command=self.emergency_exit_all,
         )
         self.emergency_button.place(relx=1.0, rely=1.0, x=-24, y=-24, anchor="se")
+        self.root.after(1500, self._refresh_sync_status)
 
     def _code_for_label(self, label: str):
         return next(
@@ -454,8 +474,9 @@ class StudyMasterApp:
             self.sessions[code] = build_study_session(plan_for_language(code))
             self._build_language_rows()
         config.set_language(code)
-        self.store = VocabStore()
-        self.progress = Progress()
+        bundle = open_study_data(code)
+        self.store = bundle.vocab
+        self.progress = bundle.progress
         self._session_for(code)
 
     def _refresh_status(self):
@@ -526,7 +547,7 @@ class StudyMasterApp:
                     f"Chưa có từ điển {name}. Hãy bỏ rồi thêm lại để tải.",
                     f"No {name} dictionary yet. Remove it and add it again to download.",
                 ))
-            count = VocabStore(config.vocab_path(code)).count()
+            count = open_study_data(code).vocab.count()
             if count == 0:
                 name = config.language_name(code)
                 warnings.append(config.ui(
@@ -546,6 +567,61 @@ class StudyMasterApp:
                     "OPENAI_API_KEY is missing from .env, so the AI cannot grade sentences or write readings.",
                 ))
         self.warning_label.config(text="\n".join(warnings))
+        self._refresh_sync_status()
+
+    def _refresh_sync_status(self):
+        label = getattr(self, "sync_status_label", None)
+        if label is None:
+            return
+        from study_data import is_signed_in
+
+        if not is_signed_in():
+            label.config(text=config.ui("Chế độ khách — không đồng bộ tài khoản.", "Guest mode — no account sync."))
+            return
+        try:
+            from account_sync_engine import active_engine
+
+            engine = active_engine()
+            if engine is None:
+                label.config(
+                    text=config.ui(
+                        "Đã đăng nhập · sync chưa chạy (cờ staging tắt?).",
+                        "Signed in · sync not running (staging flag off?).",
+                    )
+                )
+                return
+            snap = engine.status()
+            conflicts = 0
+            try:
+                conflicts = len(engine.store.list_open_vocab_conflicts())
+            except Exception:
+                conflicts = 0
+            extra = (
+                config.ui(f" · {conflicts} xung đột", f" · {conflicts} conflict(s)")
+                if conflicts
+                else ""
+            )
+            label.config(text=f"Sync: {snap.status}{extra} — {snap.detail}")
+        except Exception:
+            label.config(text=config.ui("Sync: không rõ", "Sync: unknown"))
+        try:
+            self.root.after(5000, self._refresh_sync_status)
+        except Exception:
+            pass
+
+    def _open_sync_conflicts(self):
+        from sync_conflict_app import open_sync_conflicts
+
+        open_sync_conflicts(self.root, on_resolved=self._refresh_sync_status)
+
+    def _open_legacy_import(self):
+        from legacy_import_app import open_legacy_import
+
+        open_legacy_import(
+            self.root,
+            language_code=config.active_code(),
+            on_done=lambda _result: self._refresh_status(),
+        )
 
     # ============================================================
     # Mở từng phần
@@ -1198,8 +1274,9 @@ def run_diagnostics():
         except ImportError:
             out(f"  [thiếu] {module} — cần cho {needed_for}")
 
-    store = VocabStore()
-    summary = Progress().summary()
+    bundle = open_study_data()
+    store = bundle.vocab
+    summary = bundle.progress.summary()
     out(f"\nTừ vựng : {store.count()} từ trong vocab.json")
     duplicates = store.find_duplicates()
     if duplicates:

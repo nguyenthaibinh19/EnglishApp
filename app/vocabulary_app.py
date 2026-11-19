@@ -556,12 +556,15 @@ class WordDetailApp:
         if self.practice_window is not None and self.practice_window.winfo_exists():
             self.practice_window.lift()
             return
-        progress = Progress(config.progress_path(self.language_code))
+        from study_data import open_study_data
+
+        bundle = open_study_data(self.language_code)
         self.practice_window = tk.Toplevel(self.window)
         ui_common.own_toplevel(self.practice_window, self.window)
         VocabQuizApp(
             self.practice_window,
-            progress=progress,
+            store=bundle.vocab,
+            progress=bundle.progress,
             quiz_entries=[entry],
             target=1,
             language_code=self.language_code,
@@ -579,14 +582,13 @@ class WordDetailApp:
         self._refresh_from_disk()
 
     def _refresh_from_disk(self):
-        store = VocabStore(config.vocab_path(self.language_code))
-        progress = Progress(config.progress_path(self.language_code))
-        from attempt_history import AttemptHistory
+        from study_data import open_study_data
         from mistake_book import summarize_mistakes
 
-        attempts = AttemptHistory(
-            config.attempts_path(self.language_code), language_code=self.language_code
-        ).load_attempts()
+        bundle = open_study_data(self.language_code)
+        store = bundle.vocab
+        progress = bundle.progress
+        attempts = bundle.attempts.load_attempts()
         summaries = summarize_mistakes(attempts, language_code=self.language_code)
         from vocab_identity import entry_id
 

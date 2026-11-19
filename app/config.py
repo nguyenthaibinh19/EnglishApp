@@ -374,6 +374,12 @@ def set_activity_enabled(activity_id: str, enabled: bool) -> None:
     payload["activities"] = activities
     payload.pop("emergency_password", None)
     _write_settings(payload)
+    try:
+        from account_prefs import mark_preferences_dirty
+
+        mark_preferences_dirty()
+    except Exception:
+        pass
 
 
 def set_study_codes(codes) -> list:
@@ -391,6 +397,12 @@ def set_study_codes(codes) -> list:
         payload["language"] = chosen[0]
     payload.pop("emergency_password", None)
     _write_settings(payload)
+    try:
+        from account_prefs import mark_preferences_dirty
+
+        mark_preferences_dirty()
+    except Exception:
+        pass
     return chosen
 
 

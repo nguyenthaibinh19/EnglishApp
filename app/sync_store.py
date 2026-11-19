@@ -1599,3 +1599,137 @@ def _progress_change_from_row(row: sqlite3.Row) -> ProgressChange:
         event=event,
         progress_after=snapshot,
     )
+
+
+# --- Account preferences (contract v1; stored in sync_meta, no schema bump) ---
+
+PREFERENCES_CONTRACT_VERSION = 1
+_PREFS_META_PREFIX = "user_preferences_v1:"
+_PREFS_ALLOWED_KEYS = frozenset(
+    {"study_languages", "reading_level", "native", "activities"}
+)
+
+
+def _prefs_meta_key(user_id: int) -> str:
+    return f"{_PREFS_META_PREFIX}{int(user_id)}"
+
+
+def _prefs_meta_get(connection: sqlite3.Connection, key: str) -> Optional[str]:
+    row = connection.execute(
+        "SELECT value FROM sync_meta WHERE key = ?", (key,)
+    ).fetchone()
+    if row is None:
+        return None
+    return str(row["value"] if isinstance(row, sqlite3.Row) else row[0])
+
+
+def _prefs_meta_set(connection: sqlite3.Connection, key: str, value: str) -> None:
+    connection.execute(
+        "INSERT INTO sync_meta (key, value) VALUES (?, ?) "
+        "ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+        (key, value),
+    )
+
+
+def get_user_preferences(connection: sqlite3.Connection, user_id: int) -> Dict[str, Any]:
+    """Return preferences document for ``user_id`` (empty revision 0 when absent)."""
+    raw = _prefs_meta_get(connection, _prefs_meta_key(user_id))
+    if not raw:
+        return {
+            "contract_version": PREFERENCES_CONTRACT_VERSION,
+            "revision": 0,
+            "values": {},
+        }
+    try:
+        body = json.loads(raw)
+    except json.JSONDecodeError as error:
+        raise SyncValidationError("Stored preferences are corrupt.") from error
+    if not isinstance(body, dict):
+        raise SyncValidationError("Stored preferences are corrupt.")
+    values = body.get("values") if isinstance(body.get("values"), dict) else {}
+    cleaned = {k: values[k] for k in _PREFS_ALLOWED_KEYS if k in values}
+    try:
+        revision = int(body.get("revision") or 0)
+    except (TypeError, ValueError):
+        revision = 0
+    return {
+        "contract_version": PREFERENCES_CONTRACT_VERSION,
+        "revision": max(0, revision),
+        "values": cleaned,
+    }
+
+
+def put_user_preferences(
+    connection: sqlite3.Connection,
+    *,
+    user_id: int,
+    values: Dict[str, Any],
+    expected_revision: int,
+) -> Dict[str, Any]:
+    """Upsert account preferences. Conflicts when ``expected_revision`` is stale."""
+    if not isinstance(values, dict):
+        raise SyncValidationError("values must be an object.")
+    try:
+        expected = int(expected_revision)
+    except (TypeError, ValueError) as error:
+        raise SyncValidationError("expected_revision must be an integer.") from error
+    if expected < 0:
+        raise SyncValidationError("expected_revision must be >= 0.")
+    unknown = set(values) - _PREFS_ALLOWED_KEYS
+    if unknown:
+        raise SyncValidationError("Unknown preference keys.")
+    for forbidden in _FORBIDDEN_PAYLOAD_KEYS:
+        if forbidden in values:
+            raise SyncValidationError("Forbidden preference key.")
+    cleaned: Dict[str, Any] = {}
+    if "study_languages" in values:
+        codes = values["study_languages"]
+        if not isinstance(codes, list) or not codes:
+            raise SyncValidationError("study_languages must be a non-empty list.")
+        normalized = []
+        for item in codes:
+            code = str(item).strip().lower()
+            if not languages.is_supported_language(code):
+                raise SyncValidationError("Unsupported study language.")
+            if code not in normalized:
+                normalized.append(code)
+        cleaned["study_languages"] = normalized
+    if "reading_level" in values:
+        level = str(values["reading_level"] or "").strip().upper()
+        if not level or len(level) > 8:
+            raise SyncValidationError("Invalid reading_level.")
+        cleaned["reading_level"] = level
+    if "native" in values:
+        native = str(values["native"] or "").strip().lower()
+        if native not in {"vi", "en"}:
+            raise SyncValidationError("native must be vi or en.")
+        cleaned["native"] = native
+    if "activities" in values:
+        acts = values["activities"]
+        if not isinstance(acts, dict):
+            raise SyncValidationError("activities must be an object.")
+        cleaned["activities"] = {str(k): bool(v) for k, v in acts.items()}
+
+    current = get_user_preferences(connection, user_id)
+    if expected != int(current["revision"]):
+        conflict = SyncConflictError("Preference revision conflict.")
+        conflict.current = {
+            "revision": current["revision"],
+            "values": current["values"],
+        }
+        raise conflict
+    merged = dict(current["values"])
+    merged.update(cleaned)
+    new_revision = expected + 1
+    document = {
+        "contract_version": PREFERENCES_CONTRACT_VERSION,
+        "revision": new_revision,
+        "values": merged,
+    }
+    _prefs_meta_set(
+        connection,
+        _prefs_meta_key(user_id),
+        json.dumps(document, ensure_ascii=False, sort_keys=True),
+    )
+    connection.commit()
+    return document

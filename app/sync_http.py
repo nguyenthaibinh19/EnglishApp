@@ -22,6 +22,8 @@ SYNC_DELETE = "/api/sync/vocabulary/delete"
 SYNC_CHANGES = "/api/sync/vocabulary/changes"
 SYNC_PROGRESS_ACCEPT = "/api/sync/progress/accept"
 SYNC_PROGRESS_CHANGES = "/api/sync/progress/changes"
+SYNC_PREFERENCES_GET = "/api/sync/preferences/get"
+SYNC_PREFERENCES_PUT = "/api/sync/preferences/put"
 SYNC_PATHS = frozenset(
     {
         SYNC_PUT,
@@ -29,6 +31,8 @@ SYNC_PATHS = frozenset(
         SYNC_CHANGES,
         SYNC_PROGRESS_ACCEPT,
         SYNC_PROGRESS_CHANGES,
+        SYNC_PREFERENCES_GET,
+        SYNC_PREFERENCES_PUT,
     }
 )
 
@@ -63,6 +67,9 @@ _CHANGES_KEYS = frozenset({"after_cursor", "limit", "language_code", "user_id"})
 _PROGRESS_ACCEPT_KEYS = frozenset({"event", "user_id"})
 _PROGRESS_ACCEPT_REQUIRED = frozenset({"event"})
 _PROGRESS_CHANGES_KEYS = frozenset({"after_cursor", "limit", "language_code", "user_id"})
+_PREFERENCES_GET_KEYS = frozenset({"user_id"})
+_PREFERENCES_PUT_KEYS = frozenset({"values", "expected_revision", "user_id"})
+_PREFERENCES_PUT_REQUIRED = frozenset({"values", "expected_revision"})
 
 
 def sync_enabled() -> bool:
@@ -147,6 +154,15 @@ def handle_request(path: str, headers, rfile) -> Tuple[int, Dict[str, Any]]:
                 connection, user_id=user_id, event=prepared["event"]
             )
             return 200, _public_progress_accept(result)
+        if route == SYNC_PREFERENCES_GET:
+            return 200, sync_store.get_user_preferences(connection, user_id)
+        if route == SYNC_PREFERENCES_PUT:
+            return 200, sync_store.put_user_preferences(
+                connection,
+                user_id=user_id,
+                values=prepared["values"],
+                expected_revision=prepared["expected_revision"],
+            )
         return 200, _progress_changes_page(connection, user_id=user_id, **prepared)
     except sync_store.SyncValidationError:
         return 400, dict(_INVALID)
@@ -217,6 +233,19 @@ def _prepare(route: str, body: Dict[str, Any]) -> Dict[str, Any]:
             _require_text(body["language_code"], "language_code")
             prepared["language_code"] = body["language_code"]
         return prepared
+    if route == SYNC_PREFERENCES_GET:
+        _require_shape(body, allowed=_PREFERENCES_GET_KEYS, required=frozenset())
+        return {}
+    if route == SYNC_PREFERENCES_PUT:
+        _require_shape(
+            body, allowed=_PREFERENCES_PUT_KEYS, required=_PREFERENCES_PUT_REQUIRED
+        )
+        if not isinstance(body["values"], dict):
+            raise sync_store.SyncValidationError("values must be an object.")
+        return {
+            "values": body["values"],
+            "expected_revision": body["expected_revision"],
+        }
     _require_shape(body, allowed=_CHANGES_KEYS, required=frozenset())
     prepared = {}
     if "after_cursor" in body:
@@ -335,9 +364,15 @@ def _public_change(change: sync_store.VocabularyChange) -> Dict[str, Any]:
     }
 
 
-def _public_current(current: Optional[sync_store.VocabularySyncRecord]):
+def _public_current(current):
     if current is None:
         return None
+    if isinstance(current, dict):
+        return {
+            key: current[key]
+            for key in ("revision", "values", "language_code", "vocab_id", "deleted")
+            if key in current
+        }
     return {
         "language_code": current.language_code,
         "vocab_id": current.vocab_id,

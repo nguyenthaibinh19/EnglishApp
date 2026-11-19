@@ -84,6 +84,7 @@ class AccountSyncEngine:
             self._push_vocabulary()
             self._push_progress()
             self._pull_progress()
+            self._sync_preferences()
             self.store.set_offline(False)
             self._backoff = 1.0
         except SyncOfflineError:
@@ -160,6 +161,11 @@ class AccountSyncEngine:
             )
             if not has_more:
                 break
+
+    def _sync_preferences(self) -> None:
+        from account_prefs import sync_preferences_once
+
+        sync_preferences_once(self.store, self.client)
 
 
 # Process-wide engine registry for the running Windows app.

@@ -1,6 +1,6 @@
 # ADR-022 Event-first Progress Sync and Automatic Account Sync
 
-Status: **Accepted.** Architecture locked at `d9d0fe3`. **Phase 18C.1 CLOSED — Architect Accepted** (PR #20): local vertical slice in source (schema v3, progress HTTP behind the existing default-off flag, per-account client store/engine, local demo). **18C.2** covers signed-in GUI integration and related UX; GUI is not complete in 18C.1. Production activation, VPS enablement, and `STUDY_SYNC_ENABLED=1` on production remain separately gated. Live position: [current_state.md](../current_state.md).
+Status: **Accepted.** Architecture locked at `d9d0fe3`. **Phase 18C.1 CLOSED — Architect Accepted** (PR #20): local vertical slice in source (schema v3, progress HTTP behind the existing default-off flag, per-account client store/engine, local demo). **Phase 18C.2** implements signed-in GUI data paths via `study_data.open_study_data()`, preferences contract v1, conflict/legacy-consent UX, and a two-profile demo — Ready for Architect review (not merged). Full guest attempt-history ledger import remains deferred. Production activation, VPS enablement, and `STUDY_SYNC_ENABLED=1` on production remain separately gated. Live position: [current_state.md](../current_state.md). Acceptance: [PHASE-18C.2-acceptance.md](../plans/PHASE-18C.2-acceptance.md).
 
 This ADR originally did not authorize implementation. Owner-directed Phase 18C.1 authorized the local source slice only. It still does not authorize production timer installation, deployment, or production `STUDY_SYNC_ENABLED=1`.
 

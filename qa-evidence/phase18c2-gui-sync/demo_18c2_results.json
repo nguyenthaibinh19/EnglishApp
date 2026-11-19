@@ -1,0 +1,35 @@
+{
+  "staging_base": "http://127.0.0.1:50069",
+  "device_a_words": [],
+  "device_b_words": [],
+  "device_b_attempts": 0,
+  "account_b_words": [],
+  "guest_a_unchanged": true,
+  "legacy_import": {
+    "imported": 1,
+    "skipped": 0
+  },
+  "progress_summary_b": {
+    "asked_today": 2,
+    "correct_today": 1,
+    "wrong_today": 1,
+    "reading_done": false,
+    "known_words": 0,
+    "total_tracked": 2,
+    "account_day_streak": 1
+  },
+  "prefs_a": {
+    "_prefs_server_revision": 3,
+    "study_languages": [
+      "nl"
+    ],
+    "reading_level": "A2",
+    "native": "vi",
+    "activities": {
+      "listening": false,
+      "reading": true
+    },
+    "_prefs_dirty": false
+  },
+  "note": "Evidence uses the same open_study_data() facade as Tkinter Vocabulary Manager, Quiz, Progress, and Mistake Book when signed in."
+}

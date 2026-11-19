@@ -307,14 +307,20 @@ def load_vocabulary_library(
     from vocab_store import VocabStore
 
     code = str(language_code or config.active_code()).strip().lower()
-    store = vocab_store or VocabStore(config.vocab_path(code))
-    prog = progress or Progress(config.progress_path(code))
-    attempts_path = (
-        attempts_filename
-        if attempts_filename is not None
-        else config.attempts_path(code)
-    )
-    attempts = AttemptHistory(attempts_path, language_code=code).load_attempts()
+    if vocab_store is None or progress is None or attempts_filename is None:
+        from study_data import open_study_data
+
+        bundle = open_study_data(code)
+        store = vocab_store or bundle.vocab
+        prog = progress or bundle.progress
+        if attempts_filename is not None:
+            attempts = AttemptHistory(attempts_filename, language_code=code).load_attempts()
+        else:
+            attempts = bundle.attempts.load_attempts()
+    else:
+        store = vocab_store
+        prog = progress
+        attempts = AttemptHistory(attempts_filename, language_code=code).load_attempts()
     summaries = summarize_mistakes(attempts, language_code=code)
     items = build_vocabulary_items(
         store.all(),

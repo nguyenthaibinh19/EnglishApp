@@ -62,8 +62,19 @@ def _form(parent, on_success):
             config.save_account(username, token, user_id=user_id)
             try:
                 from account_sync_bootstrap import maybe_start_account_sync
+                from account_prefs import ACCOUNT_PREF_KEYS, collect_local_account_preferences
+                from study_data import active_account_store
 
                 maybe_start_account_sync()
+                # Seed prefs only when this account store has none yet.
+                # Never auto-import guest vocabulary on login.
+                store = active_account_store()
+                if store is not None:
+                    existing = store.get_preferences()
+                    if not any(key in existing for key in ACCOUNT_PREF_KEYS):
+                        for key, value in collect_local_account_preferences().items():
+                            store.set_preference(key, value)
+                        store.set_preference("_prefs_dirty", True)
             except Exception:
                 pass
             on_success()

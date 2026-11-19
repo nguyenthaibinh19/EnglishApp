@@ -212,6 +212,27 @@ def init_schema(connection: sqlite3.Connection) -> None:
             )
             """
         )
+        connection.execute(
+            """
+            CREATE TABLE IF NOT EXISTS account_preferences (
+                key TEXT PRIMARY KEY,
+                value_json TEXT NOT NULL,
+                revision INTEGER NOT NULL DEFAULT 1,
+                updated_at TEXT NOT NULL
+            )
+            """
+        )
+        connection.execute(
+            """
+            CREATE TABLE IF NOT EXISTS legacy_import_consent (
+                language_code TEXT NOT NULL,
+                source_kind TEXT NOT NULL,
+                consented_at TEXT NOT NULL,
+                note TEXT NOT NULL DEFAULT '',
+                PRIMARY KEY (language_code, source_kind)
+            )
+            """
+        )
         _meta_set(connection, "schema_version", str(SCHEMA_VERSION))
         if not _meta_get(connection, "device_id"):
             _meta_set(connection, "device_id", str(uuid.uuid4()))
@@ -776,6 +797,326 @@ class AccountLocalStore:
             if entry["wrong"] > 0 or entry["near"] > 0
         ]
 
+    def account_day_buckets(self, language_code: str) -> Dict[str, dict]:
+        """Account-wide day activity from distinct attempt event_ids (UTC day).
+
+        Device-local ``reading_done`` is merged from ``daily_activity`` only.
+        Does not sum guest ``progress.json`` counters.
+        """
+        language_code = language_code.strip().lower()
+        days: Dict[str, dict] = {}
+        for item in self.list_attempts(language_code):
+            stamp = str(item.get("received_at") or item.get("occurred_at") or "")
+            parsed = parse_utc(stamp)
+            if parsed is None:
+                continue
+            day_key = parsed.date().isoformat()
+            bucket = days.setdefault(
+                day_key,
+                {"asked": [], "correct": [], "wrong": [], "reading_done": False},
+            )
+            vid = str(item.get("vocab_id") or "")
+            if not vid:
+                continue
+            if vid not in bucket["asked"]:
+                bucket["asked"].append(vid)
+            mastered = bool(int(item.get("mastered") or 0))
+            target = "correct" if mastered else "wrong"
+            if vid not in bucket[target]:
+                bucket[target].append(vid)
+            if mastered and vid in bucket["wrong"]:
+                bucket["wrong"].remove(vid)
+        with self._lock:
+            rows = self._conn.execute(
+                "SELECT day_key, reading_done FROM daily_activity WHERE language_code = ?",
+                (language_code,),
+            ).fetchall()
+        for row in rows:
+            day_key = str(row["day_key"])
+            bucket = days.setdefault(
+                day_key,
+                {"asked": [], "correct": [], "wrong": [], "reading_done": False},
+            )
+            if int(row["reading_done"] or 0):
+                bucket["reading_done"] = True
+        return days
+
+    def mark_reading_done(
+        self, language_code: str, score: int = None, total: int = None
+    ) -> None:
+        language_code = language_code.strip().lower()
+        day_key = date.today().isoformat()
+        with self._lock:
+            row = self._conn.execute(
+                "SELECT asked_json, correct_json, wrong_json FROM daily_activity "
+                "WHERE day_key = ? AND language_code = ?",
+                (day_key, language_code),
+            ).fetchone()
+            asked = json.loads(row["asked_json"]) if row else []
+            correct = json.loads(row["correct_json"]) if row else []
+            wrong = json.loads(row["wrong_json"]) if row else []
+            self._conn.execute(
+                """
+                INSERT INTO daily_activity (
+                    day_key, language_code, asked_json, correct_json, wrong_json, reading_done
+                ) VALUES (?, ?, ?, ?, ?, 1)
+                ON CONFLICT(day_key, language_code) DO UPDATE SET reading_done = 1
+                """,
+                (
+                    day_key,
+                    language_code,
+                    json.dumps(asked),
+                    json.dumps(correct),
+                    json.dumps(wrong),
+                ),
+            )
+            self._conn.commit()
+
+    def get_preferences(self) -> Dict[str, Any]:
+        with self._lock:
+            rows = self._conn.execute(
+                "SELECT key, value_json FROM account_preferences"
+            ).fetchall()
+        out = {}
+        for row in rows:
+            try:
+                out[str(row["key"])] = json.loads(row["value_json"])
+            except json.JSONDecodeError:
+                continue
+        return out
+
+    def set_preference(self, key: str, value: Any) -> None:
+        key = str(key or "").strip()
+        if not key:
+            raise AccountLocalError("Preference key required.")
+        stamp = to_utc_iso(utc_now())
+        with self._lock:
+            row = self._conn.execute(
+                "SELECT revision FROM account_preferences WHERE key = ?", (key,)
+            ).fetchone()
+            revision = int(row["revision"]) + 1 if row else 1
+            self._conn.execute(
+                """
+                INSERT INTO account_preferences (key, value_json, revision, updated_at)
+                VALUES (?, ?, ?, ?)
+                ON CONFLICT(key) DO UPDATE SET
+                    value_json = excluded.value_json,
+                    revision = excluded.revision,
+                    updated_at = excluded.updated_at
+                """,
+                (key, json.dumps(value, ensure_ascii=False, sort_keys=True), revision, stamp),
+            )
+            self._conn.commit()
+
+    def resolve_vocab_conflict(
+        self, language_code: str, vocab_id: str, *, keep: str
+    ) -> None:
+        """Resolve a frozen vocabulary conflict. ``keep`` is ``local`` or ``server``."""
+        language_code = language_code.strip().lower()
+        keep = str(keep or "").strip().lower()
+        if keep not in {"local", "server"}:
+            raise AccountLocalError("keep must be 'local' or 'server'.")
+        stamp = to_utc_iso(utc_now())
+        with self._lock:
+            self._conn.execute("BEGIN IMMEDIATE")
+            try:
+                frozen = self._conn.execute(
+                    """
+                    SELECT * FROM outbox
+                    WHERE state = ? AND language_code = ? AND vocab_id = ?
+                      AND kind IN (?, ?)
+                    ORDER BY id DESC LIMIT 1
+                    """,
+                    (
+                        OUTBOX_CONFLICT,
+                        language_code,
+                        vocab_id,
+                        OUTBOX_KIND_VOCAB_PUT,
+                        OUTBOX_KIND_VOCAB_DELETE,
+                    ),
+                ).fetchone()
+                if frozen is None:
+                    raise AccountLocalError("No vocabulary conflict to resolve.")
+                entity = self._conn.execute(
+                    "SELECT * FROM vocabulary_entities "
+                    "WHERE language_code = ? AND vocab_id = ?",
+                    (language_code, vocab_id),
+                ).fetchone()
+                server_revision = int(entity["revision"]) if entity else 0
+                if keep == "server":
+                    self._conn.execute(
+                        "UPDATE outbox SET state = ?, updated_at = ? WHERE id = ?",
+                        (OUTBOX_ACKED, stamp, int(frozen["id"])),
+                    )
+                else:
+                    # Re-queue local intent against the current server tip.
+                    payload = json.loads(frozen["payload_json"])
+                    payload["expected_revision"] = server_revision
+                    payload["operation_id"] = str(uuid.uuid4())
+                    if frozen["kind"] == OUTBOX_KIND_VOCAB_DELETE:
+                        if server_revision <= 0:
+                            # Nothing on server; local delete is already satisfied.
+                            self._conn.execute(
+                                "UPDATE outbox SET state = ?, updated_at = ? WHERE id = ?",
+                                (OUTBOX_ACKED, stamp, int(frozen["id"])),
+                            )
+                        else:
+                            self._conn.execute(
+                                "UPDATE outbox SET state = ?, updated_at = ? WHERE id = ?",
+                                (OUTBOX_ACKED, stamp, int(frozen["id"])),
+                            )
+                            self._enqueue_outbox(
+                                kind=OUTBOX_KIND_VOCAB_DELETE,
+                                operation_id=payload["operation_id"],
+                                language_code=language_code,
+                                vocab_id=vocab_id,
+                                payload={
+                                    "language_code": language_code,
+                                    "vocab_id": vocab_id,
+                                    "expected_revision": server_revision,
+                                    "operation_id": payload["operation_id"],
+                                },
+                                stamp=stamp,
+                            )
+                            if entity is not None:
+                                self._conn.execute(
+                                    "UPDATE vocabulary_entities SET deleted = 1, "
+                                    "expected_revision = ?, updated_at = ? "
+                                    "WHERE language_code = ? AND vocab_id = ?",
+                                    (server_revision, stamp, language_code, vocab_id),
+                                )
+                    else:
+                        body = payload.get("payload") or {}
+                        body["id"] = vocab_id
+                        self._conn.execute(
+                            "UPDATE outbox SET state = ?, updated_at = ? WHERE id = ?",
+                            (OUTBOX_ACKED, stamp, int(frozen["id"])),
+                        )
+                        self._enqueue_outbox(
+                            kind=OUTBOX_KIND_VOCAB_PUT,
+                            operation_id=payload["operation_id"],
+                            language_code=language_code,
+                            vocab_id=vocab_id,
+                            payload={
+                                "language_code": language_code,
+                                "vocab_id": vocab_id,
+                                "payload": body,
+                                "expected_revision": server_revision,
+                                "operation_id": payload["operation_id"],
+                            },
+                            stamp=stamp,
+                        )
+                        payload_json = json.dumps(body, ensure_ascii=False, sort_keys=True)
+                        self._conn.execute(
+                            """
+                            INSERT INTO vocabulary_entities (
+                                language_code, vocab_id, revision, deleted, payload_json,
+                                expected_revision, updated_at
+                            ) VALUES (?, ?, ?, 0, ?, ?, ?)
+                            ON CONFLICT(language_code, vocab_id) DO UPDATE SET
+                                deleted = 0,
+                                payload_json = excluded.payload_json,
+                                expected_revision = excluded.expected_revision,
+                                updated_at = excluded.updated_at
+                            """,
+                            (
+                                language_code,
+                                vocab_id,
+                                server_revision,
+                                payload_json,
+                                server_revision,
+                                stamp,
+                            ),
+                        )
+                    _meta_set(self._conn, "vocab_caught_up", "0")
+                detail_match = f"%{vocab_id}%"
+                self._conn.execute(
+                    "UPDATE sync_conflicts SET resolved = 1 "
+                    "WHERE resolved = 0 AND kind = ? AND detail LIKE ?",
+                    ("vocabulary", detail_match),
+                )
+                # If no more frozen vocab outbox rows remain, clear generic vocabulary conflicts.
+                remaining = self._conn.execute(
+                    "SELECT 1 FROM outbox WHERE state = ? AND kind IN (?, ?) LIMIT 1",
+                    (OUTBOX_CONFLICT, OUTBOX_KIND_VOCAB_PUT, OUTBOX_KIND_VOCAB_DELETE),
+                ).fetchone()
+                if remaining is None:
+                    self._conn.execute(
+                        "UPDATE sync_conflicts SET resolved = 1 "
+                        "WHERE resolved = 0 AND kind = ?",
+                        ("vocabulary",),
+                    )
+                self._conn.execute("COMMIT")
+            except Exception:
+                self._conn.execute("ROLLBACK")
+                raise
+
+    def has_legacy_consent(self, language_code: str, source_kind: str = "guest") -> bool:
+        with self._lock:
+            row = self._conn.execute(
+                "SELECT 1 FROM legacy_import_consent "
+                "WHERE language_code = ? AND source_kind = ?",
+                (language_code.strip().lower(), source_kind),
+            ).fetchone()
+        return row is not None
+
+    def grant_legacy_consent(
+        self, language_code: str, source_kind: str = "guest", note: str = ""
+    ) -> None:
+        stamp = to_utc_iso(utc_now())
+        with self._lock:
+            self._conn.execute(
+                """
+                INSERT INTO legacy_import_consent (
+                    language_code, source_kind, consented_at, note
+                ) VALUES (?, ?, ?, ?)
+                ON CONFLICT(language_code, source_kind) DO UPDATE SET
+                    consented_at = excluded.consented_at,
+                    note = excluded.note
+                """,
+                (language_code.strip().lower(), source_kind, stamp, note),
+            )
+            self._conn.commit()
+
+    def import_guest_vocabulary(
+        self, language_code: str, entries: List[dict], *, require_consent: bool = True
+    ) -> dict:
+        """Import guest vocab entries into the account store (explicit consent).
+
+        Does not rewrite guest JSON files. Skips ids already present.
+        """
+        language_code = language_code.strip().lower()
+        if require_consent and not self.has_legacy_consent(language_code, "guest"):
+            raise AccountLocalError("Legacy import requires explicit consent.")
+        imported = 0
+        skipped = 0
+        for raw in entries or []:
+            if not isinstance(raw, dict):
+                skipped += 1
+                continue
+            from vocabulary_model import normalize_entry_dict
+            from vocab_identity import entry_id as _eid
+
+            entry = normalize_entry_dict(dict(raw), assign_id=True)
+            if entry is None:
+                skipped += 1
+                continue
+            vid = _eid(entry)
+            if not vid:
+                skipped += 1
+                continue
+            existing = [
+                e for e in self.list_vocabulary(language_code) if e.get("id") == vid
+            ]
+            if existing:
+                skipped += 1
+                continue
+            self.upsert_vocabulary(
+                language_code=language_code, vocab_id=vid, payload=entry
+            )
+            imported += 1
+        return {"imported": imported, "skipped": skipped}
+
     def acknowledge_progress_upload(self, event_id: str, body: dict) -> None:
         """Mark outbox acked and apply progress_after without moving the download cursor."""
         progress_after = body.get("progress_after") or {}
@@ -932,6 +1273,58 @@ class AccountLocalStore:
             item["payload"] = json.loads(row["payload_json"])
             result.append(item)
         return result
+
+    def list_open_vocab_conflicts(self) -> List[dict]:
+        """Local vs server vocabulary versions waiting for explicit resolution."""
+        with self._lock:
+            rows = self._conn.execute(
+                """
+                SELECT * FROM outbox
+                WHERE state = ? AND kind IN (?, ?)
+                ORDER BY id ASC
+                """,
+                (OUTBOX_CONFLICT, OUTBOX_KIND_VOCAB_PUT, OUTBOX_KIND_VOCAB_DELETE),
+            ).fetchall()
+        out = []
+        for row in rows:
+            language_code = str(row["language_code"] or "")
+            vocab_id = str(row["vocab_id"] or "")
+            local_payload = json.loads(row["payload_json"])
+            server_entry = None
+            server_deleted = False
+            server_revision = 0
+            with self._lock:
+                entity = self._conn.execute(
+                    "SELECT * FROM vocabulary_entities "
+                    "WHERE language_code = ? AND vocab_id = ?",
+                    (language_code, vocab_id),
+                ).fetchone()
+            if entity is not None:
+                server_revision = int(entity["revision"] or 0)
+                server_deleted = bool(int(entity["deleted"] or 0))
+                if entity["payload_json"] and not server_deleted:
+                    try:
+                        server_entry = json.loads(entity["payload_json"])
+                    except json.JSONDecodeError:
+                        server_entry = None
+            local_body = local_payload.get("payload") if row["kind"] == OUTBOX_KIND_VOCAB_PUT else None
+            out.append(
+                {
+                    "outbox_id": int(row["id"]),
+                    "kind": str(row["kind"]),
+                    "language_code": language_code,
+                    "vocab_id": vocab_id,
+                    "local_operation": "delete"
+                    if row["kind"] == OUTBOX_KIND_VOCAB_DELETE
+                    else "put",
+                    "local_entry": local_body,
+                    "server_entry": server_entry,
+                    "server_revision": server_revision,
+                    "server_deleted": server_deleted,
+                    "updated_at": str(row["updated_at"] or ""),
+                }
+            )
+        return out
 
     def mark_conflict(self, kind: str, detail: str) -> None:
         with self._lock:

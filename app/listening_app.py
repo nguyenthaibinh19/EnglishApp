@@ -144,11 +144,11 @@ class ListeningApp:
     def _default_content_loader(self) -> ListeningItem:
         if self._content_loader is not None:
             return self._content_loader()
-        from progress import Progress
-        from vocab_store import VocabStore
+        from study_data import open_study_data
 
-        store = self.vocab_store or VocabStore(config.vocab_path(self.language_code))
-        progress = Progress(config.progress_path(self.language_code))
+        bundle = open_study_data(self.language_code)
+        store = self.vocab_store or bundle.vocab
+        progress = bundle.progress
         summaries = None
         try:
             from mistake_book import load_mistake_summaries
@@ -406,9 +406,9 @@ class ListeningApp:
         """Return ``saved`` / ``duplicate`` / ``failed`` for truthful overlay UX."""
         store = self.vocab_store
         if store is None:
-            from vocab_store import VocabStore
+            from study_data import open_study_data
 
-            store = VocabStore(config.vocab_path(self.language_code))
+            store = open_study_data(self.language_code).vocab
         text = str(word or "").strip()
         gloss = str(meaning or "").strip()
         if not text or not gloss:

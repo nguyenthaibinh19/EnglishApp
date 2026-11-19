@@ -23,7 +23,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, List, Mapping, Optional, Sequence
 
-from mistake_book import MistakeSummary, load_mistake_summaries
+from mistake_book import MistakeSummary, load_mistake_summaries, summarize_mistakes
 from srs import is_due, is_future, is_new, utc_now
 from text_utils import entry_word, normalize
 from vocab_identity import entry_id
@@ -124,14 +124,27 @@ def plan_for_language(
     from vocab_store import VocabStore
 
     code = str(language_code or config.active_code()).strip().lower()
-    store = vocab_store or VocabStore(config.vocab_path(code))
-    prog = progress or Progress(config.progress_path(code))
-    attempts_path = (
-        attempts_filename
-        if attempts_filename is not None
-        else config.attempts_path(code)
-    )
-    summaries = load_mistake_summaries(attempts_path, language_code=code)
+    if vocab_store is None or progress is None:
+        from study_data import open_study_data
+
+        bundle = open_study_data(code)
+        store = vocab_store or bundle.vocab
+        prog = progress or bundle.progress
+        if attempts_filename is None:
+            summaries = summarize_mistakes(
+                bundle.attempts.load_attempts(), language_code=code
+            )
+        else:
+            summaries = load_mistake_summaries(attempts_filename, language_code=code)
+    else:
+        store = vocab_store
+        prog = progress
+        attempts_path = (
+            attempts_filename
+            if attempts_filename is not None
+            else config.attempts_path(code)
+        )
+        summaries = load_mistake_summaries(attempts_path, language_code=code)
     target = config.QUIZ_TARGET_CORRECT if quiz_target is None else int(quiz_target)
     reading = (
         config.activity_enabled("reading")

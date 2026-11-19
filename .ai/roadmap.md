@@ -4,7 +4,7 @@ Directional plan — **not** a rigid release commitment. Update when phases comp
 
 ## Latest operational checkpoint — 2026-11-19 (supersedes older narrative below)
 
-- **Active priority: 18C.2 signed-in GUI account sync (next). 18C.1 CLOSED — Architect Accepted (PR #20). 18B.9 off-box is PAUSED, NOT CLOSED. Cloud Sync OFF.**
+- **Active priority: 18C.2 signed-in GUI account sync — Ready for Architect review (not merged). 18C.1 CLOSED — Architect Accepted (PR #20). 18B.9 off-box is PAUSED, NOT CLOSED. Cloud Sync OFF.**
 - **SOURCE INSTALLED INACTIVE — NOT ACTIVATED** (VPS packaging sync at main `eb869ea`; PR #16+#17). See [OFFBOX_PRODUCTION_DEPLOYMENT_RUNBOOK.md](procedures/OFFBOX_PRODUCTION_DEPLOYMENT_RUNBOOK.md).
 - Post-fix Gate A/B PASS stand. Not activation. No daemon-reload in sync session.
 - Historical pre-fix audit remains **UNSAFE** ([Issue #8](https://github.com/nguyenthaibinh19/EnglishApp/issues/8#issuecomment-7009010670)). Next: Owner-authorized age/OAuth/credential stages, synthetic isolation, restore, monitoring, activation.
@@ -84,8 +84,8 @@ Emergency Exit under --lock is not verified on this build
 ## Next
 
 ```text
-18C.1 CLOSED — Architect Accepted (PR #20); local core demo only; GUI integration not complete
-18C.2 ACTIVE NEXT: signed-in GUI, preferences, streak, conflict UX, race safety, shutdown/logout, consent import, GUI two-profile demo
+18C.1 CLOSED — Architect Accepted (PR #20); local core demo
+18C.2 ACTIVE — Ready for Architect review: signed-in GUI data path, preferences v1, streak, conflict UX, consent import, two-profile demo (not merged)
 Phase 18B.9 remains OPEN but PAUSED. Google Drive 5 TB is the preferred pre-public store. No new storage subscription
 Backblaze B2 EU Central is the fallback and is not provisioned
 B2 is not assumed to be append-only. Object Lock and a deleting lifecycle stay off
@@ -101,8 +101,8 @@ Windows Startup --lock hotfix is DEFERRED until the affected computer is availab
 Website W1 is handled by Antigravity in a separate workspace
 Do not enable the sync backup timer
 Do not set STUDY_SYNC_ENABLED
-Phase 18C.1 CLOSED — Architect Accepted; 18C.2 is next; production Cloud Sync stays OFF
-Next after 18C.2 / resumed 18B.9 gates: AI Local Reading / Listening
+Phase 18C.1 CLOSED — Architect Accepted; 18C.2 Ready for Architect review (not merged); production Cloud Sync stays OFF
+Next after Architect-accepted 18C.2 / resumed 18B.9 gates: AI Local Reading / Listening
 Optional later: Listening attempt history / analytics (not mastery / SRS)
 Dictionary / pronunciation enrichment (review-before-apply)
 Reading Lab improvements
@@ -121,7 +121,7 @@ Directional only. Source on `main` is not deployment. The Windows client in ADR-
 - Accounts backup creation in `09556f9` is deployed. The 2026-11-10 snapshot `accounts-20261110-032712.db` is mode `0600`. Retention is 14.
 - Windows installation safety ([ADR-023](decisions/ADR-023-windows-installation-safety.md)) is committed at `3dff28d3f78a22da0fda73a50168ed9c3d6e9d57`. The Startup `--lock` hotfix is DEFERRED until the affected computer is available. The shortcut targets the installed executable with `--lock`. Normal GUI launch passed. Automatic Startup and Emergency Exit under `--lock` are not verified, and the failure is not diagnosed.
 - Phase 18B.9B is CLOSED — Leader Accepted, 2026-11-10, commit `274156e`. It is a local synthetic restic proof, not the production artifact. The historical suite was 30 passed and 1 skipped. A later wrong-password check passed, and the full suite was not rerun. Phase 18B.9 remains OPEN. The step map is [PHASE-18B.9-offbox-status.md](plans/PHASE-18B.9-offbox-status.md). `18B9D4C` means Phase 18B.9 step D4C, not Phase 18B.4. Leader accepted D4C, D5A2B3, D5A2C, D5A2C1, and D5A2C2. D5A2B1 is not accepted. D5A2C1 is CLOSED — Leader Accepted, 2026-11-16, localhost only. D5A2C2 is CLOSED — Leader Accepted, 2026-11-16, one synthetic live shot, checkpoint `29317d0`. A second live attempt is NOT AUTHORIZED. The synthetic Drive object remains until separate deletion approval. Next is D5A2C3 production-readiness review, planning only. Age v1.3.2 and an `age1pq1` recipient are validated on WSL only. [ADR-024](decisions/ADR-024-offbox-age-drive.md) replaces `rclone`. The adapter is not installed. Google Drive is NOT CONFIGURED. Phase 18B.9C2 is NOT AUTHORIZED. A 26-hour RPO and a 4-hour RTO remain proposals.
-- **18C.1 CLOSED — Architect Accepted / 18C.2 next / 18B.9 PAUSED:** local core sync on main after PR #20. GUI integration not complete. Production flag stays off. Legacy import/consent ledger remains 18C.2. 18B.9 off-box stays open historically and is paused, not closed.
+- **18C.1 CLOSED / 18C.2 Ready for Architect review / 18B.9 PAUSED:** local core sync on main after PR #20. 18C.2 wires signed-in GUI to the account store (review PR; not merged). Production flag stays off. Full attempt-history ledger import remains deferred. 18B.9 off-box stays open historically and is paused, not closed.
 - AI Local Reading / Listening remains the product priority after account sync acceptance and resumed off-box gates. Website W1 is handled by Antigravity in a separate workspace.
 - Dictionary / pronunciation enrichment
 - Reading Lab improvements
