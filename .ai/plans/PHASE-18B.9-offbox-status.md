@@ -1,6 +1,6 @@
 # Phase 18B.9 off-box status
 
-Status updated: **2026-11-19**. Phase 18B.9 remains **OPEN / PRODUCTION NOT READY**. This is the phase map; it does not independently authorize VPS actions. See the latest Owner approval on Issue #8 and the active handoff.
+Status updated: **2026-11-19**. Phase 18B.9 remains **OPEN / PRODUCTION NOT READY** and is **PAUSED, NOT CLOSED**. Owner priority moved to Account Sync: **18C.1 CLOSED — Architect Accepted**; **18C.2** is next. 18C.1 is a local core sync demonstration only (not production Cloud Sync activation and not a cancellation of off-box recovery). This is the phase map; it does not independently authorize VPS actions. See the latest Owner approval on Issue #8 and the active handoff.
 
 The names `18B9D4C` and `PHASE18B9D4C` are the same step: Phase **18B.9**, local step **D4C**. They are not Phase 18B.4. Phase 18B.4 is the already closed sync-backup timer contract.
 

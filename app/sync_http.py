@@ -1,6 +1,6 @@
-"""Feature-gated vocabulary sync HTTP adapter (Phase 18B.1).
+"""Feature-gated vocabulary + progress sync HTTP adapter.
 
-Contract: ``.ai/decisions/ADR-019-vocabulary-sync-http.md``.
+Contract: ADR-019 (vocabulary) and ADR-022 (progress ingest / changes).
 
 The account server calls :func:`handle_request`. This module does not listen
 on a port and does not authenticate by itself beyond reading the Bearer token
@@ -20,7 +20,17 @@ import sync_store
 SYNC_PUT = "/api/sync/vocabulary/put"
 SYNC_DELETE = "/api/sync/vocabulary/delete"
 SYNC_CHANGES = "/api/sync/vocabulary/changes"
-SYNC_PATHS = frozenset({SYNC_PUT, SYNC_DELETE, SYNC_CHANGES})
+SYNC_PROGRESS_ACCEPT = "/api/sync/progress/accept"
+SYNC_PROGRESS_CHANGES = "/api/sync/progress/changes"
+SYNC_PATHS = frozenset(
+    {
+        SYNC_PUT,
+        SYNC_DELETE,
+        SYNC_CHANGES,
+        SYNC_PROGRESS_ACCEPT,
+        SYNC_PROGRESS_CHANGES,
+    }
+)
 
 SYNC_MAX_BODY = 32_768
 
@@ -50,6 +60,9 @@ _DELETE_REQUIRED = frozenset(
     {"language_code", "vocab_id", "expected_revision", "operation_id"}
 )
 _CHANGES_KEYS = frozenset({"after_cursor", "limit", "language_code", "user_id"})
+_PROGRESS_ACCEPT_KEYS = frozenset({"event", "user_id"})
+_PROGRESS_ACCEPT_REQUIRED = frozenset({"event"})
+_PROGRESS_CHANGES_KEYS = frozenset({"after_cursor", "limit", "language_code", "user_id"})
 
 
 def sync_enabled() -> bool:
@@ -127,7 +140,14 @@ def handle_request(path: str, headers, rfile) -> Tuple[int, Dict[str, Any]]:
                 connection, user_id=user_id, **prepared
             )
             return 200, _public_record(record)
-        return 200, _changes_page(connection, user_id=user_id, **prepared)
+        if route == SYNC_CHANGES:
+            return 200, _changes_page(connection, user_id=user_id, **prepared)
+        if route == SYNC_PROGRESS_ACCEPT:
+            result = sync_store.accept_learning_attempt(
+                connection, user_id=user_id, event=prepared["event"]
+            )
+            return 200, _public_progress_accept(result)
+        return 200, _progress_changes_page(connection, user_id=user_id, **prepared)
     except sync_store.SyncValidationError:
         return 400, dict(_INVALID)
     except sync_store.SyncConflictError as error:
@@ -172,8 +192,33 @@ def _prepare(route: str, body: Dict[str, Any]) -> Dict[str, Any]:
             "expected_revision": body["expected_revision"],
             "operation_id": body["operation_id"],
         }
+    if route == SYNC_PROGRESS_ACCEPT:
+        _require_shape(
+            body, allowed=_PROGRESS_ACCEPT_KEYS, required=_PROGRESS_ACCEPT_REQUIRED
+        )
+        if not isinstance(body["event"], dict):
+            raise sync_store.SyncValidationError("event must be an object.")
+        return {"event": body["event"]}
+    if route == SYNC_PROGRESS_CHANGES:
+        _require_shape(body, allowed=_PROGRESS_CHANGES_KEYS, required=frozenset())
+        prepared: Dict[str, Any] = {}
+        if "after_cursor" in body:
+            prepared["after_cursor"] = body["after_cursor"]
+        if "limit" in body:
+            limit = body["limit"]
+            if isinstance(limit, bool) or not isinstance(limit, int):
+                raise sync_store.SyncValidationError("limit must be an integer.")
+            if limit < 1 or limit > sync_store.PROGRESS_CHANGE_LIMIT:
+                raise sync_store.SyncValidationError(
+                    "limit is outside the allowed page size."
+                )
+            prepared["limit"] = limit
+        if "language_code" in body:
+            _require_text(body["language_code"], "language_code")
+            prepared["language_code"] = body["language_code"]
+        return prepared
     _require_shape(body, allowed=_CHANGES_KEYS, required=frozenset())
-    prepared: Dict[str, Any] = {}
+    prepared = {}
     if "after_cursor" in body:
         prepared["after_cursor"] = body["after_cursor"]
     if "limit" in body:
@@ -214,6 +259,36 @@ def _changes_page(connection, *, user_id: int, **prepared) -> Dict[str, Any]:
     next_cursor = changes[-1].cursor if changes else after_cursor
     return {
         "changes": [_public_change(item) for item in changes],
+        "next_cursor": next_cursor,
+        "has_more": has_more,
+        "limit": limit,
+    }
+
+
+def _progress_changes_page(connection, *, user_id: int, **prepared) -> Dict[str, Any]:
+    after_cursor = prepared.get("after_cursor", 0)
+    limit = prepared.get("limit", sync_store.PROGRESS_CHANGE_LIMIT)
+    language_code = prepared.get("language_code")
+    changes = sync_store.list_progress_changes(
+        connection,
+        user_id=user_id,
+        language_code=language_code,
+        after_cursor=after_cursor,
+        limit=limit,
+    )
+    has_more = False
+    if len(changes) == limit:
+        probe = sync_store.list_progress_changes(
+            connection,
+            user_id=user_id,
+            language_code=language_code,
+            after_cursor=changes[-1].change_id,
+            limit=1,
+        )
+        has_more = bool(probe)
+    next_cursor = changes[-1].change_id if changes else after_cursor
+    return {
+        "changes": [_public_progress_change(item) for item in changes],
         "next_cursor": next_cursor,
         "has_more": has_more,
         "limit": limit,
@@ -270,6 +345,59 @@ def _public_current(current: Optional[sync_store.VocabularySyncRecord]):
         "deleted": current.deleted,
         "change_cursor": current.change_cursor,
         "expected_revision": current.expected_revision,
+    }
+
+
+def _public_attempt(event: sync_store.LearningAttemptRecord) -> Dict[str, Any]:
+    return {
+        "event_id": event.event_id,
+        "device_id": event.device_id,
+        "language_code": event.language_code,
+        "vocab_id": event.vocab_id,
+        "verdict": event.verdict,
+        "mastered": 1 if event.mastered else 0,
+        "hint_used": 1 if event.hint_used else 0,
+        "occurred_at": event.occurred_at,
+        "received_at": event.received_at,
+        "server_seq": event.server_seq,
+        "algorithm_id": event.algorithm_id,
+        "word_snapshot": event.word_snapshot,
+        "user_answer": event.user_answer,
+        "expected_answer": event.expected_answer,
+        "prompt": event.prompt,
+    }
+
+
+def _public_progress_snapshot(snapshot: sync_store.ProgressSnapshot) -> Dict[str, Any]:
+    return {
+        "seen": snapshot.seen,
+        "correct": snapshot.correct,
+        "wrong": snapshot.wrong,
+        "streak": snapshot.streak,
+        "interval_days": snapshot.interval_days,
+        "due_at": snapshot.due_at,
+        "state_version": snapshot.state_version,
+        "algorithm_id": snapshot.algorithm_id,
+        "last_event_id": snapshot.last_event_id,
+        "last_server_seq": snapshot.last_server_seq,
+    }
+
+
+def _public_progress_accept(result: sync_store.ProgressAcceptResult) -> Dict[str, Any]:
+    return {
+        "change_id": result.change_id,
+        "server_seq": result.server_seq,
+        "event": _public_attempt(result.event),
+        "progress_after": _public_progress_snapshot(result.progress_after),
+    }
+
+
+def _public_progress_change(change: sync_store.ProgressChange) -> Dict[str, Any]:
+    return {
+        "change_id": change.change_id,
+        "server_seq": change.server_seq,
+        "event": _public_attempt(change.event),
+        "progress_after": _public_progress_snapshot(change.progress_after),
     }
 
 

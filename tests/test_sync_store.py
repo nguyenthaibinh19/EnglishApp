@@ -963,15 +963,24 @@ def _insert_v1_change(
         conn.close()
 
 
-def test_fresh_v2_db_initialization(tmp_path):
+def test_fresh_v3_db_initialization(tmp_path):
     path = tmp_path / "fresh.db"
     conn = connect(str(path))
-    assert schema_version(conn) == 2
+    assert schema_version(conn) == sync_store.SCHEMA_VERSION
     cols = {
         row[1]
         for row in conn.execute("PRAGMA table_info(vocabulary_changes)").fetchall()
     }
     assert "expected_revision" in cols
+    tables = {
+        row[0]
+        for row in conn.execute(
+            "SELECT name FROM sqlite_master WHERE type='table'"
+        ).fetchall()
+    }
+    assert "learning_attempts" in tables
+    assert "user_progress" in tables
+    assert "progress_changes" in tables
     put_vocabulary(
         conn,
         user_id=1,
@@ -1032,7 +1041,7 @@ def test_v1_to_v2_backfills_create_update_delete_history(tmp_path):
     raw.close()
 
     conn = connect(str(path))
-    assert schema_version(conn) == 2
+    assert schema_version(conn) == sync_store.SCHEMA_VERSION
     changes = list_vocabulary_changes(conn, user_id=1, limit=50)
     assert [c.revision for c in changes] == [1, 2, 3]
     assert [c.expected_revision for c in changes] == [0, 1, 2]
@@ -1069,7 +1078,7 @@ def test_operation_retry_after_v1_to_v2_migration(tmp_path):
     )
 
     conn = connect(str(path))
-    assert schema_version(conn) == 2
+    assert schema_version(conn) == sync_store.SCHEMA_VERSION
     # Replay original update operation with reconstructed expected_revision=1.
     retry = put_vocabulary(
         conn,
@@ -1103,7 +1112,7 @@ def test_repeated_migration_is_idempotent(tmp_path):
     assert first.expected_revision == 1
     init_schema(conn)
     init_schema(conn)
-    assert schema_version(conn) == 2
+    assert schema_version(conn) == sync_store.SCHEMA_VERSION
     again = list_vocabulary_changes(conn, user_id=1)[0]
     assert again.expected_revision == 1
     assert again.revision == first.revision
@@ -1157,8 +1166,8 @@ def _db_integrity_snapshot(connection: sqlite3.Connection) -> dict:
     }
 
 
-def _prepare_future_v3_db(path: Path, *, drop_vocab_indexes: bool = False) -> dict:
-    """Build a supported v2 DB, label it schema_version=3, return baseline snapshot."""
+def _prepare_future_schema_db(path: Path, *, drop_vocab_indexes: bool = False) -> dict:
+    """Build a supported v3 DB, label it schema_version=4, return baseline snapshot."""
     conn = connect(str(path))
     put_vocabulary(
         conn,
@@ -1173,7 +1182,7 @@ def _prepare_future_v3_db(path: Path, *, drop_vocab_indexes: bool = False) -> di
         conn.execute("DROP INDEX IF EXISTS idx_vocab_changes_user_cursor")
         conn.execute("DROP INDEX IF EXISTS idx_vocab_changes_user_lang_cursor")
     conn.execute(
-        "UPDATE sync_meta SET value = '3' WHERE key = 'schema_version'"
+        "UPDATE sync_meta SET value = '4' WHERE key = 'schema_version'"
     )
     conn.commit()
     snapshot = _db_integrity_snapshot(conn)
@@ -1181,9 +1190,9 @@ def _prepare_future_v3_db(path: Path, *, drop_vocab_indexes: bool = False) -> di
     return snapshot
 
 
-def test_future_schema_v3_connect_rejects_without_mutation(tmp_path):
+def test_future_schema_v4_connect_rejects_without_mutation(tmp_path):
     path = tmp_path / "future-connect.db"
-    before = _prepare_future_v3_db(path)
+    before = _prepare_future_schema_db(path)
 
     with pytest.raises(SyncSchemaError) as raised:
         connect(str(path))
@@ -1195,15 +1204,15 @@ def test_future_schema_v3_connect_rejects_without_mutation(tmp_path):
     finally:
         probe.close()
     assert after == before
-    assert after["meta"] == [("schema_version", "3")]
+    assert after["meta"] == [("schema_version", "4")]
 
 
-def test_future_schema_v3_init_schema_tuple_connection_rejects_without_mutation(
+def test_future_schema_v4_init_schema_tuple_connection_rejects_without_mutation(
     tmp_path,
 ):
     """Direct init_schema on default tuple rows must not mutate a future DB."""
     path = tmp_path / "future-tuple.db"
-    before = _prepare_future_v3_db(path)
+    before = _prepare_future_schema_db(path)
 
     raw = sqlite3.connect(str(path))  # default row_factory → tuples
     assert raw.row_factory is None
@@ -1215,12 +1224,12 @@ def test_future_schema_v3_init_schema_tuple_connection_rejects_without_mutation(
     finally:
         raw.close()
     assert after == before
-    assert after["meta"] == [("schema_version", "3")]
+    assert after["meta"] == [("schema_version", "4")]
 
 
-def test_future_schema_v3_missing_indexes_are_not_created(tmp_path):
+def test_future_schema_v4_missing_indexes_are_not_created(tmp_path):
     path = tmp_path / "future-no-idx.db"
-    before = _prepare_future_v3_db(path, drop_vocab_indexes=True)
+    before = _prepare_future_schema_db(path, drop_vocab_indexes=True)
     assert "idx_vocab_changes_user_cursor" not in before["indexes"]
     assert "idx_vocab_changes_user_lang_cursor" not in before["indexes"]
 

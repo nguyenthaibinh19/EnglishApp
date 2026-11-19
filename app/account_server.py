@@ -63,12 +63,23 @@ class Handler(BaseHTTPRequestHandler):
         try:
             if self.path == "/api/login":
                 token = account_store.login(str(payload.get("username") or ""), str(payload.get("password") or ""))
-                self._send(200, {"token": token})
+                user = account_store.user_for_token(token)
+                body = {"token": token}
+                if user is not None:
+                    body["user_id"] = int(user["id"])
+                    body["username"] = user["username"]
+                self._send(200, body)
                 return
             token = _bearer(self.headers.get("Authorization") or "") or str(payload.get("token") or "").strip()
             user = account_store.user_for_token(token)
             if user is None:
                 self._send(401, {"error": "Hãy đăng nhập lại."})
+                return
+            if self.path == "/api/session":
+                self._send(
+                    200,
+                    {"user_id": int(user["id"]), "username": user["username"]},
+                )
                 return
             if self.path == "/api/grade":
                 self._send(200, _grade(payload))

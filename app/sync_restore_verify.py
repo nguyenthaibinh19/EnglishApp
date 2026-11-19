@@ -26,7 +26,7 @@ STATUS_VERIFIED = "VERIFIED"
 STATUS_SKIPPED = "SKIPPED"
 STATUS_FAILED = "FAILED"
 
-SUPPORTED_SCHEMA_VERSION = 2
+SUPPORTED_SCHEMA_VERSION = 3
 _BACKUP_PREFIX = "study-sync-"
 _RESTORED_NAME = "restored.db"
 _PRODUCTION_ROOT = os.path.normcase(os.path.abspath("/opt/language-guard"))
@@ -62,6 +62,61 @@ _REQUIRED_COLUMNS = {
             "operation_id",
             "created_at",
             "expected_revision",
+        }
+    ),
+    "learning_attempts": frozenset(
+        {
+            "user_id",
+            "event_id",
+            "device_id",
+            "language_code",
+            "vocab_id",
+            "verdict",
+            "mastered",
+            "hint_used",
+            "occurred_at",
+            "received_at",
+            "server_seq",
+            "algorithm_id",
+            "word_snapshot",
+            "user_answer",
+            "expected_answer",
+            "prompt",
+        }
+    ),
+    "user_progress": frozenset(
+        {
+            "user_id",
+            "language_code",
+            "vocab_id",
+            "seen",
+            "correct",
+            "wrong",
+            "streak",
+            "interval_days",
+            "due_at",
+            "last_event_id",
+            "last_server_seq",
+            "algorithm_id",
+            "state_version",
+            "updated_at",
+        }
+    ),
+    "progress_changes": frozenset(
+        {
+            "change_id",
+            "user_id",
+            "event_id",
+            "server_seq",
+            "seen",
+            "correct",
+            "wrong",
+            "streak",
+            "interval_days",
+            "due_at",
+            "state_version",
+            "algorithm_id",
+            "created_at",
         }
     ),
 }

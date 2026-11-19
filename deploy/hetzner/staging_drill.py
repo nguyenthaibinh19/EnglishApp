@@ -423,7 +423,7 @@ def _section_backup(layout: staging_guard.StagingLayout) -> dict:
     if len(distinct) != 4:
         raise DrillError("restored database was not separate")
     version, integrity, tombstone = _inspect(str(inspect))
-    if version != 2 or integrity != "ok" or not tombstone:
+    if version != 3 or integrity != "ok" or not tombstone:
         raise DrillError("restored contents were incomplete")
     return {
         "verify_status": verified.status,
