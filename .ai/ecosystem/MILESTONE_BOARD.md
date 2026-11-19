@@ -9,7 +9,7 @@ Preserve ACCEPTED ≠ COMMITTED ≠ MERGED ≠ DEPLOYED.
 | Milestone | Status | Notes |
 |---|---|---|
 | Phase 18B.8 monitoring | CLOSED — Leader Accepted | Cloud Sync still OFF |
-| Phase 18B.9 off-box | **OPEN** | Production NOT READY |
+| Phase 18B.9 off-box | **OPEN** | Production NOT READY; inactive VPS packaging installed (reported 2026-11-19); one read-only executable-path audit OWNER APPROVED, NOT YET RUN; Issue #8 |
 | D5A2D0-P1 source import | CLOSED — accepted import-only | Branch `phase18b9/d5a2d0-p1-source-import` @ `98b590e`; **not merged** |
 | D5A2D2 WSL isolation | **OVERALL FAIL** | Formal A/D/E not proven; do not reclassify |
 | D5A2D3 helper journal evidence | **OVERALL FAIL** (E) | Original journals recovered; A/D predicates met; E still unproven under original predicate; D5A2D2 not rewritten PASS |
@@ -17,7 +17,7 @@ Preserve ACCEPTED ≠ COMMITTED ≠ MERGED ≠ DEPLOYED.
 | D5A2D5 revised isolation evidence | **CLOSED — Leader Accepted** | Revised WSL isolation safety gate A/B/C/D/E1/E2/F/G/H; historical D2/D3 FAIL preserved; not production |
 | D5A2D6 source integration readiness | **CLOSED — Leader Accepted** | READY_FOR_SOURCE_INTEGRATION_REVIEW; **not** merge approval; import unmerged; tests required before acceptance |
 | D5A2D7 source integration candidate | **SOURCE MERGED — NOT DEPLOYED** | PR #12 → `c03a0f5`; 23 files on main; production still NOT READY |
-| 18B.9 accelerated readiness package | **SOURCE MERGED — NOT DEPLOYED** | PR #13 → d6643e0; pinned verify-before-copy; not installed/enabled |
+| 18B.9 accelerated readiness package | **SOURCE MERGED; INACTIVE VPS INSTALL ACCEPTED AS REPORTED** | PR #13 → d6643e0; 15 modules + four inert units installed 2026-11-19, no daemon-reload/enable/start; pending runtime path-trust audit |
 | GOV-0A governance planning | **Leader Accepted with corrections** | Planning milestone |
 | GOV-0B1 ecosystem docs | **CLOSED — Leader Accepted** | Hosted under `.ai/ecosystem/` |
 | GOV-0C | **NOT AUTHORIZED** | Not started automatically |
@@ -42,8 +42,8 @@ ChatGPT receives Web **milestone summaries** only, unless shared contracts/secur
 | Create `langstudyguard-ai` | **DONE** — private repo exists |
 | AI-M0 bootstrap | System Architect Accepted; Owner closure may be separate / not yet recorded here |
 | Workspace migration | Verified and documented in AI repo (private detail stays there) |
-| AI-M2 Local AI Service | **Implementation committed** @ `5cd4dd26a01779322a9d1f638ef20bc9131fda31`; **architectural acceptance pending** |
-| App↔AI runtime contract `C-APP-AI-001` | **PROPOSED / IN REVIEW** — not ACCEPTED |
+| AI-M2 Local AI Service | **Architecture ACCEPTED** (reference source `080cb6a`); App integration remains separate |
+| App↔AI runtime contract `C-APP-AI-001` | **Wire v0.2.0 ACCEPTED**; App conformance tests PR #14 MERGED (`6692dfd`); LocalAIProvider NOT IMPLEMENTED |
 | App LocalAIProvider / App integration | **NOT AUTHORIZED** |
 | Model inference / training as accepted product capability | **Not accepted** |
 
