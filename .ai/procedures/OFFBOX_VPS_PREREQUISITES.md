@@ -33,12 +33,14 @@ Systemd `language-guard-offbox-worker.service` runs as `lg-backup` but executes 
 
 ## Source remediation design (NOT applied on VPS)
 
-Source-only correction is documented in [OFFBOX_RUNTIME_TRUST.md](OFFBOX_RUNTIME_TRUST.md):
+Source-only correction is documented in [OFFBOX_RUNTIME_TRUST.md](OFFBOX_RUNTIME_TRUST.md) (PR #15):
 
 1. Dedicated `/opt/language-guard-offbox` root-owned execution tree (sibling of `/opt/language-guard`).
 2. Unit templates use `/usr/bin/python3 -I` (not the guard-owned app venv).
-3. Packager `install-execution-tree` refuses install under the app path segment `language-guard`.
-4. Offline `verify-deps` confirms stdlib + local offbox import closure.
+3. Packager `install-execution-tree --production` requires the exact trusted root and ancestry/symlink/ownership preflight before copy; offline/test installs omit `--production`.
+4. Unit verify parses active directives only (exactly one approved `ExecStart`; duplicate security-sensitive keys rejected).
+5. Path-trust classification requires resolved interpreter identity, leaf/ancestor metadata and ACL evidence; incomplete metadata is **UNKNOWN**, not PASS.
+6. Offline `verify-deps` confirms stdlib + local offbox import closure.
 
 **VPS corrective write remains separately Owner-authorized.** After any permitted write, a new read-only audit must report **PASS** before isolation/activation requests.
 

@@ -128,7 +128,7 @@ if [[ "${LG_INSTALL_OFFBOX:-0}" == "1" ]]; then
     exit 1
   fi
   python3 "${SRC}/deploy/hetzner/install_offbox_packaging.py" \
-    install-execution-tree --dest "${OFFBOX_EXEC_DIR}"
+    install-execution-tree --dest "${OFFBOX_EXEC_DIR}" --production
   # Root-own the execution tree before APP_DIR is chowned to guard. Do not
   # nest OFFBOX_EXEC_DIR under APP_DIR.
   chown -R root:root "${OFFBOX_EXEC_DIR}"

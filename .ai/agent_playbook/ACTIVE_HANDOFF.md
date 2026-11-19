@@ -12,11 +12,11 @@ Rolling coordination checkpoint. The detailed history remains in [current_state.
 
 - Executable-path trust audit **ACCEPTED UNSAFE** (Issue #8 #7009010670 / Architect #7009128705).
 - Inactive packaging remains on the VPS under the **old** `/opt/language-guard/offbox` + venv ExecStart paths; units **inactive**.
-- **This remediation (source PR):** dedicated `/opt/language-guard-offbox` execution tree; units use `/usr/bin/python3 -I`; packager `install-execution-tree`; offline dependency closure + security regressions. Frozen 15 module bytes unchanged. Account-server paths unchanged. See [OFFBOX_RUNTIME_TRUST.md](../procedures/OFFBOX_RUNTIME_TRUST.md).
+- **This remediation (source PR #15):** dedicated `/opt/language-guard-offbox` execution tree; units use `/usr/bin/python3 -I`; packager `install-execution-tree --production`; hardened active-directive unit verify, path-trust classifier, and destination preflight. Frozen 15 module bytes unchanged. Account-server paths unchanged. See [OFFBOX_RUNTIME_TRUST.md](../procedures/OFFBOX_RUNTIME_TRUST.md). Architect merge remains blocked until corrections are accepted.
 
 ## 3. Next App task
 
-1. Review/merge the source-only runtime-trust PR (human gate; no auto-merge).
+1. Architect re-review of PR #15 security corrections (human gate; no auto-merge).
 2. Product Owner must **separately authorize** any VPS corrective write (install execution tree + replace inactive unit files only).
 3. After corrective write: Owner-authorized read-only re-audit must report **PASS** before isolation/activation requests.
 

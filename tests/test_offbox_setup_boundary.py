@@ -58,6 +58,7 @@ def test_setup_opt_in_requires_packager_before_any_offbox_copy() -> None:
     assert INSTALL_EXEC_TREE in block or "install-execution-tree" in block
     assert "install_offbox_packaging.py" in block
     assert "OFFBOX_EXEC_DIR" in block
+    assert "--production" in text
     assert 'install-app-tree --dest "${APP_DIR}"' not in text
     # No raw module copy loop remains inside the opt-in path.
     assert "done <" not in block

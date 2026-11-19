@@ -17,8 +17,9 @@ That tree must remain outside any guard-writable ancestor (not under
 /opt/language-guard). Units must ExecStart /usr/bin/python3 -I against
 modules in that tree — never the guard-owned app venv.
 
-Staging / install commands assume a trusted dedicated destination directory.
-Do not run as root into a shared or untrusted path.
+Production installs require ``install-execution-tree --production`` with
+exact destination ``/opt/language-guard-offbox`` and destination/parent
+preflight before any copy. Offline staging/tests omit ``--production``.
 
 Usage examples (from repository root):
 
@@ -26,7 +27,7 @@ Usage examples (from repository root):
   python deploy/hetzner/install_offbox_packaging.py verify-deps
   python deploy/hetzner/install_offbox_packaging.py stage --dest /tmp/offbox-stage
   python deploy/hetzner/install_offbox_packaging.py install-execution-tree \\
-      --dest /opt/language-guard-offbox
+      --dest /opt/language-guard-offbox --production
 
 Exit codes:
   0 success
@@ -40,6 +41,7 @@ import argparse
 import ast
 import hashlib
 import os
+import re
 import shutil
 import sys
 from pathlib import Path
@@ -83,10 +85,14 @@ APP_TREE_HELPERS = (
 OFFBOX_EXEC_ROOT = "/opt/language-guard-offbox"
 OFFBOX_EXEC_MODULES = f"{OFFBOX_EXEC_ROOT}/offbox"
 TRUSTED_INTERPRETER = "/usr/bin/python3"
+TRUSTED_RESOLVED_INTERPRETER_RE = re.compile(r"^/usr/bin/python3(\.\d+)?$")
 # Account DB remains under the app tree (data, not executable code).
 APP_ACCOUNTS_DB = "/opt/language-guard/accounts.db"
 
-FORBIDDEN_UNIT_MARKERS = (
+HELPER_EXEC_START = f"{TRUSTED_INTERPRETER} -I {OFFBOX_EXEC_MODULES}/snapshot_helper.py"
+WORKER_EXEC_START = f"{TRUSTED_INTERPRETER} -I {OFFBOX_EXEC_MODULES}/backup_worker.py"
+
+FORBIDDEN_ACTIVE_SUBSTRINGS = (
     "StateDirectory=language-guard-backup",
     "/mnt/d/Tools/",
     "LG_DRIVE_FOLDER=",
@@ -95,26 +101,62 @@ FORBIDDEN_UNIT_MARKERS = (
     "/opt/language-guard/offbox/",
     "venv/bin/python",
 )
-REQUIRED_HELPER_MARKERS = (
-    "StandardError=journal",
-    "StandardOutput=socket",
-    "User=guard",
-    "LG_EXPECTED_UNIT=language-guard-offbox-worker.service",
-    f"ExecStart={TRUSTED_INTERPRETER} -I {OFFBOX_EXEC_MODULES}/snapshot_helper.py",
-    f"WorkingDirectory={OFFBOX_EXEC_MODULES}",
+
+# Directives that must appear exactly once with an exact value in service units.
+HELPER_SINGLETONS = {
+    "User": "guard",
+    "Group": "guard",
+    "WorkingDirectory": OFFBOX_EXEC_MODULES,
+    "ExecStart": HELPER_EXEC_START,
+    "StandardError": "journal",
+    "StandardOutput": "socket",
+    "StandardInput": "socket",
+    "Type": "simple",
+}
+WORKER_SINGLETONS = {
+    "User": "lg-backup",
+    "Group": "lg-backup",
+    "WorkingDirectory": "/var/lib/language-guard-backup",
+    "ExecStart": WORKER_EXEC_START,
+    "Type": "oneshot",
+}
+# Security-sensitive keys that must not be duplicated even when values match.
+SERVICE_NO_DUPLICATE_KEYS = frozenset(
+    {
+        "ExecStart",
+        "User",
+        "Group",
+        "WorkingDirectory",
+        "Type",
+        "StandardError",
+        "StandardOutput",
+        "StandardInput",
+        "LoadCredential",
+        "PrivateTmp",
+        "ProtectSystem",
+        "NoNewPrivileges",
+    }
 )
-REQUIRED_WORKER_MARKERS = (
-    "User=lg-backup",
-    "LoadCredential=oauth-refresh:",
-    "LG_SOCKET=/run/language-guard-offbox/handoff.sock",
-    f"ExecStart={TRUSTED_INTERPRETER} -I {OFFBOX_EXEC_MODULES}/backup_worker.py",
-)
-REQUIRED_SOCKET_MARKERS = (
-    "ListenStream=/run/language-guard-offbox/handoff.sock",
-    "SocketUser=lg-backup",
-    "SocketMode=0600",
-    "Accept=yes",
-)
+SOCKET_SINGLETONS = {
+    "ListenStream": "/run/language-guard-offbox/handoff.sock",
+    "SocketUser": "lg-backup",
+    "SocketGroup": "lg-backup",
+    "SocketMode": "0600",
+    "Accept": "yes",
+}
+HELPER_REQUIRED_ENV = {
+    "LG_SOURCE_DB": APP_ACCOUNTS_DB,
+    "LG_EXPECTED_UNIT": "language-guard-offbox-worker.service",
+    "PYTHONNOUSERSITE": "1",
+    "PYTHONDONTWRITEBYTECODE": "1",
+}
+WORKER_REQUIRED_ENV = {
+    "LG_SOURCE_DB": APP_ACCOUNTS_DB,
+    "LG_SOCKET": "/run/language-guard-offbox/handoff.sock",
+    "PYTHONNOUSERSITE": "1",
+    "PYTHONDONTWRITEBYTECODE": "1",
+}
+WORKER_REQUIRED_LOAD_CREDENTIAL = "oauth-refresh:/etc/language-guard/oauth-refresh"
 
 # Expected modes for a future corrective VPS write (documented + tested offline).
 EXPECTED_EXEC_DIR_MODE = 0o755
@@ -170,43 +212,164 @@ def verify_modules(offbox: Path = OFFBOX_SRC) -> dict[str, str]:
     return dict(ACCEPTED_D5A2D0_P1_SHA256)
 
 
+def parse_active_unit_directives(text: str) -> list[tuple[str, str]]:
+    """Return active KEY=VALUE pairs; comments and section headers are ignored."""
+    directives: list[tuple[str, str]] = []
+    for raw in text.splitlines():
+        line = raw.strip()
+        if not line or line.startswith("#") or line.startswith("["):
+            continue
+        if "=" not in line:
+            raise ValueError(f"invalid unit line (missing '='): {line!r}")
+        key, _, value = line.partition("=")
+        key = key.strip()
+        if not key:
+            raise ValueError(f"invalid unit line (empty key): {line!r}")
+        directives.append((key, value.strip()))
+    return directives
+
+
+def _values_for(directives: list[tuple[str, str]], key: str) -> list[str]:
+    return [value for item_key, value in directives if item_key == key]
+
+
+def _require_singleton(
+    directives: list[tuple[str, str]],
+    key: str,
+    expected: str,
+    unit_name: str,
+) -> None:
+    values = _values_for(directives, key)
+    if len(values) != 1:
+        raise ValueError(
+            f"{unit_name}: expected exactly one active {key}=, found {len(values)}"
+        )
+    if values[0] != expected:
+        raise ValueError(
+            f"{unit_name}: active {key}={values[0]!r} does not equal required {expected!r}"
+        )
+
+
+def _reject_duplicate_keys(
+    directives: list[tuple[str, str]],
+    keys: frozenset[str],
+    unit_name: str,
+) -> None:
+    seen: dict[str, int] = {}
+    for key, _value in directives:
+        if key in keys:
+            seen[key] = seen.get(key, 0) + 1
+    for key, count in seen.items():
+        if count > 1:
+            raise ValueError(
+                f"{unit_name}: duplicate active security-sensitive directive {key}= "
+                f"(count={count})"
+            )
+
+
+def _environment_map(directives: list[tuple[str, str]], unit_name: str) -> dict[str, str]:
+    env: dict[str, str] = {}
+    for key, value in directives:
+        if key != "Environment":
+            continue
+        if "=" not in value:
+            raise ValueError(f"{unit_name}: malformed Environment={value!r}")
+        env_key, _, env_val = value.partition("=")
+        if env_key in env:
+            raise ValueError(
+                f"{unit_name}: duplicate active Environment key {env_key}"
+            )
+        env[env_key] = env_val
+    return env
+
+
+def _reject_forbidden_active(directives: list[tuple[str, str]], unit_name: str) -> None:
+    for key, value in directives:
+        rendered = f"{key}={value}"
+        lowered = rendered.lower()
+        if "systemctl enable" in lowered or "systemctl start" in lowered:
+            raise ValueError(f"{unit_name} must not embed enable/start actions")
+        for marker in FORBIDDEN_ACTIVE_SUBSTRINGS:
+            if marker in rendered or marker in value:
+                raise ValueError(
+                    f"{unit_name} active directive contains forbidden marker: {marker}"
+                )
+
+
 def verify_units(unit_dir: Path = HERE) -> None:
+    """Validate effective active unit directives (comments do not satisfy checks)."""
     for name in UNIT_NAMES:
         path = unit_dir / name
         if not path.is_file():
             raise FileNotFoundError(f"missing unit template: {name}")
-        text = path.read_text(encoding="utf-8")
-        for marker in FORBIDDEN_UNIT_MARKERS:
-            if marker in text:
-                raise ValueError(f"{name} contains forbidden marker: {marker}")
-        for raw_line in text.splitlines():
-            line = raw_line.strip()
-            if not line or line.startswith("#"):
-                continue
-            lowered = line.lower()
-            if "systemctl enable" in lowered or "systemctl start" in lowered:
-                raise ValueError(f"{name} must not embed enable/start actions")
-    helper = (unit_dir / "language-guard-offbox-handoff@.service").read_text(encoding="utf-8")
-    for marker in REQUIRED_HELPER_MARKERS:
-        if marker not in helper:
-            raise ValueError(f"helper unit missing required marker: {marker}")
-    worker = (unit_dir / "language-guard-offbox-worker.service").read_text(encoding="utf-8")
-    for marker in REQUIRED_WORKER_MARKERS:
-        if marker not in worker:
-            raise ValueError(f"worker unit missing required marker: {marker}")
-    for raw_line in worker.splitlines():
-        line = raw_line.strip()
-        if not line or line.startswith("#"):
-            continue
-        if line.startswith("StateDirectory="):
-            raise ValueError("worker unit must not set StateDirectory=")
-    sock = (unit_dir / "language-guard-offbox-handoff.socket").read_text(encoding="utf-8")
-    for marker in REQUIRED_SOCKET_MARKERS:
-        if marker not in sock:
-            raise ValueError(f"socket unit missing required marker: {marker}")
-    timer = (unit_dir / "language-guard-offbox.timer").read_text(encoding="utf-8")
-    if "Unit=language-guard-offbox-worker.service" not in timer:
-        raise ValueError("timer must target language-guard-offbox-worker.service")
+
+    helper_name = "language-guard-offbox-handoff@.service"
+    worker_name = "language-guard-offbox-worker.service"
+    socket_name = "language-guard-offbox-handoff.socket"
+    timer_name = "language-guard-offbox.timer"
+
+    helper_dirs = parse_active_unit_directives(
+        (unit_dir / helper_name).read_text(encoding="utf-8")
+    )
+    worker_dirs = parse_active_unit_directives(
+        (unit_dir / worker_name).read_text(encoding="utf-8")
+    )
+    socket_dirs = parse_active_unit_directives(
+        (unit_dir / socket_name).read_text(encoding="utf-8")
+    )
+    timer_dirs = parse_active_unit_directives(
+        (unit_dir / timer_name).read_text(encoding="utf-8")
+    )
+
+    for unit_name, directives in (
+        (helper_name, helper_dirs),
+        (worker_name, worker_dirs),
+        (socket_name, socket_dirs),
+        (timer_name, timer_dirs),
+    ):
+        _reject_forbidden_active(directives, unit_name)
+
+    _reject_duplicate_keys(helper_dirs, SERVICE_NO_DUPLICATE_KEYS, helper_name)
+    _reject_duplicate_keys(worker_dirs, SERVICE_NO_DUPLICATE_KEYS, worker_name)
+
+    for key, expected in HELPER_SINGLETONS.items():
+        _require_singleton(helper_dirs, key, expected, helper_name)
+    for key, expected in WORKER_SINGLETONS.items():
+        _require_singleton(worker_dirs, key, expected, worker_name)
+    for key, expected in SOCKET_SINGLETONS.items():
+        _require_singleton(socket_dirs, key, expected, socket_name)
+
+    if _values_for(worker_dirs, "StateDirectory"):
+        raise ValueError(f"{worker_name}: must not set StateDirectory=")
+
+    helper_env = _environment_map(helper_dirs, helper_name)
+    worker_env = _environment_map(worker_dirs, worker_name)
+    for key, expected in HELPER_REQUIRED_ENV.items():
+        if helper_env.get(key) != expected:
+            raise ValueError(
+                f"{helper_name}: Environment {key}={helper_env.get(key)!r} "
+                f"!= required {expected!r}"
+            )
+    for key, expected in WORKER_REQUIRED_ENV.items():
+        if worker_env.get(key) != expected:
+            raise ValueError(
+                f"{worker_name}: Environment {key}={worker_env.get(key)!r} "
+                f"!= required {expected!r}"
+            )
+
+    load_creds = _values_for(worker_dirs, "LoadCredential")
+    if load_creds != [WORKER_REQUIRED_LOAD_CREDENTIAL]:
+        raise ValueError(
+            f"{worker_name}: LoadCredential must be exactly "
+            f"[{WORKER_REQUIRED_LOAD_CREDENTIAL!r}], found {load_creds!r}"
+        )
+
+    timer_units = _values_for(timer_dirs, "Unit")
+    if timer_units != ["language-guard-offbox-worker.service"]:
+        raise ValueError(
+            f"{timer_name}: Unit= must be exactly "
+            f"language-guard-offbox-worker.service, found {timer_units!r}"
+        )
 
 
 def _top_level_module(name: str) -> str:
@@ -221,7 +384,6 @@ def _imported_names(tree: ast.AST) -> set[str]:
                 names.add(_top_level_module(alias.name))
         elif isinstance(node, ast.ImportFrom):
             if node.level and node.level > 0:
-                # Relative imports are not used by the frozen offbox tree.
                 names.add(f".{'.' * (node.level - 1)}{node.module or ''}")
                 continue
             if node.module:
@@ -236,7 +398,6 @@ def verify_dependency_closure(offbox: Path = OFFBOX_SRC) -> dict[str, set[str]]:
     stdlib = set(getattr(sys, "stdlib_module_names", ()))
     if not stdlib:
         raise ValueError("sys.stdlib_module_names unavailable; need Python >= 3.10")
-    # typing_extensions is not used by frozen modules; keep allowlist strict.
     per_file: dict[str, set[str]] = {}
     illegal: list[str] = []
     for name in sorted(ACCEPTED_D5A2D0_P1_SHA256):
@@ -259,7 +420,18 @@ def verify_dependency_closure(offbox: Path = OFFBOX_SRC) -> dict[str, set[str]]:
 class PathTrustMeta:
     """Metadata-only description of one path component for offline trust tests."""
 
-    __slots__ = ("path", "owner", "group", "mode", "is_dir", "sticky", "writable_by")
+    __slots__ = (
+        "path",
+        "owner",
+        "group",
+        "mode",
+        "is_dir",
+        "sticky",
+        "writable_by",
+        "is_symlink",
+        "symlink_target",
+        "acl_extra_write_principals",
+    )
 
     def __init__(
         self,
@@ -270,6 +442,9 @@ class PathTrustMeta:
         is_dir: bool,
         sticky: bool = False,
         writable_by: frozenset[str] | None = None,
+        is_symlink: bool = False,
+        symlink_target: str | None = None,
+        acl_extra_write_principals: frozenset[str] | None = None,
     ) -> None:
         self.path = path
         self.owner = owner
@@ -277,14 +452,22 @@ class PathTrustMeta:
         self.mode = mode
         self.is_dir = is_dir
         self.sticky = sticky
-        self.writable_by = writable_by if writable_by is not None else frozenset()
+        self.writable_by = writable_by
+        self.is_symlink = is_symlink
+        self.symlink_target = symlink_target
+        self.acl_extra_write_principals = acl_extra_write_principals
+
+
+def _posix_normalize(path: str) -> str:
+    normalized = path.replace("\\", "/").rstrip("/")
+    if not normalized.startswith("/"):
+        normalized = "/" + normalized
+    return normalized or "/"
 
 
 def _posix_ancestor_dirs(path: str) -> list[str]:
     """Return POSIX ancestor directories of a file path, root-first."""
-    normalized = path.replace("\\", "/").rstrip("/")
-    if not normalized.startswith("/"):
-        normalized = "/" + normalized
+    normalized = _posix_normalize(path)
     segments = [seg for seg in normalized.split("/") if seg]
     out = ["/"]
     current = ""
@@ -294,36 +477,117 @@ def _posix_ancestor_dirs(path: str) -> list[str]:
     return out
 
 
+def _writers_from_mode(
+    meta: PathTrustMeta,
+    *,
+    less_trusted: str,
+    less_trusted_groups: frozenset[str],
+) -> set[str]:
+    writers: set[str] = set()
+    if meta.mode & 0o200 and meta.owner == less_trusted:
+        writers.add(less_trusted)
+    if meta.mode & 0o020:
+        writers.add(f"group:{meta.group}")
+        if meta.group == less_trusted or meta.group in less_trusted_groups:
+            writers.add(less_trusted)
+    if meta.mode & 0o002:
+        writers.add("other")
+        writers.add(less_trusted)
+    return writers
+
+
 def classify_execution_path_trust(
     *,
-    ancestors: list[PathTrustMeta],
+    path_meta: list[PathTrustMeta],
     interpreter_exec: str,
     module_paths: list[str],
+    interpreter_resolved: str | None = None,
     less_trusted: str = "guard",
+    less_trusted_groups: frozenset[str] | None = None,
 ) -> str:
     """Classify PASS/UNSAFE/UNKNOWN from metadata fixtures (no filesystem writes).
 
-    PASS only when every ancestor of executable module paths is not writable by
-    the less-trusted principal (sticky alone is not treated as sufficient), and
-    the interpreter is the trusted system binary rather than a replaceable venv
-    symlink path.
+    PASS requires:
+    - exact trusted interpreter identity and a resolved target under /usr/bin/python3[.N]
+    - complete metadata for every ancestor and executable leaf
+    - inspected ACL evidence (empty extra-write set is OK; missing ACL => UNKNOWN)
+    - no less-trusted / group / other write on ancestors or executable leaves
+    - no untrusted symlinks on the executable path
     """
-    if not ancestors or not module_paths:
+    groups = less_trusted_groups if less_trusted_groups is not None else frozenset()
+    if not path_meta or not module_paths:
         return "UNKNOWN"
-    if not interpreter_exec.startswith(TRUSTED_INTERPRETER):
+
+    if interpreter_exec != TRUSTED_INTERPRETER:
         return "UNSAFE"
-    if "/venv/" in interpreter_exec or interpreter_exec.endswith("venv/bin/python"):
+    if "/venv/" in interpreter_exec:
         return "UNSAFE"
-    by_path = {item.path.rstrip("/") or "/": item for item in ancestors}
+    if interpreter_resolved is None:
+        return "UNKNOWN"
+    if not TRUSTED_RESOLVED_INTERPRETER_RE.fullmatch(interpreter_resolved):
+        return "UNSAFE"
+
+    by_path = {_posix_normalize(item.path): item for item in path_meta}
+    required_paths: list[str] = []
     for module in module_paths:
-        for parent in _posix_ancestor_dirs(module):
-            meta = by_path.get(parent)
-            if meta is None:
+        required_paths.extend(_posix_ancestor_dirs(module))
+        required_paths.append(_posix_normalize(module))
+    # Interpreter leaf + its parents when provided in path_meta; require at least
+    # the interpreter path itself when present in fixtures for PASS completeness.
+    required_paths.append(_posix_normalize(interpreter_exec))
+    if interpreter_resolved != interpreter_exec:
+        required_paths.append(_posix_normalize(interpreter_resolved))
+        required_paths.extend(_posix_ancestor_dirs(interpreter_resolved))
+
+    for path in required_paths:
+        meta = by_path.get(path)
+        if meta is None:
+            return "UNKNOWN"
+        if meta.acl_extra_write_principals is None:
+            return "UNKNOWN"
+        if meta.is_symlink:
+            target = meta.symlink_target
+            if not target:
                 return "UNKNOWN"
-            if less_trusted in meta.writable_by:
+            if target.startswith("/"):
+                abs_target = _posix_normalize(target)
+            else:
+                parent = path.rsplit("/", 1)[0] or "/"
+                abs_target = _posix_normalize(f"{parent}/{target}")
+            # Allow only the system python3 -> python3.N indirection under /usr/bin.
+            if path in {
+                _posix_normalize(interpreter_exec),
+                "/usr/bin/python3",
+            }:
+                if not (
+                    TRUSTED_RESOLVED_INTERPRETER_RE.fullmatch(abs_target)
+                    or TRUSTED_RESOLVED_INTERPRETER_RE.fullmatch(
+                        _posix_normalize(interpreter_resolved)
+                    )
+                ):
+                    return "UNSAFE"
+            else:
+                # Symlinked code/module ancestors are not accepted for PASS.
                 return "UNSAFE"
-            if meta.owner == less_trusted and meta.is_dir and (meta.mode & 0o200):
+            # Symlink inode modes are not authoritative on Linux; rely on target
+            # and parent directory metadata instead.
+            writers = set(meta.writable_by or ())
+            writers |= set(meta.acl_extra_write_principals)
+        else:
+            writers = set(meta.writable_by or ())
+            writers |= _writers_from_mode(
+                meta, less_trusted=less_trusted, less_trusted_groups=groups
+            )
+            writers |= set(meta.acl_extra_write_principals)
+            if meta.owner == less_trusted and (meta.mode & 0o200):
                 return "UNSAFE"
+            # Executable leaves must not be group/world writable.
+            if not meta.is_dir and (meta.mode & 0o022):
+                return "UNSAFE"
+        if less_trusted in writers or "other" in writers:
+            return "UNSAFE"
+        if any(item.startswith("group:") and item[6:] in groups for item in writers):
+            return "UNSAFE"
     return "PASS"
 
 
@@ -351,12 +615,86 @@ def _exclusive_copy(src: Path, dest: Path) -> None:
     os.replace(tmp, dest)
 
 
+def _posix_dest(dest: Path) -> str:
+    return dest.as_posix().rstrip("/") or "/"
+
+
+def _iter_existing_ancestors(path: Path) -> list[Path]:
+    found: list[Path] = []
+    current = path
+    while True:
+        if current.exists() or current.is_symlink():
+            found.append(current)
+        if current.parent == current:
+            break
+        current = current.parent
+    return found
+
+
+def validate_install_destination(dest: Path, *, production: bool) -> None:
+    """Fail closed on unsafe destinations before any file copy.
+
+    production=True: destination must be exactly ``/opt/language-guard-offbox``,
+    with symlink/ownership/mode preflight on existing ancestors.
+
+    production=False: offline/test staging — refuse the guard app-tree segment
+    ``language-guard`` and refuse symlink destinations, but allow other roots.
+    """
+    posix = _posix_dest(dest)
+    if production:
+        if posix != OFFBOX_EXEC_ROOT:
+            raise ValueError(
+                f"production install destination must be exactly {OFFBOX_EXEC_ROOT}, "
+                f"got {posix}"
+            )
+    else:
+        # Offline/test destinations may use a directory *named*
+        # language-guard-offbox, but never the app-tree segment language-guard.
+        parts = Path(posix).parts
+        if "language-guard" in parts:
+            raise ValueError(
+                "refusing to install execution tree under the guard-owned app path; "
+                f"use {OFFBOX_EXEC_ROOT} with --production, or a non-app test root"
+            )
+
+    if dest.exists() and dest.is_symlink():
+        raise ValueError(f"destination must not be a symlink: {dest}")
+
+    for ancestor in _iter_existing_ancestors(dest):
+        if ancestor.is_symlink():
+            raise ValueError(f"symlink in destination ancestry: {ancestor}")
+        if not production:
+            continue
+        # Production preflight on POSIX hosts when metadata is available.
+        if os.name != "posix":
+            continue
+        try:
+            st = ancestor.lstat()
+        except OSError as exc:
+            raise ValueError(f"unable to stat destination ancestor {ancestor}: {exc}") from exc
+        mode = st.st_mode & 0o777
+        if mode & 0o002:
+            raise ValueError(f"world-writable destination ancestor: {ancestor}")
+        # Require root ownership for /opt and the execution root when present.
+        ancestor_posix = ancestor.as_posix().rstrip("/") or "/"
+        if ancestor_posix in {"/opt", OFFBOX_EXEC_ROOT} or ancestor_posix.startswith(
+            OFFBOX_EXEC_ROOT + "/"
+        ):
+            if st.st_uid != 0 or st.st_gid != 0:
+                raise ValueError(
+                    f"ownership drift on production ancestor {ancestor_posix}: "
+                    f"uid={st.st_uid} gid={st.st_gid} (require root:root)"
+                )
+
+
 def stage(
     dest: Path,
     *,
     include_units: bool = True,
     hetzner_dir: Path = HERE,
 ) -> list[str]:
+    """Offline staging into an arbitrary trusted test destination (non-production)."""
+    validate_install_destination(dest, production=False)
     offbox = hetzner_dir / "offbox"
     listed = verify_modules(offbox)
     verify_units(hetzner_dir)
@@ -381,26 +719,23 @@ def stage(
     return written
 
 
-def install_execution_tree(dest: Path, *, hetzner_dir: Path = HERE) -> list[str]:
+def install_execution_tree(
+    dest: Path,
+    *,
+    hetzner_dir: Path = HERE,
+    production: bool = False,
+) -> list[str]:
     """Verify first, then install the dedicated immutable execution tree.
 
-    Layout (intended production dest: /opt/language-guard-offbox):
+    Layout (production dest: /opt/language-guard-offbox):
       <dest>/offbox/*.py (+ SHA256SUMS, SOURCE_AUTHORITY.md)
       <dest>/deploy/hetzner/<helpers and unit templates>
 
+    Destination preflight and unit/module verification run before any copy.
     Does not chown (may run offline on Windows). A future authorized VPS write
-    must apply root:root 0755/0644 and must never place this tree under a
-    guard-writable ancestor such as /opt/language-guard.
+    must pass ``production=True`` and apply root:root 0755/0644.
     """
-    resolved = dest.resolve()
-    # Fail-closed: never install the trusted execution tree under the app path
-    # segment ``language-guard`` (guard-writable on the VPS). The distinct
-    # sibling ``language-guard-offbox`` is allowed.
-    if "language-guard" in resolved.parts:
-        raise ValueError(
-            "refusing to install execution tree under the guard-owned app path; "
-            f"use {OFFBOX_EXEC_ROOT}"
-        )
+    validate_install_destination(dest, production=production)
 
     offbox = hetzner_dir / "offbox"
     listed = verify_modules(offbox)
@@ -429,14 +764,8 @@ def install_execution_tree(dest: Path, *, hetzner_dir: Path = HERE) -> list[str]
 
 
 def install_app_tree(dest: Path, *, hetzner_dir: Path = HERE) -> list[str]:
-    """Backward-compatible alias.
-
-    Historical name from accelerated readiness. New installs must use
-    ``install-execution-tree`` into ``/opt/language-guard-offbox``. This alias
-    still performs the same verify-before-copy into ``dest`` for offline tests,
-    but refuses the known-unsafe ``/opt/language-guard`` destination.
-    """
-    return install_execution_tree(dest, hetzner_dir=hetzner_dir)
+    """Backward-compatible offline/test alias (never production mode)."""
+    return install_execution_tree(dest, hetzner_dir=hetzner_dir, production=False)
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -448,7 +777,7 @@ def build_parser() -> argparse.ArgumentParser:
         help="Verify offline import dependency closure (stdlib + local offbox only)",
     )
     stage_p = sub.add_parser("stage", help="Stage modules/units into a destination tree")
-    stage_p.add_argument("--dest", required=True, type=Path, help="Trusted dedicated destination")
+    stage_p.add_argument("--dest", required=True, type=Path, help="Offline/test destination")
     stage_p.add_argument(
         "--modules-only",
         action="store_true",
@@ -458,20 +787,28 @@ def build_parser() -> argparse.ArgumentParser:
         "install-execution-tree",
         help=(
             "Verify then install into <dest>/offbox and <dest>/deploy/hetzner "
-            f"(production dest: {OFFBOX_EXEC_ROOT})"
+            f"(production requires --production and dest={OFFBOX_EXEC_ROOT})"
         ),
     )
     install_p.add_argument(
         "--dest",
         required=True,
         type=Path,
-        help=f"Trusted execution-tree destination (e.g. {OFFBOX_EXEC_ROOT})",
+        help=f"Execution-tree destination (production: {OFFBOX_EXEC_ROOT})",
+    )
+    install_p.add_argument(
+        "--production",
+        action="store_true",
+        help=(
+            f"Require exact destination {OFFBOX_EXEC_ROOT} and POSIX ancestry "
+            "preflight before copy"
+        ),
     )
     legacy_p = sub.add_parser(
         "install-app-tree",
-        help="Legacy alias of install-execution-tree (refuses /opt/language-guard)",
+        help="Legacy offline/test alias of install-execution-tree (never --production)",
     )
-    legacy_p.add_argument("--dest", required=True, type=Path, help="Destination tree")
+    legacy_p.add_argument("--dest", required=True, type=Path, help="Offline/test destination")
     return parser
 
 
@@ -485,7 +822,8 @@ def main(argv: list[str] | None = None) -> int:
             verify_dependency_closure()
             print(
                 f"VERIFY_OK modules={len(listed)} units={len(UNIT_NAMES)} "
-                f"inventory=D5A2D0-P1 exec_root={OFFBOX_EXEC_ROOT} interpreter={TRUSTED_INTERPRETER}"
+                f"inventory=D5A2D0-P1 exec_root={OFFBOX_EXEC_ROOT} "
+                f"interpreter={TRUSTED_INTERPRETER}"
             )
             return 0
         if args.command == "verify-deps":
@@ -493,17 +831,26 @@ def main(argv: list[str] | None = None) -> int:
             print(f"DEPS_OK modules={len(per_file)} stdlib_or_local_only=1")
             return 0
         if args.command == "stage":
-            dest = args.dest.resolve()
+            dest = args.dest
             written = stage(dest, include_units=not args.modules_only)
-            print(f"STAGE_OK dest={dest} files={len(written)}")
+            print(f"STAGE_OK dest={dest.resolve()} files={len(written)}")
             for path in written:
                 print(path)
             return 0
-        if args.command in {"install-execution-tree", "install-app-tree"}:
-            dest = args.dest.resolve()
-            written = install_execution_tree(dest)
-            label = "INSTALL_EXEC_OK" if args.command == "install-execution-tree" else "INSTALL_OK"
-            print(f"{label} dest={dest} files={len(written)} inventory=D5A2D0-P1")
+        if args.command == "install-execution-tree":
+            dest = args.dest
+            written = install_execution_tree(dest, production=bool(args.production))
+            print(
+                f"INSTALL_EXEC_OK dest={_posix_dest(dest)} files={len(written)} "
+                f"inventory=D5A2D0-P1 production={int(bool(args.production))}"
+            )
+            for path in written:
+                print(path)
+            return 0
+        if args.command == "install-app-tree":
+            dest = args.dest
+            written = install_app_tree(dest)
+            print(f"INSTALL_OK dest={dest} files={len(written)} inventory=D5A2D0-P1")
             for path in written:
                 print(path)
             return 0

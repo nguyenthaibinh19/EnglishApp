@@ -28,7 +28,18 @@ Unit templates:
 - Helper: `User=guard`, `ExecStart=/usr/bin/python3 -I /opt/language-guard-offbox/offbox/snapshot_helper.py`
 - Worker: `User=lg-backup`, `ExecStart=/usr/bin/python3 -I /opt/language-guard-offbox/offbox/backup_worker.py`
 
-`setup.sh` opt-in `LG_INSTALL_OFFBOX=1` installs via `install-execution-tree --dest /opt/language-guard-offbox` and root-owns that tree. It must never nest the execution tree under `APP_DIR` and must not chown it to `guard`.
+`setup.sh` opt-in `LG_INSTALL_OFFBOX=1` installs via
+`install-execution-tree --dest /opt/language-guard-offbox --production` and
+root-owns that tree. It must never nest the execution tree under `APP_DIR` and
+must not chown it to `guard`. Offline/test installs omit `--production` and may
+use a temporary destination; production mode requires the exact trusted root and
+ancestry/symlink/ownership preflight before any copy.
+
+Unit verification parses **active** systemd directives only (comments do not
+satisfy required `ExecStart` / identity checks) and rejects duplicate
+security-sensitive keys. Path-trust classification requires resolved interpreter
+identity, leaf+ancestor metadata, and ACL evidence; missing metadata yields
+**UNKNOWN**, not PASS.
 
 ## Offline verification
 
@@ -43,7 +54,7 @@ python -m pytest tests/test_offbox_runtime_trust.py tests/test_offbox_packaging.
 When Product Owner separately authorizes one corrective write session, the intended scope is:
 
 1. Install/sync source revision containing this remediation.
-2. Run `install-execution-tree --dest /opt/language-guard-offbox` (verify-before-copy); apply `root:root` `0755`/`0644`.
+2. Run `install-execution-tree --dest /opt/language-guard-offbox --production` (preflight + verify-before-copy); apply `root:root` `0755`/`0644`.
 3. Replace the four inactive unit files under `/etc/systemd/system` with the updated templates (still **disabled/inactive**).
 4. Leave `/opt/language-guard` account-server tree and venv untouched aside from not relying on them for offbox ExecStart.
 5. Optionally leave or later remove the obsolete `/opt/language-guard/offbox` tree only under explicit Owner wording (default: leave in place; units must not reference it).
