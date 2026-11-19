@@ -77,6 +77,26 @@ def login(username: str, password: str) -> str:
     return token
 
 
+def login_session(username: str, password: str) -> tuple:
+    """Return ``(token, user_id)`` for account-local sync bootstrap."""
+    body = _post("/api/login", {"username": username, "password": password}, timeout=20)
+    token = str(body.get("token") or "")
+    if not token:
+        raise AccountError("Máy chủ không cấp phiên đăng nhập.")
+    try:
+        user_id = int(body.get("user_id") or 0)
+    except (TypeError, ValueError):
+        user_id = 0
+    if user_id < 1:
+        raise AccountError("Máy chủ không trả về user_id.")
+    return token, user_id
+
+
+def session_user() -> dict:
+    """Return ``{user_id, username}`` for the saved Bearer session."""
+    return _post("/api/session", {}, config.account_token(), timeout=8)
+
+
 def grade_sentence(word: str, sentence: str, meaning: str) -> dict:
     profile = config.current_language()
     return _post(

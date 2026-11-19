@@ -200,13 +200,15 @@ def _write_settings(payload: dict):
     os.replace(tmp, SETTINGS_FILE)
 
 
-def save_account(username: str, token: str):
+def save_account(username: str, token: str, user_id: int = None):
     """Nhớ phiên đăng nhập. Không lưu API key trên máy người học."""
     payload = _read_settings()
     payload.pop("openai_api_key", None)
     payload.pop("emergency_password", None)
     payload["account_username"] = username.strip().lower()
     payload["account_token"] = token.strip()
+    if user_id is not None:
+        payload["account_user_id"] = int(user_id)
     _write_settings(payload)
     reload()
 
@@ -215,14 +217,31 @@ def account_token() -> str:
     return ACCOUNT_TOKEN
 
 
+def account_user_id() -> int:
+    """Server user id for the signed-in account, or 0 when unknown."""
+    raw = _read_settings().get("account_user_id")
+    try:
+        value = int(raw)
+    except (TypeError, ValueError):
+        return 0
+    return value if value > 0 else 0
+
+
 def clear_account():
     """Xóa phiên đăng nhập đã hết hạn. Lần mở sau sẽ hỏi đăng nhập lại."""
     payload = _read_settings()
     payload.pop("account_token", None)
     payload.pop("account_username", None)
+    payload.pop("account_user_id", None)
     payload.pop("openai_api_key", None)
     _write_settings(payload)
     reload()
+    try:
+        import account_sync_engine
+
+        account_sync_engine.stop_active()
+    except Exception:
+        pass
 
 
 def uses_account_server() -> bool:

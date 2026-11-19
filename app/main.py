@@ -1298,6 +1298,18 @@ def main():
             root.destroy()
             return
 
+    # Account learning sync worker (ADR-022). Guest stays on local files only.
+    try:
+        import atexit
+
+        from account_sync_bootstrap import maybe_start_account_sync
+        from account_sync_engine import stop_active
+
+        maybe_start_account_sync()
+        atexit.register(stop_active)
+    except Exception:
+        pass
+
     if "--lock" in sys.argv:
         StudyMasterApp(root)
     else:

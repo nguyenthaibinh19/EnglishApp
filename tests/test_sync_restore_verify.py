@@ -209,7 +209,7 @@ def test_future_schema_fails_without_migration(tmp_path, monkeypatch):
     connection = sqlite3.connect(str(placed))
     try:
         connection.execute(
-            "UPDATE sync_meta SET value = '3' WHERE key = 'schema_version'"
+            "UPDATE sync_meta SET value = '4' WHERE key = 'schema_version'"
         )
         connection.commit()
     finally:
@@ -229,7 +229,7 @@ def test_future_schema_fails_without_migration(tmp_path, monkeypatch):
         ).fetchone()[0]
     finally:
         probe.close()
-    assert version == "3"
+    assert version == "4"
 
 
 def test_missing_required_column_fails(tmp_path):

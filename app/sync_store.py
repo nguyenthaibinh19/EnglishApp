@@ -22,9 +22,11 @@ from vocab_identity import entry_id, is_vocab_id
 from vocabulary_model import FORM_FIELDS, normalize_entry_dict
 
 DB_FILE = "study_sync.db"
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 DEFAULT_CHANGE_LIMIT = 100
 MAX_CHANGE_LIMIT = 500
+PROGRESS_CHANGE_LIMIT = 100
+ALGORITHM_LADDER_V2 = "ladder-v2"
 
 # Never persist these keys anywhere inside vocabulary payloads.
 _FORBIDDEN_PAYLOAD_KEYS = frozenset(
@@ -117,6 +119,56 @@ class VocabularyChange:
     expected_revision: int
 
 
+@dataclass(frozen=True)
+class LearningAttemptRecord:
+    user_id: int
+    event_id: str
+    device_id: str
+    language_code: str
+    vocab_id: str
+    verdict: str
+    mastered: bool
+    hint_used: bool
+    occurred_at: str
+    received_at: str
+    server_seq: int
+    algorithm_id: str
+    word_snapshot: str
+    user_answer: str
+    expected_answer: str
+    prompt: str
+
+
+@dataclass(frozen=True)
+class ProgressSnapshot:
+    seen: int
+    correct: int
+    wrong: int
+    streak: int
+    interval_days: int
+    due_at: str
+    state_version: int
+    algorithm_id: str
+    last_event_id: str
+    last_server_seq: int
+
+
+@dataclass(frozen=True)
+class ProgressAcceptResult:
+    change_id: int
+    server_seq: int
+    event: LearningAttemptRecord
+    progress_after: ProgressSnapshot
+
+
+@dataclass(frozen=True)
+class ProgressChange:
+    change_id: int
+    server_seq: int
+    event: LearningAttemptRecord
+    progress_after: ProgressSnapshot
+
+
 def db_path(folder: str = None) -> str:
     """Path to ``study_sync.db`` under ``folder`` (default: this package directory)."""
     root = folder or os.path.dirname(os.path.abspath(__file__))
@@ -147,11 +199,11 @@ def connect(path: str) -> sqlite3.Connection:
 def init_schema(connection: sqlite3.Connection) -> None:
     """Create sync tables and migrate schema idempotently.
 
-    - Fresh / v1 databases migrate to schema v2 inside one write transaction.
-    - ``expected_revision`` is backfilled as ``revision - 1`` (create → 0).
-    - Schema version advances to 2 only after a successful migration.
-    - Existing unsupported future schema versions are rejected **before** any
-      modifying DDL (no new tables/indexes/metadata changes).
+    - Fresh / v1 databases migrate through v2 to schema v3 in one write transaction.
+    - v2 databases add ADR-022 progress tables and advance to v3.
+    - ``expected_revision`` is backfilled as ``revision - 1`` (create → 0) on v2 path.
+    - Schema version advances only after a successful migration.
+    - Unsupported future schema versions are rejected **before** any modifying DDL.
     """
     # Read-only preflight — never CREATE/ALTER before this check.
     preflight = _read_existing_schema_version(connection)
@@ -172,8 +224,6 @@ def init_schema(connection: sqlite3.Connection) -> None:
             )
 
         if stored == SCHEMA_VERSION:
-            # Supported current version: ensure v2 columns/indexes exist; do not
-            # rewrite expected_revision values or bump metadata.
             _ensure_column(
                 connection,
                 "vocabulary_entities",
@@ -187,14 +237,29 @@ def init_schema(connection: sqlite3.Connection) -> None:
                 "INTEGER NOT NULL DEFAULT 0",
             )
             _ensure_vocab_change_indexes(connection)
+            _ensure_progress_schema(connection)
             connection.execute("COMMIT")
             return
 
-        # Fresh (None) or older version → create base objects + migrate to v2.
-        # Do not re-read schema_version until after we write it: an empty
-        # sync_meta created mid-transaction is not "malformed future/corrupt".
+        # Fresh (None) or older version → create base objects + migrate.
         _create_base_schema_objects(connection)
-        _migrate_schema_to_v2(connection)
+        if stored is None or stored < 2:
+            _migrate_schema_to_v2(connection)
+        else:
+            _ensure_column(
+                connection,
+                "vocabulary_entities",
+                "expected_revision",
+                "INTEGER NOT NULL DEFAULT 0",
+            )
+            _ensure_column(
+                connection,
+                "vocabulary_changes",
+                "expected_revision",
+                "INTEGER NOT NULL DEFAULT 0",
+            )
+            _ensure_vocab_change_indexes(connection)
+        _ensure_progress_schema(connection)
         connection.execute(
             "INSERT INTO sync_meta (key, value) VALUES ('schema_version', ?) "
             "ON CONFLICT(key) DO UPDATE SET value = excluded.value",
@@ -344,6 +409,92 @@ def _ensure_vocab_change_indexes(connection: sqlite3.Connection) -> None:
         """
         CREATE INDEX IF NOT EXISTS idx_vocab_changes_user_lang_cursor
         ON vocabulary_changes (user_id, language_code, change_id)
+        """
+    )
+
+
+def _ensure_progress_schema(connection: sqlite3.Connection) -> None:
+    """Create ADR-022 schema-v3 progress tables/indexes if absent."""
+    connection.execute(
+        """
+        CREATE TABLE IF NOT EXISTS learning_attempts (
+            user_id INTEGER NOT NULL,
+            event_id TEXT NOT NULL,
+            device_id TEXT NOT NULL,
+            language_code TEXT NOT NULL,
+            vocab_id TEXT NOT NULL,
+            verdict TEXT NOT NULL,
+            mastered INTEGER NOT NULL,
+            hint_used INTEGER NOT NULL,
+            occurred_at TEXT NOT NULL,
+            received_at TEXT NOT NULL,
+            server_seq INTEGER NOT NULL,
+            algorithm_id TEXT NOT NULL,
+            word_snapshot TEXT NOT NULL,
+            user_answer TEXT NOT NULL,
+            expected_answer TEXT NOT NULL,
+            prompt TEXT NOT NULL,
+            PRIMARY KEY (user_id, event_id)
+        )
+        """
+    )
+    connection.execute(
+        """
+        CREATE INDEX IF NOT EXISTS idx_learning_attempts_user_seq
+        ON learning_attempts (user_id, server_seq)
+        """
+    )
+    connection.execute(
+        """
+        CREATE INDEX IF NOT EXISTS idx_learning_attempts_user_lang_vocab_seq
+        ON learning_attempts (user_id, language_code, vocab_id, server_seq)
+        """
+    )
+    connection.execute(
+        """
+        CREATE TABLE IF NOT EXISTS user_progress (
+            user_id INTEGER NOT NULL,
+            language_code TEXT NOT NULL,
+            vocab_id TEXT NOT NULL,
+            seen INTEGER NOT NULL,
+            correct INTEGER NOT NULL,
+            wrong INTEGER NOT NULL,
+            streak INTEGER NOT NULL,
+            interval_days INTEGER NOT NULL,
+            due_at TEXT NOT NULL,
+            last_event_id TEXT NOT NULL,
+            last_server_seq INTEGER NOT NULL,
+            algorithm_id TEXT NOT NULL,
+            state_version INTEGER NOT NULL,
+            updated_at TEXT NOT NULL,
+            PRIMARY KEY (user_id, language_code, vocab_id)
+        )
+        """
+    )
+    connection.execute(
+        """
+        CREATE TABLE IF NOT EXISTS progress_changes (
+            change_id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            event_id TEXT NOT NULL,
+            server_seq INTEGER NOT NULL,
+            seen INTEGER NOT NULL,
+            correct INTEGER NOT NULL,
+            wrong INTEGER NOT NULL,
+            streak INTEGER NOT NULL,
+            interval_days INTEGER NOT NULL,
+            due_at TEXT NOT NULL,
+            state_version INTEGER NOT NULL,
+            algorithm_id TEXT NOT NULL,
+            created_at TEXT NOT NULL,
+            UNIQUE (user_id, event_id)
+        )
+        """
+    )
+    connection.execute(
+        """
+        CREATE INDEX IF NOT EXISTS idx_progress_changes_user_cursor
+        ON progress_changes (user_id, change_id)
         """
     )
 
@@ -942,4 +1093,509 @@ def _change_from_row(row: sqlite3.Row) -> VocabularyChange:
         payload=_loads_payload(row["payload_json"]),
         operation_id=str(row["operation_id"]),
         expected_revision=expected,
+    )
+
+
+_PROGRESS_EVENT_KEYS = frozenset(
+    {
+        "event_id",
+        "device_id",
+        "language_code",
+        "vocab_id",
+        "verdict",
+        "mastered",
+        "hint_used",
+        "occurred_at",
+        "algorithm_id",
+        "word_snapshot",
+        "user_answer",
+        "expected_answer",
+        "prompt",
+    }
+)
+_VERDICTS = frozenset({"exact", "near", "wrong"})
+_TEXT_FIELDS = ("word_snapshot", "user_answer", "expected_answer", "prompt")
+_MAX_ATTEMPT_TEXT = 500
+
+
+def accept_learning_attempt(
+    connection: sqlite3.Connection,
+    *,
+    user_id: int,
+    event: dict,
+) -> ProgressAcceptResult:
+    """Accept one learning attempt under ADR-022 rules (idempotent by event_id)."""
+    user_id = _require_user_id(user_id)
+    prepared = _validate_progress_event(event)
+
+    try:
+        connection.execute("BEGIN IMMEDIATE")
+        existing = _lookup_learning_attempt(
+            connection, user_id=user_id, event_id=prepared["event_id"]
+        )
+        if existing is not None:
+            _assert_attempt_replay_matches(existing, prepared)
+            change = _lookup_progress_change(
+                connection, user_id=user_id, event_id=prepared["event_id"]
+            )
+            if change is None:
+                raise SyncSchemaError(
+                    "Accepted attempt is missing its progress_changes journal row."
+                )
+            connection.execute("COMMIT")
+            return change
+
+        from srs import apply_review_to_stats, to_utc_iso, utc_now
+
+        received_at_dt = utc_now()
+        received_at = to_utc_iso(received_at_dt)
+        next_seq_row = connection.execute(
+            "SELECT COALESCE(MAX(server_seq), 0) + 1 FROM learning_attempts WHERE user_id = ?",
+            (user_id,),
+        ).fetchone()
+        server_seq = int(next_seq_row[0])
+
+        connection.execute(
+            """
+            INSERT INTO learning_attempts (
+                user_id, event_id, device_id, language_code, vocab_id,
+                verdict, mastered, hint_used, occurred_at, received_at,
+                server_seq, algorithm_id, word_snapshot, user_answer,
+                expected_answer, prompt
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                user_id,
+                prepared["event_id"],
+                prepared["device_id"],
+                prepared["language_code"],
+                prepared["vocab_id"],
+                prepared["verdict"],
+                1 if prepared["mastered"] else 0,
+                1 if prepared["hint_used"] else 0,
+                prepared["occurred_at"],
+                received_at,
+                server_seq,
+                prepared["algorithm_id"],
+                prepared["word_snapshot"],
+                prepared["user_answer"],
+                prepared["expected_answer"],
+                prepared["prompt"],
+            ),
+        )
+
+        progress_row = connection.execute(
+            """
+            SELECT seen, correct, wrong, streak, interval_days, due_at,
+                   last_event_id, last_server_seq, algorithm_id, state_version
+            FROM user_progress
+            WHERE user_id = ? AND language_code = ? AND vocab_id = ?
+            """,
+            (user_id, prepared["language_code"], prepared["vocab_id"]),
+        ).fetchone()
+        if progress_row is None:
+            stats = {
+                "seen": 0,
+                "correct": 0,
+                "wrong": 0,
+                "streak": 0,
+                "interval_days": 0,
+                "due_at": received_at,
+            }
+            state_version = 0
+        else:
+            stats = {
+                "seen": int(progress_row["seen"]),
+                "correct": int(progress_row["correct"]),
+                "wrong": int(progress_row["wrong"]),
+                "streak": int(progress_row["streak"]),
+                "interval_days": int(progress_row["interval_days"]),
+                "due_at": str(progress_row["due_at"]),
+            }
+            state_version = int(progress_row["state_version"])
+
+        stats["seen"] += 1
+        mastered = bool(prepared["mastered"])
+        if mastered:
+            stats["correct"] += 1
+            stats["streak"] += 1
+        else:
+            stats["wrong"] += 1
+            stats["streak"] = 0
+        apply_review_to_stats(stats, mastered=mastered, reviewed_at=received_at_dt)
+        state_version += 1
+        updated_at = received_at
+
+        connection.execute(
+            """
+            INSERT INTO user_progress (
+                user_id, language_code, vocab_id, seen, correct, wrong, streak,
+                interval_days, due_at, last_event_id, last_server_seq,
+                algorithm_id, state_version, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(user_id, language_code, vocab_id) DO UPDATE SET
+                seen = excluded.seen,
+                correct = excluded.correct,
+                wrong = excluded.wrong,
+                streak = excluded.streak,
+                interval_days = excluded.interval_days,
+                due_at = excluded.due_at,
+                last_event_id = excluded.last_event_id,
+                last_server_seq = excluded.last_server_seq,
+                algorithm_id = excluded.algorithm_id,
+                state_version = excluded.state_version,
+                updated_at = excluded.updated_at
+            """,
+            (
+                user_id,
+                prepared["language_code"],
+                prepared["vocab_id"],
+                int(stats["seen"]),
+                int(stats["correct"]),
+                int(stats["wrong"]),
+                int(stats["streak"]),
+                int(stats["interval_days"]),
+                str(stats["due_at"]),
+                prepared["event_id"],
+                server_seq,
+                prepared["algorithm_id"],
+                state_version,
+                updated_at,
+            ),
+        )
+
+        cursor = connection.execute(
+            """
+            INSERT INTO progress_changes (
+                user_id, event_id, server_seq, seen, correct, wrong, streak,
+                interval_days, due_at, state_version, algorithm_id, created_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                user_id,
+                prepared["event_id"],
+                server_seq,
+                int(stats["seen"]),
+                int(stats["correct"]),
+                int(stats["wrong"]),
+                int(stats["streak"]),
+                int(stats["interval_days"]),
+                str(stats["due_at"]),
+                state_version,
+                prepared["algorithm_id"],
+                updated_at,
+            ),
+        )
+        change_id = int(cursor.lastrowid)
+        attempt = LearningAttemptRecord(
+            user_id=user_id,
+            event_id=prepared["event_id"],
+            device_id=prepared["device_id"],
+            language_code=prepared["language_code"],
+            vocab_id=prepared["vocab_id"],
+            verdict=prepared["verdict"],
+            mastered=mastered,
+            hint_used=bool(prepared["hint_used"]),
+            occurred_at=prepared["occurred_at"],
+            received_at=received_at,
+            server_seq=server_seq,
+            algorithm_id=prepared["algorithm_id"],
+            word_snapshot=prepared["word_snapshot"],
+            user_answer=prepared["user_answer"],
+            expected_answer=prepared["expected_answer"],
+            prompt=prepared["prompt"],
+        )
+        snapshot = ProgressSnapshot(
+            seen=int(stats["seen"]),
+            correct=int(stats["correct"]),
+            wrong=int(stats["wrong"]),
+            streak=int(stats["streak"]),
+            interval_days=int(stats["interval_days"]),
+            due_at=str(stats["due_at"]),
+            state_version=state_version,
+            algorithm_id=prepared["algorithm_id"],
+            last_event_id=prepared["event_id"],
+            last_server_seq=server_seq,
+        )
+        connection.execute("COMMIT")
+        return ProgressAcceptResult(
+            change_id=change_id,
+            server_seq=server_seq,
+            event=attempt,
+            progress_after=snapshot,
+        )
+    except Exception:
+        try:
+            connection.execute("ROLLBACK")
+        except sqlite3.Error:
+            pass
+        raise
+
+
+def list_progress_changes(
+    connection: sqlite3.Connection,
+    *,
+    user_id: int,
+    after_cursor: int = 0,
+    limit: int = PROGRESS_CHANGE_LIMIT,
+    language_code: Optional[str] = None,
+) -> List[ProgressChange]:
+    """Page progress_changes for one account, ordered by change_id ascending."""
+    user_id = _require_user_id(user_id)
+    after_cursor = _require_non_negative_int(after_cursor, "after_cursor")
+    limit = _clamp_progress_limit(limit)
+    params: List[Any] = [user_id, after_cursor]
+    language_filter = ""
+    if language_code is not None:
+        code = _require_language(language_code)
+        language_filter = " AND a.language_code = ?"
+        params.append(code)
+    params.append(limit)
+    rows = connection.execute(
+        f"""
+        SELECT
+            c.change_id, c.server_seq, c.seen, c.correct, c.wrong, c.streak,
+            c.interval_days, c.due_at, c.state_version, c.algorithm_id,
+            a.user_id, a.event_id, a.device_id, a.language_code, a.vocab_id,
+            a.verdict, a.mastered, a.hint_used, a.occurred_at, a.received_at,
+            a.server_seq AS event_server_seq, a.algorithm_id AS event_algorithm_id,
+            a.word_snapshot, a.user_answer, a.expected_answer, a.prompt
+        FROM progress_changes c
+        JOIN learning_attempts a
+          ON a.user_id = c.user_id AND a.event_id = c.event_id
+        WHERE c.user_id = ? AND c.change_id > ?{language_filter}
+        ORDER BY c.change_id ASC
+        LIMIT ?
+        """,
+        params,
+    ).fetchall()
+    return [_progress_change_from_row(row) for row in rows]
+
+
+def _clamp_progress_limit(limit: Any) -> int:
+    value = _require_strict_int(limit, "limit")
+    if value < 1:
+        raise SyncValidationError("limit must be >= 1.")
+    return min(value, PROGRESS_CHANGE_LIMIT)
+
+
+def _validate_progress_event(event: Any) -> Dict[str, Any]:
+    if not isinstance(event, dict):
+        raise SyncValidationError("Progress event must be an object.")
+    _reject_forbidden_keys(event, path="event")
+    unknown = sorted(set(event.keys()) - _PROGRESS_EVENT_KEYS)
+    if unknown:
+        raise SyncValidationError(f"Unsupported progress event fields: {unknown}")
+    missing = sorted(_PROGRESS_EVENT_KEYS - set(event.keys()))
+    if missing:
+        raise SyncValidationError(f"Missing progress event fields: {missing}")
+    if "user_id" in event:
+        raise SyncValidationError("user_id is not allowed in progress event bodies.")
+
+    event_id = _require_event_id(event["event_id"])
+    device_id = _require_event_id(event["device_id"], name="device_id")
+    language_code = _require_language(event["language_code"])
+    vocab_id = _require_vocab_id(event["vocab_id"])
+    verdict = str(event["verdict"] or "").strip().lower()
+    if verdict not in _VERDICTS:
+        raise SyncValidationError("verdict must be exact, near, or wrong.")
+    mastered = _require_bool_int(event["mastered"], "mastered")
+    hint_used = _require_bool_int(event["hint_used"], "hint_used")
+    if mastered and (verdict != "exact" or hint_used):
+        raise SyncValidationError(
+            "mastered may be true only when verdict is exact and hint_used is false."
+        )
+    algorithm_id = str(event["algorithm_id"] or "").strip()
+    if algorithm_id != ALGORITHM_LADDER_V2:
+        raise SyncValidationError(
+            f"Unsupported algorithm_id: {algorithm_id!r} (only {ALGORITHM_LADDER_V2})."
+        )
+    occurred_at = _require_iso_timestamp(event["occurred_at"], "occurred_at")
+    texts = {
+        name: _require_bounded_text(event[name], name, allow_empty=(name != "expected_answer"))
+        for name in _TEXT_FIELDS
+    }
+    # New quiz events require non-empty expected_answer (ADR-022).
+    if not str(texts["expected_answer"]).strip():
+        raise SyncValidationError("expected_answer must be non-empty for new events.")
+    return {
+        "event_id": event_id,
+        "device_id": device_id,
+        "language_code": language_code,
+        "vocab_id": vocab_id,
+        "verdict": verdict,
+        "mastered": mastered,
+        "hint_used": hint_used,
+        "occurred_at": occurred_at,
+        "algorithm_id": algorithm_id,
+        **texts,
+    }
+
+
+def _require_event_id(value: Any, name: str = "event_id") -> str:
+    text = str(value or "").strip()
+    if not text or len(text) > 128:
+        raise SyncValidationError(f"{name} must be 1..128 characters.")
+    return text
+
+
+def _require_bool_int(value: Any, name: str) -> bool:
+    if isinstance(value, bool):
+        raise SyncValidationError(f"{name} must be an integer 0 or 1.")
+    if not isinstance(value, int) or value not in (0, 1):
+        raise SyncValidationError(f"{name} must be an integer 0 or 1.")
+    return bool(value)
+
+
+def _require_bounded_text(value: Any, name: str, *, allow_empty: bool) -> str:
+    if not isinstance(value, str):
+        raise SyncValidationError(f"{name} must be a string.")
+    if len(value) > _MAX_ATTEMPT_TEXT:
+        raise SyncValidationError(f"{name} exceeds {_MAX_ATTEMPT_TEXT} characters.")
+    if not allow_empty and not value.strip():
+        raise SyncValidationError(f"{name} must be non-empty.")
+    return value
+
+
+def _require_iso_timestamp(value: Any, name: str) -> str:
+    if not isinstance(value, str) or not value.strip():
+        raise SyncValidationError(f"{name} must be an ISO-8601 timestamp string.")
+    from srs import parse_utc
+
+    parsed = parse_utc(value)
+    if parsed is None:
+        raise SyncValidationError(f"{name} must be a valid ISO-8601 timestamp.")
+    from srs import to_utc_iso
+
+    return to_utc_iso(parsed)
+
+
+def _lookup_learning_attempt(
+    connection: sqlite3.Connection, *, user_id: int, event_id: str
+) -> Optional[LearningAttemptRecord]:
+    row = connection.execute(
+        """
+        SELECT user_id, event_id, device_id, language_code, vocab_id, verdict,
+               mastered, hint_used, occurred_at, received_at, server_seq,
+               algorithm_id, word_snapshot, user_answer, expected_answer, prompt
+        FROM learning_attempts
+        WHERE user_id = ? AND event_id = ?
+        """,
+        (user_id, event_id),
+    ).fetchone()
+    if row is None:
+        return None
+    return _attempt_from_row(row)
+
+
+def _lookup_progress_change(
+    connection: sqlite3.Connection, *, user_id: int, event_id: str
+) -> Optional[ProgressAcceptResult]:
+    row = connection.execute(
+        """
+        SELECT
+            c.change_id, c.server_seq, c.seen, c.correct, c.wrong, c.streak,
+            c.interval_days, c.due_at, c.state_version, c.algorithm_id,
+            a.user_id, a.event_id, a.device_id, a.language_code, a.vocab_id,
+            a.verdict, a.mastered, a.hint_used, a.occurred_at, a.received_at,
+            a.server_seq AS event_server_seq, a.algorithm_id AS event_algorithm_id,
+            a.word_snapshot, a.user_answer, a.expected_answer, a.prompt
+        FROM progress_changes c
+        JOIN learning_attempts a
+          ON a.user_id = c.user_id AND a.event_id = c.event_id
+        WHERE c.user_id = ? AND c.event_id = ?
+        """,
+        (user_id, event_id),
+    ).fetchone()
+    if row is None:
+        return None
+    change = _progress_change_from_row(row)
+    return ProgressAcceptResult(
+        change_id=change.change_id,
+        server_seq=change.server_seq,
+        event=change.event,
+        progress_after=change.progress_after,
+    )
+
+
+def _assert_attempt_replay_matches(
+    existing: LearningAttemptRecord, prepared: Dict[str, Any]
+) -> None:
+    if (
+        existing.device_id != prepared["device_id"]
+        or existing.language_code != prepared["language_code"]
+        or existing.vocab_id != prepared["vocab_id"]
+        or existing.verdict != prepared["verdict"]
+        or existing.mastered != bool(prepared["mastered"])
+        or existing.hint_used != bool(prepared["hint_used"])
+        or existing.occurred_at != prepared["occurred_at"]
+        or existing.algorithm_id != prepared["algorithm_id"]
+        or existing.word_snapshot != prepared["word_snapshot"]
+        or existing.user_answer != prepared["user_answer"]
+        or existing.expected_answer != prepared["expected_answer"]
+        or existing.prompt != prepared["prompt"]
+    ):
+        raise SyncConflictError(
+            "event_id already used with a different attempt body.",
+            current=None,
+        )
+
+
+def _attempt_from_row(row: sqlite3.Row) -> LearningAttemptRecord:
+    return LearningAttemptRecord(
+        user_id=int(row["user_id"]),
+        event_id=str(row["event_id"]),
+        device_id=str(row["device_id"]),
+        language_code=str(row["language_code"]),
+        vocab_id=str(row["vocab_id"]),
+        verdict=str(row["verdict"]),
+        mastered=bool(int(row["mastered"])),
+        hint_used=bool(int(row["hint_used"])),
+        occurred_at=str(row["occurred_at"]),
+        received_at=str(row["received_at"]),
+        server_seq=int(row["server_seq"]),
+        algorithm_id=str(row["algorithm_id"]),
+        word_snapshot=str(row["word_snapshot"]),
+        user_answer=str(row["user_answer"]),
+        expected_answer=str(row["expected_answer"]),
+        prompt=str(row["prompt"]),
+    )
+
+
+def _progress_change_from_row(row: sqlite3.Row) -> ProgressChange:
+    event = LearningAttemptRecord(
+        user_id=int(row["user_id"]),
+        event_id=str(row["event_id"]),
+        device_id=str(row["device_id"]),
+        language_code=str(row["language_code"]),
+        vocab_id=str(row["vocab_id"]),
+        verdict=str(row["verdict"]),
+        mastered=bool(int(row["mastered"])),
+        hint_used=bool(int(row["hint_used"])),
+        occurred_at=str(row["occurred_at"]),
+        received_at=str(row["received_at"]),
+        server_seq=int(row["event_server_seq"]),
+        algorithm_id=str(row["event_algorithm_id"]),
+        word_snapshot=str(row["word_snapshot"]),
+        user_answer=str(row["user_answer"]),
+        expected_answer=str(row["expected_answer"]),
+        prompt=str(row["prompt"]),
+    )
+    snapshot = ProgressSnapshot(
+        seen=int(row["seen"]),
+        correct=int(row["correct"]),
+        wrong=int(row["wrong"]),
+        streak=int(row["streak"]),
+        interval_days=int(row["interval_days"]),
+        due_at=str(row["due_at"]),
+        state_version=int(row["state_version"]),
+        algorithm_id=str(row["algorithm_id"]),
+        last_event_id=str(row["event_id"]),
+        last_server_seq=int(row["server_seq"]),
+    )
+    return ProgressChange(
+        change_id=int(row["change_id"]),
+        server_seq=int(row["server_seq"]),
+        event=event,
+        progress_after=snapshot,
     )

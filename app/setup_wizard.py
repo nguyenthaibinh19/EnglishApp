@@ -55,10 +55,17 @@ def _form(parent, on_success):
         error_label.config(text=config.ui("Đang đăng nhập…", "Signing in…"))
 
         def work():
-            return account_client.login(username, password)
+            return account_client.login_session(username, password)
 
-        def ok(token):
-            config.save_account(username, token)
+        def ok(result):
+            token, user_id = result
+            config.save_account(username, token, user_id=user_id)
+            try:
+                from account_sync_bootstrap import maybe_start_account_sync
+
+                maybe_start_account_sync()
+            except Exception:
+                pass
             on_success()
 
         def failed(error):

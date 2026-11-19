@@ -224,7 +224,7 @@ def test_synthetic_drill_covers_sync_backup_and_restart(tmp_path):
     assert report["other_account_hidden"] is True
     assert report["spoofed_user_hidden"] is True
     assert report["verify_status"] == "VERIFIED"
-    assert report["schema_version"] == 2
+    assert report["schema_version"] == 3
     assert report["integrity"] == "ok"
     assert report["source_unchanged"] is True
     assert report["backup_unchanged"] is True
