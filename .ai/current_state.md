@@ -8,7 +8,7 @@
 
 Owner redirected product work to Phase **18C.1** end-to-end account learning sync (local vertical slice). Off-box recovery remains open historically and is not cancelled; no new 18B.9 activation, VPS, Drive, OAuth, or `STUDY_SYNC_ENABLED=1` production work is authorized while 18C.1 is in Architect review.
 
-**18C.1 (this checkpoint):** schema-v3 progress tables + `/api/sync/progress/*` behind the existing default-off flag; per-account local SQLite; vocabulary + event-first progress sync engine; local two-device demo (`tools/demo_18c1_account_sync.py`). **Production unchanged** — flag stays off; no merge/activation without Architect acceptance.
+**18C.1 (this checkpoint):** schema-v3 progress tables + `/api/sync/progress/*` behind the existing default-off flag; per-account local SQLite; vocabulary + event-first progress sync engine; local two-device demo (`tools/demo_18c1_account_sync.py`). Primary Tkinter vocab/quiz/progress paths remain guest-file based until **18C.2** — see [PHASE-18C.1-gui-boundary.md](plans/PHASE-18C.1-gui-boundary.md). **Production unchanged** — flag stays off; no merge/activation without Architect acceptance.
 
 **18B.9 historical note (paused):** SOURCE INSTALLED INACTIVE — NOT ACTIVATED. Owner-authorized VPS packaging sync applied approved main `eb869eaf310504862a10c902ea2e8803fbab0b53` (PR #16 + #17) under `/opt/language-guard-offbox/`. Installed-layout `verify`/`verify-deps` PASS; frozen 15/15 MATCH; wrapper LF pin `cc9ce5b7aadbd690f800a0a29cacfd0bbaf0c5f46d3c107ac3100ae1bc9e8427`. Off-box units remain disabled/inactive. **No** `daemon-reload`, start/enable, OAuth/Drive, credentials, backup/restore, isolation, or Cloud Sync.
 

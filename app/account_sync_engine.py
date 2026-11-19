@@ -78,8 +78,10 @@ class AccountSyncEngine:
     def sync_once(self) -> SyncStatusSnapshot:
         """Run one full push/pull cycle (tests and local demo)."""
         try:
-            self._push_vocabulary()
+            # Vocabulary: pull first so pending local ops rebase onto the server tip
+            # before upload (avoids stale expected_revision after remote edits).
             self._pull_vocabulary()
+            self._push_vocabulary()
             self._push_progress()
             self._pull_progress()
             self.store.set_offline(False)
@@ -113,14 +115,19 @@ class AccountSyncEngine:
             self._wake.clear()
 
     def _push_vocabulary(self) -> None:
-        for item in self.store.pending_outbox(OUTBOX_KIND_VOCAB_PUT):
-            body = item["payload"]
-            record = self.client.put_vocabulary(body)
-            self.store.acknowledge_vocab_outbox(item["operation_id"], record)
-        for item in self.store.pending_outbox(OUTBOX_KIND_VOCAB_DELETE):
-            body = item["payload"]
-            record = self.client.delete_vocabulary(body)
-            self.store.acknowledge_vocab_outbox(item["operation_id"], record)
+        # Snapshot then skip any row superseded while the HTTP call ran.
+        for item in list(self.store.pending_outbox(OUTBOX_KIND_VOCAB_PUT)):
+            if not self.store.is_outbox_pending(item["operation_id"]):
+                continue
+            record = self.client.put_vocabulary(item["payload"])
+            if self.store.is_outbox_pending(item["operation_id"]):
+                self.store.acknowledge_vocab_outbox(item["operation_id"], record)
+        for item in list(self.store.pending_outbox(OUTBOX_KIND_VOCAB_DELETE)):
+            if not self.store.is_outbox_pending(item["operation_id"]):
+                continue
+            record = self.client.delete_vocabulary(item["payload"])
+            if self.store.is_outbox_pending(item["operation_id"]):
+                self.store.acknowledge_vocab_outbox(item["operation_id"], record)
 
     def _pull_vocabulary(self) -> None:
         while True:

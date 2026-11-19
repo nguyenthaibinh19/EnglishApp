@@ -84,7 +84,8 @@ Emergency Exit under --lock is not verified on this build
 ## Next
 
 ```text
-18C.1: Architect review of account learning sync PR — do not merge/activate production
+18C.1: Architect review of account learning sync PR #20 — local core demo only; do not merge/activate production
+18C.2: signed-in GUI integration, account preferences, daily activity/streak UX, remaining consent/migration
 Phase 18B.9 remains OPEN but PAUSED. Google Drive 5 TB is the preferred pre-public store. No new storage subscription
 Backblaze B2 EU Central is the fallback and is not provisioned
 B2 is not assumed to be append-only. Object Lock and a deleting lifecycle stay off

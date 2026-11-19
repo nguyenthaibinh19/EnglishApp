@@ -30,6 +30,7 @@ STATUS_CONFLICT = "Conflict"
 
 OUTBOX_PENDING = "pending"
 OUTBOX_ACKED = "acked"
+OUTBOX_SUPERSEDED = "superseded"
 OUTBOX_KIND_VOCAB_PUT = "vocab_put"
 OUTBOX_KIND_VOCAB_DELETE = "vocab_delete"
 OUTBOX_KIND_PROGRESS = "progress"
@@ -299,29 +300,36 @@ class AccountLocalStore:
         vocab_id: str,
         payload: dict,
         expected_revision: Optional[int] = None,
-    ) -> str:
-        """Persist a local vocabulary mutation and enqueue upload. Returns operation_id."""
+    ) -> Optional[str]:
+        """Persist a local vocabulary mutation and coalesce the upload outbox.
+
+        ``revision`` on the entity remains the last known *server* revision until
+        acknowledgement or download. Repeated offline edits supersede prior pending
+        ops and upload once against that base revision (ADR-018/019).
+        Returns the pending operation_id, or ``None`` when no upload is required.
+        """
         language_code = language_code.strip().lower()
         if not is_vocab_id(vocab_id):
             raise AccountLocalError("Invalid vocabulary UUID.")
         body = dict(payload)
         body["id"] = vocab_id
         stamp = to_utc_iso(utc_now())
-        operation_id = str(uuid.uuid4())
         with self._lock:
-            row = self._conn.execute(
-                "SELECT revision, deleted FROM vocabulary_entities "
-                "WHERE language_code = ? AND vocab_id = ?",
-                (language_code, vocab_id),
-            ).fetchone()
-            if expected_revision is None:
-                if row is None or int(row["deleted"]):
-                    expected_revision = 0
-                else:
-                    expected_revision = int(row["revision"])
-            payload_json = json.dumps(body, ensure_ascii=False, sort_keys=True)
             self._conn.execute("BEGIN IMMEDIATE")
             try:
+                row = self._conn.execute(
+                    "SELECT revision, deleted, payload_json FROM vocabulary_entities "
+                    "WHERE language_code = ? AND vocab_id = ?",
+                    (language_code, vocab_id),
+                ).fetchone()
+                server_revision = self._server_base_revision_unlocked(row)
+                if expected_revision is None:
+                    expected_revision = server_revision
+                elif int(expected_revision) != server_revision:
+                    raise AccountLocalConflict(
+                        "expected_revision does not match the last known server revision."
+                    )
+                payload_json = json.dumps(body, ensure_ascii=False, sort_keys=True)
                 self._conn.execute(
                     """
                     INSERT INTO vocabulary_entities (
@@ -337,25 +345,26 @@ class AccountLocalStore:
                     (
                         language_code,
                         vocab_id,
-                        expected_revision,
+                        server_revision,
                         payload_json,
                         expected_revision,
                         stamp,
                     ),
                 )
-                outbox_payload = {
-                    "language_code": language_code,
-                    "vocab_id": vocab_id,
-                    "payload": body,
-                    "expected_revision": expected_revision,
-                    "operation_id": operation_id,
-                }
+                self._supersede_pending_vocab_unlocked(language_code, vocab_id, stamp)
+                operation_id = str(uuid.uuid4())
                 self._enqueue_outbox(
                     kind=OUTBOX_KIND_VOCAB_PUT,
                     operation_id=operation_id,
                     language_code=language_code,
                     vocab_id=vocab_id,
-                    payload=outbox_payload,
+                    payload={
+                        "language_code": language_code,
+                        "vocab_id": vocab_id,
+                        "payload": body,
+                        "expected_revision": expected_revision,
+                        "operation_id": operation_id,
+                    },
                     stamp=stamp,
                 )
                 _meta_set(self._conn, "vocab_caught_up", "0")
@@ -367,22 +376,32 @@ class AccountLocalStore:
 
     def delete_vocabulary(
         self, *, language_code: str, vocab_id: str, expected_revision: Optional[int] = None
-    ) -> str:
+    ) -> Optional[str]:
+        """Tombstone locally and coalesce delete upload against the server base revision.
+
+        If the entity was never acknowledged on the server (base revision 0), cancel
+        pending puts and leave a local tombstone with no upload — the server never
+        received the create.
+        """
         language_code = language_code.strip().lower()
         stamp = to_utc_iso(utc_now())
-        operation_id = str(uuid.uuid4())
         with self._lock:
-            row = self._conn.execute(
-                "SELECT revision FROM vocabulary_entities "
-                "WHERE language_code = ? AND vocab_id = ? AND deleted = 0",
-                (language_code, vocab_id),
-            ).fetchone()
-            if row is None:
-                raise AccountLocalError("Vocabulary entry not found.")
-            if expected_revision is None:
-                expected_revision = int(row["revision"])
             self._conn.execute("BEGIN IMMEDIATE")
             try:
+                row = self._conn.execute(
+                    "SELECT revision, deleted, payload_json FROM vocabulary_entities "
+                    "WHERE language_code = ? AND vocab_id = ?",
+                    (language_code, vocab_id),
+                ).fetchone()
+                if row is None or int(row["deleted"]):
+                    raise AccountLocalError("Vocabulary entry not found.")
+                server_revision = self._server_base_revision_unlocked(row)
+                if expected_revision is None:
+                    expected_revision = server_revision
+                elif int(expected_revision) != server_revision:
+                    raise AccountLocalConflict(
+                        "expected_revision does not match the last known server revision."
+                    )
                 self._conn.execute(
                     """
                     UPDATE vocabulary_entities
@@ -391,20 +410,24 @@ class AccountLocalStore:
                     """,
                     (expected_revision, stamp, language_code, vocab_id),
                 )
-                self._enqueue_outbox(
-                    kind=OUTBOX_KIND_VOCAB_DELETE,
-                    operation_id=operation_id,
-                    language_code=language_code,
-                    vocab_id=vocab_id,
-                    payload={
-                        "language_code": language_code,
-                        "vocab_id": vocab_id,
-                        "expected_revision": expected_revision,
-                        "operation_id": operation_id,
-                    },
-                    stamp=stamp,
-                )
-                _meta_set(self._conn, "vocab_caught_up", "0")
+                self._supersede_pending_vocab_unlocked(language_code, vocab_id, stamp)
+                operation_id = None
+                if server_revision > 0:
+                    operation_id = str(uuid.uuid4())
+                    self._enqueue_outbox(
+                        kind=OUTBOX_KIND_VOCAB_DELETE,
+                        operation_id=operation_id,
+                        language_code=language_code,
+                        vocab_id=vocab_id,
+                        payload={
+                            "language_code": language_code,
+                            "vocab_id": vocab_id,
+                            "expected_revision": expected_revision,
+                            "operation_id": operation_id,
+                        },
+                        stamp=stamp,
+                    )
+                    _meta_set(self._conn, "vocab_caught_up", "0")
                 self._conn.execute("COMMIT")
             except Exception:
                 self._conn.execute("ROLLBACK")
@@ -485,7 +508,7 @@ class AccountLocalStore:
                         continue
                     if change_cursor <= last and last != cursor:
                         raise AccountLocalConflict("Vocabulary change page order invalid.")
-                    self._apply_vocab_entity_unlocked(item)
+                    self._apply_remote_vocab_change_unlocked(item)
                     last = change_cursor
                 if changes:
                     _meta_set(self._conn, "vocab_cursor", str(last))
@@ -500,17 +523,98 @@ class AccountLocalStore:
                 raise
 
     def acknowledge_vocab_outbox(self, operation_id: str, record: dict) -> None:
+        """Ack one upload. Preserve any newer local mutation and re-queue it."""
         with self._lock:
             self._conn.execute("BEGIN IMMEDIATE")
             try:
-                self._apply_vocab_entity_unlocked(record)
+                stamp = to_utc_iso(utc_now())
+                language_code = str(record["language_code"]).strip().lower()
+                vocab_id = str(record["vocab_id"])
+                local = self._conn.execute(
+                    "SELECT revision, deleted, payload_json FROM vocabulary_entities "
+                    "WHERE language_code = ? AND vocab_id = ?",
+                    (language_code, vocab_id),
+                ).fetchone()
+                local_deleted = bool(local and int(local["deleted"]))
+                local_payload = None
+                if local and local["payload_json"]:
+                    local_payload = json.loads(local["payload_json"])
+
+                dirty_after_ack = False
+                if local is not None:
+                    if local_deleted != bool(record.get("deleted")):
+                        dirty_after_ack = True
+                    elif not local_deleted:
+                        dirty_after_ack = _payload_fingerprint(
+                            local_payload
+                        ) != _payload_fingerprint(record.get("payload"))
+
+                if dirty_after_ack and local is not None:
+                    # Keep the latest local mutation; only advance server revision.
+                    self._conn.execute(
+                        """
+                        UPDATE vocabulary_entities
+                        SET revision = ?, expected_revision = ?, updated_at = ?
+                        WHERE language_code = ? AND vocab_id = ?
+                        """,
+                        (
+                            int(record["revision"]),
+                            int(record["revision"]),
+                            stamp,
+                            language_code,
+                            vocab_id,
+                        ),
+                    )
+                else:
+                    self._apply_vocab_entity_unlocked(record)
+
                 self._conn.execute(
                     """
                     UPDATE outbox SET state = ?, updated_at = ?
                     WHERE operation_id = ? AND state = ?
                     """,
-                    (OUTBOX_ACKED, to_utc_iso(utc_now()), operation_id, OUTBOX_PENDING),
+                    (OUTBOX_ACKED, stamp, operation_id, OUTBOX_PENDING),
                 )
+
+                if dirty_after_ack and local is not None:
+                    self._supersede_pending_vocab_unlocked(language_code, vocab_id, stamp)
+                    base = int(record["revision"])
+                    if local_deleted:
+                        if base > 0:
+                            new_op = str(uuid.uuid4())
+                            self._enqueue_outbox(
+                                kind=OUTBOX_KIND_VOCAB_DELETE,
+                                operation_id=new_op,
+                                language_code=language_code,
+                                vocab_id=vocab_id,
+                                payload={
+                                    "language_code": language_code,
+                                    "vocab_id": vocab_id,
+                                    "expected_revision": base,
+                                    "operation_id": new_op,
+                                },
+                                stamp=stamp,
+                            )
+                            _meta_set(self._conn, "vocab_caught_up", "0")
+                    else:
+                        new_op = str(uuid.uuid4())
+                        body = dict(local_payload or {})
+                        body["id"] = vocab_id
+                        self._enqueue_outbox(
+                            kind=OUTBOX_KIND_VOCAB_PUT,
+                            operation_id=new_op,
+                            language_code=language_code,
+                            vocab_id=vocab_id,
+                            payload={
+                                "language_code": language_code,
+                                "vocab_id": vocab_id,
+                                "payload": body,
+                                "expected_revision": base,
+                                "operation_id": new_op,
+                            },
+                            stamp=stamp,
+                        )
+                        _meta_set(self._conn, "vocab_caught_up", "0")
                 self._conn.execute("COMMIT")
             except Exception:
                 self._conn.execute("ROLLBACK")
@@ -532,7 +636,11 @@ class AccountLocalStore:
         occurred_at: Optional[str] = None,
         event_id: Optional[str] = None,
     ) -> str:
-        """Commit attempt + provisional + outbox + day bucket in one transaction."""
+        """Commit attempt + outbox + provisional + day bucket in one transaction.
+
+        Outbox is inserted before provisional rebuild so offline answers appear in
+        provisional seen/correct/wrong/streak/SRS immediately.
+        """
         language_code = language_code.strip().lower()
         if not is_vocab_id(vocab_id):
             raise AccountLocalError("Invalid vocabulary UUID.")
@@ -570,8 +678,6 @@ class AccountLocalStore:
                         prompt,
                     ),
                 )
-                self._rebuild_provisional_unlocked(language_code, vocab_id)
-                self._touch_day_unlocked(language_code, vocab_id, mastered=mastered)
                 outbox_payload = {
                     "event_id": event_id,
                     "device_id": device_id,
@@ -596,6 +702,8 @@ class AccountLocalStore:
                     payload=outbox_payload,
                     stamp=stamp,
                 )
+                self._rebuild_provisional_unlocked(language_code, vocab_id)
+                self._touch_day_unlocked(language_code, vocab_id, mastered=mastered)
                 _meta_set(self._conn, "progress_caught_up", "0")
                 self._conn.execute("COMMIT")
             except Exception:
@@ -788,6 +896,14 @@ class AccountLocalStore:
             result.append(item)
         return result
 
+    def is_outbox_pending(self, operation_id: str) -> bool:
+        with self._lock:
+            row = self._conn.execute(
+                "SELECT 1 FROM outbox WHERE operation_id = ? AND state = ?",
+                (operation_id, OUTBOX_PENDING),
+            ).fetchone()
+        return row is not None
+
     def mark_conflict(self, kind: str, detail: str) -> None:
         with self._lock:
             self._record_conflict_unlocked(kind, detail)
@@ -846,6 +962,155 @@ class AccountLocalStore:
                 stamp,
             ),
         )
+
+    def _server_base_revision_unlocked(self, row: Optional[sqlite3.Row]) -> int:
+        """Last known server revision. Tombstoned or missing → 0 (create base)."""
+        if row is None:
+            return 0
+        if int(row["deleted"]):
+            return 0
+        return int(row["revision"] or 0)
+
+    def _supersede_pending_vocab_unlocked(
+        self, language_code: str, vocab_id: str, stamp: str
+    ) -> None:
+        self._conn.execute(
+            """
+            UPDATE outbox
+            SET state = ?, updated_at = ?
+            WHERE state = ?
+              AND language_code = ?
+              AND vocab_id = ?
+              AND kind IN (?, ?)
+            """,
+            (
+                OUTBOX_SUPERSEDED,
+                stamp,
+                OUTBOX_PENDING,
+                language_code,
+                vocab_id,
+                OUTBOX_KIND_VOCAB_PUT,
+                OUTBOX_KIND_VOCAB_DELETE,
+            ),
+        )
+
+    def _pending_vocab_unlocked(
+        self, language_code: str, vocab_id: str
+    ) -> Optional[sqlite3.Row]:
+        return self._conn.execute(
+            """
+            SELECT * FROM outbox
+            WHERE state = ?
+              AND language_code = ?
+              AND vocab_id = ?
+              AND kind IN (?, ?)
+            ORDER BY id DESC
+            LIMIT 1
+            """,
+            (
+                OUTBOX_PENDING,
+                language_code,
+                vocab_id,
+                OUTBOX_KIND_VOCAB_PUT,
+                OUTBOX_KIND_VOCAB_DELETE,
+            ),
+        ).fetchone()
+
+    def _rebase_pending_vocab_unlocked(
+        self, language_code: str, vocab_id: str, server_revision: int, stamp: str
+    ) -> None:
+        """Point the coalesced pending op at the newer server base revision."""
+        pending = self._pending_vocab_unlocked(language_code, vocab_id)
+        if pending is None:
+            return
+        payload = json.loads(pending["payload_json"])
+        payload["expected_revision"] = int(server_revision)
+        self._conn.execute(
+            """
+            UPDATE outbox
+            SET payload_json = ?, updated_at = ?
+            WHERE id = ? AND state = ?
+            """,
+            (
+                json.dumps(payload, ensure_ascii=False, sort_keys=True),
+                stamp,
+                int(pending["id"]),
+                OUTBOX_PENDING,
+            ),
+        )
+        self._conn.execute(
+            """
+            UPDATE vocabulary_entities
+            SET revision = ?, expected_revision = ?, updated_at = ?
+            WHERE language_code = ? AND vocab_id = ?
+            """,
+            (int(server_revision), int(server_revision), stamp, language_code, vocab_id),
+        )
+
+    def _apply_remote_vocab_change_unlocked(self, record: dict) -> None:
+        """Apply a downloaded change without discarding a newer local mutation."""
+        language_code = str(record["language_code"]).strip().lower()
+        vocab_id = str(record["vocab_id"])
+        stamp = to_utc_iso(utc_now())
+        pending = self._pending_vocab_unlocked(language_code, vocab_id)
+        if pending is None:
+            self._apply_vocab_entity_unlocked(record)
+            return
+
+        pending_payload = json.loads(pending["payload_json"])
+        pending_deleted = pending["kind"] == OUTBOX_KIND_VOCAB_DELETE
+        remote_deleted = bool(record.get("deleted"))
+        remote_payload = record.get("payload")
+
+        if pending_deleted == remote_deleted and (
+            pending_deleted
+            or _payload_fingerprint(pending_payload.get("payload"))
+            == _payload_fingerprint(remote_payload)
+        ):
+            # Remote already reflects our intent — adopt server row and clear pending.
+            self._apply_vocab_entity_unlocked(record)
+            self._conn.execute(
+                "UPDATE outbox SET state = ?, updated_at = ? WHERE id = ?",
+                (OUTBOX_ACKED, stamp, int(pending["id"])),
+            )
+            return
+
+        # Keep local intent; rebase the pending op onto the remote revision tip.
+        remote_revision = int(record["revision"])
+        local = self._conn.execute(
+            "SELECT deleted, payload_json FROM vocabulary_entities "
+            "WHERE language_code = ? AND vocab_id = ?",
+            (language_code, vocab_id),
+        ).fetchone()
+        local_deleted = bool(local and int(local["deleted"]))
+        local_payload_json = local["payload_json"] if local else None
+        self._conn.execute(
+            """
+            INSERT INTO vocabulary_entities (
+                language_code, vocab_id, revision, deleted, payload_json,
+                expected_revision, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(language_code, vocab_id) DO UPDATE SET
+                revision = excluded.revision,
+                expected_revision = excluded.expected_revision,
+                deleted = excluded.deleted,
+                payload_json = excluded.payload_json,
+                updated_at = excluded.updated_at
+            """,
+            (
+                language_code,
+                vocab_id,
+                remote_revision,
+                1 if local_deleted else 0,
+                local_payload_json,
+                remote_revision,
+                stamp,
+            ),
+        )
+        self._rebase_pending_vocab_unlocked(
+            language_code, vocab_id, remote_revision, stamp
+        )
+        _meta_set(self._conn, "vocab_caught_up", "0")
 
     def _apply_vocab_entity_unlocked(self, record: dict) -> None:
         language_code = str(record["language_code"]).strip().lower()
@@ -1136,6 +1401,12 @@ class AccountLocalStore:
             """,
             (kind, detail, to_utc_iso(utc_now())),
         )
+
+
+def _payload_fingerprint(payload: Optional[dict]) -> str:
+    if payload is None:
+        return ""
+    return json.dumps(payload, ensure_ascii=False, sort_keys=True)
 
 
 def _meta_get(connection: sqlite3.Connection, key: str) -> Optional[str]:

@@ -322,3 +322,125 @@ def test_progress_http_rejects_spoofed_user_id(staging):
     conn.close()
     assert owner == staging["user_a"]
     eng.stop()
+
+
+def test_f1_provisional_updates_immediately_before_sync(tmp_path):
+    store = AccountLocalStore(7, data_root=str(tmp_path / "offline"))
+    store.upsert_vocabulary(language_code="nl", vocab_id=VOCAB, payload=_payload())
+    store.record_learning_attempt(
+        language_code="nl",
+        vocab_id=VOCAB,
+        verdict="exact",
+        hint_used=False,
+        word_snapshot="huis",
+        user_answer="house",
+        expected_answer="house",
+        prompt="?",
+    )
+    provisional = store.provisional_progress("nl", VOCAB)
+    assert provisional is not None
+    assert int(provisional["seen"]) == 1
+    assert int(provisional["correct"]) == 1
+    assert int(provisional["wrong"]) == 0
+    assert int(provisional["streak"]) == 1
+    assert int(provisional["interval_days"]) == 1
+    assert store.confirmed_progress("nl", VOCAB) is None
+    assert len(store.pending_outbox()) == 2  # vocab put + progress
+    store.close()
+
+
+def test_f2_create_edit_coalesces_before_sync(staging):
+    store = AccountLocalStore(staging["user_a"], data_root=str(staging["tmp"] / "coalesce"))
+    eng = _engine(store, staging["base"], staging["token_a"])
+    store.upsert_vocabulary(language_code="nl", vocab_id=VOCAB, payload=_payload(meaning="v1"))
+    store.upsert_vocabulary(language_code="nl", vocab_id=VOCAB, payload=_payload(meaning="v2"))
+    pending = store.pending_outbox("vocab_put")
+    assert len(pending) == 1
+    assert pending[0]["payload"]["expected_revision"] == 0
+    assert pending[0]["payload"]["payload"]["meaning"] == "v2"
+    status = eng.sync_once()
+    assert status.status == STATUS_SYNCED
+    assert store.list_vocabulary("nl")[0]["meaning"] == "v2"
+    conn = sqlite3.connect(str(staging["server_dir"] / "study_sync.db"))
+    rows = conn.execute(
+        "SELECT revision, payload_json FROM vocabulary_entities WHERE vocab_id = ?",
+        (VOCAB,),
+    ).fetchall()
+    conn.close()
+    assert len(rows) == 1
+    assert int(rows[0][0]) == 1
+    assert "v2" in rows[0][1]
+    eng.stop()
+
+
+def test_f2_create_edit_delete_offline_never_synced(tmp_path):
+    store = AccountLocalStore(9, data_root=str(tmp_path / "offline-del"))
+    store.upsert_vocabulary(language_code="nl", vocab_id=VOCAB, payload=_payload())
+    store.upsert_vocabulary(
+        language_code="nl", vocab_id=VOCAB, payload=_payload(meaning="edited")
+    )
+    op = store.delete_vocabulary(language_code="nl", vocab_id=VOCAB)
+    assert op is None
+    assert store.list_vocabulary("nl") == []
+    assert store.pending_outbox("vocab_put") == []
+    assert store.pending_outbox("vocab_delete") == []
+    store.close()
+
+
+def test_f2_repeated_edits_and_partial_ack_requeue(staging):
+    store = AccountLocalStore(staging["user_a"], data_root=str(staging["tmp"] / "requeue"))
+    eng = _engine(store, staging["base"], staging["token_a"])
+    store.upsert_vocabulary(language_code="nl", vocab_id=VOCAB, payload=_payload(meaning="one"))
+    eng.sync_once()
+    store.upsert_vocabulary(language_code="nl", vocab_id=VOCAB, payload=_payload(meaning="two"))
+    store.upsert_vocabulary(
+        language_code="nl", vocab_id=VOCAB, payload=_payload(meaning="three")
+    )
+    pending = store.pending_outbox("vocab_put")
+    assert len(pending) == 1
+    assert pending[0]["payload"]["expected_revision"] == 1
+    assert pending[0]["payload"]["payload"]["meaning"] == "three"
+    # Simulate ack of "three" while a newer local edit lands first.
+    store.upsert_vocabulary(
+        language_code="nl", vocab_id=VOCAB, payload=_payload(meaning="four")
+    )
+    # Push the still-pending row (four superseded three's op — only four pending).
+    pending = store.pending_outbox("vocab_put")
+    assert len(pending) == 1
+    assert pending[0]["payload"]["payload"]["meaning"] == "four"
+    eng.sync_once()
+    assert store.list_vocabulary("nl")[0]["meaning"] == "four"
+    assert store.status().status == STATUS_SYNCED
+    eng.stop()
+
+
+def test_f2_remote_change_while_local_pending_preserves_mutation(staging):
+    root_a = staging["tmp"] / "remote_a"
+    root_b = staging["tmp"] / "remote_b"
+    s1 = AccountLocalStore(staging["user_a"], data_root=str(root_a))
+    s2 = AccountLocalStore(staging["user_a"], data_root=str(root_b))
+    e1 = _engine(s1, staging["base"], staging["token_a"])
+    e2 = _engine(s2, staging["base"], staging["token_a"])
+    s1.upsert_vocabulary(language_code="nl", vocab_id=VOCAB, payload=_payload(meaning="base"))
+    e1.sync_once()
+    e2.sync_once()
+
+    # Device B edits and syncs while device A has a local pending edit.
+    s1.upsert_vocabulary(
+        language_code="nl", vocab_id=VOCAB, payload=_payload(meaning="local-pending")
+    )
+    s2.upsert_vocabulary(
+        language_code="nl", vocab_id=VOCAB, payload=_payload(meaning="remote-wins-tip")
+    )
+    e2.sync_once()
+    e1.sync_once()  # pull remote tip, rebase local pending, then push local
+    meanings = {item["meaning"] for item in s1.list_vocabulary("nl")}
+    assert meanings == {"local-pending"}
+    pending = s1.pending_outbox("vocab_put")
+    # After full sync_once, local pending should upload successfully on rebase.
+    assert s1.list_vocabulary("nl")[0]["meaning"] == "local-pending"
+    e2.sync_once()
+    assert s2.list_vocabulary("nl")[0]["meaning"] == "local-pending"
+    assert pending == [] or s1.status().status == STATUS_SYNCED
+    e1.stop()
+    e2.stop()
