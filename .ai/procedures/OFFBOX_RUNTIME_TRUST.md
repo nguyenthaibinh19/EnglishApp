@@ -35,11 +35,15 @@ must not chown it to `guard`. Offline/test installs omit `--production` and may
 use a temporary destination; production mode requires the exact trusted root and
 ancestry/symlink/ownership preflight before any copy.
 
-Unit verification parses **active** systemd directives only (comments do not
-satisfy required `ExecStart` / identity checks) and rejects duplicate
-security-sensitive keys. Path-trust classification requires resolved interpreter
-identity, leaf+ancestor metadata, and ACL evidence; missing metadata yields
-**UNKNOWN**, not PASS.
+Unit verification parses **systemd sections** explicitly, validates directives
+only in their correct section, requires exactly one approved `[Service]
+ExecStart`, and rejects unexpected executable directives (`ExecStartPre`,
+`ExecCondition`, …), `EnvironmentFile=`, and other non-allowlisted keys.
+Comments do not satisfy checks. Path-trust classification requires resolved
+interpreter identity, leaf+ancestor metadata, and ACL evidence; missing
+metadata yields **UNKNOWN**, not PASS. Production destination preflight covers
+ancestors **and** existing planned descendants (symlink / ownership / mode
+drift), including correct-hash files with unsafe ownership, before any copy.
 
 ## Offline verification
 

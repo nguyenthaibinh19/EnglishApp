@@ -18,8 +18,9 @@ That tree must remain outside any guard-writable ancestor (not under
 modules in that tree — never the guard-owned app venv.
 
 Production installs require ``install-execution-tree --production`` with
-exact destination ``/opt/language-guard-offbox`` and destination/parent
-preflight before any copy. Offline staging/tests omit ``--production``.
+exact destination ``/opt/language-guard-offbox`` and destination ancestor
+plus existing-descendant preflight before any copy. Offline staging/tests
+omit ``--production``.
 
 Usage examples (from repository root):
 
@@ -143,6 +144,13 @@ SOCKET_SINGLETONS = {
     "SocketGroup": "lg-backup",
     "SocketMode": "0600",
     "Accept": "yes",
+    "DirectoryMode": "0755",
+}
+TIMER_SINGLETONS = {
+    "OnCalendar": "*-*-* 05:15:00 UTC",
+    "Persistent": "true",
+    "RandomizedDelaySec": "15m",
+    "Unit": "language-guard-offbox-worker.service",
 }
 HELPER_REQUIRED_ENV = {
     "LG_SOURCE_DB": APP_ACCOUNTS_DB,
@@ -157,6 +165,94 @@ WORKER_REQUIRED_ENV = {
     "PYTHONDONTWRITEBYTECODE": "1",
 }
 WORKER_REQUIRED_LOAD_CREDENTIAL = "oauth-refresh:/etc/language-guard/oauth-refresh"
+
+# Minimal allowlists: unexpected keys (EnvironmentFile, ExecStartPre, …) fail closed.
+HELPER_UNIT_ALLOWED = frozenset({"Description"})
+HELPER_SERVICE_ALLOWED = frozenset(
+    {
+        "Type",
+        "User",
+        "Group",
+        "UMask",
+        "NoNewPrivileges",
+        "PrivateNetwork",
+        "PrivateTmp",
+        "PrivateDevices",
+        "ProtectSystem",
+        "ProtectHome",
+        "ProtectKernelTunables",
+        "ProtectKernelModules",
+        "ProtectControlGroups",
+        "RestrictNamespaces",
+        "LockPersonality",
+        "RestrictRealtime",
+        "RestrictSUIDSGID",
+        "SystemCallArchitectures",
+        "CapabilityBoundingSet",
+        "AmbientCapabilities",
+        "RestrictAddressFamilies",
+        "WorkingDirectory",
+        "Environment",
+        "ReadOnlyPaths",
+        "ReadWritePaths",
+        "InaccessiblePaths",
+        "StandardInput",
+        "StandardOutput",
+        "StandardError",
+        "ExecStart",
+        "TimeoutStartSec",
+    }
+)
+WORKER_UNIT_ALLOWED = frozenset({"Description", "Requires", "After"})
+WORKER_SERVICE_ALLOWED = frozenset(
+    {
+        "Type",
+        "User",
+        "Group",
+        "UMask",
+        "NoNewPrivileges",
+        "PrivateTmp",
+        "PrivateDevices",
+        "ProtectSystem",
+        "ProtectHome",
+        "ProtectKernelTunables",
+        "ProtectKernelModules",
+        "ProtectControlGroups",
+        "RestrictNamespaces",
+        "LockPersonality",
+        "RestrictRealtime",
+        "RestrictSUIDSGID",
+        "SystemCallArchitectures",
+        "CapabilityBoundingSet",
+        "AmbientCapabilities",
+        "RestrictAddressFamilies",
+        "WorkingDirectory",
+        "Environment",
+        "ReadOnlyPaths",
+        "ReadWritePaths",
+        "InaccessiblePaths",
+        "LoadCredential",
+        "ExecStart",
+        "TimeoutStartSec",
+    }
+)
+SOCKET_UNIT_ALLOWED = frozenset({"Description"})
+SOCKET_SOCKET_ALLOWED = frozenset(
+    {
+        "ListenStream",
+        "SocketUser",
+        "SocketGroup",
+        "SocketMode",
+        "DirectoryMode",
+        "Accept",
+    }
+)
+SOCKET_INSTALL_ALLOWED = frozenset({"WantedBy"})
+TIMER_UNIT_ALLOWED = frozenset({"Description"})
+TIMER_TIMER_ALLOWED = frozenset(
+    {"OnCalendar", "Persistent", "RandomizedDelaySec", "Unit"}
+)
+TIMER_INSTALL_ALLOWED = frozenset({"WantedBy"})
 
 # Expected modes for a future corrective VPS write (documented + tested offline).
 EXPECTED_EXEC_DIR_MODE = 0o755
@@ -212,21 +308,43 @@ def verify_modules(offbox: Path = OFFBOX_SRC) -> dict[str, str]:
     return dict(ACCEPTED_D5A2D0_P1_SHA256)
 
 
-def parse_active_unit_directives(text: str) -> list[tuple[str, str]]:
-    """Return active KEY=VALUE pairs; comments and section headers are ignored."""
-    directives: list[tuple[str, str]] = []
+def parse_unit_sections(text: str) -> dict[str, list[tuple[str, str]]]:
+    """Parse systemd unit text into section -> active KEY=VALUE lists.
+
+    Comments are ignored. Directives outside a section are rejected. Section
+    headers themselves are not treated as satisfying required keys.
+    """
+    sections: dict[str, list[tuple[str, str]]] = {}
+    current: str | None = None
     for raw in text.splitlines():
         line = raw.strip()
-        if not line or line.startswith("#") or line.startswith("["):
+        if not line or line.startswith("#"):
             continue
+        if line.startswith("[") and line.endswith("]"):
+            name = line[1:-1].strip()
+            if not name:
+                raise ValueError(f"invalid empty section header: {line!r}")
+            current = name
+            sections.setdefault(current, [])
+            continue
+        if current is None:
+            raise ValueError(f"directive outside any section: {line!r}")
         if "=" not in line:
             raise ValueError(f"invalid unit line (missing '='): {line!r}")
         key, _, value = line.partition("=")
         key = key.strip()
         if not key:
             raise ValueError(f"invalid unit line (empty key): {line!r}")
-        directives.append((key, value.strip()))
-    return directives
+        sections[current].append((key, value.strip()))
+    return sections
+
+
+def parse_active_unit_directives(text: str) -> list[tuple[str, str]]:
+    """Flatten active directives across sections (legacy helper for tests)."""
+    flat: list[tuple[str, str]] = []
+    for directives in parse_unit_sections(text).values():
+        flat.extend(directives)
+    return flat
 
 
 def _values_for(directives: list[tuple[str, str]], key: str) -> list[str]:
@@ -238,15 +356,19 @@ def _require_singleton(
     key: str,
     expected: str,
     unit_name: str,
+    *,
+    section: str,
 ) -> None:
     values = _values_for(directives, key)
     if len(values) != 1:
         raise ValueError(
-            f"{unit_name}: expected exactly one active {key}=, found {len(values)}"
+            f"{unit_name}: expected exactly one active [{section}] {key}=, "
+            f"found {len(values)}"
         )
     if values[0] != expected:
         raise ValueError(
-            f"{unit_name}: active {key}={values[0]!r} does not equal required {expected!r}"
+            f"{unit_name}: [{section}] {key}={values[0]!r} does not equal "
+            f"required {expected!r}"
         )
 
 
@@ -254,6 +376,8 @@ def _reject_duplicate_keys(
     directives: list[tuple[str, str]],
     keys: frozenset[str],
     unit_name: str,
+    *,
+    section: str,
 ) -> None:
     seen: dict[str, int] = {}
     for key, _value in directives:
@@ -262,8 +386,7 @@ def _reject_duplicate_keys(
     for key, count in seen.items():
         if count > 1:
             raise ValueError(
-                f"{unit_name}: duplicate active security-sensitive directive {key}= "
-                f"(count={count})"
+                f"{unit_name}: duplicate active [{section}] {key}= (count={count})"
             )
 
 
@@ -283,21 +406,65 @@ def _environment_map(directives: list[tuple[str, str]], unit_name: str) -> dict[
     return env
 
 
-def _reject_forbidden_active(directives: list[tuple[str, str]], unit_name: str) -> None:
+def _reject_forbidden_active(
+    directives: list[tuple[str, str]],
+    unit_name: str,
+    *,
+    section: str,
+) -> None:
     for key, value in directives:
         rendered = f"{key}={value}"
         lowered = rendered.lower()
         if "systemctl enable" in lowered or "systemctl start" in lowered:
             raise ValueError(f"{unit_name} must not embed enable/start actions")
+        if key == "EnvironmentFile":
+            raise ValueError(
+                f"{unit_name}: [{section}] EnvironmentFile= is not authorized"
+            )
+        if key.startswith("Exec") and key != "ExecStart":
+            raise ValueError(
+                f"{unit_name}: [{section}] unexpected executable directive {key}="
+            )
+        if key == "ExecStart" and section != "Service":
+            raise ValueError(
+                f"{unit_name}: ExecStart= must appear under [Service], found [{section}]"
+            )
         for marker in FORBIDDEN_ACTIVE_SUBSTRINGS:
             if marker in rendered or marker in value:
                 raise ValueError(
-                    f"{unit_name} active directive contains forbidden marker: {marker}"
+                    f"{unit_name} [{section}] contains forbidden marker: {marker}"
                 )
 
 
+def _require_section_keys(
+    sections: dict[str, list[tuple[str, str]]],
+    unit_name: str,
+    section: str,
+    allowed: frozenset[str],
+) -> list[tuple[str, str]]:
+    if section not in sections:
+        raise ValueError(f"{unit_name}: missing required section [{section}]")
+    directives = sections[section]
+    for key, _value in directives:
+        if key not in allowed:
+            raise ValueError(
+                f"{unit_name}: [{section}] unexpected directive {key}="
+            )
+    return directives
+
+
+def _reject_unknown_sections(
+    sections: dict[str, list[tuple[str, str]]],
+    unit_name: str,
+    allowed_sections: frozenset[str],
+) -> None:
+    for name in sections:
+        if name not in allowed_sections:
+            raise ValueError(f"{unit_name}: unexpected section [{name}]")
+
+
 def verify_units(unit_dir: Path = HERE) -> None:
-    """Validate effective active unit directives (comments do not satisfy checks)."""
+    """Validate section-scoped active unit directives (comments do not satisfy)."""
     for name in UNIT_NAMES:
         path = unit_dir / name
         if not path.is_file():
@@ -308,42 +475,94 @@ def verify_units(unit_dir: Path = HERE) -> None:
     socket_name = "language-guard-offbox-handoff.socket"
     timer_name = "language-guard-offbox.timer"
 
-    helper_dirs = parse_active_unit_directives(
-        (unit_dir / helper_name).read_text(encoding="utf-8")
+    helper = parse_unit_sections((unit_dir / helper_name).read_text(encoding="utf-8"))
+    worker = parse_unit_sections((unit_dir / worker_name).read_text(encoding="utf-8"))
+    socket = parse_unit_sections((unit_dir / socket_name).read_text(encoding="utf-8"))
+    timer = parse_unit_sections((unit_dir / timer_name).read_text(encoding="utf-8"))
+
+    _reject_unknown_sections(helper, helper_name, frozenset({"Unit", "Service"}))
+    _reject_unknown_sections(worker, worker_name, frozenset({"Unit", "Service"}))
+    _reject_unknown_sections(
+        socket, socket_name, frozenset({"Unit", "Socket", "Install"})
     )
-    worker_dirs = parse_active_unit_directives(
-        (unit_dir / worker_name).read_text(encoding="utf-8")
-    )
-    socket_dirs = parse_active_unit_directives(
-        (unit_dir / socket_name).read_text(encoding="utf-8")
-    )
-    timer_dirs = parse_active_unit_directives(
-        (unit_dir / timer_name).read_text(encoding="utf-8")
+    _reject_unknown_sections(
+        timer, timer_name, frozenset({"Unit", "Timer", "Install"})
     )
 
-    for unit_name, directives in (
-        (helper_name, helper_dirs),
-        (worker_name, worker_dirs),
-        (socket_name, socket_dirs),
-        (timer_name, timer_dirs),
+    helper_unit = _require_section_keys(
+        helper, helper_name, "Unit", HELPER_UNIT_ALLOWED
+    )
+    helper_svc = _require_section_keys(
+        helper, helper_name, "Service", HELPER_SERVICE_ALLOWED
+    )
+    worker_unit = _require_section_keys(
+        worker, worker_name, "Unit", WORKER_UNIT_ALLOWED
+    )
+    worker_svc = _require_section_keys(
+        worker, worker_name, "Service", WORKER_SERVICE_ALLOWED
+    )
+    socket_unit = _require_section_keys(
+        socket, socket_name, "Unit", SOCKET_UNIT_ALLOWED
+    )
+    socket_sock = _require_section_keys(
+        socket, socket_name, "Socket", SOCKET_SOCKET_ALLOWED
+    )
+    socket_install = _require_section_keys(
+        socket, socket_name, "Install", SOCKET_INSTALL_ALLOWED
+    )
+    timer_unit = _require_section_keys(
+        timer, timer_name, "Unit", TIMER_UNIT_ALLOWED
+    )
+    timer_timer = _require_section_keys(
+        timer, timer_name, "Timer", TIMER_TIMER_ALLOWED
+    )
+    timer_install = _require_section_keys(
+        timer, timer_name, "Install", TIMER_INSTALL_ALLOWED
+    )
+
+    for unit_name, section, directives in (
+        (helper_name, "Unit", helper_unit),
+        (helper_name, "Service", helper_svc),
+        (worker_name, "Unit", worker_unit),
+        (worker_name, "Service", worker_svc),
+        (socket_name, "Unit", socket_unit),
+        (socket_name, "Socket", socket_sock),
+        (socket_name, "Install", socket_install),
+        (timer_name, "Unit", timer_unit),
+        (timer_name, "Timer", timer_timer),
+        (timer_name, "Install", timer_install),
     ):
-        _reject_forbidden_active(directives, unit_name)
+        _reject_forbidden_active(directives, unit_name, section=section)
 
-    _reject_duplicate_keys(helper_dirs, SERVICE_NO_DUPLICATE_KEYS, helper_name)
-    _reject_duplicate_keys(worker_dirs, SERVICE_NO_DUPLICATE_KEYS, worker_name)
+    _reject_duplicate_keys(
+        helper_svc, SERVICE_NO_DUPLICATE_KEYS, helper_name, section="Service"
+    )
+    _reject_duplicate_keys(
+        worker_svc, SERVICE_NO_DUPLICATE_KEYS, worker_name, section="Service"
+    )
 
     for key, expected in HELPER_SINGLETONS.items():
-        _require_singleton(helper_dirs, key, expected, helper_name)
+        _require_singleton(
+            helper_svc, key, expected, helper_name, section="Service"
+        )
     for key, expected in WORKER_SINGLETONS.items():
-        _require_singleton(worker_dirs, key, expected, worker_name)
+        _require_singleton(
+            worker_svc, key, expected, worker_name, section="Service"
+        )
     for key, expected in SOCKET_SINGLETONS.items():
-        _require_singleton(socket_dirs, key, expected, socket_name)
+        _require_singleton(
+            socket_sock, key, expected, socket_name, section="Socket"
+        )
+    for key, expected in TIMER_SINGLETONS.items():
+        _require_singleton(
+            timer_timer, key, expected, timer_name, section="Timer"
+        )
 
-    if _values_for(worker_dirs, "StateDirectory"):
+    if _values_for(worker_svc, "StateDirectory"):
         raise ValueError(f"{worker_name}: must not set StateDirectory=")
 
-    helper_env = _environment_map(helper_dirs, helper_name)
-    worker_env = _environment_map(worker_dirs, worker_name)
+    helper_env = _environment_map(helper_svc, helper_name)
+    worker_env = _environment_map(worker_svc, worker_name)
     for key, expected in HELPER_REQUIRED_ENV.items():
         if helper_env.get(key) != expected:
             raise ValueError(
@@ -357,19 +576,27 @@ def verify_units(unit_dir: Path = HERE) -> None:
                 f"!= required {expected!r}"
             )
 
-    load_creds = _values_for(worker_dirs, "LoadCredential")
+    load_creds = _values_for(worker_svc, "LoadCredential")
     if load_creds != [WORKER_REQUIRED_LOAD_CREDENTIAL]:
         raise ValueError(
             f"{worker_name}: LoadCredential must be exactly "
             f"[{WORKER_REQUIRED_LOAD_CREDENTIAL!r}], found {load_creds!r}"
         )
 
-    timer_units = _values_for(timer_dirs, "Unit")
-    if timer_units != ["language-guard-offbox-worker.service"]:
-        raise ValueError(
-            f"{timer_name}: Unit= must be exactly "
-            f"language-guard-offbox-worker.service, found {timer_units!r}"
-        )
+    _require_singleton(
+        socket_install,
+        "WantedBy",
+        "sockets.target",
+        socket_name,
+        section="Install",
+    )
+    _require_singleton(
+        timer_install,
+        "WantedBy",
+        "timers.target",
+        timer_name,
+        section="Install",
+    )
 
 
 def _top_level_module(name: str) -> str:
@@ -631,11 +858,150 @@ def _iter_existing_ancestors(path: Path) -> list[Path]:
     return found
 
 
+class PathProbe:
+    """Filesystem probe result used by production destination preflight."""
+
+    __slots__ = ("is_symlink", "is_dir", "is_file", "uid", "gid", "mode")
+
+    def __init__(
+        self,
+        *,
+        is_symlink: bool,
+        is_dir: bool,
+        is_file: bool,
+        uid: int,
+        gid: int,
+        mode: int,
+    ) -> None:
+        self.is_symlink = is_symlink
+        self.is_dir = is_dir
+        self.is_file = is_file
+        self.uid = uid
+        self.gid = gid
+        self.mode = mode
+
+
+def _probe_path(path: Path) -> PathProbe | None:
+    """Return metadata for an existing path, or None if absent.
+
+    Tests may monkeypatch this helper to inject ownership/mode fixtures.
+    """
+    if not path.exists() and not path.is_symlink():
+        return None
+    if path.is_symlink():
+        return PathProbe(
+            is_symlink=True,
+            is_dir=False,
+            is_file=False,
+            uid=-1,
+            gid=-1,
+            mode=0o777,
+        )
+    st = path.lstat()
+    return PathProbe(
+        is_symlink=False,
+        is_dir=path.is_dir(),
+        is_file=path.is_file(),
+        uid=int(getattr(st, "st_uid", 0)),
+        gid=int(getattr(st, "st_gid", 0)),
+        mode=int(st.st_mode) & 0o777,
+    )
+
+
+def planned_execution_tree_paths(dest: Path) -> list[Path]:
+    """All directories/files the installer may create or overwrite."""
+    paths: list[Path] = [
+        dest,
+        dest / "offbox",
+        dest / "deploy",
+        dest / "deploy" / "hetzner",
+    ]
+    for name in ACCEPTED_D5A2D0_P1_SHA256:
+        paths.append(dest / "offbox" / name)
+    for meta in ("SHA256SUMS", "SOURCE_AUTHORITY.md"):
+        paths.append(dest / "offbox" / meta)
+    for helper in APP_TREE_HELPERS:
+        paths.append(dest / "deploy" / "hetzner" / helper)
+    for name in UNIT_NAMES:
+        paths.append(dest / "deploy" / "hetzner" / name)
+    return paths
+
+
+def assert_trusted_existing_path(
+    path: Path,
+    probe: PathProbe,
+    *,
+    require_root_owner: bool,
+    enforce_unix_modes: bool,
+    expect_dir: bool | None = None,
+) -> None:
+    """Fail closed on symlink / ownership / mode drift for one existing path."""
+    if probe.is_symlink:
+        raise ValueError(f"symlink in destination target set: {path}")
+    if expect_dir is True and not probe.is_dir:
+        raise ValueError(f"expected directory at destination path: {path}")
+    if expect_dir is False and not probe.is_file:
+        raise ValueError(f"expected regular file at destination path: {path}")
+    mode = probe.mode & 0o777
+    if enforce_unix_modes and (mode & 0o022):
+        raise ValueError(
+            f"group/world-writable destination path: {path} mode={oct(mode)}"
+        )
+    if not require_root_owner:
+        return
+    if probe.uid != 0 or probe.gid != 0:
+        raise ValueError(
+            f"ownership drift on destination path {path}: "
+            f"uid={probe.uid} gid={probe.gid} (require root:root)"
+        )
+    if probe.is_dir and mode != EXPECTED_EXEC_DIR_MODE:
+        raise ValueError(
+            f"directory mode drift: {path} mode={oct(mode)} "
+            f"expected {oct(EXPECTED_EXEC_DIR_MODE)}"
+        )
+    if probe.is_file and mode != EXPECTED_EXEC_FILE_MODE:
+        raise ValueError(
+            f"file mode drift: {path} mode={oct(mode)} "
+            f"expected {oct(EXPECTED_EXEC_FILE_MODE)}"
+        )
+
+
+def preflight_execution_tree_targets(
+    dest: Path,
+    *,
+    require_root_owner: bool,
+    enforce_unix_modes: bool | None = None,
+) -> None:
+    """Inspect existing planned descendants before any copy."""
+    if enforce_unix_modes is None:
+        enforce_unix_modes = bool(require_root_owner or os.name == "posix")
+    for path in planned_execution_tree_paths(dest):
+        probe = _probe_path(path)
+        if probe is None:
+            continue
+        expect_dir: bool | None
+        if path == dest or path.name in {"offbox", "deploy", "hetzner"}:
+            expect_dir = True
+        elif path.suffix or path.name in {"SHA256SUMS", "SOURCE_AUTHORITY.md"}:
+            expect_dir = False
+        else:
+            expect_dir = None
+        assert_trusted_existing_path(
+            path,
+            probe,
+            require_root_owner=require_root_owner,
+            enforce_unix_modes=enforce_unix_modes,
+            expect_dir=expect_dir,
+        )
+
+
 def validate_install_destination(dest: Path, *, production: bool) -> None:
     """Fail closed on unsafe destinations before any file copy.
 
     production=True: destination must be exactly ``/opt/language-guard-offbox``,
-    with symlink/ownership/mode preflight on existing ancestors.
+    with symlink/ownership/mode preflight on existing ancestors **and** any
+    existing planned descendant paths (modules/helpers/units). Correct-hash
+    files with unsafe ownership/mode are rejected (no silent idempotent skip).
 
     production=False: offline/test staging — refuse the guard app-tree segment
     ``language-guard`` and refuse symlink destinations, but allow other roots.
@@ -668,23 +1034,33 @@ def validate_install_destination(dest: Path, *, production: bool) -> None:
         # Production preflight on POSIX hosts when metadata is available.
         if os.name != "posix":
             continue
-        try:
-            st = ancestor.lstat()
-        except OSError as exc:
-            raise ValueError(f"unable to stat destination ancestor {ancestor}: {exc}") from exc
-        mode = st.st_mode & 0o777
-        if mode & 0o002:
-            raise ValueError(f"world-writable destination ancestor: {ancestor}")
-        # Require root ownership for /opt and the execution root when present.
+        probe = _probe_path(ancestor)
+        if probe is None:
+            continue
+        mode = probe.mode & 0o777
+        if mode & 0o022:
+            raise ValueError(
+                f"group/world-writable destination ancestor: {ancestor} "
+                f"mode={oct(mode)}"
+            )
         ancestor_posix = ancestor.as_posix().rstrip("/") or "/"
         if ancestor_posix in {"/opt", OFFBOX_EXEC_ROOT} or ancestor_posix.startswith(
             OFFBOX_EXEC_ROOT + "/"
         ):
-            if st.st_uid != 0 or st.st_gid != 0:
+            if probe.uid != 0 or probe.gid != 0:
                 raise ValueError(
                     f"ownership drift on production ancestor {ancestor_posix}: "
-                    f"uid={st.st_uid} gid={st.st_gid} (require root:root)"
+                    f"uid={probe.uid} gid={probe.gid} (require root:root)"
                 )
+
+    # Existing destination subtree must already be immutable/trusted, or absent.
+    # Symlinks in the planned target set are always rejected; unix mode/owner
+    # drift is enforced for production and on POSIX hosts.
+    preflight_execution_tree_targets(
+        dest,
+        require_root_owner=bool(production and os.name == "posix"),
+        enforce_unix_modes=bool(production or os.name == "posix"),
+    )
 
 
 def stage(

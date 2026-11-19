@@ -12,7 +12,7 @@ Rolling coordination checkpoint. The detailed history remains in [current_state.
 
 - Executable-path trust audit **ACCEPTED UNSAFE** (Issue #8 #7009010670 / Architect #7009128705).
 - Inactive packaging remains on the VPS under the **old** `/opt/language-guard/offbox` + venv ExecStart paths; units **inactive**.
-- **This remediation (source PR #15):** dedicated `/opt/language-guard-offbox` execution tree; units use `/usr/bin/python3 -I`; packager `install-execution-tree --production`; hardened active-directive unit verify, path-trust classifier, and destination preflight. Frozen 15 module bytes unchanged. Account-server paths unchanged. See [OFFBOX_RUNTIME_TRUST.md](../procedures/OFFBOX_RUNTIME_TRUST.md). Architect merge remains blocked until corrections are accepted.
+- **This remediation (source PR #15):** dedicated `/opt/language-guard-offbox` execution tree; units use `/usr/bin/python3 -I`; packager `install-execution-tree --production`; section-scoped unit verify (reject extra Exec*/EnvironmentFile); ancestor+descendant destination preflight including correct-hash ownership/mode drift. Frozen 15 module bytes unchanged. Account-server paths unchanged. See [OFFBOX_RUNTIME_TRUST.md](../procedures/OFFBOX_RUNTIME_TRUST.md). Await final Architect review before merge.
 
 ## 3. Next App task
 

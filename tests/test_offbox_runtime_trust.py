@@ -503,3 +503,220 @@ def test_setup_sh_installs_execution_tree_not_app_offbox() -> None:
     assert "--production" in text
     assert 'install-app-tree --dest "${APP_DIR}"' not in text
     assert 'chown -R root:root "${OFFBOX_EXEC_DIR}"' in text
+
+
+def test_verify_units_rejects_execstartpre_even_with_approved_execstart(
+    tmp_path: Path,
+) -> None:
+    packager = _load_packager()
+    unit_dir = _clone_units(tmp_path)
+    worker = unit_dir / "language-guard-offbox-worker.service"
+    text = worker.read_text(encoding="utf-8")
+    text = text.replace(
+        "ExecStart=/usr/bin/python3 -I /opt/language-guard-offbox/offbox/backup_worker.py",
+        (
+            "ExecStartPre=/tmp/evil\n"
+            "ExecStart=/usr/bin/python3 -I "
+            "/opt/language-guard-offbox/offbox/backup_worker.py"
+        ),
+    )
+    worker.write_text(text, encoding="utf-8")
+    with pytest.raises(ValueError, match="unexpected executable directive|ExecStartPre"):
+        packager.verify_units(unit_dir)
+
+
+def test_verify_units_rejects_environmentfile(tmp_path: Path) -> None:
+    packager = _load_packager()
+    unit_dir = _clone_units(tmp_path)
+    worker = unit_dir / "language-guard-offbox-worker.service"
+    text = worker.read_text(encoding="utf-8")
+    text = text.replace(
+        "[Service]\n",
+        "[Service]\nEnvironmentFile=/tmp/untrusted.env\n",
+    )
+    worker.write_text(text, encoding="utf-8")
+    with pytest.raises(ValueError, match="EnvironmentFile"):
+        packager.verify_units(unit_dir)
+
+
+def test_verify_units_rejects_execstart_outside_service_section(
+    tmp_path: Path,
+) -> None:
+    packager = _load_packager()
+    unit_dir = _clone_units(tmp_path)
+    worker = unit_dir / "language-guard-offbox-worker.service"
+    text = worker.read_text(encoding="utf-8")
+    text = text.replace(
+        "ExecStart=/usr/bin/python3 -I /opt/language-guard-offbox/offbox/backup_worker.py\n",
+        "",
+    )
+    text = text.replace(
+        "[Unit]\nDescription=Language Guard off-box backup worker\n",
+        (
+            "[Unit]\nDescription=Language Guard off-box backup worker\n"
+            "ExecStart=/usr/bin/python3 -I "
+            "/opt/language-guard-offbox/offbox/backup_worker.py\n"
+        ),
+    )
+    worker.write_text(text, encoding="utf-8")
+    with pytest.raises(ValueError, match=r"ExecStart= must appear under \[Service\]|unexpected directive"):
+        packager.verify_units(unit_dir)
+
+
+def test_install_fails_before_write_when_units_have_execstartpre(
+    tmp_path: Path,
+) -> None:
+    packager = _load_packager()
+    fake_root = tmp_path / "hetzner"
+    fake_offbox = fake_root / "offbox"
+    fake_offbox.mkdir(parents=True)
+    for path in (HETZNER / "offbox").iterdir():
+        if path.is_file():
+            (fake_offbox / path.name).write_bytes(path.read_bytes())
+    for name in UNIT_NAMES + ("install_offbox_packaging.py", "offbox_report_lines.py"):
+        (fake_root / name).write_bytes((HETZNER / name).read_bytes())
+    worker = fake_root / "language-guard-offbox-worker.service"
+    worker.write_text(
+        worker.read_text(encoding="utf-8").replace(
+            "ExecStart=/usr/bin/python3 -I /opt/language-guard-offbox/offbox/backup_worker.py",
+            (
+                "ExecStartPre=/bin/true\n"
+                "ExecStart=/usr/bin/python3 -I "
+                "/opt/language-guard-offbox/offbox/backup_worker.py"
+            ),
+        ),
+        encoding="utf-8",
+    )
+    dest = tmp_path / "language-guard-offbox"
+    dest.mkdir()
+    with pytest.raises(ValueError, match="ExecStartPre|unexpected executable"):
+        packager.install_execution_tree(dest, hetzner_dir=fake_root, production=False)
+    assert list(dest.rglob("*")) == []
+
+
+def test_preflight_rejects_child_symlink_without_writes(tmp_path: Path) -> None:
+    packager = _load_packager()
+    dest = tmp_path / "language-guard-offbox"
+    offbox = dest / "offbox"
+    offbox.mkdir(parents=True)
+    real = tmp_path / "evil-real"
+    real.mkdir()
+    link = offbox / "backup_worker.py"
+    try:
+        link.symlink_to(real / "x.py")
+    except OSError:
+        pytest.skip("symlink creation unavailable on this host")
+    with pytest.raises(ValueError, match="symlink"):
+        packager.preflight_execution_tree_targets(
+            dest, require_root_owner=False, enforce_unix_modes=False
+        )
+    assert link.is_symlink()
+
+
+def test_preflight_rejects_guard_owned_child_dir(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    packager = _load_packager()
+    dest = tmp_path / "language-guard-offbox"
+    child = dest / "offbox"
+    child.mkdir(parents=True)
+
+    def fake_probe(path: Path):
+        if not path.exists() and not path.is_symlink():
+            return None
+        if path == child:
+            return packager.PathProbe(
+                is_symlink=False,
+                is_dir=True,
+                is_file=False,
+                uid=995,
+                gid=982,
+                mode=0o755,
+            )
+        if path.is_dir():
+            return packager.PathProbe(
+                is_symlink=False,
+                is_dir=True,
+                is_file=False,
+                uid=0,
+                gid=0,
+                mode=0o755,
+            )
+        return packager.PathProbe(
+            is_symlink=False,
+            is_dir=False,
+            is_file=True,
+            uid=0,
+            gid=0,
+            mode=0o644,
+        )
+
+    monkeypatch.setattr(packager, "_probe_path", fake_probe)
+    with pytest.raises(ValueError, match="ownership drift"):
+        packager.preflight_execution_tree_targets(dest, require_root_owner=True)
+
+
+def test_preflight_rejects_correct_hash_file_with_untrusted_owner(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    packager = _load_packager()
+    dest = tmp_path / "language-guard-offbox"
+    target = dest / "offbox" / "framing.py"
+    target.parent.mkdir(parents=True)
+    target.write_bytes((HETZNER / "offbox" / "framing.py").read_bytes())
+    assert hashlib.sha256(target.read_bytes()).hexdigest() == ACCEPTED_D5A2D0_P1_SHA256[
+        "framing.py"
+    ]
+
+    def fake_probe(path: Path):
+        if not path.exists() and not path.is_symlink():
+            return None
+        if path == target:
+            return packager.PathProbe(
+                is_symlink=False,
+                is_dir=False,
+                is_file=True,
+                uid=995,
+                gid=982,
+                mode=0o644,
+            )
+        if path.is_dir():
+            return packager.PathProbe(
+                is_symlink=False,
+                is_dir=True,
+                is_file=False,
+                uid=0,
+                gid=0,
+                mode=0o755,
+            )
+        return packager.PathProbe(
+            is_symlink=False,
+            is_dir=False,
+            is_file=True,
+            uid=0,
+            gid=0,
+            mode=0o644,
+        )
+
+    monkeypatch.setattr(packager, "_probe_path", fake_probe)
+    with pytest.raises(ValueError, match="ownership drift"):
+        packager.preflight_execution_tree_targets(dest, require_root_owner=True)
+    # Fail-closed: no installer rewrite attempted in this unit.
+    assert target.is_file()
+
+
+def test_preflight_rejects_group_writable_parent_mode() -> None:
+    packager = _load_packager()
+    with pytest.raises(ValueError, match="group/world-writable"):
+        packager.assert_trusted_existing_path(
+            Path("/opt"),
+            packager.PathProbe(
+                is_symlink=False,
+                is_dir=True,
+                is_file=False,
+                uid=0,
+                gid=0,
+                mode=0o775,
+            ),
+            require_root_owner=True,
+            enforce_unix_modes=True,
+            expect_dir=True,
+        )
