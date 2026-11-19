@@ -1,10 +1,12 @@
 # APP-114 — Controlled Dutch vocab recovery + RC Sync status fix
 
-Status: **Local 114-word recovery ACCEPTED; Architect R1 Sync lifecycle correction ready**  
-Verdict token: `APP_114_VOCAB_RC_R1_FINAL_READY`  
-PR: [#25](https://github.com/nguyenthaibinh19/EnglishApp/pull/25)  
+Status: **Architect Accepted — source merged**  
+Verdict token: `APP_114_VOCAB_RC_MERGED_ACCEPTED`  
+PR: [#25](https://github.com/nguyenthaibinh19/EnglishApp/pull/25) (approved HEAD `ed50fb1cdc6329b6a082a113d40f78a7594d3b2e`)  
+Merge commit / `main`: `5cf50abcea849fe1edc6aa3e827258fd837f3d77`  
 Cloud Sync: **OFF** (no VPS / `STUDY_SYNC_ENABLED` change)  
-18B.9: **PAUSED, NOT CLOSED** · Staging: **RESERVED**
+18B.9: **PAUSED, NOT CLOSED** · Staging: **RESERVED**  
+Local recovery data: **preserved** (no re-import; RC DB / outbox / Guest JSON / recovery backups untouched)
 
 ## Authorization
 
