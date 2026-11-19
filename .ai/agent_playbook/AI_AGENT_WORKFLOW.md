@@ -38,25 +38,25 @@ Ask only for genuinely missing blockers. If the latest Cursor report already ans
 - Explicit exclusions, especially `.env`, live data, VPS, release, and neighboring phases.
 - Environment assumptions (Windows vs Linux; availability of `systemd-analyze`, symlinks, credentials).
 - Tests and evidence required, with skips differentiated from passes.
-- Diff and Git status instructions; whether **commit**, **push**, **deploy** are or are not authorized.
+- Diff and Git status instructions; explicitly list whether **commit**, **push**, **merge**, **SSH**, or **deploy** are authorized. Multiple steps can be preauthorized together in one brief.
 - A STOP condition and expected handback report.
 
-Do not assume 'implement' means 'commit'; do not assume 'commit' means 'push'; do not assume a pushed source tree means 'deployed'. Each is a separate gate.
+Do not assume 'implement' means 'commit', or a pushed tree means 'deployed'. These are distinct operations, **not necessarily distinct approval conversations**: the Owner can explicitly authorize an entire bounded chain in one brief.
 
-## 5. Standard implementation → review → acceptance cycle
+## 5. Lean implementation → review → acceptance cycle (Owner direction 2026-11-19)
 
-1. **Leader brief:** one phase/subtask at a time, explicit boundaries.
-2. **Cursor preflight:** confirm branch, baseline, worktree; read constraints and inspect relevant code/tests.
-3. **Minimal implementation:** preserve data and backward compatibility. Prefer simple, pure/testable modules over frameworks and unrelated refactors.
-4. **Cursor test:** focused regression tests first; broader tests as warranted. Record exact command, count, environment, skips, and any unrun tests.
-5. **Cursor evidence:** attach a complete diff containing new files, file inventory, tests, risks and `git status --short`. Do not substitute prose or a mere local path for the actual diff when the Leader cannot access the file.
-6. **Leader review:** inspect material code, state transitions, security, concurrency, error handling, and intended invariants. Distinguish verified facts from reported claims; ask for a targeted correction if needed.
-7. **Source commit authorization:** only after review of application source; stage **exact approved paths**, verify staged diff and absence of secrets, commit with purposeful message. A documentation checkpoint does not use this gate.
-8. **Source push authorization and independent verification:** verify parent and remote branch SHA, committed filenames, content and status. A documentation push does not authorize VPS operations or a source push.
-9. **Operations authorization:** separate approval and preflight for each SSH/VPS change, systemd unit install, restart, credential setup, DNS, Sync activation and release. Define rollback, STOP and acceptance checks.
-10. **Closure:** update `.ai/current_state.md` / `.ai/roadmap.md`, record accepted SHA and deployment evidence, and state what is deferred or next (not automatically authorized).
+**Default: ONE TASK → ONE IMPLEMENTATION → ONE CONSOLIDATED REVIEW → TARGETED FIX (IF NEEDED) → MERGE + DOCS.** Optimize for delivery and token use, not maximum checkpoints.
 
-Codex is requested selectively for high-risk GUI / frozen Windows builds / critical security boundaries / environment-specific production verification. No blanket requirement to send all library changes to Codex. A test skipped on Windows is not a pass on Linux.
+1. **One complete brief:** set outcome, risk level, constraints, acceptance tests and documentation deliverable. The brief may explicitly authorize a bounded chain (inspect → implement → self-fix → test → document → PR/commit/push/merge) in one go. Do not silently add rights not stated in the authorization.
+2. **Developer executes continuously:** baseline/preflight and safety checks are internal steps of the task, not separate approval cycles. Cursor/Antigravity implements, corrects routine defects, runs focused and appropriate adjacent tests, updates docs with the work, and returns one coherent diff/PR and concise evidence report. No request to review each file or interim test unless truly blocked.
+3. **Leader reviews once at task completion:** inspect material source, security invariants, tests and documentation; distinguish reported from independently verified results. **Batch all material findings into one review** and one correction brief. Additional rounds only for remaining blocking defects, new scope, or significant high-risk discoveries.
+4. **Source closeout:** if commit/push/merge is included in the original authorization, complete it after the specified gates without asking again. If not, get the missing scoped approval. Keep one PR per logical change when practical. Record the merged SHA and operational/not-operational distinction.
+5. **Production/high-risk work:** use one explicit, narrowly bounded Owner authorization that may include preflight → controlled write → verification → documentation/report, and conditional substeps when stated in advance. Apply STOP on drift, unforeseen destructive effects, credential/data exposure, or failed safety gates. **No implied consent** for SSH, daemon-reload, service execution, data migration, secrets, Cloud Sync, or activation; specify each permitted operation and rollback boundary in the brief. Never execute out-of-scope steps to reduce latency.
+6. **Documentation is mandatory but batched:** update current state, relevant roadmap/decision/procedure/handoff and Issue/PR evidence **at task closure** or immediately at a material FAIL/BLOCKED/UNSAFE status. No duplicate documentation commits after each green test or small micro-step.
+
+**Risk proportionality:** Low-risk UI/docs/small refactor → implement/test/docs and close within preauthorized scope. Medium-risk feature/API/AI changes → one PR and consolidated Leader review. High-risk security/production/DB/credentials → rigorous fail-closed evidence with scoped Owner authorization, but still batch internal checks and minimize unnecessary handoffs.
+
+Historical results, especially security FAIL/UNSAFE, must remain traceable after successful corrections. A previously rejected or skipped test does not become PASS by virtue of a later task.
 
 ## 6. Approval vocabulary
 
@@ -83,7 +83,7 @@ Never blur: prepared ≠ committed ≠ pushed ≠ installed ≠ enabled ≠ oper
 
 ## 8. How the Leader should respond
 
-State a clear verdict (approved / approved with corrections / on hold / blocked), why, and exactly one next action. For implementation work, deliver one self-contained Cursor prompt with baseline, scope, boundaries and report requirements. Prefer practical movement over gratuitous review loops; keep unresolved blockers explicit. Do not promise background completion.
+State a concise verdict and exactly one next action. For implementation, send **one consolidated Cursor brief** and **one consolidated feedback batch**, not a sequence of prompts for ordinary internal steps. Review proportionately to risk; do not require repeated approval for preauthorized work. Keep unresolved blockers explicit. Do not promise background completion.
 
 See `ENGINEERING_AND_DIFF_STANDARD.md` and `CHAT_HANDOFF_PROTOCOL.md` for the concrete coding/review and context-transfer checklists.
 
@@ -95,7 +95,7 @@ See `ENGINEERING_AND_DIFF_STANDARD.md` and `CHAT_HANDOFF_PROTOCOL.md` for the co
 4. Prefer code, tests, ADRs, and dated evidence over a chat summary. If they disagree, name the disagreement and stop before "correcting" production.
 5. Update `.ai/` in the same authorized change when a phase, architecture rule, operational state, or safety fix changes. A dated handoff is an immutable snapshot. `ACTIVE_HANDOFF.md` is the rolling coordination checkpoint. Neither overrides `current_state.md`. Cursor does not invent a Leader decision.
 6. Report commands, counts, skips, SHAs, and what was not run. Label `UNVERIFIED` when the evidence was not read.
-7. Source commit, source push, deploy, timer install, Startup change, release, and `STUDY_SYNC_ENABLED=1` each need their own approval. A documentation-only checkpoint under `.ai/` does not. A brief that says "implement" does not include a source commit, a push of source, or a deploy.
+7. Source commit, source push/merge, deploy, timer install, Startup change, release, and `STUDY_SYNC_ENABLED=1` must each be **explicitly within an authorized scope**, but may be bundled in **one upfront approval** when sufficiently bounded. A documentation-only checkpoint under `.ai/` has standing authority. A brief that says only "implement" does not automatically include a push or deploy.
 8. Do not write passwords, tokens, `.env` values, learner progress, or private user paths into `.ai/`, diffs meant for GitHub, or issue comments. Use `%LOCALAPPDATA%`, `%APPDATA%`, and repository-relative paths.
 
 ## 10. Current collaboration practice (2026-11-08)
@@ -113,15 +113,14 @@ This is how the project is being run now. It is not a permanent architecture req
 
 The project owner granted this rule on 2026-11-16. It is standing authorization for documentation only. It is not authorization to commit application source, tests, labs, secrets, or to deploy.
 
-Publish a checkpoint to `origin/main` at these moments:
+Publish concise documentation as part of the **same logical task** at these moments:
 
-- Before a substantial new milestone or long-running task.
-- After each completed substantive subtask or test cycle.
-- Immediately when a task is FAILED, BLOCKED, UNKNOWN, or needs correction.
-- When implementation is ready and Leader review is pending.
-- After a Leader acceptance or rejection.
-- Before handing off to another agent or conversation.
-- Before ending work while any task status is unresolved.
+- At task closure/merge/installation when the project status, architecture or next gate changes.
+- Immediately for material **FAILED / BLOCKED / UNSAFE** outcomes, even if the task is not accepted.
+- Before a genuine agent/conversation handoff or loss of continuity; refresh `ACTIVE_HANDOFF.md` rather than replicating the entire roadmap.
+- When long-running work needs a durable checkpoint, only if significant uncommitted state would otherwise be lost.
+
+**Do not** checkpoint after every green test, small subtask, routine correction, or review comment. Prefer one coordinated docs update with the source PR and a single final status sync, keeping historical failures traceable. On a short task, docs in the same PR are sufficient.
 
 Do not wait for ACCEPTED. A failed experiment stays in the history. Do not commit a keystroke, temporary output, or an unchanged status.
 
