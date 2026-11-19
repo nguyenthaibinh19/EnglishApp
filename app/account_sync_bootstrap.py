@@ -18,13 +18,23 @@ def maybe_start_account_sync(
     """Start background sync when a signed-in session and server URL exist.
 
     No-op for guest. Never uploads machine-global guest files.
+    Fail closed when environment identity forbids network writes.
     """
+    import app_environment
+
     token = config.account_token()
     if not token:
         stop_active()
         return None
     base_url = str(getattr(config, "ACCOUNT_SERVER_URL", "") or "").strip()
     if not base_url:
+        return None
+    identity = app_environment.get_identity()
+    if not identity.network_writes_allowed:
+        stop_active()
+        return None
+    if app_environment.validate_backend_for_identity(identity, base_url):
+        stop_active()
         return None
     user_id = config.account_user_id()
     if user_id < 1:

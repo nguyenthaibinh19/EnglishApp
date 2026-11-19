@@ -34,14 +34,31 @@ def _startup_dir() -> str:
     return os.path.join(appdata, "Microsoft", "Windows", "Start Menu", "Programs", "Startup")
 
 
+def _startup_link_name() -> str:
+    return config.environment_identity().startup_link
+
+
 def register_startup(exe_path: str):
-    """Tạo shortcut Startup khi chưa có. Không sửa shortcut đã có hoặc shortcut khác."""
+    """Tạo shortcut Startup khi chưa có. Không sửa shortcut đã có hoặc shortcut khác.
+
+    Staging/dev use a separate .lnk name and never touch the production
+    ``langstudyguard.lnk`` (ADR-025).
+    """
+    identity = config.environment_identity()
+    # Non-production builds must not auto-register into Windows Startup.
+    if identity.runtime_environment != "production":
+        raise OSError(
+            config.ui(
+                "Bản staging/development không tự tạo shortcut Startup.",
+                "Staging/development builds do not create a Startup shortcut.",
+            )
+        )
     startup = _startup_dir()
     if not startup:
         raise OSError("Không tìm thấy thư mục APPDATA.")
 
     os.makedirs(startup, exist_ok=True)
-    link = os.path.join(startup, "langstudyguard.lnk")
+    link = os.path.join(startup, _startup_link_name())
     if os.path.isfile(link):
         raise OSError(
             config.ui(
@@ -88,7 +105,7 @@ def _startup_link_path() -> str:
     startup = _startup_dir()
     if not startup:
         return ""
-    return os.path.join(startup, "langstudyguard.lnk")
+    return os.path.join(startup, _startup_link_name())
 
 
 def _startup_link_exists() -> bool:
@@ -190,7 +207,7 @@ def _discard_incomplete_install(dest: str, *, remove_startup_link: bool) -> None
     if not startup:
         return
     try:
-        os.remove(os.path.join(startup, "langstudyguard.lnk"))
+        os.remove(os.path.join(startup, _startup_link_name()))
     except OSError:
         pass
 
@@ -200,8 +217,18 @@ def prepare() -> bool:
 
     Trả về False khi tiến trình này phải thoát: đã có bản cài,
     hoặc vừa cài lần đầu và đã mở bản đó.
+
+    Staging/development: never install over production paths, never create the
+    production Startup shortcut, and never auto-install into LOCALAPPDATA.
+    Run in place from the staging EXE path instead.
     """
     if not config.is_frozen():
+        return True
+
+    identity = config.environment_identity()
+    if identity.runtime_environment != "production":
+        # Isolated side-by-side use — do not copy into install_dir or Startup.
+        seed_vocab()
         return True
 
     dest = config.installed_exe()

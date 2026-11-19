@@ -158,17 +158,22 @@ vocabulary_entities + vocabulary_changes
 
 Phase 18B.9 is open. The preferred store is Google Drive and the fallback is an unprovisioned Backblaze B2 bucket. [ADR-024](decisions/ADR-024-offbox-age-drive.md) accepts a local age `.age` artifact and a Drive adapter through step 18B.9D5A2C. `VERIFIED` means the downloaded ciphertext SHA-256 matches. It does not mean the daily report, a restore drill, or a production schedule. The VPS has the `lg-backup` user and an empty backup directory, and it does not have the adapter, age, or an OAuth token. `app/offbox_poc.py` remains the closed Restic proof. The step ids D4C through D5A2C1 are defined in [PHASE-18B.9-offbox-status.md](plans/PHASE-18B.9-offbox-status.md). D5A2C1 is CLOSED — Leader Accepted, 2026-11-16, as a localhost milestone. It is not installed and it is not Phase 18B.9C2.
 
+## Environment identity and isolation
+
+Build channel, runtime environment, backend host, account identity, data directory, Cloud Sync status, and version/SHA are **independent** facts ([ADR-025](decisions/ADR-025-environment-identity-and-isolation.md)). A Git branch or EXE filename alone does not authorize production network writes. Staging uses `%APPDATA%\langstudyguard-staging\` and never adopts the production session token or production host. Unknown/mismatched identity fails closed. StudyMaster shows `Language Guard — STAGING|DEVELOPMENT|PRODUCTION` plus an Environment details view. Staging EXE build: `build_staging_exe.bat` → `dist-staging/langstudyguard-staging.exe` (must not overwrite `dist/langstudyguard.exe`).
+
 ## Windows installation and Startup
 
-Frozen `prepare()` in `app/install.py` is the installation boundary ([ADR-023](decisions/ADR-023-windows-installation-safety.md)). A source run does nothing.
+Frozen `prepare()` in `app/install.py` is the installation boundary ([ADR-023](decisions/ADR-023-windows-installation-safety.md)). A source run does nothing. Staging/development frozen builds skip production install/Startup ([ADR-025](decisions/ADR-025-environment-identity-and-isolation.md)).
 
 ```text
 other frozen path + installed file already present → stop, no copy, no launch, no Startup
 running path is the installed exe → seed missing samples only
 destination and langstudyguard.lnk both absent → exclusive first install, then one --lock shortcut
+staging/dev frozen → run in place; no production LOCALAPPDATA copy; no langstudyguard.lnk
 ```
 
-- The installed executable is `%LOCALAPPDATA%\langstudyguard\langstudyguard.exe`. Learner data is `%APPDATA%\langstudyguard`.
+- The production installed executable is `%LOCALAPPDATA%\langstudyguard\langstudyguard.exe`. Learner data is `%APPDATA%\langstudyguard`.
 - First install is the only path that creates the Startup shortcut. Registration refuses an existing `langstudyguard.lnk` and does not delete `Dutch Guard.lnk` or unrelated shortcuts.
 - A failed first install removes only the executable and link that the same attempt created.
 - Process spawn is not application initialization.

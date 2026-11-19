@@ -68,6 +68,12 @@ class AccountSyncClient:
         )
 
     def _post(self, path: str, payload: dict) -> dict:
+        import app_environment
+
+        try:
+            app_environment.assert_network_writes_allowed(self.base_url)
+        except app_environment.EnvironmentIdentityError as error:
+            raise SyncClientError(str(error), status=None) from error
         data = json.dumps(payload).encode("utf-8")
         request = urllib.request.Request(
             self.base_url + path,

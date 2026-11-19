@@ -35,7 +35,8 @@ class StudyMasterApp:
     def __init__(self, root: tk.Tk, on_finished=None):
         ui_common.reset_window(root)
         self.root = root
-        self.root.title(config.APP_NAME)
+        identity = config.environment_identity()
+        self.root.title(identity.display_title("Language Guard"))
         self.on_finished = on_finished
         self._force_exit = False
 
@@ -114,7 +115,34 @@ class StudyMasterApp:
         card = ttk.Frame(backdrop, padding=8)
         card.place(relx=0.5, rely=0.5, anchor="center")
 
-        ttk.Label(card, text=config.APP_NAME, style="Title.TLabel").pack(anchor="w")
+        identity = config.environment_identity()
+        title_row = ttk.Frame(card)
+        title_row.pack(anchor="w", fill=tk.X)
+        ttk.Label(
+            title_row,
+            text=identity.display_title("Language Guard"),
+            style="Title.TLabel",
+        ).pack(side=tk.LEFT, anchor="w")
+        ttk.Button(
+            title_row,
+            text=config.ui("Môi trường…", "Environment…"),
+            style="Small.TButton",
+            command=self._open_environment_details,
+        ).pack(side=tk.RIGHT, anchor="e")
+        banner_fg = (
+            ui_common.COLOR_OK
+            if identity.runtime_environment == "production"
+            else ui_common.COLOR_WARN
+        )
+        self.env_banner = ttk.Label(
+            card,
+            text=identity.banner_text(),
+            foreground=banner_fg,
+            style="Muted.TLabel",
+            wraplength=760,
+            justify="left",
+        )
+        self.env_banner.pack(anchor="w", pady=(4, 0))
         self.intro_label = ttk.Label(
             card,
             text="",
@@ -575,45 +603,108 @@ class StudyMasterApp:
         self.warning_label.config(text="\n".join(warnings))
         self._refresh_sync_status()
 
-    def _refresh_sync_status(self):
-        label = getattr(self, "sync_status_label", None)
-        if label is None:
-            return
+    def _cloud_sync_state(self) -> tuple[str, str]:
+        """Accurate Cloud Sync label — never claim Synced without catch-up proof."""
+        import app_environment
         from study_data import is_signed_in
 
         if not is_signed_in():
-            label.config(text=config.ui("Chế độ khách — không đồng bộ tài khoản.", "Guest mode — no account sync."))
-            return
+            return app_environment.cloud_sync_ui_state(signed_in=False, engine_running=False)
         try:
             from account_sync_engine import active_engine
 
             engine = active_engine()
             if engine is None:
-                label.config(
-                    text=config.ui(
-                        "Đã đăng nhập · sync chưa chạy (cờ staging tắt?).",
-                        "Signed in · sync not running (staging flag off?).",
-                    )
+                return app_environment.cloud_sync_ui_state(
+                    signed_in=True,
+                    engine_running=False,
                 )
-                return
             snap = engine.status()
-            conflicts = 0
-            try:
-                conflicts = len(engine.store.list_open_vocab_conflicts())
-            except Exception:
-                conflicts = 0
-            extra = (
-                config.ui(f" · {conflicts} xung đột", f" · {conflicts} conflict(s)")
-                if conflicts
-                else ""
+            caught_up = bool(snap.vocab_caught_up and snap.progress_caught_up) and not (
+                snap.pending_vocab or snap.pending_progress or snap.conflict or snap.offline
             )
-            label.config(text=f"Sync: {snap.status}{extra} — {snap.detail}")
+            return app_environment.cloud_sync_ui_state(
+                signed_in=True,
+                engine_running=True,
+                engine_status=snap.status,
+                engine_detail=snap.detail,
+                caught_up=caught_up,
+            )
         except Exception:
-            label.config(text=config.ui("Sync: không rõ", "Sync: unknown"))
+            return "Unknown", "Could not read sync engine"
+
+    def _refresh_sync_status(self):
+        label = getattr(self, "sync_status_label", None)
+        if label is None:
+            return
+        status, detail = self._cloud_sync_state()
+        extra = ""
+        try:
+            from account_sync_engine import active_engine
+            from study_data import is_signed_in
+
+            engine = active_engine() if is_signed_in() else None
+            if engine is not None:
+                conflicts = len(engine.store.list_open_vocab_conflicts())
+                if conflicts:
+                    extra = config.ui(
+                        f" · {conflicts} xung đột",
+                        f" · {conflicts} conflict(s)",
+                    )
+        except Exception:
+            extra = ""
+        label.config(text=f"Cloud Sync: {status}{extra} — {detail}")
         try:
             self.root.after(5000, self._refresh_sync_status)
         except Exception:
             pass
+
+    def _open_environment_details(self):
+        import app_environment
+        from study_data import is_signed_in
+
+        identity = config.environment_identity()
+        sync_label, sync_detail = self._cloud_sync_state()
+        account = "(guest)"
+        if is_signed_in():
+            settings = config._read_settings()
+            username = str(settings.get("account_username") or "").strip()
+            user_id = config.account_user_id()
+            if username and user_id:
+                account = f"{username} (id {user_id})"
+            elif username:
+                account = username
+            elif user_id:
+                account = f"id {user_id}"
+            else:
+                account = "(signed in)"
+        details = app_environment.environment_details(
+            identity=identity,
+            backend_url=str(config.ACCOUNT_SERVER_URL or ""),
+            data_directory=config.data_dir(),
+            account_label=account,
+            cloud_sync_label=sync_label,
+            cloud_sync_detail=sync_detail,
+        )
+        lines = [
+            f"Application version: {details['application_version']}",
+            f"Build channel: {details['build_channel']}",
+            f"Git commit SHA: {details['git_commit_sha']}",
+            f"Runtime environment: {details['runtime_environment']}",
+            f"Backend host: {details['backend_host']}",
+            f"Data directory: {details['data_directory']}",
+            f"Logged-in account: {details['logged_in_account']}",
+            f"Cloud Sync status: {details['cloud_sync_status']}",
+            f"Cloud Sync detail: {details['cloud_sync_detail']}",
+            f"Network writes allowed: {details['network_writes_allowed']}",
+        ]
+        if details.get("identity_error"):
+            lines.append(f"Identity error: {details['identity_error']}")
+        messagebox.showinfo(
+            config.ui("Chi tiết môi trường", "Environment details"),
+            "\n".join(lines),
+            parent=self.root,
+        )
 
     def _open_sync_conflicts(self):
         from sync_conflict_app import open_sync_conflicts

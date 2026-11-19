@@ -4,7 +4,7 @@ Directional plan — **not** a rigid release commitment. Update when phases comp
 
 ## Latest operational checkpoint — 2026-11-19 (supersedes older narrative below)
 
-- **Active priority: 18C.2 CLOSED — Architect Accepted (PR #21). 18C.1 CLOSED — Architect Accepted (PR #20). 18B.9 off-box is PAUSED, NOT CLOSED. Cloud Sync OFF.**
+- **Active priority: ADR-025 environment identity + staging EXE (Architect review). 18C.2 CLOSED — Architect Accepted (PR #21). 18C.1 CLOSED — Architect Accepted (PR #20). 18B.9 off-box is PAUSED, NOT CLOSED. Cloud Sync OFF.**
 - **SOURCE INSTALLED INACTIVE — NOT ACTIVATED** (VPS packaging sync at main `eb869ea`; PR #16+#17). See [OFFBOX_PRODUCTION_DEPLOYMENT_RUNBOOK.md](procedures/OFFBOX_PRODUCTION_DEPLOYMENT_RUNBOOK.md).
 - Post-fix Gate A/B PASS stand. Not activation. No daemon-reload in sync session.
 - Historical pre-fix audit remains **UNSAFE** ([Issue #8](https://github.com/nguyenthaibinh19/EnglishApp/issues/8#issuecomment-7009010670)). Next: Owner-authorized age/OAuth/credential stages, synthetic isolation, restore, monitoring, activation.

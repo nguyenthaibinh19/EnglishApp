@@ -1,8 +1,8 @@
 """Cấu hình chung cho langstudyguard.
 
-Khi chạy bằng Python (đang sửa code): dữ liệu và .env nằm cạnh source.
-Khi chạy file .exe đã đóng gói: dữ liệu nằm ở %APPDATA%\\langstudyguard,
-còn file cài nằm ở %LOCALAPPDATA%\\langstudyguard.
+Khi chạy bằng Python (đang sửa code): dữ liệu và .env nằm cạnh source
+(development). Staging / production frozen builds use isolated AppData folders
+per ADR-025 — never infer environment from the EXE filename alone.
 """
 
 import json
@@ -12,6 +12,7 @@ import sys
 
 from dotenv import load_dotenv
 
+import app_environment
 import languages
 
 # Code nằm trong app/. Dữ liệu người dùng và file mẫu nằm ở thư mục gốc của dự án.
@@ -50,24 +51,41 @@ def _migrate_user_data(old: str, new: str):
             continue
 
 
+def environment_identity():
+    """Resolved build/runtime identity (cached)."""
+    return app_environment.get_identity()
+
+
 def data_dir() -> str:
     """Thư mục người dùng ghi được: từ vựng, tiến độ, cài đặt."""
+    explicit = (os.environ.get("LG_DATA_DIR") or "").strip()
+    if explicit:
+        return explicit
+    identity = environment_identity()
     if is_frozen():
         root = os.environ.get("APPDATA") or os.path.expanduser("~")
-        current = os.path.join(root, "langstudyguard")
-        _migrate_user_data(os.path.join(root, "DutchGuard"), current)
+        current = os.path.join(root, identity.data_folder)
+        # Legacy DutchGuard → production only; never into staging/dev folders.
+        if identity.runtime_environment == app_environment.ENV_PRODUCTION:
+            _migrate_user_data(os.path.join(root, "DutchGuard"), current)
         return current
-    return BASE_DIR
+    # Source development keeps repo-root data. Staging from source uses AppData.
+    if identity.runtime_environment == app_environment.ENV_DEVELOPMENT:
+        return BASE_DIR
+    root = os.environ.get("APPDATA") or os.path.expanduser("~")
+    return os.path.join(root, identity.data_folder)
 
 
 def install_dir() -> str:
     """Nơi bản .exe tự chép vào để shortcut Startup không bị gãy."""
+    identity = environment_identity()
     root = os.environ.get("LOCALAPPDATA") or data_dir()
-    return os.path.join(root, "langstudyguard")
+    return os.path.join(root, identity.install_folder)
 
 
 def installed_exe() -> str:
-    return os.path.join(install_dir(), "langstudyguard.exe")
+    identity = environment_identity()
+    return os.path.join(install_dir(), identity.exe_basename)
 
 
 def _env_int(name: str, default: int) -> int:
@@ -104,6 +122,15 @@ UPDATE_REPO = "nguyenthaibinh19/EnglishApp"
 SETTINGS_FILE = os.path.join(data_dir(), "settings.json")
 READING_DIR = os.path.join(resource_dir(), "Reading")
 STARTER_VOCAB_FILE = os.path.join(resource_dir(), "vocab.json")
+
+
+def _refresh_settings_path() -> None:
+    """Keep SETTINGS_FILE aligned with the active environment data directory."""
+    global SETTINGS_FILE
+    # Tests may monkeypatch SETTINGS_FILE to a temp path; honor an explicit LG_DATA_DIR
+    # or recompute from data_dir() when using the default layout.
+    SETTINGS_FILE = os.path.join(data_dir(), "settings.json")
+
 
 # .env chỉ dùng khi chạy source. Bản .exe đọc settings.json trong reload().
 if not is_frozen():
@@ -181,11 +208,23 @@ def looks_like_api_key(key: str) -> bool:
     return len(key) >= 20
 
 
+def _settings_path() -> str:
+    """Active settings.json path.
+
+    Honors ``LG_DATA_DIR`` for isolation tests. Otherwise uses ``SETTINGS_FILE``
+    so pytest monkeypatches keep working.
+    """
+    if (os.environ.get("LG_DATA_DIR") or "").strip():
+        return os.path.join(data_dir(), "settings.json")
+    return SETTINGS_FILE
+
+
 def _read_settings() -> dict:
-    if not os.path.exists(SETTINGS_FILE):
+    path = _settings_path()
+    if not os.path.exists(path):
         return {}
     try:
-        with open(SETTINGS_FILE, "r", encoding="utf-8") as f:
+        with open(path, "r", encoding="utf-8") as f:
             data = json.load(f)
     except (json.JSONDecodeError, OSError):
         return {}
@@ -193,20 +232,26 @@ def _read_settings() -> dict:
 
 
 def _write_settings(payload: dict):
-    os.makedirs(data_dir(), exist_ok=True)
-    tmp = SETTINGS_FILE + ".tmp"
+    path = _settings_path()
+    os.makedirs(os.path.dirname(path) or data_dir(), exist_ok=True)
+    tmp = path + ".tmp"
     with open(tmp, "w", encoding="utf-8") as f:
         json.dump(payload, f, ensure_ascii=False, indent=2)
-    os.replace(tmp, SETTINGS_FILE)
+    os.replace(tmp, path)
 
 
 def save_account(username: str, token: str, user_id: int = None):
     """Nhớ phiên đăng nhập. Không lưu API key trên máy người học."""
+    identity = environment_identity()
+    if not identity.network_writes_allowed and identity.identity_error:
+        raise app_environment.EnvironmentIdentityError(identity.identity_error)
     payload = _read_settings()
     payload.pop("openai_api_key", None)
     payload.pop("emergency_password", None)
     payload["account_username"] = username.strip().lower()
     payload["account_token"] = token.strip()
+    payload["environment"] = app_environment.settings_environment_marker(identity)
+    payload["build_channel"] = identity.build_channel
     if user_id is not None:
         payload["account_user_id"] = int(user_id)
     _write_settings(payload)
@@ -498,7 +543,14 @@ def reload():
     hoặc đóng sẵn trong .exe. Người dùng không được chọn mật khẩu này.
     """
     global OPENAI_API_KEY, OPENAI_MODEL, OPENAI_BASE_URL, EMERGENCY_PASSWORD
-    global ACCOUNT_SERVER_URL, ACCOUNT_TOKEN
+    global ACCOUNT_SERVER_URL, ACCOUNT_TOKEN, APP_VERSION, SETTINGS_FILE
+
+    app_environment.reset_identity_cache()
+    identity = environment_identity()
+    if identity.version and identity.version != "unknown":
+        APP_VERSION = identity.version
+    # Do not reassign SETTINGS_FILE here — tests monkeypatch it; data_dir() already
+    # follows LG_DATA_DIR / environment folder for normal runs.
 
     if not is_frozen():
         load_dotenv()
@@ -526,7 +578,11 @@ def reload():
         or str(os.getenv("ACCOUNT_SERVER_URL") or "").strip()
         or "http://127.0.0.1:8765"
     )
-    ACCOUNT_TOKEN = str(settings.get("account_token") or "").strip()
+    token = str(settings.get("account_token") or "").strip()
+    # Staging/dev must never adopt a production (or other-env) session token.
+    if token and not app_environment.settings_token_compatible(settings, identity):
+        token = ""
+    ACCOUNT_TOKEN = token
 
 
 def ai_is_configured() -> bool:

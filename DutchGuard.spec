@@ -36,6 +36,7 @@ a = Analysis(
         ("data/starters", "starters"),
         ("data/Reading", "Reading"),
         ("bundled_secrets.json", "."),
+        ("build_manifest.json", "."),
     ],
     hiddenimports=["dotenv"],
     hookspath=[],

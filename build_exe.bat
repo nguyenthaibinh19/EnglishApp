@@ -8,8 +8,12 @@ echo Dang cai PyInstaller...
 "%PYEXE%" -m pip install pyinstaller
 if errorlevel 1 goto :fail
 
+echo Dang ghi build_manifest.json (channel=production)...
+"%PYEXE%" tools\write_build_manifest.py --channel production --output "%~dp0build_manifest.json"
+if errorlevel 1 goto :fail
+
 echo Dang lay mat khau dev tu .env ...
-"%PYEXE%" app\bundle_secrets.py
+"%PYEXE%" app\bundle_secrets.py --channel production
 if errorlevel 1 goto :fail
 
 echo Dang dong goi langstudyguard.exe ...

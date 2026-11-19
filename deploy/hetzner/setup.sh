@@ -27,6 +27,7 @@ FILES=(
   account_server.py
   account_store.py
   ai_teacher.py
+  app_environment.py
   config.py
   languages.py
   listening.py

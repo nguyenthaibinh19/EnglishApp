@@ -16,7 +16,16 @@ class SessionExpired(AccountError):
 
 
 def _post(path: str, payload: dict, token: str = "", timeout: float = None) -> dict:
-    url = config.ACCOUNT_SERVER_URL.rstrip("/") + path
+    import app_environment
+
+    base = config.ACCOUNT_SERVER_URL.rstrip("/")
+    # Authenticated calls fail closed on identity / production-host misuse.
+    # Login without a token still validates the backend host for non-production.
+    try:
+        app_environment.assert_network_writes_allowed(base)
+    except app_environment.EnvironmentIdentityError as error:
+        raise AccountError(str(error)) from error
+    url = base + path
     body = dict(payload)
     if token:
         body["token"] = token
