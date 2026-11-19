@@ -1,7 +1,8 @@
 # APP-114 — Controlled Dutch vocab recovery + RC Sync status fix
 
-Status: **Owner-authorized local recovery complete; client Sync-status fix ready for PR review**  
+Status: **Owner-authorized local recovery complete; client Sync-status fix in PR review**  
 Verdict token: `APP_114_VOCAB_RECOVERED_RC_READY`  
+PR: [#25](https://github.com/nguyenthaibinh19/EnglishApp/pull/25) (`0baf385`)  
 Cloud Sync: **OFF** (no VPS / `STUDY_SYNC_ENABLED` change)  
 18B.9: **PAUSED, NOT CLOSED** · Staging: **RESERVED**
 
