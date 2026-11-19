@@ -3,6 +3,8 @@
 # No age private identity on the host. OAuth refresh via LoadCredential only.
 # Live upload stays fail-closed: do not set LG_DRIVE_FOLDER or LG_UPLOAD_ENABLED
 # until a separate activation gate. Missing oauth-refresh fails closed on start.
+# Runtime trust: ExecStart uses system /usr/bin/python3 -I and modules under
+# /opt/language-guard-offbox (root-owned sibling of the guard app tree).
 [Unit]
 Description=Language Guard off-box backup worker
 Requires=language-guard-offbox-handoff.socket
@@ -31,13 +33,15 @@ AmbientCapabilities=
 RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
 WorkingDirectory=/var/lib/language-guard-backup
 Environment=PYTHONDONTWRITEBYTECODE=1
+Environment=PYTHONNOUSERSITE=1
 Environment=LG_STATE_DIR=/var/lib/language-guard-backup
 Environment=LG_SOURCE_DB=/opt/language-guard/accounts.db
 Environment=LG_SOCKET=/run/language-guard-offbox/handoff.sock
 Environment=LG_RECIPIENT_FILE=/etc/language-guard/age-recipient
 Environment=LG_AGE_BIN=/usr/local/lib/language-guard-age/age
+ReadOnlyPaths=/opt/language-guard-offbox
 ReadWritePaths=/var/lib/language-guard-backup
-InaccessiblePaths=-/opt/language-guard/accounts.db -/var/lib/language-guard-helper
+InaccessiblePaths=-/opt/language-guard/accounts.db -/var/lib/language-guard-helper -/opt/language-guard/venv
 LoadCredential=oauth-refresh:/etc/language-guard/oauth-refresh
-ExecStart=/opt/language-guard/venv/bin/python /opt/language-guard/offbox/backup_worker.py
+ExecStart=/usr/bin/python3 -I /opt/language-guard-offbox/offbox/backup_worker.py
 TimeoutStartSec=300

@@ -4,6 +4,8 @@
 # Expected peer identity is the VPS lg-backup account (uid 994 / gid 977),
 # not a WSL lab uid. Confirm with `id -u lg-backup` / `id -g lg-backup`
 # before any authorized VPS install.
+# Runtime trust: ExecStart uses system /usr/bin/python3 -I and modules under
+# /opt/language-guard-offbox. Helper remains User=guard with read-only DB access.
 [Unit]
 Description=Language Guard off-box snapshot helper
 
@@ -29,18 +31,20 @@ SystemCallArchitectures=native
 CapabilityBoundingSet=
 AmbientCapabilities=
 RestrictAddressFamilies=AF_UNIX
-WorkingDirectory=/opt/language-guard
+WorkingDirectory=/opt/language-guard-offbox/offbox
 Environment=PYTHONDONTWRITEBYTECODE=1
+Environment=PYTHONNOUSERSITE=1
 Environment=LG_SOURCE_DB=/opt/language-guard/accounts.db
 Environment=LG_AUDIT_DIR=/var/lib/language-guard-helper
 Environment=LG_FORBIDDEN_PLAINTEXT_DIR=/var/lib/language-guard-backup
 Environment=LG_EXPECTED_UID=994
 Environment=LG_EXPECTED_GID=977
 Environment=LG_EXPECTED_UNIT=language-guard-offbox-worker.service
+ReadOnlyPaths=/opt/language-guard-offbox /opt/language-guard/accounts.db
 ReadWritePaths=/var/lib/language-guard-helper
-InaccessiblePaths=-/etc/language-guard -/var/lib/language-guard-backup -/run/credentials
+InaccessiblePaths=-/etc/language-guard -/var/lib/language-guard-backup -/run/credentials -/opt/language-guard/venv
 StandardInput=socket
 StandardOutput=socket
 StandardError=journal
-ExecStart=/opt/language-guard/venv/bin/python /opt/language-guard/offbox/snapshot_helper.py
+ExecStart=/usr/bin/python3 -I /opt/language-guard-offbox/offbox/snapshot_helper.py
 TimeoutStartSec=120

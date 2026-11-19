@@ -9,7 +9,7 @@ from offbox_support import EXPECTED_MODULES, ROOT
 
 SETUP = ROOT / "deploy" / "hetzner" / "setup.sh"
 OPT_IN_GATE = '[[ "${LG_INSTALL_OFFBOX:-0}" == "1" ]]'
-INSTALL_APP_TREE = "install_offbox_packaging.py\" install-app-tree --dest"
+INSTALL_EXEC_TREE = "install-execution-tree --dest"
 
 
 def _files_list(text: str) -> list[str]:
@@ -45,20 +45,23 @@ def test_setup_sh_default_path_does_not_copy_offbox_unconditionally() -> None:
     before_gate, gate, after_gate = text.partition(OPT_IN_GATE)
     assert gate, "missing LG_INSTALL_OFFBOX opt-in gate"
     assert "deploy/hetzner/offbox/" not in before_gate
-    assert "language-guard-offbox" not in before_gate
     assert "snapshot_helper" not in before_gate
     assert "backup_worker" not in before_gate
-    assert "install-app-tree" in after_gate
+    assert "install-execution-tree" not in before_gate
+    assert "install-execution-tree" in after_gate
+    assert 'OFFBOX_EXEC_DIR="/opt/language-guard-offbox"' in text
 
 
 def test_setup_opt_in_requires_packager_before_any_offbox_copy() -> None:
     text = SETUP.read_text(encoding="utf-8")
     block = _opt_in_block(text)
-    assert "install-app-tree" in block
+    assert INSTALL_EXEC_TREE in block or "install-execution-tree" in block
     assert "install_offbox_packaging.py" in block
+    assert "OFFBOX_EXEC_DIR" in block
+    assert "--production" in text
+    assert 'install-app-tree --dest "${APP_DIR}"' not in text
     # No raw module copy loop remains inside the opt-in path.
     assert "done <" not in block
-    assert "SHA256SUMS" not in block or "install-app-tree" in block
     for line in block.splitlines():
         stripped = line.strip()
         if stripped.startswith("cp ") and "offbox/" in stripped:

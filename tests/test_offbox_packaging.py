@@ -28,6 +28,7 @@ def _load_packager():
     spec = importlib.util.spec_from_file_location("install_offbox_packaging", PACKAGER)
     assert spec and spec.loader
     mod = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = mod
     spec.loader.exec_module(mod)
     return mod
 
@@ -133,32 +134,48 @@ def test_verify_rejects_tampered_module_even_if_manifest_rewritten(tmp_path: Pat
         packager.verify_modules(offbox)
 
 
-def test_install_app_tree_refuses_tampered_source_and_writes_nothing(tmp_path: Path) -> None:
+def test_install_execution_tree_refuses_tampered_source_and_writes_nothing(tmp_path: Path) -> None:
     packager = _load_packager()
     fake_root = _clone_hetzner_tree(tmp_path)
     (fake_root / "offbox" / "age_encrypt.py").write_bytes(b"not-canonical\n")
-    dest = tmp_path / "app"
+    dest = tmp_path / "language-guard-offbox"
     dest.mkdir()
     with pytest.raises(ValueError, match="hash mismatch|D5A2D0-P1"):
-        packager.install_app_tree(dest, hetzner_dir=fake_root)
+        packager.install_execution_tree(dest, hetzner_dir=fake_root)
     assert list(dest.rglob("*")) == []
 
 
-def test_install_app_tree_ok_against_pinned_inventory(tmp_path: Path) -> None:
+def test_install_execution_tree_ok_against_pinned_inventory(tmp_path: Path) -> None:
+    dest = tmp_path / "language-guard-offbox"
     result = subprocess.run(
-        [PY, str(PACKAGER), "install-app-tree", "--dest", str(tmp_path / "app")],
+        [PY, str(PACKAGER), "install-execution-tree", "--dest", str(dest)],
         cwd=str(ROOT),
         capture_output=True,
         text=True,
         check=False,
     )
     assert result.returncode == 0, result.stderr
-    assert "INSTALL_OK" in result.stdout
+    assert "INSTALL_EXEC_OK" in result.stdout
     assert "inventory=D5A2D0-P1" in result.stdout
     for name, expected in ACCEPTED_D5A2D0_P1_SHA256.items():
-        staged = tmp_path / "app" / "offbox" / name
+        staged = dest / "offbox" / name
         assert hashlib.sha256(staged.read_bytes()).hexdigest() == expected
-    assert (tmp_path / "app" / "deploy" / "hetzner" / "language-guard-offbox-worker.service").is_file()
+    assert (dest / "deploy" / "hetzner" / "language-guard-offbox-worker.service").is_file()
+
+
+def test_legacy_install_app_tree_alias_refuses_language_guard_dest(tmp_path: Path) -> None:
+    dest = tmp_path / "language-guard"
+    dest.mkdir()
+    result = subprocess.run(
+        [PY, str(PACKAGER), "install-app-tree", "--dest", str(dest)],
+        cwd=str(ROOT),
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode == 1
+    assert "FAIL" in result.stderr
+    assert "guard-owned app path" in result.stderr
 
 
 def test_unit_templates_have_isolation_markers() -> None:

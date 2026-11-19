@@ -17,6 +17,9 @@ fi
 
 SRC="$(cd "$(dirname "$0")/../.." && pwd)"
 APP_DIR="/opt/language-guard"
+# Dedicated root-owned offbox execution tree (sibling of APP_DIR). Never place
+# executable offbox modules under APP_DIR: setup.sh chowns APP_DIR to guard.
+OFFBOX_EXEC_DIR="/opt/language-guard-offbox"
 APP_USER="guard"
 # Import closure of account_server.py. Sync modules are copied so the process
 # can start with STUDY_SYNC_ENABLED unset; that flag must stay off in production.
@@ -110,10 +113,11 @@ cp "${SRC}/deploy/hetzner/health_notify_service.py" "${APP_DIR}/deploy/hetzner/h
 cp "${SRC}/deploy/hetzner/language-guard-health-notify.socket" "${APP_DIR}/deploy/hetzner/language-guard-health-notify.socket"
 cp "${SRC}/deploy/hetzner/language-guard-health-notify@.service" "${APP_DIR}/deploy/hetzner/language-guard-health-notify@.service"
 cp "${SRC}/deploy/hetzner/language-guard-notify.sysusers" "${APP_DIR}/deploy/hetzner/language-guard-notify.sysusers"
-# Off-box packaging stays in the app tree only when explicitly opted in.
+# Off-box packaging installs into OFFBOX_EXEC_DIR only when explicitly opted in.
 # LG_INSTALL_OFFBOX=1 verifies against the pinned D5A2D0-P1 inventory, then
 # installs frozen modules + inactive unit templates through the packaging
-# helper. Verification is mandatory before any offbox file is written.
+# helper into /opt/language-guard-offbox (not under APP_DIR). Verification is
+# mandatory before any offbox file is written.
 # This block never copies units into /etc/systemd/system and never enables
 # or starts off-box sockets, workers, or timers.
 # setup.sh remains a full server provisioning script; LG_INSTALL_OFFBOX is
@@ -123,8 +127,13 @@ if [[ "${LG_INSTALL_OFFBOX:-0}" == "1" ]]; then
     echo "python3 required for LG_INSTALL_OFFBOX verification"
     exit 1
   fi
-  python3 "${SRC}/deploy/hetzner/install_offbox_packaging.py" install-app-tree --dest "${APP_DIR}"
-  # Ownership for copied offbox tree is applied with the later chown of APP_DIR.
+  python3 "${SRC}/deploy/hetzner/install_offbox_packaging.py" \
+    install-execution-tree --dest "${OFFBOX_EXEC_DIR}" --production
+  # Root-own the execution tree before APP_DIR is chowned to guard. Do not
+  # nest OFFBOX_EXEC_DIR under APP_DIR.
+  chown -R root:root "${OFFBOX_EXEC_DIR}"
+  find "${OFFBOX_EXEC_DIR}" -type d -exec chmod 0755 {} \;
+  find "${OFFBOX_EXEC_DIR}" -type f -exec chmod 0644 {} \;
   # Units remain outside /etc/systemd/system until a separate authorized session.
 fi
 cp "${SRC}/deploy/hetzner/language-guard.service" /etc/systemd/system/language-guard.service
@@ -152,16 +161,21 @@ fi
 "${APP_DIR}/venv/bin/pip" install --upgrade pip
 "${APP_DIR}/venv/bin/pip" install -r "${APP_DIR}/requirements-server.txt"
 
-# Do not chown /opt/language-guard-notify. That tree is the root-owned
-# notifier runtime and must stay non-writable by guard. This script does
-# not create it and does not install the notifier units.
+# Do not chown /opt/language-guard-notify or /opt/language-guard-offbox.
+# Those trees are root-owned runtimes and must stay non-writable by guard.
+# This script does not create the notifier tree and does not install notifier
+# or offbox units into systemd.
 chown -R "${APP_USER}:${APP_USER}" "${APP_DIR}" /var/backups/language-guard
-# Offbox modules are root-owned and not writable by guard when opted in.
-# Units remain only under deploy/hetzner/ in the app tree (not enabled).
-if [[ "${LG_INSTALL_OFFBOX:-0}" == "1" && -d "${APP_DIR}/offbox" ]]; then
-  chown -R root:root "${APP_DIR}/offbox"
-  find "${APP_DIR}/offbox" -type f -exec chmod 0644 {} \;
-  chmod 0755 "${APP_DIR}/offbox"
+# Re-assert offbox execution-tree ownership after APP_DIR chown (defense in
+# depth; OFFBOX_EXEC_DIR must remain a sibling, never a child of APP_DIR).
+if [[ "${LG_INSTALL_OFFBOX:-0}" == "1" && -d "${OFFBOX_EXEC_DIR}" ]]; then
+  if [[ "${OFFBOX_EXEC_DIR}" == "${APP_DIR}" || "${OFFBOX_EXEC_DIR}" == "${APP_DIR}/"* ]]; then
+    echo "OFFBOX_EXEC_DIR must not be under APP_DIR"
+    exit 1
+  fi
+  chown -R root:root "${OFFBOX_EXEC_DIR}"
+  find "${OFFBOX_EXEC_DIR}" -type d -exec chmod 0755 {} \;
+  find "${OFFBOX_EXEC_DIR}" -type f -exec chmod 0644 {} \;
 fi
 
 sed "s/TEN_MIEN/${DOMAIN}/g" "${SRC}/deploy/hetzner/Caddyfile" > /etc/caddy/Caddyfile
