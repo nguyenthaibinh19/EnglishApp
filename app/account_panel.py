@@ -12,6 +12,86 @@ import config
 import ui_common
 
 
+class AccountSyncStatusPoller:
+    """Tk main-thread poller that refreshes AccountPanel Cloud Sync labels.
+
+    Does not talk to the network and does not restart the Sync worker. Reads the
+    current local sync status via ``AccountPanel.refresh()`` after the worker has
+    had time to record its first result (e.g. Sync endpoint 404 → unavailable).
+    """
+
+    def __init__(
+        self,
+        root: tk.Misc,
+        panel: "AccountPanel",
+        *,
+        initial_delay_ms: int = 1500,
+        interval_ms: int = 5000,
+    ):
+        self.root = root
+        self.panel = panel
+        self.initial_delay_ms = max(0, int(initial_delay_ms))
+        self.interval_ms = max(250, int(interval_ms))
+        self._generation = 0
+        self._job: Optional[str] = None
+
+    @property
+    def active(self) -> bool:
+        return self._job is not None
+
+    def start(self) -> None:
+        """Begin (or replace) a single poll loop for this FreeHome session."""
+        self._generation += 1
+        generation = self._generation
+        self._cancel_job()
+        try:
+            self._job = self.root.after(
+                self.initial_delay_ms, lambda: self._tick(generation)
+            )
+        except tk.TclError:
+            self._job = None
+
+    def stop(self) -> None:
+        """Invalidate any scheduled ticks (window destroy / leave FreeHome)."""
+        self._generation += 1
+        self._cancel_job()
+
+    def _cancel_job(self) -> None:
+        job = self._job
+        self._job = None
+        if job is None:
+            return
+        try:
+            self.root.after_cancel(job)
+        except (tk.TclError, ValueError):
+            pass
+
+    def _tick(self, generation: int) -> None:
+        if generation != self._generation:
+            return
+        try:
+            if not bool(self.root.winfo_exists()):
+                self._job = None
+                return
+            frame = getattr(self.panel, "frame", None)
+            if frame is None or not bool(frame.winfo_exists()):
+                self._job = None
+                return
+        except tk.TclError:
+            self._job = None
+            return
+        try:
+            self.panel.refresh()
+        except Exception:
+            pass
+        try:
+            self._job = self.root.after(
+                self.interval_ms, lambda: self._tick(generation)
+            )
+        except tk.TclError:
+            self._job = None
+
+
 class AccountPanel:
     """Visible Guest / Signed-in controls with login, logout, and switch."""
 

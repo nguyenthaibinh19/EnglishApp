@@ -57,7 +57,7 @@ class FreeHome:
             command=self._open_settings,
         ).pack(side=tk.RIGHT)
 
-        from account_panel import AccountPanel
+        from account_panel import AccountPanel, AccountSyncStatusPoller
 
         self.account_panel = AccountPanel(
             shell,
@@ -65,6 +65,12 @@ class FreeHome:
             allow_logout=True,
         )
         self.account_panel.pack(fill=tk.X, pady=(ui_common.GAP_SECTION, 0))
+        # FreeHome has no StudyMaster sync-status loop; poll AccountPanel on the
+        # Tk main thread so Sync 404 → Unavailable is visible without restarting
+        # the worker. UI-only: refresh reads local status, never Sync HTTP.
+        self._sync_status_poller = AccountSyncStatusPoller(
+            self.root, self.account_panel
+        )
 
         self.greeting_label = ttk.Label(shell, text="", style="Muted.TLabel")
         self.greeting_label.pack(anchor="w", pady=(ui_common.GAP_SECTION, 4))
@@ -166,6 +172,17 @@ class FreeHome:
         ).pack(anchor="w", pady=(ui_common.GAP_SECTION, 0))
 
         self.refresh()
+        self._sync_status_poller.start()
+        self.root.bind("<Destroy>", self._on_root_destroy_stop_sync_poller, add="+")
+
+    def _on_root_destroy_stop_sync_poller(self, event) -> None:
+        if event.widget is self.root:
+            self._stop_sync_status_polling()
+
+    def _stop_sync_status_polling(self) -> None:
+        poller = getattr(self, "_sync_status_poller", None)
+        if poller is not None:
+            poller.stop()
 
     # ---------- plan / view ----------
 
@@ -256,9 +273,11 @@ class FreeHome:
             self.account_panel.refresh()
         except Exception:
             pass
+        # Keep the existing poller; do not start a second loop on account switch.
 
     def _start_study(self):
         self.refresh()  # avoid stale plan before launch
+        self._stop_sync_status_polling()
         self._close_bank()
         self._close_mistake_book()
         for child in list(self.root.winfo_children()):
