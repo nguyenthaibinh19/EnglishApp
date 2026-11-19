@@ -10,7 +10,7 @@
 
 Inactive packaging on the VPS remains under the **pre-remediation** paths (`/opt/language-guard/offbox` + venv ExecStart); units remain inactive. Executable-path audit **ACCEPTED UNSAFE** remains historical evidence ([#7009010670](https://github.com/nguyenthaibinh19/EnglishApp/issues/8#issuecomment-7009010670), Architect [#7009128705](https://github.com/nguyenthaibinh19/EnglishApp/issues/8#issuecomment-7009128705)) until a separately authorized corrective write and post-fix read-only audit report **PASS**.
 
-**Outstanding live gate:** Product Owner must separately authorize any VPS corrective write. Default corrective scope excludes daemon-reload/start/enable, age/OAuth/Drive, isolation, and activation.
+**New live gate OWNER APPROVED, NOT YET EXECUTED:** exactly ONE inactive corrective VPS write session ([Issue #8 authorization](https://github.com/nguyenthaibinh19/EnglishApp/issues/8#issuecomment-7011064958)) to install the root-owned `/opt/language-guard-offbox` execution tree and replace only four inactive offbox unit files, followed by static checks, documentation and STOP. This approval does NOT include daemon-reload, start/enable, age/OAuth/Drive, backups, account-server changes, isolation or activation. A later post-fix read-only audit still requires NEW Owner authorization.
 
 **Existing operational facts (Cursor-reported):** VPS Python `3.14.4`; journal `delete`; `guard` 995/982; `lg-backup` 994/977. Drive **NOT CONFIGURED**; Cloud Sync **OFF**; D5A2D2/D5A2D3 **FAIL** preserved.
 
