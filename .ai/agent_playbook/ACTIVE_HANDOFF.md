@@ -12,8 +12,10 @@ Rolling coordination checkpoint. The detailed history remains in [current_state.
 ## 2. Last completed / accepted results
 
 - Inactive install + post-fix audit/config (Issue #8) — accepted; VPS units inactive.
-- Readiness inventory: age v1.3.2 / `age1pq1`, Drive adapter, D5A2C2 one-shot are **reusable as validated designs/artifacts**; production identity/OAuth/folder/binary install remain Owner actions.
-- Source-only packager fix: installed-layout `verify`/`verify-deps` resolve `<root>/offbox` (frozen module bytes unchanged). See readiness PR.
+- Readiness inventory: age v1.3.2 / `age1pq1`, Drive **adapter libraries**, and D5A2C2 one-shot are reusable validations; production identity/OAuth/folder/binary install remain Owner actions.
+- **SOURCE GAP (documented):** current `backup_worker.main()` refuses live-upload env and does not wire transport/exchanger — production entrypoint integration still required before upload/activation.
+- Isolation tests must use a synthetic harness only (never production `accounts.db` / unauthorized Drive).
+- Source-only packager fix: installed-layout `verify`/`verify-deps` resolve `<root>/offbox` (frozen module bytes unchanged). See readiness PR #16.
 
 ## 3. Next App task
 

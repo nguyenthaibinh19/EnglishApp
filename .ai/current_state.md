@@ -8,7 +8,7 @@
 
 **PRODUCTION REUSE READINESS PACKAGE (source PR + runbook) — not activation.** Baseline `dc9ec43355f686f62842d0cddabf16ce05ca2d72`. Post-fix Gate A PASS + Gate B CONFIG PASS remain current VPS evidence ([#7011822854](https://github.com/nguyenthaibinh19/EnglishApp/issues/8#issuecomment-7011822854)). Design: [OFFBOX_RUNTIME_TRUST.md](procedures/OFFBOX_RUNTIME_TRUST.md). Runbook: [OFFBOX_PRODUCTION_DEPLOYMENT_RUNBOOK.md](procedures/OFFBOX_PRODUCTION_DEPLOYMENT_RUNBOOK.md).
 
-**Reuse posture:** age v1.3.2/`age1pq1`, Drive adapter, and D5A2C2 one-shot are validated reusable *designs/artifacts*; lab OAuth External Testing and lab identity must **not** be reused for production. Source-only packager installed-layout `verify` fix proposed (frozen 15 modules unchanged).
+**Reuse posture:** age v1.3.2/`age1pq1`, Drive **adapter libraries**, and D5A2C2 one-shot are validated reusable *designs/artifacts*; lab OAuth External Testing and lab identity must **not** be reused for production. **SOURCE GAP:** production upload entrypoint still needed — current `backup_worker.main()` fail-closes live-upload env and does not pass transport/exchanger into `run()`. OAuth client ID/(optional) secret least-privilege delivery is not designed yet. Isolation execution must stay synthetic-only. Packager installed-layout `verify` fix is in PR #16 (frozen 15 modules unchanged).
 
 Historical pre-fix executable-path audit **ACCEPTED UNSAFE** preserved ([#7009010670](https://github.com/nguyenthaibinh19/EnglishApp/issues/8#issuecomment-7009010670)). D5A2D2/D5A2D3 **FAIL** preserved. Owner actions still required for production identity/OAuth/folder/VPS credential install, isolation execution, restore drill, monitoring, and activation.
 

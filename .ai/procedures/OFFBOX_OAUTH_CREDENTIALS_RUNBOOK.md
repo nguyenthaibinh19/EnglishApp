@@ -3,7 +3,7 @@
 Status: **RUNBOOK ONLY — not executed.** Creates no credentials, clients, tokens, or Drive folders.
 Does not authorize live Google API calls.
 
-See the consolidated staged package: [OFFBOX_PRODUCTION_DEPLOYMENT_RUNBOOK.md](OFFBOX_PRODUCTION_DEPLOYMENT_RUNBOOK.md). Lab External Testing refresh tokens are **not** production-durable.
+See the consolidated staged package: [OFFBOX_PRODUCTION_DEPLOYMENT_RUNBOOK.md](OFFBOX_PRODUCTION_DEPLOYMENT_RUNBOOK.md). Lab External Testing refresh tokens are **not** production-durable. In addition to `oauth-refresh`, production exchange needs a client ID and may need a client secret; least-privilege delivery of those parameters is **not designed** yet (no raw secrets in environment, unit text, git, or issues).
 
 ## Goals
 

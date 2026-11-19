@@ -20,15 +20,17 @@ Gate A **PASS** + Gate B **CONFIG PASS**.
 | Native age v1.3.2 Linux amd64 + `age1pq1` encrypt path (D5A2B3) | **VALIDATED** (lab) / **LOCAL ONLY** binary | Lab PASS `ENCRYPTED`; WSL binary present; **not** on VPS |
 | Lab age archive SHA-256 `cbe24006…` / binary SHA-256 `eb7dd1b5…` | **VALIDATED** artifact identity | Reusable as *versioned binary bytes*; not a secret |
 | Lab `age1pq1` recipient + offline identity | **LOCAL ONLY** | Public recipient prefix/length observed in preflight; **do not reuse for production** |
-| HTTPS Drive adapter + oauth refresh exchange (D5A2C1-R1) | **VALIDATED** (source-merged) | Frozen modules; no adapter redesign required for reuse |
+| HTTPS Drive adapter + oauth refresh exchange libraries (D5A2C1-R1) | **VALIDATED** (source-merged) | Reusable libraries; see **SOURCE GAP** for production entrypoint |
+| Production worker entrypoint that wires transport/exchanger into `run()` | **SOURCE GAP** | Current `backup_worker.main()` refuses live-upload env and does not pass transport args |
 | D5A2C2 one-shot synthetic Drive `VERIFIED` | **VALIDATED** (historical one-shot) | Ciphertext `a423f281…`; **do not rerun**; not production |
 | D5A2C2 External Testing OAuth refresh (~7-day) | **LOCAL ONLY** / expired-policy | Unsuitable for unattended production |
 | Production GCP project / durable consent / Desktop client | **PRODUCTION MISSING** | Owner action |
+| OAuth client ID (+ optional client secret) least-privilege delivery | **PRODUCTION MISSING** / **not designed** | Required by `GoogleRefreshExchanger`; not covered by `oauth-refresh` alone |
 | Production Drive folder id | **PRODUCTION MISSING** | Owner action; My Drive; scope `drive.file` |
 | VPS age binary at `/usr/local/lib/language-guard-age/age` | **PRODUCTION MISSING** | Unit `LG_AGE_BIN` already points here |
 | VPS public recipient `/etc/language-guard/age-recipient` | **PRODUCTION MISSING** | Public only; never identity |
 | VPS `LoadCredential` oauth-refresh | **PRODUCTION MISSING** | Intentionally absent; fail-closed on start |
-| Controlled VPS isolation suite (D5 revised classes) | **PRODUCTION MISSING** | D2/D3 FAIL historical; D5 revised gate accepted as *test design* only |
+| Controlled VPS isolation suite (D5 revised classes) | **PRODUCTION MISSING** | Must use synthetic harness; see Stage 3 |
 | Monitoring off-box lines in 09:00 report | **PRODUCTION MISSING** | Templates exist; not wired |
 | Clean-host restore drill (production ciphertext) | **PRODUCTION MISSING** | Lab synthetic only |
 | Timer enable / activation / Cloud Sync | **PRODUCTION MISSING** | Explicitly off |
@@ -52,12 +54,23 @@ installed on the VPS.
 Observed from accepted docs/labs (no credential files opened this task):
 
 - Scope: exactly `https://www.googleapis.com/auth/drive.file`.
-- Worker-only credential via systemd `LoadCredential=oauth-refresh:…`.
-- Helper must never see tokens (`InaccessiblePaths` includes `/etc/language-guard` and `/run/credentials`).
+- Refresh token alone is insufficient: `oauth_exchange.GoogleRefreshExchanger(transport, client_id, client_secret="")` also needs a **client ID** and may need a **client secret**.
+- Current production unit template only declares `LoadCredential=oauth-refresh:…`. Client ID/secret delivery is **not designed/provisioned** (must not place raw secrets in process environment, unit files, git, issues, or chat). Future design must use least-privilege delivery comparable to LoadCredential/root-owned files, reviewed separately.
+- Helper must never see tokens or client secrets (`InaccessiblePaths` includes `/etc/language-guard` and `/run/credentials`).
 - D5A2C2 used External Testing refresh policy (~7 days after consent) — **not** production-durable.
 - Publishing status of any existing GCP project: **UNKNOWN**.
 - Whether a prior lab folder/client can be reused: **UNKNOWN** and **not recommended**.
-- Adapter source changes for production reuse: **none required** (fail-closed live transport until `LG_DRIVE_FOLDER` / `LG_UPLOAD_ENABLED` are explicitly set under a later activation gate).
+
+### SOURCE GAP — production upload entrypoint (not an env toggle)
+
+The Drive **adapter libraries** are validated and reusable. That is **not** the same as a production-ready worker entrypoint.
+
+Frozen `backup_worker.main()` today:
+
+1. If `LG_DRIVE_FOLDER` or `LG_UPLOAD_ENABLED` is set → exits `live-transport-disabled` (fail-closed).
+2. If those env vars are absent → calls `run(...)` **without** `transport`, `token_exchanger`, `folder_id`, or `object_name`, so the default `transport=None` path stops at **`ENCRYPTED`** and never invokes Drive.
+
+Therefore setting upload env vars on the current unit is **not** activation and must not be treated as such. Before any live upload or activation, a **separately reviewed SOURCE** change is required: an authorized production orchestration/entrypoint (for example a reviewed wrapper that constructs approved HTTPS transport + `GoogleRefreshExchanger` and invokes existing `run()` with folder/object arguments), plus focused tests. **Do not edit the 15 frozen modules in opportunistic patches**; design and gates come under a future Architect-reviewed PR and Owner authorization. Until that lands, classify production upload wiring as **SOURCE GAP**.
 
 ## 4. Staged execution package (Owner-authorized sessions later)
 
@@ -74,54 +87,69 @@ Each stage needs its own Product Owner authorization. This file is not permissio
 1. Create a dedicated production GCP project (not External Testing lab client).
 2. Configure OAuth consent for unattended production use (durable refresh policy).
 3. Create Desktop OAuth client; keep client JSON offline.
-4. Consent once; store refresh token offline for later VPS install only.
-5. Create/designate a My Drive folder owned by that identity; record folder id offline.
-6. See also [OFFBOX_OAUTH_CREDENTIALS_RUNBOOK.md](OFFBOX_OAUTH_CREDENTIALS_RUNBOOK.md).
+4. Record offline (Owner store only): **client ID** (non-secret identifier but still sensitive operationally), **client secret if required**, refresh token, My Drive folder id.
+5. Consent once; store refresh token offline for later VPS install only.
+6. Create/designate a My Drive folder owned by that identity; record folder id offline.
+7. Explicitly plan least-privilege VPS delivery for client ID/(optional) secret — **not designed yet**; no raw secrets in environment or GitHub.
+8. See also [OFFBOX_OAUTH_CREDENTIALS_RUNBOOK.md](OFFBOX_OAUTH_CREDENTIALS_RUNBOOK.md).
 
 ### Stage 2 — Safe VPS credential/binary provisioning (write session)
 
-Install only, still **no** timer enable and **no** `LG_DRIVE_FOLDER` / `LG_UPLOAD_ENABLED`:
+Install only. Still **no** timer enable, **no** live-upload env, and **no** production entrypoint activation:
 
 1. Install age v1.3.2 binary to `/usr/local/lib/language-guard-age/age` (`root:root 0755`); verify SHA-256.
 2. Install public recipient to `/etc/language-guard/age-recipient` (`root:root 0640` or stricter as approved); confirm prefix `age1pq1`, no `AGE-SECRET`.
 3. Install `oauth-refresh` for `LoadCredential` (`root:root 0400`).
-4. Optionally sync packager fix into `/opt/language-guard-offbox` if the source PR is merged (modules stay frozen).
-5. Re-run static verify from installed packager; confirm units still inactive.
+4. Client ID/(optional) secret provisioning waits for the reviewed delivery design (Stage 1 item 7 / SOURCE GAP).
+5. Optionally sync packager fix into `/opt/language-guard-offbox` if the source PR is merged (modules stay frozen).
+6. Re-run static verify from installed packager; confirm units still inactive.
 
 ### Stage 3 — Controlled isolation tests (execution session)
 
-Exercise revised isolation classes without production DB leakage and without live upload:
+**STOP / hard gates:** Do **not** execute the currently loaded production helper/worker units against `/opt/language-guard/accounts.db`. Do **not** set `LG_DRIVE_FOLDER` / `LG_UPLOAD_ENABLED`. Do **not** perform any Google Drive upload/download in this stage.
 
-- Positive framed helper→worker handoff
+Isolation evidence must use a **fully isolated synthetic harness**:
+
+- Synthetic SQLite DB only (not a snapshot of production `accounts.db`)
+- Separate test socket / unit instances / state directories under an approved test root
+- No production credential directory mounted into the harness
+- No unauthorized Drive network path
+
+Exercise revised isolation classes inside that harness only:
+
+- Positive framed helper→worker handoff (synthetic)
 - Unauthorized peer / cgroup denial
 - Interrupted transfer fail-closed
 - Missing credentials fail-closed
 - StateDirectory / ownership hazards avoided (no `StateDirectory=` on backup dir)
 
-Keep socket/timer disabled except as required for the explicit test harness under that authorization. Preserve historical D2/D3 FAIL labels.
+Preserve historical D2/D3 FAIL labels. Production units remain disabled/inactive except under an authorization that explicitly names the synthetic harness.
 
 ### Stage 4 — Backup verification + restore drill
 
-1. Synthetic or explicitly approved non-production artifact encrypt on VPS path.
+1. Synthetic or explicitly approved non-production artifact encrypt path.
 2. Offline decrypt + `PRAGMA integrity_check` on clean host ([OFFBOX_CLEAN_HOST_RESTORE_RUNBOOK.md](OFFBOX_CLEAN_HOST_RESTORE_RUNBOOK.md)).
-3. Only later: authorized production-folder upload with `VERIFIED` download-sha256 match.
+3. Live production-folder upload requires: merged production entrypoint (**SOURCE GAP** closed), durable OAuth delivery including client ID/(optional) secret, and a dedicated Owner activation approval. Until then, no upload.
 
 ### Stage 5 — Monitoring + activation criteria
 
 Before enablement:
 
+- Production entrypoint SOURCE GAP closed and Architect-accepted.
 - Off-box lines wired into 09:00 report ([OFFBOX_MONITORING_SCHEDULE_TEMPLATES.md](OFFBOX_MONITORING_SCHEDULE_TEMPLATES.md)); default Drive line remains **NOT CONFIGURED** until production-eligible provenance.
 - Separate Healthchecks missed-job URL (not the report heartbeat).
 - Explicit Owner acceptance of RPO/RTO proposals (26h / 4h remain proposals).
-- Timer remains disabled until a dedicated activation approval sets schedule + upload env.
+- Timer remains disabled until a dedicated activation approval covers schedule **and** the reviewed upload entrypoint (env toggles alone are insufficient).
 
 ## 5. Owner-only actions checklist
 
 - [ ] New production age identity (offline) + public recipient
 - [ ] Dedicated production GCP project + durable OAuth consent + Desktop client
-- [ ] Production refresh token + My Drive folder id
+- [ ] Production refresh token + client ID + (if required) client secret + My Drive folder id
+- [ ] Approve least-privilege client ID/secret delivery design (separate source review)
 - [ ] Authorize VPS age binary + recipient + oauth-refresh install
-- [ ] Authorize isolation execution package
+- [ ] Authorize synthetic-only isolation execution package
+- [ ] Authorize / merge production upload entrypoint SOURCE GAP + tests
 - [ ] Authorize restore drill / first production-eligible upload
 - [ ] Authorize monitoring wiring and, separately, timer activation
 
@@ -132,3 +160,5 @@ Before enablement:
 - No reuse of lab private identity for production recovery.
 - No secret values in git, issues, or chat.
 - No claim that Gate A/B PASS equals production backup readiness.
+- No claim that setting `LG_DRIVE_FOLDER` / `LG_UPLOAD_ENABLED` on current `main()` enables uploads.
+- No isolation tests against the real production database or unauthorized Drive calls.
