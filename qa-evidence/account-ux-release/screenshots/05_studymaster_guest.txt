@@ -1,0 +1,4 @@
+window=Language Guard — DEVELOPMENT
+status=Guest / Not signed in
+detail=Data stays local on this PC. Account sync is inactive.
+sync=Cloud Sync: Guest / Disabled — Local-only guest data — account sync inactive

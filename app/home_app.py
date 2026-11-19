@@ -237,8 +237,20 @@ class FreeHome:
 
     # ---------- actions ----------
 
+    def _close_account_bound_windows(self):
+        """Dispose Vocabulary / Progress / Mistake Book before exposing a new session."""
+        import account_session
+
+        account_session.close_account_bound_windows(
+            self.bank_window, self.mistake_window, self.progress_window
+        )
+        self.bank_window = None
+        self.mistake_window = None
+        self.progress_window = None
+
     def _on_account_session_changed(self):
         """Rebind dashboard after login/logout/switch — no Guest auto-import."""
+        self._close_account_bound_windows()
         self.refresh()
         try:
             self.account_panel.refresh()

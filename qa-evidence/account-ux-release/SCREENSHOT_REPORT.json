@@ -1,6 +1,22 @@
 {
-  "guest_png": "D:\\EnglishApp-worktrees\\account-ux-rc\\qa-evidence\\account-ux-release\\screenshots\\01_guest_account_panel.png",
-  "signed_png": "D:\\EnglishApp-worktrees\\account-ux-rc\\qa-evidence\\account-ux-release\\screenshots\\02_signed_in_account_panel.png",
-  "guest_text": "D:\\EnglishApp-worktrees\\account-ux-rc\\qa-evidence\\account-ux-release\\screenshots\\01_guest_account_panel.txt",
-  "signed_text": "D:\\EnglishApp-worktrees\\account-ux-rc\\qa-evidence\\account-ux-release\\screenshots\\02_signed_in_account_panel.txt"
+  "freehome_guest": {
+    "png": "D:\\EnglishApp-worktrees\\account-ux-rc\\qa-evidence\\account-ux-release\\screenshots\\03_freehome_guest.png",
+    "txt": "D:\\EnglishApp-worktrees\\account-ux-rc\\qa-evidence\\account-ux-release\\screenshots\\03_freehome_guest.txt",
+    "title": "langstudyguard"
+  },
+  "freehome_signed": {
+    "png": "D:\\EnglishApp-worktrees\\account-ux-rc\\qa-evidence\\account-ux-release\\screenshots\\04_freehome_signed_in.png",
+    "txt": "D:\\EnglishApp-worktrees\\account-ux-rc\\qa-evidence\\account-ux-release\\screenshots\\04_freehome_signed_in.txt",
+    "title": "langstudyguard"
+  },
+  "studymaster_guest": {
+    "png": "D:\\EnglishApp-worktrees\\account-ux-rc\\qa-evidence\\account-ux-release\\screenshots\\05_studymaster_guest.png",
+    "txt": "D:\\EnglishApp-worktrees\\account-ux-rc\\qa-evidence\\account-ux-release\\screenshots\\05_studymaster_guest.txt",
+    "title": "Language Guard \u2014 DEVELOPMENT"
+  },
+  "studymaster_signed": {
+    "png": "D:\\EnglishApp-worktrees\\account-ux-rc\\qa-evidence\\account-ux-release\\screenshots\\06_studymaster_signed_in.png",
+    "txt": "D:\\EnglishApp-worktrees\\account-ux-rc\\qa-evidence\\account-ux-release\\screenshots\\06_studymaster_signed_in.txt",
+    "title": "Language Guard \u2014 DEVELOPMENT"
+  }
 }

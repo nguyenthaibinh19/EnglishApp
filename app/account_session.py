@@ -2,14 +2,18 @@
 
 Stops and starts the sync engine, never deletes local account SQLite, never
 auto-imports Guest data, and never silently falls back to Guest after errors.
+
+Switching is transactional: account A stays active until B authenticates.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Callable, Optional
+from typing import Callable, Optional, Tuple
 
 import config
+
+AuthResult = Tuple[str, str, int]  # username, token, user_id
 
 
 @dataclass(frozen=True)
@@ -164,7 +168,6 @@ def describe_cloud_sync() -> tuple[str, str]:
             engine_detail=snap.detail,
             caught_up=caught_up,
         )
-        # Friendlier Conflict label
         if label == "Conflict":
             return (
                 "Conflict / Action required",
@@ -251,11 +254,18 @@ def confirm_leave_account(parent) -> bool:
     )
 
 
+def commit_session(username: str, token: str, user_id: int) -> None:
+    """Persist B's session and start B's sync worker. Does not log tokens."""
+    stop_sync_engine()
+    config.save_account(username, token, user_id=user_id)
+    start_sync_engine()
+
+
 def login_dialog(parent, *, on_success: Optional[Callable[[], None]] = None) -> bool:
     """Open in-app login without restarting. Returns True if a session was established."""
     import setup_wizard
 
-    ok = setup_wizard.ask(parent)
+    ok = setup_wizard.ask(parent, commit_session=True)
     if ok:
         start_sync_engine()
         if on_success is not None:
@@ -264,9 +274,40 @@ def login_dialog(parent, *, on_success: Optional[Callable[[], None]] = None) -> 
 
 
 def switch_account(parent, *, on_success: Optional[Callable[[], None]] = None) -> bool:
-    """Log out current session (keeping local data) then prompt for another account."""
+    """Authenticate B before leaving A. Cancel/failure keeps A signed in.
+
+    Sequence on success:
+    1) confirm pending changes
+    2) authenticate B (A session still active)
+    3) stop A's sync worker (A SQLite remains on disk)
+    4) commit B's session + start B's worker
+    5) rebind views via on_success
+    """
+    import setup_wizard
+
     if is_signed_in():
         if not confirm_leave_account(parent):
             return False
-        logout_session()
+        credentials = setup_wizard.authenticate(parent)
+        if credentials is None:
+            # Cancelled or auth failed — A remains active; sync still running.
+            return False
+        username, token, user_id = credentials
+        commit_session(username, token, user_id)
+        if on_success is not None:
+            on_success()
+        return True
+    # Guest → login (same as login_dialog)
     return login_dialog(parent, on_success=on_success)
+
+
+def close_account_bound_windows(*windows) -> None:
+    """Destroy account-backed Toplevels so they cannot write the previous store."""
+    for window in windows:
+        if window is None:
+            continue
+        try:
+            if window.winfo_exists():
+                window.destroy()
+        except Exception:
+            pass

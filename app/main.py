@@ -622,15 +622,21 @@ class StudyMasterApp:
 
     def _on_account_session_changed(self):
         """Rebind StudyMaster data after login/logout/switch. Does not bypass lock."""
-        # Close child study windows that may hold the previous account's stores.
-        for attr in ("vocab_window", "reading_window", "listening_window"):
-            window = getattr(self, attr, None)
-            if window is not None:
-                try:
-                    window.destroy()
-                except Exception:
-                    pass
-                setattr(self, attr, None)
+        import account_session
+
+        # Close every account-bound child so stale callbacks cannot write the old store.
+        windows = []
+        for attr in (
+            "vocab_window",
+            "reading_window",
+            "listening_window",
+            "mistake_window",
+            "progress_window",
+            "bank_window",
+        ):
+            windows.append(getattr(self, attr, None))
+            setattr(self, attr, None)
+        account_session.close_account_bound_windows(*windows)
         bundle = open_study_data()
         self.store = bundle.vocab
         self.progress = bundle.progress

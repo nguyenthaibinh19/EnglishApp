@@ -212,6 +212,27 @@ def _discard_incomplete_install(dest: str, *, remove_startup_link: bool) -> None
         pass
 
 
+def is_release_candidate_smoke() -> bool:
+    """True for isolated RC smoke runs — never auto-install or create Startup.
+
+    Explicit modes (any one):
+    - EXE basename starts with ``langstudyguard-rc``
+    - CLI flag ``--rc-smoke``
+    - Environment ``LG_RC_SMOKE=1``
+
+    Genuine ``langstudyguard.exe`` production installs are unchanged when these
+    markers are absent.
+    """
+    if not config.is_frozen():
+        return False
+    if "--rc-smoke" in sys.argv:
+        return True
+    if (os.environ.get("LG_RC_SMOKE") or "").strip() == "1":
+        return True
+    name = os.path.basename(sys.executable).lower()
+    return name.startswith("langstudyguard-rc")
+
+
 def prepare() -> bool:
     """Chuẩn bị bản .exe.
 
@@ -221,8 +242,15 @@ def prepare() -> bool:
     Staging/development: never install over production paths, never create the
     production Startup shortcut, and never auto-install into LOCALAPPDATA.
     Run in place from the staging EXE path instead.
+
+    Production RC smoke (``langstudyguard-rc.exe`` / ``--rc-smoke`` / ``LG_RC_SMOKE=1``):
+    run in place only — do not overwrite an existing install or register Startup.
     """
     if not config.is_frozen():
+        return True
+
+    if is_release_candidate_smoke():
+        seed_vocab()
         return True
 
     identity = config.environment_identity()

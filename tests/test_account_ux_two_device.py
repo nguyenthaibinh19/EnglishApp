@@ -167,6 +167,21 @@ def test_scenario_a_account_isolation_no_leakage(sync_lab, monkeypatch):
     assert (device / "accounts" / str(sync_lab["bob_id"])).is_dir()
 
 
+def _drain_sync(engine: AccountSyncEngine, rounds: int = 8):
+    snap = None
+    for _ in range(rounds):
+        snap = engine.sync_once()
+        if (
+            snap.pending_vocab == 0
+            and snap.pending_progress == 0
+            and not snap.conflict
+            and snap.vocab_caught_up
+            and snap.progress_caught_up
+        ):
+            break
+    return snap
+
+
 def test_scenario_b_same_account_sync_two_devices(sync_lab, monkeypatch):
     """Scenario B: Alice on device1 uploads; device2 downloads the same tip."""
     device1 = Path(sync_lab["device1"])
@@ -190,11 +205,7 @@ def test_scenario_b_same_account_sync_two_devices(sync_lab, monkeypatch):
         "pending",
         "offline",
     }
-    # Force push cycle until empty or conflict
-    for _ in range(5):
-        snap1 = engine1.sync_once()
-        if snap1.pending_vocab == 0 and not snap1.conflict:
-            break
+    snap1 = _drain_sync(engine1)
     assert snap1.pending_vocab == 0, snap1
     engine1.stop()
 
@@ -219,10 +230,7 @@ def test_scenario_b_same_account_sync_two_devices(sync_lab, monkeypatch):
         vocab_id=vid2,
         payload={"word": "fiets", "meaning": "bike"},
     )
-    for _ in range(5):
-        snap = engine2.sync_once()
-        if snap.pending_vocab == 0 and not snap.conflict:
-            break
+    _drain_sync(engine2)
     engine2.stop()
 
     store1 = AccountLocalStore(alice_id, data_root=str(device1))
@@ -231,6 +239,198 @@ def test_scenario_b_same_account_sync_two_devices(sync_lab, monkeypatch):
     words1 = {e.get("word") for e in store1.list_vocabulary("nl")}
     assert "fiets" in words1
     engine1.stop()
+
+
+def test_scenario_b_learning_attempts_progress_srs_mistake_book(sync_lab, monkeypatch):
+    """Same-account two-device: attempts drive Progress / SRS / Mistake Book on device 2."""
+    device1 = Path(sync_lab["device1"])
+    device2 = Path(sync_lab["device2"])
+    token = account_store.login("alice", "alicepass")
+    alice_id = sync_lab["alice_id"]
+    base = sync_lab["base"]
+    vid = new_vocab_id()
+
+    store1 = AccountLocalStore(alice_id, data_root=str(device1))
+    engine1 = AccountSyncEngine(
+        store1, AccountSyncClient(base, token), poll_seconds=60.0
+    )
+    store1.upsert_vocabulary(
+        language_code="nl",
+        vocab_id=vid,
+        payload={"word": "deur", "meaning": "door"},
+    )
+    wrong_id = store1.record_learning_attempt(
+        language_code="nl",
+        vocab_id=vid,
+        verdict="wrong",
+        hint_used=False,
+        word_snapshot="deur",
+        user_answer="gate",
+        expected_answer="door",
+        prompt="meaning?",
+    )
+    exact_id = store1.record_learning_attempt(
+        language_code="nl",
+        vocab_id=vid,
+        verdict="exact",
+        hint_used=False,
+        word_snapshot="deur",
+        user_answer="door",
+        expected_answer="door",
+        prompt="meaning?",
+    )
+    snap1 = _drain_sync(engine1)
+    assert snap1.pending_progress == 0, snap1
+    engine1.stop()
+
+    store2 = AccountLocalStore(alice_id, data_root=str(device2))
+    engine2 = AccountSyncEngine(
+        store2, AccountSyncClient(base, token), poll_seconds=60.0
+    )
+    _drain_sync(engine2)
+    attempt_ids = {a["event_id"] for a in store2.list_attempts("nl")}
+    assert wrong_id in attempt_ids
+    assert exact_id in attempt_ids
+    confirmed = store2.confirmed_progress("nl", vid)
+    assert confirmed is not None
+    assert int(confirmed["seen"]) >= 1
+    mistakes = store2.mistake_book_entries("nl")
+    assert any(m["vocab_id"] == vid and m["wrong"] >= 1 for m in mistakes)
+    # SRS / unlocked day buckets derive from attempts on the receiving device.
+    buckets = store2.account_day_buckets("nl")
+    assert isinstance(buckets, dict)
+    engine2.stop()
+
+
+def test_switch_account_cancel_keeps_current_session(sync_lab, monkeypatch):
+    device = Path(sync_lab["device1"])
+    monkeypatch.setenv("LG_DATA_DIR", str(device))
+    token_a = account_store.login("alice", "alicepass")
+    _login_settings(device / "settings.json", "alice", token_a, sync_lab["alice_id"])
+    config.reload()
+    monkeypatch.setattr(config, "ACCOUNT_TOKEN", token_a)
+    monkeypatch.setattr(config, "account_token", lambda: token_a)
+    monkeypatch.setattr(config, "account_user_id", lambda: sync_lab["alice_id"])
+    monkeypatch.setattr(account_session, "is_signed_in", lambda: True)
+    monkeypatch.setattr(account_session, "confirm_leave_account", lambda _p: False)
+
+    assert account_session.switch_account(None) is False
+    assert config.account_token() == token_a
+
+
+def test_switch_account_auth_failure_keeps_current_session(sync_lab, monkeypatch):
+    import setup_wizard
+
+    device = Path(sync_lab["device1"])
+    monkeypatch.setenv("LG_DATA_DIR", str(device))
+    token_a = account_store.login("alice", "alicepass")
+    _login_settings(device / "settings.json", "alice", token_a, sync_lab["alice_id"])
+    config.reload()
+    monkeypatch.setattr(config, "ACCOUNT_TOKEN", token_a)
+    monkeypatch.setattr(config, "account_token", lambda: token_a)
+    monkeypatch.setattr(config, "account_user_id", lambda: sync_lab["alice_id"])
+    monkeypatch.setattr(account_session, "is_signed_in", lambda: True)
+    monkeypatch.setattr(account_session, "confirm_leave_account", lambda _p: True)
+    monkeypatch.setattr(setup_wizard, "authenticate", lambda _p: None)
+
+    assert account_session.switch_account(None) is False
+    assert config.account_token() == token_a
+
+
+def test_switch_account_commits_only_after_b_authenticated(sync_lab, monkeypatch):
+    import setup_wizard
+
+    device = Path(sync_lab["device1"])
+    monkeypatch.setenv("LG_DATA_DIR", str(device))
+    token_a = account_store.login("alice", "alicepass")
+    token_b = account_store.login("bob", "bobpass")
+    _login_settings(device / "settings.json", "alice", token_a, sync_lab["alice_id"])
+    config.reload()
+    monkeypatch.setattr(config, "SETTINGS_FILE", str(device / "settings.json"))
+    monkeypatch.setattr(config, "ACCOUNT_TOKEN", token_a)
+    monkeypatch.setattr(config, "account_token", lambda: token_a)
+    monkeypatch.setattr(config, "account_user_id", lambda: sync_lab["alice_id"])
+    monkeypatch.setattr(account_session, "is_signed_in", lambda: True)
+    monkeypatch.setattr(account_session, "confirm_leave_account", lambda _p: True)
+    monkeypatch.setattr(
+        setup_wizard,
+        "authenticate",
+        lambda _p: ("bob", token_b, sync_lab["bob_id"]),
+    )
+
+    commits: list[tuple] = []
+    rebound = {"ok": False}
+
+    def fake_commit(username, token, user_id):
+        commits.append((username, token, user_id))
+        _login_settings(device / "settings.json", username, token, user_id)
+        monkeypatch.setattr(config, "ACCOUNT_TOKEN", token)
+        monkeypatch.setattr(config, "account_token", lambda: token)
+        monkeypatch.setattr(config, "account_user_id", lambda: user_id)
+
+    monkeypatch.setattr(account_session, "commit_session", fake_commit)
+    monkeypatch.setattr(account_session, "stop_sync_engine", lambda: None)
+    monkeypatch.setattr(account_session, "start_sync_engine", lambda: None)
+
+    assert (
+        account_session.switch_account(
+            None, on_success=lambda: rebound.__setitem__("ok", True)
+        )
+        is True
+    )
+    assert commits == [("bob", token_b, sync_lab["bob_id"])]
+    assert rebound["ok"] is True
+    assert config.account_token() == token_b
+
+
+def test_close_account_bound_windows_on_session_change(monkeypatch):
+    """Child window holding account-A data is destroyed before rebind."""
+
+    class FakeWin:
+        def __init__(self):
+            self.destroyed = False
+            self.writable = True
+
+        def winfo_exists(self):
+            return not self.destroyed
+
+        def destroy(self):
+            self.destroyed = True
+            self.writable = False
+
+    class FakeHome:
+        def __init__(self):
+            self.bank_window = FakeWin()
+            self.mistake_window = FakeWin()
+            self.progress_window = FakeWin()
+            self.refreshed = False
+
+        def refresh(self):
+            self.refreshed = True
+
+        def _close_account_bound_windows(self):
+            account_session.close_account_bound_windows(
+                self.bank_window, self.mistake_window, self.progress_window
+            )
+            self.bank_window = None
+            self.mistake_window = None
+            self.progress_window = None
+
+        def _on_account_session_changed(self):
+            a_bank = self.bank_window
+            self._close_account_bound_windows()
+            self.refresh()
+            assert a_bank.destroyed is True
+            assert a_bank.writable is False
+            assert self.bank_window is None
+
+    home = FakeHome()
+    a_bank = home.bank_window
+    home._on_account_session_changed()
+    assert a_bank.destroyed is True
+    assert a_bank.writable is False
+    assert home.refreshed is True
+    assert home.bank_window is None
 
 
 def test_logout_keeps_local_account_db(sync_lab, monkeypatch):
