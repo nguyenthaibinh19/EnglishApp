@@ -5,25 +5,25 @@ Rolling coordination checkpoint. The detailed history remains in [current_state.
 ## 1. Checkpoint metadata
 
 - Written: 2026-11-19.
-- **PRODUCTION UPLOAD ENTRYPOINT SOURCE MERGED — NOT DEPLOYED / NOT ACTIVATED.**
-- PR: [#17](https://github.com/nguyenthaibinh19/EnglishApp/pull/17)
-- Approved source: `2602105ac7459e1c56bb9fdfdca70b2c7928159b`
-- Merge: `b6e515e2b09298689801f138770e2fe792ec38cc`
-- Wrapper LF pin: `cc9ce5b7aadbd690f800a0a29cacfd0bbaf0c5f46d3c107ac3100ae1bc9e8427`
-- Prior: PR #16 SOURCE MERGED — VPS PACKAGER NOT UPDATED. Historical pre-fix audit **UNSAFE**; D5A2D2/D5A2D3 **FAIL** preserved.
+- **SOURCE INSTALLED INACTIVE — NOT ACTIVATED** (`APP_18B9_INACTIVE_VPS_PACKAGING_SYNC`).
+- Approved GitHub main: `eb869eaf310504862a10c902ea2e8803fbab0b53` (PR #16 + #17).
+- VPS host: `ubuntu-4gb-fsn1-1`.
+- Rollback: `/root/lg-offbox-rollback-20261119T174614Z-eb869ea`.
+- Historical pre-fix audit **UNSAFE**; D5A2D2/D5A2D3 **FAIL** preserved.
 
 ## 2. Last completed / accepted results
 
-- Inactive install + post-fix Gate A/B PASS; VPS units inactive.
-- **PR #17 MERGED:** production upload wrapper + packager/unit/tests/docs (R2 F2/F3 + R3 LF pin). Frozen 15 modules unchanged.
-- Distinctions: source merged ≠ deployed; offline tests ≠ production verification; credential contract ≠ provisioned secrets; installed ≠ enabled ≠ operational.
+- **VPS packaging sync PASS (static):** packager `verify`/`verify-deps` from installed tree; frozen 15/15; wrapper pin `cc9ce5b7…`; worker unit on disk → `production_upload_worker.py`; units inactive/disabled.
+- Changed on VPS: `install_offbox_packaging.py`, new `production_upload_worker.py`, `language-guard-offbox-worker.service` (tree + `/etc/systemd/system`).
+- **No** `daemon-reload` / start / enable. On-disk worker unit matches approved template; manager was not reloaded in this session.
+- Distinctions: installed ≠ enabled ≠ operational; credentials still unprovisioned.
 
 ## 3. Next App task
 
-1. **NOT AUTHORIZED without new Owner approval:** VPS packager sync (PR #16 + #17), age/OAuth/Drive credential install, synthetic isolation, restore drill, monitoring, activation.
-2. Canonical runbooks: [OFFBOX_PRODUCTION_DEPLOYMENT_RUNBOOK.md](../procedures/OFFBOX_PRODUCTION_DEPLOYMENT_RUNBOOK.md), [OFFBOX_OAUTH_CREDENTIALS_RUNBOOK.md](../procedures/OFFBOX_OAUTH_CREDENTIALS_RUNBOOK.md), [OFFBOX_RUNTIME_TRUST.md](../procedures/OFFBOX_RUNTIME_TRUST.md).
+1. **NOT AUTHORIZED without new Owner approval:** `daemon-reload`, age binary/recipient, OAuth/Drive credentials, synthetic isolation, restore drill, monitoring wiring, timer activation.
+2. Runbooks: [OFFBOX_PRODUCTION_DEPLOYMENT_RUNBOOK.md](../procedures/OFFBOX_PRODUCTION_DEPLOYMENT_RUNBOOK.md), [OFFBOX_OAUTH_CREDENTIALS_RUNBOOK.md](../procedures/OFFBOX_OAUTH_CREDENTIALS_RUNBOOK.md), [OFFBOX_RUNTIME_TRUST.md](../procedures/OFFBOX_RUNTIME_TRUST.md).
 
 ## 4. STOP / boundaries
 
-- No SSH/VPS, Google API, credential provisioning, isolation execution, or activation without new Owner approval.
-- Phase 18B.9 **OPEN / PRODUCTION NOT READY**. Drive **NOT CONFIGURED**. Cloud Sync **OFF**. AI-M4 **NOT AUTHORIZED**.
+- No further SSH/VPS beyond this exhausted sync authorization without new Owner approval.
+- Phase 18B.9 **OPEN / PRODUCTION NOT READY**. Drive **NOT CONFIGURED**. Cloud Sync **OFF**.

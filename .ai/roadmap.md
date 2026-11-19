@@ -5,9 +5,9 @@ Directional plan — **not** a rigid release commitment. Update when phases comp
 ## Latest operational checkpoint — 2026-11-19 (supersedes older narrative below)
 
 - **Active priority: Phase 18B.9 OFF-BOX — OPEN / PRODUCTION NOT READY.**
-- **PRODUCTION UPLOAD ENTRYPOINT SOURCE MERGED — NOT DEPLOYED / NOT ACTIVATED** (PR [#17](https://github.com/nguyenthaibinh19/EnglishApp/pull/17); merge `b6e515e`). See [OFFBOX_PRODUCTION_DEPLOYMENT_RUNBOOK.md](procedures/OFFBOX_PRODUCTION_DEPLOYMENT_RUNBOOK.md).
-- **PR #16 SOURCE MERGED — VPS PACKAGER NOT UPDATED** (`bf5442b`) still stands. Post-fix Gate A/B PASS stand. Not activation.
-- Historical pre-fix audit remains **UNSAFE** ([Issue #8](https://github.com/nguyenthaibinh19/EnglishApp/issues/8#issuecomment-7009010670)). Next: Owner-authorized VPS packager sync / crypto / OAuth / credential stages, synthetic isolation, restore, monitoring, activation.
+- **SOURCE INSTALLED INACTIVE — NOT ACTIVATED** (VPS packaging sync at main `eb869ea`; PR #16+#17). See [OFFBOX_PRODUCTION_DEPLOYMENT_RUNBOOK.md](procedures/OFFBOX_PRODUCTION_DEPLOYMENT_RUNBOOK.md).
+- Post-fix Gate A/B PASS stand. Not activation. No daemon-reload in sync session.
+- Historical pre-fix audit remains **UNSAFE** ([Issue #8](https://github.com/nguyenthaibinh19/EnglishApp/issues/8#issuecomment-7009010670)). Next: Owner-authorized age/OAuth/credential stages, synthetic isolation, restore, monitoring, activation.
 - **Cloud Sync:** OFF. **Google Drive production:** NOT CONFIGURED. **age / recipient / OAuth:** not provisioned for offbox. **Historical D5A2D2 and D5A2D3:** FAIL preserved.
 - **AI:** `C-APP-AI-001` v0.2.0 accepted; PR #14 conformance MERGED. `LocalAIProvider` / AI-M4 NOT AUTHORIZED.
 
