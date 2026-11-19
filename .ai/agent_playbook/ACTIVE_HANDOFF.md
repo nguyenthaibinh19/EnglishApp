@@ -1,29 +1,29 @@
 # Active handoff
 
-Rolling coordination checkpoint. See [current_state.md](../current_state.md), [roadmap.md](../roadmap.md), [ACCOUNT-UX-RELEASE-READINESS.md](../plans/ACCOUNT-UX-RELEASE-READINESS.md), and [PRODUCTION-LOGIN-API-COMPATIBILITY.md](../plans/PRODUCTION-LOGIN-API-COMPATIBILITY.md).
+Rolling coordination checkpoint. See [current_state.md](../current_state.md), [HETZNER-LOGIN-API-READONLY-INSPECTION.md](../plans/HETZNER-LOGIN-API-READONLY-INSPECTION.md), and [PRODUCTION-LOGIN-API-COMPATIBILITY.md](../plans/PRODUCTION-LOGIN-API-COMPATIBILITY.md).
 
 ## 1. Checkpoint metadata
 
-- Written: 2026-11-19 (Login API compatibility — **Architect Accepted, source merged**).
-- **Account UX / RC** — PR #23 **MERGED** (`a08a9e0`).
-- **Login compatibility** — PR #24 **MERGED** (`62c567b`); tag `APP_LOGIN_COMPAT_SOURCE_MERGED`.
-- **NOT AUTHORIZED:** VPS deployment or production writes. Source merge does not update production.
-- **18C.1 / 18C.2 CLOSED**. **18B.9 PAUSED, NOT CLOSED**.
-- Staging **RESERVED**. Production Cloud Sync **OFF**. Sync pilot **NO-GO**.
+- Written: 2026-11-19 (Hetzner Account Server **read-only** login inspection complete).
+- **Login compatibility source** — PR #24 **MERGED** (`62c567b`); production **not** updated by merge.
+- **Inspection** — `APP_HETZNER_LOGIN_READONLY_INSPECTION_READY`; deployed `/api/login` is token-only; `/api/session` absent; Cloud Sync **OFF**.
+- **NOT AUTHORIZED:** VPS deploy, service restart, DB writes, login probes, backups create/restore.
+- **18C.1 / 18C.2 CLOSED**. **18B.9 PAUSED, NOT CLOSED**. Staging **RESERVED**. Sync pilot **NO-GO**.
 
 ## 2. Last results
 
-- Hardened `/api/login` contract + `/api/session` fallback; RC banner clarified.
-- Pre-merge corrections: login is not read-only for VPS verification; `/api/grade` test mocks AI.
-- Focused compatibility tests passed.
+- Service `language-guard.service` active; flat tree `/opt/language-guard` (not Git).
+- Deployed `account_server.py` SHA matches git `599e473` (token-only login).
+- `account_store.user_for_token` present — **`account_server.py`-only future hotfix assessed viable**.
+- Accounts backup timer enabled; sync-backup timer disabled; `study_sync.db` absent.
 
 ## 3. Next
 
-1. Future Owner-authorized deploy must separately verify deployed Account Server version, entrypoint, dependencies, exact diff, SQLite backup/rollback, and Cloud Sync OFF.
-2. Do not enable `STUDY_SYNC_ENABLED`, rebuild Owner EXE, or resume 18B.9 from this handoff.
+1. Architect review of inspection report.
+2. Separate Owner authorization required before any production file replace / restart / login smoke.
+3. Do not enable `STUDY_SYNC_ENABLED` or resume 18B.9 from this handoff.
 
 ## 4. STOP / boundaries
 
-- No VPS/SSH, production DB mutation, production sync flag, Drive/OAuth, public GitHub Release.
-- Do not overwrite `D:\EnglishApp\dist\langstudyguard.exe` / `.zip` / `.bak`.
-- STOP after merge documentation.
+- No VPS writes, no public Release, no EXE replace, no Cloud Sync activation.
+- STOP for Architect review — do not deploy.
