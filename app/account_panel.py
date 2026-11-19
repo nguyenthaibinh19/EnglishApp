@@ -80,12 +80,17 @@ class AccountPanel:
                     f"Signed in: {account_session.account_display_name()}",
                 )
             )
-            self.detail_label.config(
-                text=config.ui(
+            if identity.rc_smoke:
+                env_detail = config.ui(
+                    f"PRODUCTION BACKEND · RC TEST DATA · máy chủ {host}",
+                    f"PRODUCTION BACKEND · RC TEST DATA · backend {host}",
+                )
+            else:
+                env_detail = config.ui(
                     f"Môi trường {identity.runtime_environment} · máy chủ {host}",
                     f"Environment {identity.runtime_environment} · backend {host}",
                 )
-            )
+            self.detail_label.config(text=env_detail)
             self.login_button.pack_forget()
             if self.allow_logout:
                 self.logout_button.pack(side=tk.LEFT)

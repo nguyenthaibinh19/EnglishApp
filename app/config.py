@@ -69,11 +69,14 @@ def data_dir() -> str:
     if is_frozen():
         root = os.environ.get("APPDATA") or os.path.expanduser("~")
         current = os.path.join(root, identity.data_folder)
-        # Legacy DutchGuard → production only; never into staging/dev folders.
-        if identity.runtime_environment == app_environment.ENV_PRODUCTION:
+        # Legacy DutchGuard → genuine production only; never into RC/staging/dev.
+        if (
+            identity.runtime_environment == app_environment.ENV_PRODUCTION
+            and not identity.rc_smoke
+        ):
             _migrate_user_data(os.path.join(root, "DutchGuard"), current)
-        # Non-production frozen paths are already environment-specific folders.
-        if identity.is_non_production or identity.identity_error:
+        # RC / non-production frozen paths must never touch production AppData.
+        if identity.rc_smoke or identity.is_non_production or identity.identity_error:
             return app_environment.assert_data_root_allowed(current, identity=identity)
         return current
     # Source development keeps repo-root data. Staging from source uses AppData.

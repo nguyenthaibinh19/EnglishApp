@@ -4,7 +4,7 @@
 
 ## Latest verified coordination checkpoint — 2026-11-19
 
-**Current priority:** **Account UX + Production RC R2 — awaiting Architect review** (`APP_ACCOUNT_UX_RC_R2_READY`; [ACCOUNT-UX-RELEASE-READINESS.md](plans/ACCOUNT-UX-RELEASE-READINESS.md); [RC_SMOKE_PRODUCT_OWNER.md](procedures/RC_SMOKE_PRODUCT_OWNER.md)). **ADR-025 Accepted** (PR #22 / `2da93c3`). **18C.1 CLOSED**, **18C.2 CLOSED**. **18B.9 PAUSED, NOT CLOSED.** Staging **RESERVED**. Production Cloud Sync **OFF** (pilot **NO-GO** until allowlist + Owner auth). Do not overwrite `dist/langstudyguard.exe`.
+**Current priority:** **Account UX + Production RC final — awaiting Architect merge decision** (`APP_ACCOUNT_UX_RC_FINAL_READY`; [ACCOUNT-UX-RELEASE-READINESS.md](plans/ACCOUNT-UX-RELEASE-READINESS.md); [RC_SMOKE_PRODUCT_OWNER.md](procedures/RC_SMOKE_PRODUCT_OWNER.md)). RC data: `%APPDATA%\langstudyguard-rc`. **ADR-025 Accepted** (PR #22 / `2da93c3`). **18C.1 CLOSED**, **18C.2 CLOSED**. **18B.9 PAUSED, NOT CLOSED.** Staging **RESERVED**. Production Cloud Sync **OFF** (pilot **NO-GO** until allowlist + Owner auth). Do not overwrite `dist/langstudyguard.exe`.
 
 **18C.1 CLOSED — Architect Accepted** (PR #20, merge `8e94f77491cc2f318c93fc511e258d0299ff4d03`): local core Account Sync demonstration — schema-v3 progress tables + `/api/sync/progress/*` behind the existing default-off flag; per-account local SQLite; vocabulary + event-first progress sync engine; localhost two-device demo; explicit vocabulary conflict freeze (no silent LWW).
 

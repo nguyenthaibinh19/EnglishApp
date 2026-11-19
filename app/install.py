@@ -213,24 +213,15 @@ def _discard_incomplete_install(dest: str, *, remove_startup_link: bool) -> None
 
 
 def is_release_candidate_smoke() -> bool:
-    """True for isolated RC smoke runs — never auto-install or create Startup.
+    """True for isolated RC smoke — no install/Startup; isolated AppData.
 
-    Explicit modes (any one):
-    - EXE basename starts with ``langstudyguard-rc``
-    - CLI flag ``--rc-smoke``
-    - Environment ``LG_RC_SMOKE=1``
-
-    Genuine ``langstudyguard.exe`` production installs are unchanged when these
-    markers are absent.
+    Detection lives in ``app_environment`` so RC identity is available before
+    settings and data paths initialize. Genuine ``langstudyguard.exe`` without
+    RC markers keeps production install semantics.
     """
-    if not config.is_frozen():
-        return False
-    if "--rc-smoke" in sys.argv:
-        return True
-    if (os.environ.get("LG_RC_SMOKE") or "").strip() == "1":
-        return True
-    name = os.path.basename(sys.executable).lower()
-    return name.startswith("langstudyguard-rc")
+    import app_environment
+
+    return app_environment.is_release_candidate_smoke(frozen=config.is_frozen())
 
 
 def prepare() -> bool:

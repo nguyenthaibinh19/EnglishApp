@@ -1514,9 +1514,12 @@ def main():
         FreeHome(root)
     if config.is_frozen():
         import updater
-        # Chờ desktop ổn định rồi mới hỏi cập nhật — tránh tranh focus lúc login.
-        delay = 3500 if "--lock" in sys.argv else 800
-        root.after(delay, lambda: updater.prompt_if_needed(root))
+
+        # RC smoke never schedules the production auto-updater.
+        if updater.updates_allowed():
+            # Chờ desktop ổn định rồi mới hỏi cập nhật — tránh tranh focus lúc login.
+            delay = 3500 if "--lock" in sys.argv else 800
+            root.after(delay, lambda: updater.prompt_if_needed(root))
     root.mainloop()
 
 
