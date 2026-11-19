@@ -23,6 +23,6 @@ Rolling coordination checkpoint. The detailed history remains in [current_state.
 
 ## 4. STOP / boundaries
 
-- No SSH/VPS operations without new Owner authorization.
+- SSH/VPS authorization is restricted to the ONE explicitly approved inactive corrective-write session in Issue #8 #7011064958. No other VPS operation is authorized; the approval expires after that session and its report.
 - No daemon-reload, enable/start, age/OAuth/Drive, Cloud Sync, isolation, or backup execution.
 - Phase 18B.9 **OPEN / PRODUCTION NOT READY**. D5A2D2/D5A2D3 **FAIL preserved**. AI-M4 **NOT AUTHORIZED**.
