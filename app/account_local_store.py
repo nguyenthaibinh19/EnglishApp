@@ -292,11 +292,28 @@ class AccountLocalStore:
             progress_caught = _meta_get(self._conn, "progress_caught_up") == "1"
             vocab_cursor = int(_meta_get(self._conn, "vocab_cursor") or "0")
             progress_cursor = int(_meta_get(self._conn, "progress_cursor") or "0")
-            if conflict:
+            prefs = {}
+            for row in self._conn.execute(
+                "SELECT key, value_json FROM account_preferences "
+                "WHERE key IN ('_prefs_dirty', '_prefs_conflict')"
+            ).fetchall():
+                try:
+                    prefs[str(row["key"])] = json.loads(row["value_json"])
+                except json.JSONDecodeError:
+                    continue
+            prefs_dirty = bool(prefs.get("_prefs_dirty"))
+            prefs_conflict = bool(prefs.get("_prefs_conflict"))
+            if conflict or prefs_conflict:
                 status, detail = STATUS_CONFLICT, "Conflict / Action required"
             elif offline:
                 status, detail = STATUS_OFFLINE, "Server unreachable"
-            elif pending_vocab or pending_progress or not vocab_caught or not progress_caught:
+            elif (
+                pending_vocab
+                or pending_progress
+                or prefs_dirty
+                or not vocab_caught
+                or not progress_caught
+            ):
                 status, detail = STATUS_PENDING, "Upload or download in progress"
             else:
                 status, detail = STATUS_SYNCED, "Caught up"
@@ -309,7 +326,7 @@ class AccountLocalStore:
                 progress_caught_up=progress_caught,
                 pending_vocab=pending_vocab,
                 pending_progress=pending_progress,
-                conflict=conflict,
+                conflict=conflict or prefs_conflict,
                 offline=offline,
             )
 
@@ -549,98 +566,190 @@ class AccountLocalStore:
         with self._lock:
             self._conn.execute("BEGIN IMMEDIATE")
             try:
+                self._acknowledge_vocab_outbox_unlocked(operation_id, record)
+                self._conn.execute("COMMIT")
+            except Exception:
+                self._conn.execute("ROLLBACK")
+                raise
+
+    def note_accepted_vocab_upload(
+        self, operation_id: str, uploaded_payload: dict, record: dict
+    ) -> None:
+        """Consume a late HTTP acceptance after the local op was superseded.
+
+        Advances the server revision watermark and rebases any newer pending
+        mutation for the same vocab_id so Y is not lost and a false conflict is
+        not introduced solely because X's acknowledgement arrived late.
+        """
+        with self._lock:
+            self._conn.execute("BEGIN IMMEDIATE")
+            try:
                 stamp = to_utc_iso(utc_now())
                 language_code = str(record["language_code"]).strip().lower()
                 vocab_id = str(record["vocab_id"])
+                # Mark the historical operation row if still visible.
+                self._conn.execute(
+                    """
+                    UPDATE outbox SET state = ?, updated_at = ?
+                    WHERE operation_id = ? AND state IN (?, ?)
+                    """,
+                    (
+                        OUTBOX_ACKED,
+                        stamp,
+                        operation_id,
+                        OUTBOX_PENDING,
+                        OUTBOX_SUPERSEDED,
+                    ),
+                )
                 local = self._conn.execute(
                     "SELECT revision, deleted, payload_json FROM vocabulary_entities "
                     "WHERE language_code = ? AND vocab_id = ?",
                     (language_code, vocab_id),
                 ).fetchone()
-                local_deleted = bool(local and int(local["deleted"]))
-                local_payload = None
-                if local and local["payload_json"]:
-                    local_payload = json.loads(local["payload_json"])
+                pending = self._pending_vocab_unlocked(language_code, vocab_id)
+                # Outbox put payloads include "payload"; delete payloads do not.
+                uploaded_delete = "payload" not in uploaded_payload
+                uploaded_body = uploaded_payload.get("payload")
+                remote_fp = _payload_fingerprint(record.get("payload"))
+                uploaded_fp = _payload_fingerprint(uploaded_body)
+                acceptance_matches_upload = bool(record.get("deleted")) == uploaded_delete and (
+                    uploaded_delete or remote_fp == uploaded_fp
+                )
+                if not acceptance_matches_upload:
+                    # Unexpected: do not clobber local state from a mismatched late ack.
+                    self._conn.execute("COMMIT")
+                    return
 
-                dirty_after_ack = False
+                base = int(record["revision"])
+                if pending is None and local is not None:
+                    # No newer local intent — adopt the accepted tip.
+                    self._apply_vocab_entity_unlocked(record)
+                    self._conn.execute("COMMIT")
+                    return
+
+                # Newer local intent exists (Y). Keep Y; only advance watermark + rebase.
                 if local is not None:
-                    if local_deleted != bool(record.get("deleted")):
-                        dirty_after_ack = True
-                    elif not local_deleted:
-                        dirty_after_ack = _payload_fingerprint(
-                            local_payload
-                        ) != _payload_fingerprint(record.get("payload"))
-
-                if dirty_after_ack and local is not None:
-                    # Keep the latest local mutation; only advance server revision.
                     self._conn.execute(
                         """
                         UPDATE vocabulary_entities
                         SET revision = ?, expected_revision = ?, updated_at = ?
                         WHERE language_code = ? AND vocab_id = ?
                         """,
+                        (base, base, stamp, language_code, vocab_id),
+                    )
+                if pending is not None:
+                    pending_payload = json.loads(pending["payload_json"])
+                    pending_payload["expected_revision"] = base
+                    self._conn.execute(
+                        """
+                        UPDATE outbox
+                        SET payload_json = ?, updated_at = ?
+                        WHERE id = ? AND state = ?
+                        """,
                         (
-                            int(record["revision"]),
-                            int(record["revision"]),
+                            json.dumps(
+                                pending_payload, ensure_ascii=False, sort_keys=True
+                            ),
                             stamp,
-                            language_code,
-                            vocab_id,
+                            int(pending["id"]),
+                            OUTBOX_PENDING,
                         ),
                     )
-                else:
-                    self._apply_vocab_entity_unlocked(record)
-
-                self._conn.execute(
-                    """
-                    UPDATE outbox SET state = ?, updated_at = ?
-                    WHERE operation_id = ? AND state = ?
-                    """,
-                    (OUTBOX_ACKED, stamp, operation_id, OUTBOX_PENDING),
-                )
-
-                if dirty_after_ack and local is not None:
-                    self._supersede_pending_vocab_unlocked(language_code, vocab_id, stamp)
-                    base = int(record["revision"])
-                    if local_deleted:
-                        if base > 0:
-                            new_op = str(uuid.uuid4())
-                            self._enqueue_outbox(
-                                kind=OUTBOX_KIND_VOCAB_DELETE,
-                                operation_id=new_op,
-                                language_code=language_code,
-                                vocab_id=vocab_id,
-                                payload={
-                                    "language_code": language_code,
-                                    "vocab_id": vocab_id,
-                                    "expected_revision": base,
-                                    "operation_id": new_op,
-                                },
-                                stamp=stamp,
-                            )
-                            _meta_set(self._conn, "vocab_caught_up", "0")
-                    else:
-                        new_op = str(uuid.uuid4())
-                        body = dict(local_payload or {})
-                        body["id"] = vocab_id
-                        self._enqueue_outbox(
-                            kind=OUTBOX_KIND_VOCAB_PUT,
-                            operation_id=new_op,
-                            language_code=language_code,
-                            vocab_id=vocab_id,
-                            payload={
-                                "language_code": language_code,
-                                "vocab_id": vocab_id,
-                                "payload": body,
-                                "expected_revision": base,
-                                "operation_id": new_op,
-                            },
-                            stamp=stamp,
-                        )
-                        _meta_set(self._conn, "vocab_caught_up", "0")
+                    _meta_set(self._conn, "vocab_caught_up", "0")
                 self._conn.execute("COMMIT")
             except Exception:
                 self._conn.execute("ROLLBACK")
                 raise
+
+    def _acknowledge_vocab_outbox_unlocked(self, operation_id: str, record: dict) -> None:
+        stamp = to_utc_iso(utc_now())
+        language_code = str(record["language_code"]).strip().lower()
+        vocab_id = str(record["vocab_id"])
+        local = self._conn.execute(
+            "SELECT revision, deleted, payload_json FROM vocabulary_entities "
+            "WHERE language_code = ? AND vocab_id = ?",
+            (language_code, vocab_id),
+        ).fetchone()
+        local_deleted = bool(local and int(local["deleted"]))
+        local_payload = None
+        if local and local["payload_json"]:
+            local_payload = json.loads(local["payload_json"])
+
+        dirty_after_ack = False
+        if local is not None:
+            if local_deleted != bool(record.get("deleted")):
+                dirty_after_ack = True
+            elif not local_deleted:
+                dirty_after_ack = _payload_fingerprint(
+                    local_payload
+                ) != _payload_fingerprint(record.get("payload"))
+
+        if dirty_after_ack and local is not None:
+            # Keep the latest local mutation; only advance server revision.
+            self._conn.execute(
+                """
+                UPDATE vocabulary_entities
+                SET revision = ?, expected_revision = ?, updated_at = ?
+                WHERE language_code = ? AND vocab_id = ?
+                """,
+                (
+                    int(record["revision"]),
+                    int(record["revision"]),
+                    stamp,
+                    language_code,
+                    vocab_id,
+                ),
+            )
+        else:
+            self._apply_vocab_entity_unlocked(record)
+
+        self._conn.execute(
+            """
+            UPDATE outbox SET state = ?, updated_at = ?
+            WHERE operation_id = ? AND state = ?
+            """,
+            (OUTBOX_ACKED, stamp, operation_id, OUTBOX_PENDING),
+        )
+
+        if dirty_after_ack and local is not None:
+            self._supersede_pending_vocab_unlocked(language_code, vocab_id, stamp)
+            base = int(record["revision"])
+            if local_deleted:
+                if base > 0:
+                    new_op = str(uuid.uuid4())
+                    self._enqueue_outbox(
+                        kind=OUTBOX_KIND_VOCAB_DELETE,
+                        operation_id=new_op,
+                        language_code=language_code,
+                        vocab_id=vocab_id,
+                        payload={
+                            "language_code": language_code,
+                            "vocab_id": vocab_id,
+                            "expected_revision": base,
+                            "operation_id": new_op,
+                        },
+                        stamp=stamp,
+                    )
+                    _meta_set(self._conn, "vocab_caught_up", "0")
+            else:
+                new_op = str(uuid.uuid4())
+                body = dict(local_payload or {})
+                body["id"] = vocab_id
+                self._enqueue_outbox(
+                    kind=OUTBOX_KIND_VOCAB_PUT,
+                    operation_id=new_op,
+                    language_code=language_code,
+                    vocab_id=vocab_id,
+                    payload={
+                        "language_code": language_code,
+                        "vocab_id": vocab_id,
+                        "payload": body,
+                        "expected_revision": base,
+                        "operation_id": new_op,
+                    },
+                    stamp=stamp,
+                )
+                _meta_set(self._conn, "vocab_caught_up", "0")
 
     # --- Progress / attempts ---
 
@@ -910,13 +1019,26 @@ class AccountLocalStore:
 
     def resolve_vocab_conflict(
         self, language_code: str, vocab_id: str, *, keep: str
-    ) -> None:
-        """Resolve a frozen vocabulary conflict. ``keep`` is ``local`` or ``server``."""
+    ) -> Optional[str]:
+        """Resolve a frozen vocabulary conflict.
+
+        ``keep``:
+          - ``server`` — discard local frozen intent; keep remote tip (including tombstone).
+          - ``local`` — re-queue local intent against the live remote tip (not allowed
+            when the remote tip is a tombstone; that would be an illegal resurrection).
+          - ``local_as_new`` — keep the remote tombstone / tip, and save the frozen local
+            PUT body as a brand-new vocabulary UUID (explicit alternative to resurrection).
+
+        Returns the new vocab_id when ``local_as_new`` creates one; otherwise ``None``.
+        """
         language_code = language_code.strip().lower()
         keep = str(keep or "").strip().lower()
-        if keep not in {"local", "server"}:
-            raise AccountLocalError("keep must be 'local' or 'server'.")
+        if keep not in {"local", "server", "local_as_new"}:
+            raise AccountLocalError(
+                "keep must be 'local', 'server', or 'local_as_new'."
+            )
         stamp = to_utc_iso(utc_now())
+        created_id: Optional[str] = None
         with self._lock:
             self._conn.execute("BEGIN IMMEDIATE")
             try:
@@ -943,28 +1065,72 @@ class AccountLocalStore:
                     (language_code, vocab_id),
                 ).fetchone()
                 server_revision = int(entity["revision"]) if entity else 0
+                server_deleted = bool(entity and int(entity["deleted"]))
+                payload = json.loads(frozen["payload_json"])
+
                 if keep == "server":
+                    # Preserve remote tip exactly (including tombstone). Discard local.
                     self._conn.execute(
                         "UPDATE outbox SET state = ?, updated_at = ? WHERE id = ?",
                         (OUTBOX_ACKED, stamp, int(frozen["id"])),
                     )
+                elif keep == "local_as_new":
+                    if frozen["kind"] != OUTBOX_KIND_VOCAB_PUT:
+                        raise AccountLocalError(
+                            "local_as_new only applies to a frozen vocabulary edit, "
+                            "not a delete."
+                        )
+                    body = dict(payload.get("payload") or {})
+                    new_id = str(uuid.uuid4())
+                    body["id"] = new_id
+                    self._conn.execute(
+                        "UPDATE outbox SET state = ?, updated_at = ? WHERE id = ?",
+                        (OUTBOX_ACKED, stamp, int(frozen["id"])),
+                    )
+                    # Original UUID remains whatever the server tip is (tombstone or live).
+                    # Enqueue a create for the new id against expected_revision 0.
+                    payload_json = json.dumps(body, ensure_ascii=False, sort_keys=True)
+                    self._conn.execute(
+                        """
+                        INSERT INTO vocabulary_entities (
+                            language_code, vocab_id, revision, deleted, payload_json,
+                            expected_revision, updated_at
+                        ) VALUES (?, ?, 0, 0, ?, 0, ?)
+                        """,
+                        (language_code, new_id, payload_json, stamp),
+                    )
+                    new_op = str(uuid.uuid4())
+                    self._enqueue_outbox(
+                        kind=OUTBOX_KIND_VOCAB_PUT,
+                        operation_id=new_op,
+                        language_code=language_code,
+                        vocab_id=new_id,
+                        payload={
+                            "language_code": language_code,
+                            "vocab_id": new_id,
+                            "payload": body,
+                            "expected_revision": 0,
+                            "operation_id": new_op,
+                        },
+                        stamp=stamp,
+                    )
+                    _meta_set(self._conn, "vocab_caught_up", "0")
+                    created_id = new_id
                 else:
-                    # Re-queue local intent against the current server tip.
-                    payload = json.loads(frozen["payload_json"])
+                    # keep == local
+                    if server_deleted and frozen["kind"] == OUTBOX_KIND_VOCAB_PUT:
+                        raise AccountLocalError(
+                            "Cannot keep local edit against a remote tombstone "
+                            "(resurrection forbidden). Use keep='local_as_new'."
+                        )
                     payload["expected_revision"] = server_revision
                     payload["operation_id"] = str(uuid.uuid4())
                     if frozen["kind"] == OUTBOX_KIND_VOCAB_DELETE:
-                        if server_revision <= 0:
-                            # Nothing on server; local delete is already satisfied.
-                            self._conn.execute(
-                                "UPDATE outbox SET state = ?, updated_at = ? WHERE id = ?",
-                                (OUTBOX_ACKED, stamp, int(frozen["id"])),
-                            )
-                        else:
-                            self._conn.execute(
-                                "UPDATE outbox SET state = ?, updated_at = ? WHERE id = ?",
-                                (OUTBOX_ACKED, stamp, int(frozen["id"])),
-                            )
+                        self._conn.execute(
+                            "UPDATE outbox SET state = ?, updated_at = ? WHERE id = ?",
+                            (OUTBOX_ACKED, stamp, int(frozen["id"])),
+                        )
+                        if server_revision > 0 and not server_deleted:
                             self._enqueue_outbox(
                                 kind=OUTBOX_KIND_VOCAB_DELETE,
                                 operation_id=payload["operation_id"],
@@ -985,6 +1151,7 @@ class AccountLocalStore:
                                     "WHERE language_code = ? AND vocab_id = ?",
                                     (server_revision, stamp, language_code, vocab_id),
                                 )
+                            _meta_set(self._conn, "vocab_caught_up", "0")
                     else:
                         body = payload.get("payload") or {}
                         body["id"] = vocab_id
@@ -1006,7 +1173,9 @@ class AccountLocalStore:
                             },
                             stamp=stamp,
                         )
-                        payload_json = json.dumps(body, ensure_ascii=False, sort_keys=True)
+                        payload_json = json.dumps(
+                            body, ensure_ascii=False, sort_keys=True
+                        )
                         self._conn.execute(
                             """
                             INSERT INTO vocabulary_entities (
@@ -1028,14 +1197,13 @@ class AccountLocalStore:
                                 stamp,
                             ),
                         )
-                    _meta_set(self._conn, "vocab_caught_up", "0")
+                        _meta_set(self._conn, "vocab_caught_up", "0")
                 detail_match = f"%{vocab_id}%"
                 self._conn.execute(
                     "UPDATE sync_conflicts SET resolved = 1 "
                     "WHERE resolved = 0 AND kind = ? AND detail LIKE ?",
                     ("vocabulary", detail_match),
                 )
-                # If no more frozen vocab outbox rows remain, clear generic vocabulary conflicts.
                 remaining = self._conn.execute(
                     "SELECT 1 FROM outbox WHERE state = ? AND kind IN (?, ?) LIMIT 1",
                     (OUTBOX_CONFLICT, OUTBOX_KIND_VOCAB_PUT, OUTBOX_KIND_VOCAB_DELETE),
@@ -1050,6 +1218,7 @@ class AccountLocalStore:
             except Exception:
                 self._conn.execute("ROLLBACK")
                 raise
+        return created_id
 
     def has_legacy_consent(self, language_code: str, source_kind: str = "guest") -> bool:
         with self._lock:

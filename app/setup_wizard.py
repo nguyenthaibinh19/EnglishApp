@@ -62,19 +62,12 @@ def _form(parent, on_success):
             config.save_account(username, token, user_id=user_id)
             try:
                 from account_sync_bootstrap import maybe_start_account_sync
-                from account_prefs import ACCOUNT_PREF_KEYS, collect_local_account_preferences
-                from study_data import active_account_store
 
-                maybe_start_account_sync()
-                # Seed prefs only when this account store has none yet.
+                # Start sync for this account only. Preferences are pulled (or seeded
+                # once for a brand-new empty server tip) inside sync_preferences_once —
+                # never copy the previous account's machine settings into the next one.
                 # Never auto-import guest vocabulary on login.
-                store = active_account_store()
-                if store is not None:
-                    existing = store.get_preferences()
-                    if not any(key in existing for key in ACCOUNT_PREF_KEYS):
-                        for key, value in collect_local_account_preferences().items():
-                            store.set_preference(key, value)
-                        store.set_preference("_prefs_dirty", True)
+                maybe_start_account_sync()
             except Exception:
                 pass
             on_success()

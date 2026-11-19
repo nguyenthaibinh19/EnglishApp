@@ -4,11 +4,11 @@
 
 ## Latest verified coordination checkpoint — 2026-11-19
 
-**Current priority:** **18C.2 signed-in GUI account sync is ACTIVE and Ready for Architect review (not merged). 18B.9 off-box is PAUSED, NOT CLOSED.** Cloud Sync production remains **OFF**.
+**Current priority:** **18C.2 signed-in GUI account sync is ACTIVE — Under Review (PR #21, Architect R1 corrections applied; not merged). 18B.9 off-box is PAUSED, NOT CLOSED.** Cloud Sync production remains **OFF**.
 
 **18C.1 CLOSED — Architect Accepted** (PR #20, merge `8e94f77491cc2f318c93fc511e258d0299ff4d03`): local core Account Sync demonstration — schema-v3 progress tables + `/api/sync/progress/*` behind the existing default-off flag; per-account local SQLite; vocabulary + event-first progress sync engine; localhost two-device demo; explicit vocabulary conflict freeze (no silent LWW).
 
-**18C.2 Ready for Architect review:** signed-in Tkinter flows read/write `AccountLocalStore` via `study_data.open_study_data()` (Vocabulary / Quiz / Progress / Mistake Book / Daily Study / Reading-Listening add / StudyMaster sync row). Preferences contract v1 (`/api/sync/preferences/*`); account day activity/streak; conflict + legacy-consent dialogs; demo `tools/demo_18c2_signed_in_gui_sync.py` + `qa-evidence/phase18c2-gui-sync/`. Guest mode still uses guest files. Full ADR-022 attempt-history ledger import remains deferred (vocab consent import only). See [PHASE-18C.2-acceptance.md](plans/PHASE-18C.2-acceptance.md). Production activation remains separately gated.
+**18C.2 Under Review (R1):** signed-in Tkinter flows via `study_data.open_study_data()`; preferences v1 without remote dirty-loop; tombstone-safe conflict resolution (`local_as_new`); in-flight late-ack rebase; real Tkinter two-profile walkthrough (`tools/gui_18c2_walkthrough.py`, evidence under `qa-evidence/phase18c2-gui-sync/gui-walkthrough/`). Guest mode still uses guest files. Full ADR-022 AttemptHistory ledger/overlap import remains deferred (vocab consent import only). See [PHASE-18C.2-acceptance.md](plans/PHASE-18C.2-acceptance.md). Production activation remains separately gated.
 
 **18B.9 historical note (paused):** SOURCE INSTALLED INACTIVE — NOT ACTIVATED. Owner-authorized VPS packaging sync applied approved main `eb869eaf310504862a10c902ea2e8803fbab0b53` (PR #16 + #17) under `/opt/language-guard-offbox/`. Installed-layout `verify`/`verify-deps` PASS; frozen 15/15 MATCH; wrapper LF pin `cc9ce5b7aadbd690f800a0a29cacfd0bbaf0c5f46d3c107ac3100ae1bc9e8427`. Off-box units remain disabled/inactive. **No** `daemon-reload`, start/enable, OAuth/Drive, credentials, backup/restore, isolation, or Cloud Sync.
 

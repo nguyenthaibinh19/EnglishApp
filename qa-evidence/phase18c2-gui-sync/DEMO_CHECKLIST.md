@@ -1,7 +1,7 @@
 # Phase 18C.2 GUI sync demo checklist
 
-- Staging server: `http://127.0.0.1:50069`
-- Work directory: `C:\Users\mrbin\AppData\Local\Temp\lg-18c2-demo-03jfhpz7`
+- Staging server: `http://127.0.0.1:63498`
+- Work directory: `C:\Users\mrbin\AppData\Local\Temp\lg-18c2-demo-zc6tbcks`
 - [x] Login account A on Device A (settings + AccountLocalStore)
 - [x] Add/edit vocabulary via study_data VocabStore facade
 - [x] Login account A on Device B — vocabulary appears without import

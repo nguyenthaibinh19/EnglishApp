@@ -1,8 +1,8 @@
 # Phase 18C.2 — Signed-in GUI account sync (acceptance / demo)
 
-**Status:** Ready for Architect review (not merged, not deployed).  
+**Status:** ACTIVE — Under Review (Architect R1 corrections applied; not merged, not deployed).  
 **Baseline:** main `8e94f77491cc2f318c93fc511e258d0299ff4d03` (18C.1 CLOSED).  
-**Preserve:** 18C.1 CLOSED · 18C.2 ACTIVE · 18B.9 PAUSED, NOT CLOSED · Cloud Sync production OFF.
+**Preserve:** 18C.1 CLOSED — Architect Accepted · 18C.2 ACTIVE — Under Review · 18B.9 PAUSED, NOT CLOSED · Cloud Sync production OFF.
 
 ## Implemented (actual GUI data path)
 
@@ -19,31 +19,51 @@ When a session token and `account_user_id` are present, these Tkinter flows use 
 
 Guest mode continues to use `vocab.json` / `progress.json` / `attempts.jsonl`.
 
+## Architect R1 corrections
+
+### F1 Preferences
+- Remote apply uses `from_remote=True` so settings mutators do **not** call `mark_preferences_dirty()`.
+- Unsynced local dirty prefs are preserved; remote is not applied over them silently.
+- Concurrent tip → deterministic `_prefs_conflict`; status is not Synced while dirty/conflict.
+- Empty-server seed uses neutral defaults (not previous account machine settings).
+- Unchanged clean sync does not bump server revision.
+
+### F2 Tombstones
+- `keep=server` preserves remote deletion.
+- `keep=local` against a tombstone is rejected (no resurrection upload).
+- `keep=local_as_new` saves frozen local PUT body under a **new UUID**; original tombstone and history remain.
+
+### F3 In-flight race
+- Late HTTP acceptance of superseded OpX calls `note_accepted_vocab_upload`, rebases pending Y, does not invent a false conflict, and does not drop Y.
+- Deterministic delayed-HTTP regression in `tests/test_18c2_r1_corrections.py`.
+
+### F4 Real GUI
+- `tools/gui_18c2_walkthrough.py` launches real `VocabularyLibraryApp`, `VocabQuizApp`, `MistakeBookApp`, `ProgressApp` on two isolated profiles.
+- Evidence: `qa-evidence/phase18c2-gui-sync/gui-walkthrough/` (PNG + `WALKTHROUGH_REPORT.json`).
+
 ## Supporting account-data features
 
-- **Preferences (contract v1):** `study_languages`, `reading_level`, `native`, `activities` via `/api/sync/preferences/{get,put}` stored in server `sync_meta` (no schema bump). Machine paths, ScreenGuard, TTS, Startup stay local.
-- **Daily activity / streak:** `account_day_buckets` from distinct attempt `vocab_id`s per UTC day; `AccountProgress.account_day_streak()`. Does not sum guest `progress.json`.
-- **Conflict UX:** `sync_conflict_app` lists local vs server versions; explicit Keep local / Keep server; blocked until resolved (`OUTBOX_CONFLICT`).
-- **Legacy import:** `legacy_import_app` preview + checkbox consent; vocabulary copy only; guest files never rewritten; no auto-import on login. Full ADR-022 attempt-history ledger import remains deferred (documented in UI).
-- **Reliability (engine reuse from 18C.1):** in-flight coalesce, lost-ack idempotent pull, offline catch-up, pending outbox, logout/`clear_account` stops engine, account switch replaces engine/store.
+- **Preferences (contract v1):** `study_languages`, `reading_level`, `native`, `activities` via `/api/sync/preferences/{get,put}` in server `sync_meta` (no schema bump).
+- **Daily activity / streak:** account day buckets from distinct attempt ids; `account_day_streak()`.
+- **Conflict UX:** Keep server / Keep local / Save local as new word (tombstone case).
+- **Legacy import:** consent-gated guest **vocabulary** copy only; guest files never rewritten; no auto-import on login.
 
 ## Demo evidence
 
-- Script: `tools/demo_18c2_signed_in_gui_sync.py`
-- Evidence: `qa-evidence/phase18c2-gui-sync/` (`demo_18c2_results.json`, `DEMO_CHECKLIST.md`)
-- Exercises the same `open_study_data()` facade as the wired Tkinter screens with two device roots + account B isolation.
+- Facade demo: `tools/demo_18c2_signed_in_gui_sync.py` → `APP_18C2_DEMO_OK`
+- GUI walkthrough: `tools/gui_18c2_walkthrough.py` → `APP_18C2_GUI_WALKTHROUGH_OK`
+- Evidence roots: `qa-evidence/phase18c2-gui-sync/`
 
 ## Tests
 
-- `tests/test_study_data_signed_in.py` (signed-in vs guest, consent import, prefs contract, day buckets)
-- Existing `tests/test_account_learning_sync.py` (18C.1 conflict/lost-ack regressions) still green
+- `tests/test_18c2_r1_corrections.py` (F1/F2/F3)
+- `tests/test_study_data_signed_in.py`
+- `tests/test_account_learning_sync.py` (18C.1 regressions)
 
-## Explicitly not done / limitations
+## Outstanding ADR-022 limitations (not claimed complete)
 
-- Full ADR-022 guest attempt JSONL ledger + overlap preflight import (vocab consent import only in 18C.2).
-- Interactive on-screen screenshot capture of two live Windows profiles is not attached; demo proves the GUI data facade + sync with isolated roots. Manual PO walkthrough uses StudyMaster sync row + Vocabulary/Quiz screens on staging.
-- Production `STUDY_SYNC_ENABLED=1` remains unset; VPS unchanged.
-- Preferences LWW uses revision; concurrent pref edits may require a follow-up sync cycle after 409.
+- Full guest **AttemptHistory** consent/overlap ledger import (JSONL identity + high-water + replacement preflight) remains deferred.
+- Vocab-only legacy import with explicit consent is implemented; do not mark full ADR-022 completion.
 
 ## Production unchanged
 

@@ -4,7 +4,7 @@ Directional plan — **not** a rigid release commitment. Update when phases comp
 
 ## Latest operational checkpoint — 2026-11-19 (supersedes older narrative below)
 
-- **Active priority: 18C.2 signed-in GUI account sync — Ready for Architect review (not merged). 18C.1 CLOSED — Architect Accepted (PR #20). 18B.9 off-box is PAUSED, NOT CLOSED. Cloud Sync OFF.**
+- **Active priority: 18C.2 signed-in GUI account sync — ACTIVE Under Review (PR #21, R1 corrections; not merged). 18C.1 CLOSED — Architect Accepted (PR #20). 18B.9 off-box is PAUSED, NOT CLOSED. Cloud Sync OFF.**
 - **SOURCE INSTALLED INACTIVE — NOT ACTIVATED** (VPS packaging sync at main `eb869ea`; PR #16+#17). See [OFFBOX_PRODUCTION_DEPLOYMENT_RUNBOOK.md](procedures/OFFBOX_PRODUCTION_DEPLOYMENT_RUNBOOK.md).
 - Post-fix Gate A/B PASS stand. Not activation. No daemon-reload in sync session.
 - Historical pre-fix audit remains **UNSAFE** ([Issue #8](https://github.com/nguyenthaibinh19/EnglishApp/issues/8#issuecomment-7009010670)). Next: Owner-authorized age/OAuth/credential stages, synthetic isolation, restore, monitoring, activation.
@@ -85,7 +85,7 @@ Emergency Exit under --lock is not verified on this build
 
 ```text
 18C.1 CLOSED — Architect Accepted (PR #20); local core demo
-18C.2 ACTIVE — Ready for Architect review: signed-in GUI data path, preferences v1, streak, conflict UX, consent import, two-profile demo (not merged)
+18C.2 ACTIVE — Under Review (PR #21 R1): signed-in GUI, prefs dirty-loop fix, tombstone-safe resolve, in-flight race, real Tk walkthrough (not merged)
 Phase 18B.9 remains OPEN but PAUSED. Google Drive 5 TB is the preferred pre-public store. No new storage subscription
 Backblaze B2 EU Central is the fallback and is not provisioned
 B2 is not assumed to be append-only. Object Lock and a deleting lifecycle stay off

@@ -116,19 +116,29 @@ class AccountSyncEngine:
             self._wake.clear()
 
     def _push_vocabulary(self) -> None:
-        # Snapshot then skip any row superseded while the HTTP call ran.
+        # Snapshot then handle rows superseded while the HTTP call ran.
         for item in list(self.store.pending_outbox(OUTBOX_KIND_VOCAB_PUT)):
             if not self.store.is_outbox_pending(item["operation_id"]):
                 continue
             record = self.client.put_vocabulary(item["payload"])
             if self.store.is_outbox_pending(item["operation_id"]):
                 self.store.acknowledge_vocab_outbox(item["operation_id"], record)
+            else:
+                # In-flight race: user saved Y while X was uploading. Consume X's
+                # acceptance without discarding Y or inventing a false conflict.
+                self.store.note_accepted_vocab_upload(
+                    item["operation_id"], item["payload"], record
+                )
         for item in list(self.store.pending_outbox(OUTBOX_KIND_VOCAB_DELETE)):
             if not self.store.is_outbox_pending(item["operation_id"]):
                 continue
             record = self.client.delete_vocabulary(item["payload"])
             if self.store.is_outbox_pending(item["operation_id"]):
                 self.store.acknowledge_vocab_outbox(item["operation_id"], record)
+            else:
+                self.store.note_accepted_vocab_upload(
+                    item["operation_id"], item["payload"], record
+                )
 
     def _pull_vocabulary(self) -> None:
         while True:

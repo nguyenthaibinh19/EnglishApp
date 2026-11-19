@@ -2,7 +2,7 @@
 
 Shows locally preserved and server-accepted versions. The learner must choose
 explicitly; nothing is overwritten silently and deletes are never resurrected
-without choosing Keep local (re-delete) or Keep server.
+without choosing Keep server or Save local as new word.
 """
 
 from __future__ import annotations
@@ -35,8 +35,10 @@ class SyncConflictApp:
         ttk.Label(
             self.root,
             text=config.ui(
-                "Chọn phiên bản giữ lại. Không có ghi đè tự động.",
-                "Choose which version to keep. Nothing is overwritten automatically.",
+                "Chọn phiên bản giữ lại. Không có ghi đè tự động. "
+                "Từ đã xóa trên máy chủ không được phục hồi cùng UUID.",
+                "Choose which version to keep. Nothing is overwritten automatically. "
+                "A server-deleted word cannot be resurrected under the same UUID.",
             ),
             style="Muted.TLabel",
             wraplength=520,
@@ -109,14 +111,21 @@ class SyncConflictApp:
         buttons.pack(anchor="w")
         ttk.Button(
             buttons,
-            text=config.ui("Giữ cục bộ", "Keep local"),
-            command=lambda: self._resolve(store, item, "local"),
-        ).pack(side=tk.LEFT, padx=(0, 8))
-        ttk.Button(
-            buttons,
             text=config.ui("Giữ máy chủ", "Keep server"),
             command=lambda: self._resolve(store, item, "server"),
-        ).pack(side=tk.LEFT)
+        ).pack(side=tk.LEFT, padx=(0, 8))
+        if item.get("server_deleted") and item.get("local_operation") == "put":
+            ttk.Button(
+                buttons,
+                text=config.ui("Lưu cục bộ thành từ mới", "Save local as new word"),
+                command=lambda: self._resolve(store, item, "local_as_new"),
+            ).pack(side=tk.LEFT)
+        elif not item.get("server_deleted"):
+            ttk.Button(
+                buttons,
+                text=config.ui("Giữ cục bộ", "Keep local"),
+                command=lambda: self._resolve(store, item, "local"),
+            ).pack(side=tk.LEFT)
 
     def _resolve(self, store, item: dict, keep: str):
         try:
