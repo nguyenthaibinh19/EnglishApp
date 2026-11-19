@@ -655,6 +655,11 @@ def cloud_sync_ui_state(
     status = (engine_status or "").strip().lower()
     if status in {"conflict"}:
         return "Conflict", engine_detail or "Action required"
+    if status in {"unavailable"}:
+        return (
+            "Server Sync unavailable",
+            engine_detail or "Data saved locally; not uploaded",
+        )
     if status in {"offline"}:
         return "Offline", engine_detail or "Server unreachable"
     if status in {"pending"}:

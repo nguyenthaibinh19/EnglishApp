@@ -38,7 +38,8 @@ class AccountSyncEngine:
     ):
         self.store = store
         self.client = client
-        self.poll_seconds = max(5.0, float(poll_seconds))
+        # Floor is low so tests can exercise the worker loop; production uses ~60s.
+        self.poll_seconds = max(0.05, float(poll_seconds))
         self.on_status = on_status
         self._wake = threading.Event()
         self._stop = threading.Event()
@@ -46,6 +47,10 @@ class AccountSyncEngine:
         self._lock = threading.Lock()
         self._backoff = 1.0
         self._last_status: Optional[SyncStatusSnapshot] = None
+        # New engine/session: allow one Sync capability probe. A prior session may
+        # have persisted unavailable=1; that must not permanently block a future
+        # authorized Sync pilot after login/account switch/engine restart.
+        self.store.set_server_sync_unavailable(False)
 
     def start(self) -> None:
         with self._lock:
@@ -86,6 +91,8 @@ class AccountSyncEngine:
             self._pull_progress()
             self._sync_preferences()
             self.store.set_offline(False)
+            # A successful cycle means Sync routes are available again.
+            self.store.set_server_sync_unavailable(False)
             self._backoff = 1.0
         except SyncOfflineError:
             self.store.set_offline(True)
@@ -96,7 +103,11 @@ class AccountSyncEngine:
             self.store.mark_conflict("local", str(error))
         except SyncClientError as error:
             # Keep pending; do not treat validation/auth as offline forever.
-            if error.status in {401, 403}:
+            if error.status == 404:
+                # Production STUDY_SYNC_ENABLED off → sync routes 404. Not Synced.
+                self.store.set_server_sync_unavailable(True)
+                self.store.set_offline(False)
+            elif error.status in {401, 403}:
                 self.store.mark_conflict("auth", str(error))
             elif error.status is None or error.status >= 500:
                 self.store.set_offline(True)
@@ -108,6 +119,18 @@ class AccountSyncEngine:
 
     def _run(self) -> None:
         while not self._stop.is_set():
+            if self.store.server_sync_unavailable():
+                # Session-scoped suspend after Sync 404: do not call sync_once.
+                # notify()/local edits may wake this wait early, but they must not
+                # re-issue Sync HTTP while unavailable. A fresh AccountSyncEngine
+                # (new login/session) clears the flag and probes once again.
+                snapshot = self.store.status()
+                self._last_status = snapshot
+                if self.on_status is not None:
+                    self.on_status(snapshot)
+                self._wake.wait(timeout=max(self.poll_seconds * 5.0, 300.0))
+                self._wake.clear()
+                continue
             self.sync_once()
             wait = self.poll_seconds
             if self.store.status().offline:

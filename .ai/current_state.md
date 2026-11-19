@@ -4,7 +4,7 @@
 
 ## Latest verified coordination checkpoint — 2026-11-19
 
-**Current priority:** **Hetzner login API controlled hotfix DEPLOYED** (`APP_HETZNER_LOGIN_HOTFIX_DEPLOYED`; UTC `2026-11-19T23:02:32Z`). Live `/opt/language-guard/account_server.py` SHA-256 `4101e111…749685b9` (login returns `token`+`user_id`+`username`; `/api/session` present). Cloud Sync **OFF**. Owner manual RC login smoke pending. Account UX / RC (PR #23). Login compat source (PR #24). **ADR-025 Accepted**. **18C.1 CLOSED**, **18C.2 CLOSED**. **18B.9 PAUSED, NOT CLOSED.** Staging **RESERVED**. Sync pilot **NO-GO**. Do not overwrite `dist/langstudyguard.exe`.
+**Current priority:** **APP-114 R1 Sync lifecycle correction ready for Architect merge** (`APP_114_VOCAB_RC_R1_FINAL_READY`, PR #25). Local 114-word RC recovery remains ACCEPTED (account `id 1`, Guest JSON unchanged). Client 404 → **Server Sync unavailable**; new engine/session clears the flag for one probe; notify does not retry HTTP while suspended. Cloud Sync **OFF**. No VPS/Sync flag change. **ADR-025 Accepted**. **18C.1 CLOSED**, **18C.2 CLOSED**. **18B.9 PAUSED, NOT CLOSED.** Staging **RESERVED**. Sync pilot **NO-GO**. Do not overwrite `dist/langstudyguard.exe`. See [APP-114-VOCAB-RECOVERY-RC-SYNC-STATUS.md](plans/APP-114-VOCAB-RECOVERY-RC-SYNC-STATUS.md).
 
 **18C.1 CLOSED — Architect Accepted** (PR #20, merge `8e94f77491cc2f318c93fc511e258d0299ff4d03`): local core Account Sync demonstration — schema-v3 progress tables + `/api/sync/progress/*` behind the existing default-off flag; per-account local SQLite; vocabulary + event-first progress sync engine; localhost two-device demo; explicit vocabulary conflict freeze (no silent LWW).
 

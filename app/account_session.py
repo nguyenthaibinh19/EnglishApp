@@ -177,6 +177,15 @@ def describe_cloud_sync() -> tuple[str, str]:
                     "Conflicts need a choice — open Sync conflicts.",
                 ),
             )
+        if label == "Server Sync unavailable":
+            return (
+                "Server Sync unavailable",
+                detail
+                or config.ui(
+                    "Đã lưu local; máy chủ chưa bật đồng bộ — chưa tải lên.",
+                    "Data saved locally; not uploaded",
+                ),
+            )
         if label == "Pending":
             return (
                 "Pending",

@@ -27,6 +27,7 @@ STATUS_SYNCED = "Synced"
 STATUS_PENDING = "Pending"
 STATUS_OFFLINE = "Offline"
 STATUS_CONFLICT = "Conflict"
+STATUS_UNAVAILABLE = "Unavailable"
 
 OUTBOX_PENDING = "pending"
 OUTBOX_ACKED = "acked"
@@ -280,6 +281,26 @@ class AccountLocalStore:
             _meta_set(self._conn, "offline", "1" if offline else "0")
             self._conn.commit()
 
+    def set_server_sync_unavailable(self, unavailable: bool) -> None:
+        """Record Sync-route availability for UI/status within the active session.
+
+        Outbox rows stay pending — this is not Synced and not a completed upload.
+        ``AccountSyncEngine`` clears this flag when a new engine/session starts so a
+        future authorized Sync pilot can probe once; a still-disabled server returns
+        to unavailable without a retry loop.
+        """
+        with self._lock:
+            _meta_set(
+                self._conn,
+                "server_sync_unavailable",
+                "1" if unavailable else "0",
+            )
+            self._conn.commit()
+
+    def server_sync_unavailable(self) -> bool:
+        with self._lock:
+            return _meta_get(self._conn, "server_sync_unavailable") == "1"
+
     def status(self) -> SyncStatusSnapshot:
         with self._lock:
             pending_vocab = self._count_pending(
@@ -288,6 +309,7 @@ class AccountLocalStore:
             pending_progress = self._count_pending((OUTBOX_KIND_PROGRESS,))
             conflict = self._has_open_conflict()
             offline = _meta_get(self._conn, "offline") == "1"
+            unavailable = _meta_get(self._conn, "server_sync_unavailable") == "1"
             vocab_caught = _meta_get(self._conn, "vocab_caught_up") == "1"
             progress_caught = _meta_get(self._conn, "progress_caught_up") == "1"
             vocab_cursor = int(_meta_get(self._conn, "vocab_cursor") or "0")
@@ -305,6 +327,12 @@ class AccountLocalStore:
             prefs_conflict = bool(prefs.get("_prefs_conflict"))
             if conflict or prefs_conflict:
                 status, detail = STATUS_CONFLICT, "Conflict / Action required"
+            elif unavailable:
+                # Distinct from Pending/Synced — production Sync flag may be OFF (404).
+                status, detail = (
+                    STATUS_UNAVAILABLE,
+                    "Data saved locally; not uploaded",
+                )
             elif offline:
                 status, detail = STATUS_OFFLINE, "Server unreachable"
             elif (
