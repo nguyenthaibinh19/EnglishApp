@@ -4,7 +4,7 @@
 
 ## Latest verified coordination checkpoint — 2026-11-19
 
-**Current priority:** **Environment identity & safe staging EXE (ADR-025) — awaiting Architect review.** **18C.1 CLOSED**, **18C.2 CLOSED — Architect Accepted (PR #21).** **18B.9 off-box is PAUSED, NOT CLOSED.** Cloud Sync production remains **OFF**. Staging EXE is built separately under `dist-staging/`; do not overwrite `dist/langstudyguard.exe`.
+**Current priority:** **ADR-025 / PR #22 — R1 safety fixes applied; awaiting Architect merge review.** **18C.1 CLOSED**, **18C.2 CLOSED — Architect Accepted (PR #21).** **18B.9 off-box is PAUSED, NOT CLOSED.** Cloud Sync production remains **OFF**. Staging is reserved for future use (EXE may exist; no staging backend/trial now). Do not overwrite `dist/langstudyguard.exe`.
 
 **18C.1 CLOSED — Architect Accepted** (PR #20, merge `8e94f77491cc2f318c93fc511e258d0299ff4d03`): local core Account Sync demonstration — schema-v3 progress tables + `/api/sync/progress/*` behind the existing default-off flag; per-account local SQLite; vocabulary + event-first progress sync engine; localhost two-device demo; explicit vocabulary conflict freeze (no silent LWW).
 

@@ -1,8 +1,10 @@
 # Product Owner — Staging EXE launch guide
 
-Short checklist for trying Language Guard **staging** without touching production data.
+Short checklist for Language Guard **staging** without touching production data.
 
-## What to open
+**Owner decision (2026-11-19):** Staging is reserved for future use. The staging EXE may be built and stored, but **no staging backend or user trial is activated now**. Near-term local testing should use an isolated **development / localhost** configuration instead.
+
+## What to open (when staging trial is later authorized)
 
 Use the staging binary only:
 

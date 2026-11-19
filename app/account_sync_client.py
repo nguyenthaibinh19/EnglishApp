@@ -84,9 +84,20 @@ class AccountSyncClient:
         request.add_header("Authorization", "Bearer " + self.token)
         request.add_header("User-Agent", "LanguageGuard-Sync")
         try:
-            with urllib.request.urlopen(request, timeout=self.timeout) as response:
+            # Never follow redirects with Bearer / learning payloads (ADR-025 F2).
+            with app_environment.open_without_redirects(request, timeout=self.timeout) as response:
                 body = json.loads(response.read().decode("utf-8"))
         except urllib.error.HTTPError as error:
+            if error.code in {301, 302, 303, 307, 308}:
+                location = error.headers.get("Location") or ""
+                try:
+                    app_environment.assert_redirect_allowed(location)
+                except app_environment.EnvironmentIdentityError as redirect_error:
+                    raise SyncClientError(str(redirect_error), status=error.code) from redirect_error
+                raise SyncClientError(
+                    "Sync server redirect refused.",
+                    status=error.code,
+                ) from error
             raw = error.read().decode("utf-8", errors="replace")
             try:
                 parsed = json.loads(raw)

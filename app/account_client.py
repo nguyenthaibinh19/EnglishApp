@@ -36,9 +36,19 @@ def _post(path: str, payload: dict, token: str = "", timeout: float = None) -> d
     if token:
         request.add_header("Authorization", "Bearer " + token)
     try:
-        with urllib.request.urlopen(request, timeout=timeout or config.OPENAI_TIMEOUT) as response:
+        # Never follow redirects — credentials must not leave the first hop (ADR-025 F2).
+        with app_environment.open_without_redirects(
+            request, timeout=timeout or config.OPENAI_TIMEOUT
+        ) as response:
             body = json.loads(response.read().decode("utf-8"))
     except urllib.error.HTTPError as error:
+        if error.code in {301, 302, 303, 307, 308}:
+            location = error.headers.get("Location") or ""
+            try:
+                app_environment.assert_redirect_allowed(location)
+            except app_environment.EnvironmentIdentityError as redirect_error:
+                raise AccountError(str(redirect_error)) from redirect_error
+            raise AccountError("Account server redirect refused.") from error
         detail = error.read().decode("utf-8", errors="replace")
         try:
             message = json.loads(detail).get("error") or detail

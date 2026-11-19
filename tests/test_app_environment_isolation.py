@@ -269,3 +269,135 @@ def test_unknown_configuration_blocks_writes():
         app_environment.assert_network_writes_allowed(
             "http://127.0.0.1:8765", identity=bad
         )
+
+
+def test_f1_lg_data_dir_rejects_production_appdata(tmp_path, monkeypatch):
+    roaming = tmp_path / "Roaming"
+    local = tmp_path / "Local"
+    prod = roaming / "langstudyguard"
+    prod.mkdir(parents=True)
+    (prod / "settings.json").write_text('{"account_token":"keep"}', encoding="utf-8")
+    before = (prod / "settings.json").read_text(encoding="utf-8")
+
+    identity = app_environment.resolve_identity(
+        manifest=_manifest("staging", tmp_path / "m"),
+        frozen=True,
+    )
+    monkeypatch.setattr(config, "environment_identity", lambda: identity)
+    monkeypatch.setenv("APPDATA", str(roaming))
+    monkeypatch.setenv("LOCALAPPDATA", str(local))
+    monkeypatch.setenv("LG_DATA_DIR", str(prod))
+
+    with pytest.raises(app_environment.EnvironmentIdentityError) as caught:
+        config.data_dir()
+    assert "production" in str(caught.value).lower()
+    assert (prod / "settings.json").read_text(encoding="utf-8") == before
+
+
+def test_f1_lg_data_dir_allows_isolated_synthetic(tmp_path, monkeypatch):
+    identity = app_environment.resolve_identity(
+        manifest=_manifest("development", tmp_path / "m"),
+        frozen=True,
+    )
+    monkeypatch.setattr(config, "environment_identity", lambda: identity)
+    synthetic = tmp_path / "synthetic-dev-data"
+    synthetic.mkdir()
+    monkeypatch.setenv("LG_DATA_DIR", str(synthetic))
+    monkeypatch.setenv("APPDATA", str(tmp_path / "Roaming"))
+    monkeypatch.setenv("LOCALAPPDATA", str(tmp_path / "Local"))
+    resolved = config.data_dir()
+    assert Path(resolved) == synthetic.resolve()
+
+
+def test_f1_rejects_overlap_into_production_install(tmp_path):
+    identity = app_environment.resolve_identity(
+        manifest=_manifest("staging", tmp_path / "m"),
+        frozen=True,
+    )
+    local = tmp_path / "Local"
+    install = local / "langstudyguard"
+    install.mkdir(parents=True)
+    err = app_environment.validate_data_root_for_identity(
+        str(install / "nested"),
+        identity,
+        appdata=str(tmp_path / "Roaming"),
+        localappdata=str(local),
+    )
+    assert err and "production" in err.lower()
+
+
+def test_f2_account_client_refuses_redirect_to_production(tmp_path, monkeypatch):
+    """Localhost issues a 302 to a production host — credentials never follow."""
+    import threading
+    from http.server import BaseHTTPRequestHandler, HTTPServer
+
+    import account_client
+
+    identity = app_environment.resolve_identity(
+        manifest=_manifest("staging", tmp_path / "m"),
+        frozen=True,
+    )
+    monkeypatch.setattr(app_environment, "get_identity", lambda refresh=False: identity)
+
+    hit = {"count": 0}
+
+    class Handler(BaseHTTPRequestHandler):
+        def do_POST(self):
+            hit["count"] += 1
+            self.send_response(302)
+            self.send_header("Location", "https://langstudyguard.com/api/login")
+            self.end_headers()
+
+        def log_message(self, *_args):
+            return
+
+    server = HTTPServer(("127.0.0.1", 0), Handler)
+    port = server.server_address[1]
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    monkeypatch.setattr(config, "ACCOUNT_SERVER_URL", f"http://127.0.0.1:{port}")
+    try:
+        with pytest.raises(account_client.AccountError) as caught:
+            account_client._post(
+                "/api/login",
+                {"username": "synth", "password": "synth-secret"},
+                token="bearer-must-not-travel",
+            )
+        message = str(caught.value).lower()
+        assert "production" in message or "redirect" in message or "refused" in message
+        assert hit["count"] == 1
+    finally:
+        server.shutdown()
+        server.server_close()
+
+
+def test_f2_assert_redirect_allowed_blocks_production_location(tmp_path):
+    identity = app_environment.resolve_identity(
+        manifest=_manifest("development", tmp_path / "m"),
+        frozen=True,
+    )
+    with pytest.raises(app_environment.RedirectRejected) as caught:
+        app_environment.assert_redirect_allowed(
+            "https://api.langstudyguard.com/v1",
+            identity=identity,
+        )
+    assert "production" in str(caught.value).lower()
+
+
+def test_f3_login_window_title_exposes_environment(tmp_path, monkeypatch):
+    import setup_wizard
+
+    for channel, expected in (
+        ("staging", "STAGING"),
+        ("development", "DEVELOPMENT"),
+        ("production", "PRODUCTION"),
+    ):
+        identity = app_environment.resolve_identity(
+            manifest=_manifest(channel, tmp_path / channel),
+            frozen=True,
+        )
+        monkeypatch.setattr(config, "environment_identity", lambda idn=identity: idn)
+        title = setup_wizard._window_title()
+        assert expected in title
+        assert "token" not in title.lower()
+        assert "password" not in title.lower()

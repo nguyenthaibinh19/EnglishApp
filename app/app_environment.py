@@ -385,6 +385,158 @@ def assert_network_writes_allowed(
         raise EnvironmentIdentityError(problem)
 
 
+def normalize_fs_path(path: str) -> str:
+    """Windows-aware absolute path with optional realpath (fail soft on errors)."""
+    raw = os.path.expandvars(os.path.expanduser((path or "").strip()))
+    if not raw:
+        return ""
+    absolute = os.path.abspath(raw)
+    try:
+        return os.path.realpath(absolute)
+    except OSError:
+        return os.path.normcase(os.path.normpath(absolute))
+
+
+def _normcase(path: str) -> str:
+    return os.path.normcase(normalize_fs_path(path))
+
+
+def production_data_dir(
+    *,
+    appdata: Optional[str] = None,
+) -> str:
+    root = appdata if appdata is not None else (os.environ.get("APPDATA") or os.path.expanduser("~"))
+    return os.path.join(root, DATA_FOLDER[ENV_PRODUCTION])
+
+
+def production_install_dir(
+    *,
+    localappdata: Optional[str] = None,
+) -> str:
+    root = (
+        localappdata
+        if localappdata is not None
+        else (os.environ.get("LOCALAPPDATA") or os.environ.get("APPDATA") or os.path.expanduser("~"))
+    )
+    return os.path.join(root, DATA_FOLDER[ENV_PRODUCTION])
+
+
+def paths_overlap(a: str, b: str) -> bool:
+    """True when either path equals or contains the other (Windows-normalized)."""
+    left = _normcase(a).rstrip("\\/")
+    right = _normcase(b).rstrip("\\/")
+    if not left or not right:
+        return False
+    if left == right:
+        return True
+    sep = os.sep
+    return left.startswith(right + sep) or right.startswith(left + sep)
+
+
+def validate_data_root_for_identity(
+    path: str,
+    identity: Optional[EnvironmentIdentity] = None,
+    *,
+    appdata: Optional[str] = None,
+    localappdata: Optional[str] = None,
+) -> Optional[str]:
+    """Return an error if a non-production build may not use this data root.
+
+    Isolated synthetic directories (including pytest temp dirs) remain allowed.
+    Production AppData / install trees are always rejected for non-production.
+    """
+    identity = identity or get_identity()
+    if identity.runtime_environment == ENV_PRODUCTION and not identity.identity_error:
+        return None
+    candidate = normalize_fs_path(path)
+    if not candidate:
+        return "empty data directory"
+    prod_data = production_data_dir(appdata=appdata)
+    prod_install = production_install_dir(localappdata=localappdata)
+    if paths_overlap(candidate, prod_data):
+        return f"non-production data root overlaps production AppData: {prod_data}"
+    if paths_overlap(candidate, prod_install):
+        return f"non-production data root overlaps production install dir: {prod_install}"
+    # Exact production folder name under AppData/LocalAppData even if env roots differ.
+    base = os.path.basename(candidate.rstrip("\\/"))
+    if os.path.normcase(base) == os.path.normcase(DATA_FOLDER[ENV_PRODUCTION]):
+        parent = os.path.basename(os.path.dirname(candidate.rstrip("\\/")))
+        # Roaming / Local are common Windows AppData leaf names.
+        if os.path.normcase(parent) in {
+            "roaming",
+            "local",
+            "application data",
+        } or paths_overlap(candidate, prod_data) or paths_overlap(candidate, prod_install):
+            return f"non-production build refused production folder name {base!r}"
+    return None
+
+
+def assert_data_root_allowed(
+    path: str,
+    *,
+    identity: Optional[EnvironmentIdentity] = None,
+    appdata: Optional[str] = None,
+    localappdata: Optional[str] = None,
+) -> str:
+    """Validate and return the normalized data root. Fail closed on isolation errors."""
+    identity = identity or get_identity()
+    problem = validate_data_root_for_identity(
+        path,
+        identity,
+        appdata=appdata,
+        localappdata=localappdata,
+    )
+    if problem:
+        raise EnvironmentIdentityError(problem)
+    return normalize_fs_path(path)
+
+
+class RedirectRejected(EnvironmentIdentityError):
+    """HTTP redirect would leak credentials or reach a forbidden host."""
+
+
+def assert_redirect_allowed(
+    location: str,
+    *,
+    identity: Optional[EnvironmentIdentity] = None,
+) -> None:
+    """Fail closed when a redirect target is forbidden for this identity.
+
+    Account/sync clients must not follow redirects; this validates the Location
+    header so tests can prove production destinations are refused without contact.
+    """
+    identity = identity or get_identity()
+    target = (location or "").strip()
+    if not target:
+        raise RedirectRejected("redirect missing Location")
+    # Relative redirects stay on the original host — still refuse to follow with credentials.
+    if "://" not in target:
+        raise RedirectRejected("credentialed requests refuse to follow redirects")
+    problem = validate_backend_for_identity(identity, target)
+    if problem:
+        raise RedirectRejected(problem)
+    # Even trusted hosts: never auto-follow with Bearer/password payloads.
+    raise RedirectRejected("credentialed requests refuse to follow redirects")
+
+
+def open_without_redirects(request: "urllib.request.Request", timeout: float):
+    """urlopen that never follows redirects (credentials stay on the first hop).
+
+    ``build_opener`` always installs ``HTTPRedirectHandler`` by default, so we
+    replace it with a handler that surfaces 3xx as ``HTTPError`` instead of
+    re-issuing the request (which would forward Authorization / body).
+    """
+    import urllib.error
+    import urllib.request
+
+    class _NoFollowRedirects(urllib.request.HTTPRedirectHandler):
+        def redirect_request(self, req, fp, code, msg, headers, newurl):
+            raise urllib.error.HTTPError(req.full_url, code, msg, headers, fp)
+
+    opener = urllib.request.build_opener(_NoFollowRedirects)
+    return opener.open(request, timeout=timeout)
+
+
 def settings_environment_marker(identity: Optional[EnvironmentIdentity] = None) -> str:
     identity = identity or get_identity()
     return identity.runtime_environment

@@ -11,12 +11,40 @@ import config
 import ui_common
 
 
+def _env_banner(parent) -> None:
+    """Compact identity before credentials (ADR-025 F3). No secrets."""
+    identity = config.environment_identity()
+    if identity.identity_error:
+        text = "ENVIRONMENT ERROR"
+        color = ui_common.COLOR_BAD
+    elif identity.runtime_environment == "production":
+        text = "PRODUCTION"
+        color = ui_common.COLOR_OK
+    elif identity.runtime_environment == "staging":
+        text = "STAGING"
+        color = ui_common.COLOR_WARN
+    else:
+        text = "DEVELOPMENT"
+        color = ui_common.COLOR_WARN
+    ttk.Label(
+        parent,
+        text=text,
+        foreground=color,
+        style="Muted.TLabel",
+    ).pack(anchor="w", pady=(0, 8))
+
+
+def _window_title() -> str:
+    return config.environment_identity().display_title("Language Guard")
+
+
 def _form(parent, on_success):
     """Vẽ form đăng nhập. `on_success` chạy trên luồng giao diện sau khi có token."""
     card = ttk.Frame(parent, padding=28)
     card.pack(fill=tk.BOTH, expand=True)
 
     ttk.Label(card, text=config.ui("Đăng nhập", "Sign in"), style="Title.TLabel").pack(anchor="w")
+    _env_banner(card)
     ttk.Label(
         card,
         text=config.ui(
@@ -96,7 +124,7 @@ def _place(window, width, height):
 def run(root: tk.Tk) -> bool:
     """Hiện form đăng nhập. Trả về True nếu đã có phiên làm việc."""
     ui_common.reset_window(root)
-    root.title(config.APP_NAME)
+    root.title(_window_title())
     root.resizable(False, False)
     ui_common.apply_theme(root)
     root.withdraw()
@@ -119,7 +147,7 @@ def run(root: tk.Tk) -> bool:
 def ask(parent) -> bool:
     """Hỏi đăng nhập lại khi server từ chối phiên cũ. Không đụng cửa sổ bài học."""
     dialog = tk.Toplevel(parent)
-    dialog.title(config.APP_NAME)
+    dialog.title(_window_title())
     dialog.resizable(False, False)
     dialog.transient(parent)
     try:

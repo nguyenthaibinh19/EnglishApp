@@ -57,23 +57,31 @@ def environment_identity():
 
 
 def data_dir() -> str:
-    """Thư mục người dùng ghi được: từ vựng, tiến độ, cài đặt."""
+    """Thư mục người dùng ghi được: từ vựng, tiến độ, cài đặt.
+
+    ``LG_DATA_DIR`` may point at an isolated synthetic directory for tests.
+    Non-production builds refuse production AppData / install paths (ADR-025 F1).
+    """
+    identity = environment_identity()
     explicit = (os.environ.get("LG_DATA_DIR") or "").strip()
     if explicit:
-        return explicit
-    identity = environment_identity()
+        return app_environment.assert_data_root_allowed(explicit, identity=identity)
     if is_frozen():
         root = os.environ.get("APPDATA") or os.path.expanduser("~")
         current = os.path.join(root, identity.data_folder)
         # Legacy DutchGuard → production only; never into staging/dev folders.
         if identity.runtime_environment == app_environment.ENV_PRODUCTION:
             _migrate_user_data(os.path.join(root, "DutchGuard"), current)
+        # Non-production frozen paths are already environment-specific folders.
+        if identity.is_non_production or identity.identity_error:
+            return app_environment.assert_data_root_allowed(current, identity=identity)
         return current
     # Source development keeps repo-root data. Staging from source uses AppData.
     if identity.runtime_environment == app_environment.ENV_DEVELOPMENT:
         return BASE_DIR
     root = os.environ.get("APPDATA") or os.path.expanduser("~")
-    return os.path.join(root, identity.data_folder)
+    current = os.path.join(root, identity.data_folder)
+    return app_environment.assert_data_root_allowed(current, identity=identity)
 
 
 def install_dir() -> str:
