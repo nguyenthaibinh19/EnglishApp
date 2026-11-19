@@ -119,7 +119,6 @@ def test_account_day_buckets_dedupe_attempts(tmp_path):
         prompt="?",
         occurred_at="2026-11-19T12:00:00+00:00",
     )
-    # Duplicate event_id path: record again with same logical answer creates new event.
     store.record_learning_attempt(
         language_code="nl",
         vocab_id=vid,
@@ -134,4 +133,80 @@ def test_account_day_buckets_dedupe_attempts(tmp_path):
     days = store.account_day_buckets("nl")
     assert "2026-11-19" in days
     assert days["2026-11-19"]["asked"] == [vid]
+    store.close()
+
+
+def test_account_day_buckets_use_occurred_at_not_received_at(tmp_path):
+    """Offline Day-1 answer uploaded on Day-3 stays on Day-1 (UTC occurred_at)."""
+    store = AccountLocalStore(11, data_root=str(tmp_path))
+    vid = new_vocab_id()
+    store.upsert_vocabulary(
+        language_code="nl",
+        vocab_id=vid,
+        payload={"id": vid, "word": "zon", "meaning": "sun"},
+    )
+    event_id = store.record_learning_attempt(
+        language_code="nl",
+        vocab_id=vid,
+        verdict="exact",
+        hint_used=False,
+        word_snapshot="zon",
+        user_answer="sun",
+        expected_answer="sun",
+        prompt="?",
+        occurred_at="2026-11-01T22:30:00+00:00",
+    )
+    # Simulate download/apply stamping a later received_at without moving the day.
+    with store._lock:
+        store._conn.execute(
+            "UPDATE learning_attempts SET received_at = ? WHERE event_id = ?",
+            ("2026-11-03T08:00:00+00:00", event_id),
+        )
+        store._conn.commit()
+    days = store.account_day_buckets("nl")
+    assert "2026-11-01" in days
+    assert "2026-11-03" not in days
+    assert days["2026-11-01"]["asked"] == [vid]
+    store.close()
+
+
+def test_account_day_buckets_utc_midnight_boundary(tmp_path):
+    store = AccountLocalStore(12, data_root=str(tmp_path))
+    vid = new_vocab_id()
+    store.upsert_vocabulary(
+        language_code="nl",
+        vocab_id=vid,
+        payload={"id": vid, "word": "maan", "meaning": "moon"},
+    )
+    store.record_learning_attempt(
+        language_code="nl",
+        vocab_id=vid,
+        verdict="wrong",
+        hint_used=False,
+        word_snapshot="maan",
+        user_answer="x",
+        expected_answer="moon",
+        prompt="?",
+        occurred_at="2026-11-02T00:15:00+00:00",
+    )
+    # Just before UTC midnight belongs to the previous UTC day.
+    store.record_learning_attempt(
+        language_code="nl",
+        vocab_id=vid,
+        verdict="exact",
+        hint_used=False,
+        word_snapshot="maan",
+        user_answer="moon",
+        expected_answer="moon",
+        prompt="?",
+        occurred_at="2026-11-01T23:45:00+00:00",
+    )
+    days = store.account_day_buckets("nl")
+    assert "2026-11-01" in days
+    assert "2026-11-02" in days
+    from study_data import AccountProgress
+
+    progress = AccountProgress(store, "nl")
+    # Streak anchored on UTC 2026-11-02 with activity that day and previous day.
+    assert progress.account_day_streak(today=__import__("datetime").date(2026, 11, 2)) == 2
     store.close()

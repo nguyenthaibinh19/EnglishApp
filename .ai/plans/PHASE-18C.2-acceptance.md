@@ -1,6 +1,6 @@
 # Phase 18C.2 — Signed-in GUI account sync (acceptance / demo)
 
-**Status:** ACTIVE — Under Review (Architect R1 corrections applied; not merged, not deployed).  
+**Status:** ACTIVE — Under Review (final data-correctness corrections applied; not merged, not deployed).  
 **Baseline:** main `8e94f77491cc2f318c93fc511e258d0299ff4d03` (18C.1 CLOSED).  
 **Preserve:** 18C.1 CLOSED — Architect Accepted · 18C.2 ACTIVE — Under Review · 18B.9 PAUSED, NOT CLOSED · Cloud Sync production OFF.
 
@@ -21,12 +21,11 @@ Guest mode continues to use `vocab.json` / `progress.json` / `attempts.jsonl`.
 
 ## Architect R1 corrections
 
-### F1 Preferences
-- Remote apply uses `from_remote=True` so settings mutators do **not** call `mark_preferences_dirty()`.
-- Unsynced local dirty prefs are preserved; remote is not applied over them silently.
-- Concurrent tip → deterministic `_prefs_conflict`; status is not Synced while dirty/conflict.
-- Empty-server seed uses neutral defaults (not previous account machine settings).
-- Unchanged clean sync does not bump server revision.
+### F1 Preferences (optimistic concurrency)
+- Local edits lock `_prefs_base_revision` to the last accepted server tip.
+- Sync compares the live remote tip to that base. If the tip moved, local dirty values are preserved and a persistent `_prefs_conflict` is set — **no auto-PUT against the new tip**.
+- Unresolved conflicts survive retry cycles until explicit `resolve_preferences_conflict(keep=local|server)` (StudyMaster “Preference conflict” dialog).
+- Remote apply uses `from_remote=True` (no dirty loop). Empty-server seed uses neutral defaults (no account-A→B leakage). Clean sync does not bump revision.
 
 ### F2 Tombstones
 - `keep=server` preserves remote deletion.
@@ -44,9 +43,9 @@ Guest mode continues to use `vocab.json` / `progress.json` / `attempts.jsonl`.
 ## Supporting account-data features
 
 - **Preferences (contract v1):** `study_languages`, `reading_level`, `native`, `activities` via `/api/sync/preferences/{get,put}` in server `sync_meta` (no schema bump).
-- **Daily activity / streak:** account day buckets from distinct attempt ids; `account_day_streak()`.
-- **Conflict UX:** Keep server / Keep local / Save local as new word (tombstone case).
-- **Legacy import:** consent-gated guest **vocabulary** copy only; guest files never rewritten; no auto-import on login.
+- **Daily activity / streak (UTC `occurred_at`):** Account-wide buckets and streak use the UTC calendar day of each attempt’s `occurred_at` (device study time). Offline Day-1 answers uploaded on Day-3 stay on Day-1. `received_at` is not used for activity bucketing. Event ids are counted once. ADR-022 SRS / `due_at` remain anchored to server `received_at`. `reading_done` in `daily_activity` is **device-local** and is not claimed as cross-device sync. Clock-skewed `occurred_at` is trusted for activity display only.
+- **Conflict UX:** Vocabulary Keep server / Keep local / Save local as new word; preferences Keep local / Keep server.
+- **Legacy import:** consent-gated guest **vocabulary** copy only; guest files never rewritten; no auto-import on login. Guest AttemptHistory ledger import remains deferred.
 
 ## Demo evidence
 

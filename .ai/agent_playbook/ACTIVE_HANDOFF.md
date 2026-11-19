@@ -4,17 +4,17 @@ Rolling coordination checkpoint. See [current_state.md](../current_state.md), [r
 
 ## 1. Checkpoint metadata
 
-- Written: 2026-11-19 (18C.2 Architect R1 corrections).
+- Written: 2026-11-19 (18C.2 final data-correctness corrections).
 - **18C.1 CLOSED — Architect Accepted** (PR #20, merge `8e94f77491cc2f318c93fc511e258d0299ff4d03`).
-- **18C.2 ACTIVE — Under Review** (PR #21; R1 prefs/tombstone/in-flight/GUI corrections). Not merged. Not deployed.
+- **18C.2 ACTIVE — Under Review** (PR #21; preference optimistic concurrency + UTC `occurred_at` day buckets). Not merged. Not deployed.
 - **18B.9 Off-box Recovery — PAUSED, NOT CLOSED**
 - Production Cloud Sync remains **OFF**.
 
 ## 2. Last results
 
 - **18C.1** Architect Accepted: schema v3, progress HTTP (default-off), per-account store/engine, conflict freeze, localhost demo.
-- **18C.2 R1:** remote-prefs dirty-loop fixed; tombstone-safe conflict resolution (`local_as_new`); late in-flight vocab ack rebases newer local edit; real Tkinter two-profile walkthrough evidence under `qa-evidence/phase18c2-gui-sync/gui-walkthrough/`.
-- Full ADR-022 AttemptHistory ledger import remains outstanding (documented).
+- **18C.2:** signed-in GUI path; tombstone-safe vocab resolve; in-flight late-ack rebase; GUI walkthrough evidence retained. Final data fixes: preference edits lock base revision (no silent concurrent overwrite); account day/streak bucket by UTC `occurred_at` (not upload `received_at`).
+- Full ADR-022 AttemptHistory ledger import remains deferred (documented).
 
 ## 3. Next after Architect review
 

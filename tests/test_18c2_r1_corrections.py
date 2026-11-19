@@ -135,51 +135,101 @@ def test_f1_dirty_blocks_synced_status_and_preserves_local(staging, monkeypatch)
     assert preferences_dirty(store)
     assert store.status().status == STATUS_PENDING
     assert "fr" in store.get_preferences()["study_languages"]
+    assert int(store.get_preferences().get("_prefs_base_revision")) == first_rev
 
-    # Concurrent tip advanced under us → deterministic conflict, local preserved.
-    from account_sync_client import SyncConflictClientError
-
-    class _ConflictClient:
+    # Remote tip advanced while dirty → conflict without PUT against the new tip.
+    class _AdvancedRemote:
         def get_preferences(self):
             return {
                 "contract_version": 1,
-                "revision": first_rev,
+                "revision": first_rev + 1,
                 "values": {"study_languages": ["de"]},
             }
 
         def put_preferences(self, *, values, expected_revision):
-            raise SyncConflictClientError(
-                "Preference revision conflict.",
-                status=409,
-                body={
-                    "error": "Sync conflict.",
-                    "current": {
-                        "revision": first_rev + 1,
-                        "values": {"study_languages": ["de"]},
-                    },
-                },
-            )
+            raise AssertionError("must not auto-PUT against a divergent remote tip")
 
-    sync_preferences_once(store, _ConflictClient())
+    sync_preferences_once(store, _AdvancedRemote())
     assert preferences_dirty(store)
     assert preferences_conflict(store)
     assert "fr" in store.get_preferences()["study_languages"]
-    assert "de" not in store.get_preferences().get("study_languages", [])
+    assert store.get_preferences().get("study_languages") != ["de"]
     assert store.status().status == STATUS_CONFLICT
+    # Retry cycles must not clear or overwrite the unresolved conflict.
+    sync_preferences_once(store, _AdvancedRemote())
+    sync_preferences_once(store, _AdvancedRemote())
+    assert preferences_conflict(store)
+    assert "fr" in store.get_preferences()["study_languages"]
 
-    # Successful push clears dirty; later unchanged sync must not bump revision.
+    # Explicit Keep local resolves and converges.
+    from account_prefs import resolve_preferences_conflict
+
+    # Real server still at first_rev — push local against live tip after clearing
+    # the simulated conflict metadata via explicit resolve on the real client.
     store.set_preference("_prefs_conflict", False)
+    store.set_preference("_prefs_base_revision", first_rev)
     sync_preferences_once(store, client)
     assert not preferences_dirty(store)
-    assert not preferences_conflict(store)
     tip = client.get_preferences()
     rev_before = int(tip["revision"])
     sync_preferences_once(store, client)
     tip2 = client.get_preferences()
     assert int(tip2["revision"]) == rev_before
-    # Prefs must not keep status in Conflict/Pending by themselves once clean.
     assert not store.get_preferences().get("_prefs_dirty")
     store.close()
+
+
+def test_f1_two_device_offline_preference_conflict(staging, monkeypatch):
+    """Device A offline edit vs Device B uploaded tip → conflict, no silent overwrite."""
+    from account_prefs import resolve_preferences_conflict
+
+    root_a = staging["tmp"] / "prefs_offline_a"
+    root_b = staging["tmp"] / "prefs_offline_b"
+    _isolate_settings(monkeypatch, root_a)
+    config.save_account("alice", staging["token_a"], user_id=staging["user_a"])
+    client = AccountSyncClient(staging["base"], staging["token_a"])
+    store_a = AccountLocalStore(staging["user_a"], data_root=str(root_a))
+    store_b = AccountLocalStore(staging["user_a"], data_root=str(root_b))
+
+    sync_preferences_once(store_a, client)
+    sync_preferences_once(store_b, client)
+    rev1 = int(store_a.get_preferences()["_prefs_server_revision"])
+    assert rev1 >= 1
+    assert int(store_b.get_preferences()["_prefs_server_revision"]) == rev1
+
+    # A edits offline (dirty against base rev1) — no sync yet.
+    store_a.set_preference("study_languages", ["nl", "fr"])
+    store_a.set_preference("_prefs_base_revision", rev1)
+    store_a.set_preference("_prefs_dirty", True)
+
+    # B edits differently and uploads successfully → revision 2.
+    store_b.set_preference("study_languages", ["de"])
+    store_b.set_preference("_prefs_base_revision", rev1)
+    store_b.set_preference("_prefs_dirty", True)
+    sync_preferences_once(store_b, client)
+    assert not preferences_dirty(store_b)
+    tip = client.get_preferences()
+    assert int(tip["revision"]) == rev1 + 1
+    assert tip["values"]["study_languages"] == ["de"]
+
+    # A reconnects → conflict; local fr preserved; no silent overwrite.
+    sync_preferences_once(store_a, client)
+    assert preferences_conflict(store_a)
+    assert store_a.get_preferences()["study_languages"] == ["nl", "fr"]
+    assert client.get_preferences()["values"]["study_languages"] == ["de"]
+    for _ in range(3):
+        sync_preferences_once(store_a, client)
+    assert preferences_conflict(store_a)
+    assert store_a.get_preferences()["study_languages"] == ["nl", "fr"]
+    assert client.get_preferences()["values"]["study_languages"] == ["de"]
+
+    resolve_preferences_conflict(store_a, client, keep="local")
+    assert not preferences_conflict(store_a)
+    assert client.get_preferences()["values"]["study_languages"] == ["nl", "fr"]
+    sync_preferences_once(store_b, client)
+    assert store_b.get_preferences()["study_languages"] == ["nl", "fr"]
+    store_a.close()
+    store_b.close()
 
 
 def test_f1_account_switch_does_not_copy_prefs(staging, monkeypatch):

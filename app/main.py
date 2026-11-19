@@ -219,6 +219,12 @@ class StudyMasterApp:
         ).pack(side=tk.LEFT, padx=(12, 0))
         ttk.Button(
             self.sync_row,
+            text=config.ui("Xung đột tùy chọn", "Preference conflict"),
+            style="Small.TButton",
+            command=self._open_prefs_conflict,
+        ).pack(side=tk.LEFT, padx=(8, 0))
+        ttk.Button(
+            self.sync_row,
             text=config.ui("Nhập guest", "Import guest"),
             style="Small.TButton",
             command=self._open_legacy_import,
@@ -613,6 +619,11 @@ class StudyMasterApp:
         from sync_conflict_app import open_sync_conflicts
 
         open_sync_conflicts(self.root, on_resolved=self._refresh_sync_status)
+
+    def _open_prefs_conflict(self):
+        from prefs_conflict_app import open_prefs_conflict
+
+        open_prefs_conflict(self.root, on_resolved=self._refresh_sync_status)
 
     def _open_legacy_import(self):
         from legacy_import_app import open_legacy_import

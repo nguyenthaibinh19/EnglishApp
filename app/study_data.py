@@ -410,8 +410,16 @@ class AccountProgress:
         }
 
     def account_day_streak(self, *, today: Optional[date] = None) -> int:
-        """Consecutive UTC days with at least one distinct attempt (account-wide)."""
-        anchor = today or date.today()
+        """Consecutive UTC calendar days with activity (matches account_day_buckets).
+
+        Anchor defaults to today's UTC date so local midnight does not shift the
+        streak relative to UTC-bucketed attempts. Reading-done alone does not
+        extend the streak (asks come from attempts).
+        """
+        if today is None:
+            anchor = utc_now().date()
+        else:
+            anchor = today
         days = self.data.get("days") or {}
         streak = 0
         cursor = anchor

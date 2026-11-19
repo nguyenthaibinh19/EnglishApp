@@ -1,5 +1,5 @@
 {
-  "staging_base": "http://127.0.0.1:63498",
+  "staging_base": "http://127.0.0.1:50949",
   "device_a_words": [],
   "device_b_words": [],
   "device_b_attempts": 0,
@@ -20,7 +20,10 @@
   },
   "prefs_a": {
     "_prefs_server_revision": 2,
+    "_prefs_base_revision": 2,
     "_prefs_conflict": false,
+    "_prefs_conflict_remote_revision": 0,
+    "_prefs_conflict_remote_values": {},
     "study_languages": [
       "nl"
     ],

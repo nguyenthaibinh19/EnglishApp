@@ -907,15 +907,35 @@ class AccountLocalStore:
         ]
 
     def account_day_buckets(self, language_code: str) -> Dict[str, dict]:
-        """Account-wide day activity from distinct attempt event_ids (UTC day).
+        """Account-wide day activity keyed by UTC calendar day of ``occurred_at``.
 
-        Device-local ``reading_done`` is merged from ``daily_activity`` only.
+        Semantics (18C.2):
+          - Bucket by the attempt's ``occurred_at`` (device study time), never by
+            ``received_at`` (upload time). An offline Day-1 answer uploaded on
+            Day-3 stays on Day-1.
+          - Days are UTC calendar dates (``YYYY-MM-DD``). Midnight boundaries use
+            the UTC instant of ``occurred_at`` after ``parse_utc``.
+          - Each ``event_id`` counts once (sync must not double-count).
+          - Distinct ``vocab_id`` lists per day still dedupe display counters.
+          - Clock skew: a future/past ``occurred_at`` is trusted for *activity*
+            display only. ADR-022 SRS fold / ``due_at`` remain anchored to server
+            ``received_at`` and are not changed here.
+          - ``reading_done`` from ``daily_activity`` is device-local and is not a
+            cross-device synchronized claim.
+
         Does not sum guest ``progress.json`` counters.
         """
         language_code = language_code.strip().lower()
         days: Dict[str, dict] = {}
+        seen_events = set()
         for item in self.list_attempts(language_code):
-            stamp = str(item.get("received_at") or item.get("occurred_at") or "")
+            event_id = str(item.get("event_id") or "")
+            if event_id:
+                if event_id in seen_events:
+                    continue
+                seen_events.add(event_id)
+            # Prefer occurred_at so offline study stays on the study day.
+            stamp = str(item.get("occurred_at") or item.get("received_at") or "")
             parsed = parse_utc(stamp)
             if parsed is None:
                 continue
