@@ -127,11 +127,24 @@ def test_units_use_trusted_interpreter_and_execution_tree() -> None:
     packager.verify_units(HETZNER)
     helper = (HETZNER / "language-guard-offbox-handoff@.service").read_text(encoding="utf-8")
     worker = (HETZNER / "language-guard-offbox-worker.service").read_text(encoding="utf-8")
+    assert (
+        "ExecStart=/usr/bin/python3 -I /opt/language-guard-offbox/offbox/snapshot_helper.py"
+        in helper
+    )
+    assert (
+        "ExecStart=/usr/bin/python3 -I "
+        "/opt/language-guard-offbox/deploy/hetzner/production_upload_worker.py"
+        in worker.replace("\n", " ")
+        or "ExecStart=/usr/bin/python3 -I /opt/language-guard-offbox/deploy/hetzner/production_upload_worker.py"
+        in worker
+    )
     for text in (helper, worker):
-        assert "/usr/bin/python3 -I /opt/language-guard-offbox/offbox/" in text
+        assert "/usr/bin/python3 -I /opt/language-guard-offbox/" in text
         assert "/opt/language-guard/venv/" not in text
         assert "venv/bin/python" not in text
         assert "PYTHONNOUSERSITE=1" in text
+    assert "production_upload_worker.py" in worker
+    assert "offbox/backup_worker.py" not in worker.split("ExecStart=", 1)[-1].split("\n", 1)[0]
 
 
 def test_verify_units_rejects_commented_expected_execstart_with_active_override(
@@ -142,9 +155,9 @@ def test_verify_units_rejects_commented_expected_execstart_with_active_override(
     worker = unit_dir / "language-guard-offbox-worker.service"
     text = worker.read_text(encoding="utf-8")
     text = text.replace(
-        "ExecStart=/usr/bin/python3 -I /opt/language-guard-offbox/offbox/backup_worker.py",
+        "ExecStart=/usr/bin/python3 -I /opt/language-guard-offbox/deploy/hetzner/production_upload_worker.py",
         (
-            "# ExecStart=/usr/bin/python3 -I /opt/language-guard-offbox/offbox/backup_worker.py\n"
+            "# ExecStart=/usr/bin/python3 -I /opt/language-guard-offbox/deploy/hetzner/production_upload_worker.py\n"
             "ExecStart=/tmp/evil-python /tmp/evil_worker.py"
         ),
     )
@@ -363,8 +376,11 @@ def test_guard_owned_site_packages_path_rejected_by_unit_markers() -> None:
         worker = unit_dir / "language-guard-offbox-worker.service"
         text = worker.read_text(encoding="utf-8")
         text = text.replace(
-            "/usr/bin/python3 -I /opt/language-guard-offbox/offbox/backup_worker.py",
-            "/opt/language-guard/venv/bin/python /opt/language-guard-offbox/offbox/backup_worker.py",
+            "/usr/bin/python3 -I /opt/language-guard-offbox/deploy/hetzner/production_upload_worker.py",
+            (
+                "/opt/language-guard/venv/bin/python "
+                "/opt/language-guard-offbox/deploy/hetzner/production_upload_worker.py"
+            ),
         )
         worker.write_text(text, encoding="utf-8")
         with pytest.raises(ValueError, match="forbidden marker|ExecStart"):
@@ -455,7 +471,7 @@ def test_hash_mismatch_fail_closed_writes_nothing(tmp_path: Path) -> None:
     for path in (HETZNER / "offbox").iterdir():
         if path.is_file():
             (fake_offbox / path.name).write_bytes(path.read_bytes())
-    for name in UNIT_NAMES + ("install_offbox_packaging.py", "offbox_report_lines.py"):
+    for name in UNIT_NAMES + ("install_offbox_packaging.py", "offbox_report_lines.py", "production_upload_worker.py"):
         (fake_root / name).write_bytes((HETZNER / name).read_bytes())
     (fake_offbox / "framing.py").write_bytes(b"tampered\n")
     dest = tmp_path / "language-guard-offbox"
@@ -609,7 +625,7 @@ def test_install_fails_before_write_on_ld_preload_environment(tmp_path: Path) ->
     for path in (HETZNER / "offbox").iterdir():
         if path.is_file():
             (fake_offbox / path.name).write_bytes(path.read_bytes())
-    for name in UNIT_NAMES + ("install_offbox_packaging.py", "offbox_report_lines.py"):
+    for name in UNIT_NAMES + ("install_offbox_packaging.py", "offbox_report_lines.py", "production_upload_worker.py"):
         (fake_root / name).write_bytes((HETZNER / name).read_bytes())
     worker = fake_root / "language-guard-offbox-worker.service"
     worker.write_text(
@@ -634,7 +650,7 @@ def test_verify_units_rejects_execstartpre_even_with_approved_execstart(
     worker = unit_dir / "language-guard-offbox-worker.service"
     text = worker.read_text(encoding="utf-8")
     text = text.replace(
-        "ExecStart=/usr/bin/python3 -I /opt/language-guard-offbox/offbox/backup_worker.py",
+        "ExecStart=/usr/bin/python3 -I /opt/language-guard-offbox/deploy/hetzner/production_upload_worker.py",
         (
             "ExecStartPre=/tmp/evil\n"
             "ExecStart=/usr/bin/python3 -I "
@@ -668,7 +684,7 @@ def test_verify_units_rejects_execstart_outside_service_section(
     worker = unit_dir / "language-guard-offbox-worker.service"
     text = worker.read_text(encoding="utf-8")
     text = text.replace(
-        "ExecStart=/usr/bin/python3 -I /opt/language-guard-offbox/offbox/backup_worker.py\n",
+        "ExecStart=/usr/bin/python3 -I /opt/language-guard-offbox/deploy/hetzner/production_upload_worker.py\n",
         "",
     )
     text = text.replace(
@@ -694,12 +710,12 @@ def test_install_fails_before_write_when_units_have_execstartpre(
     for path in (HETZNER / "offbox").iterdir():
         if path.is_file():
             (fake_offbox / path.name).write_bytes(path.read_bytes())
-    for name in UNIT_NAMES + ("install_offbox_packaging.py", "offbox_report_lines.py"):
+    for name in UNIT_NAMES + ("install_offbox_packaging.py", "offbox_report_lines.py", "production_upload_worker.py"):
         (fake_root / name).write_bytes((HETZNER / name).read_bytes())
     worker = fake_root / "language-guard-offbox-worker.service"
     worker.write_text(
         worker.read_text(encoding="utf-8").replace(
-            "ExecStart=/usr/bin/python3 -I /opt/language-guard-offbox/offbox/backup_worker.py",
+            "ExecStart=/usr/bin/python3 -I /opt/language-guard-offbox/deploy/hetzner/production_upload_worker.py",
             (
                 "ExecStartPre=/bin/true\n"
                 "ExecStart=/usr/bin/python3 -I "

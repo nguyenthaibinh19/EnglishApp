@@ -44,6 +44,7 @@ def test_packager_verify_cli_ok() -> None:
     assert result.returncode == 0, result.stderr
     assert "VERIFY_OK" in result.stdout
     assert "modules=15" in result.stdout
+    assert "wrapper=production_upload_worker.py" in result.stdout
 
 
 def test_resolve_offbox_dir_repo_layout() -> None:
@@ -156,7 +157,7 @@ def _clone_hetzner_tree(tmp_path: Path) -> Path:
     for path in (HETZNER / "offbox").iterdir():
         if path.is_file():
             (fake_offbox / path.name).write_bytes(path.read_bytes())
-    for name in UNIT_NAMES + ("install_offbox_packaging.py", "offbox_report_lines.py"):
+    for name in UNIT_NAMES + ("install_offbox_packaging.py", "offbox_report_lines.py", "production_upload_worker.py"):
         (fake_root / name).write_bytes((HETZNER / name).read_bytes())
     return fake_root
 

@@ -5,25 +5,27 @@ Rolling coordination checkpoint. The detailed history remains in [current_state.
 ## 1. Checkpoint metadata
 
 - Written: 2026-11-19.
-- **PR #16 SOURCE MERGED — VPS PACKAGER NOT UPDATED.**
-- Merge: `bf5442b532cb514aa6c5ca442d21ac1aa7afb3b5` (approved head `40e31908655a39ca0147802f0e3105e30ca9f558`).
-- Post-fix Gate A PASS + Gate B CONFIG PASS remain current VPS evidence. Historical pre-fix audit **UNSAFE**; D5A2D2/D5A2D3 **FAIL** preserved.
+- **APP_18B9_PRODUCTION_UPLOAD_ENTRYPOINT_R3 — SOURCE IMPLEMENTED / READY FOR MERGE REVIEW.**
+- Worktree baseline: `f1b29f5f3a6fe7021f8a3311ead2784b4ee2e039`.
+- Branch: `phase18b9/production-upload-entrypoint-r1` (local only; **no source commit/push/PR**).
+- Review package: `diff/app-18b9-production-upload-entrypoint-r3.diff` (+ review folder).
+- Prior: R2 F2/F3 accepted; R3 closes F1 LF/CRLF pin portability. PR #16 SOURCE MERGED — VPS PACKAGER NOT UPDATED. Historical pre-fix audit **UNSAFE**; D5A2D2/D5A2D3 **FAIL** preserved.
 
 ## 2. Last completed / accepted results
 
-- Inactive install + post-fix audit/config (Issue #8) — accepted; VPS units inactive.
-- **PR #16 MERGED:** installed-layout packager `verify`/`verify-deps` via `resolve_offbox_dir()`; production reuse runbook; Architect-accepted docs corrections. Frozen 15 modules unchanged.
-- **SOURCE GAP (preserved):** production upload entrypoint — current `backup_worker.main()` refuses live-upload env and does not wire transport/exchanger.
-- **OAuth client ID/(optional) secret** least-privilege delivery still not designed.
-- Isolation must use synthetic harness only (never production `accounts.db` / unauthorized Drive).
+- Inactive install + post-fix Gate A/B PASS; VPS units inactive.
+- **R3 local source (LF pin portability; not yet merged):**
+  - **F1 (R3):** Wrapper LF-normalized; `.gitattributes` `eol=lf`; pin `cc9ce5b7aadbd690f800a0a29cacfd0bbaf0c5f46d3c107ac3100ae1bc9e8427` matches working-tree + Git blob; CRLF digest rejected by regression test.
+  - **F2/F3:** Unchanged from accepted R2.
+- Distinctions: source implemented ≠ reviewed/merged; offline tests ≠ production verification; credential contract ≠ provisioned secrets; installed ≠ enabled ≠ operational.
 
 ## 3. Next App task
 
-1. **NOT AUTHORIZED without new Owner approval:** VPS packager sync, age/OAuth/Drive credential install, isolation execution, restore drill, monitoring, activation.
-2. Future source work: production upload entrypoint + OAuth client delivery design (separate PRs).
-3. Canonical runbook: [OFFBOX_PRODUCTION_DEPLOYMENT_RUNBOOK.md](../procedures/OFFBOX_PRODUCTION_DEPLOYMENT_RUNBOOK.md).
+1. **Architect final review** of R2 package; explicit approval before source commit/push/PR.
+2. After merge: Owner-authorized VPS packager sync, credentials, synthetic isolation, restore, monitoring, activation — each separately authorized.
 
 ## 4. STOP / boundaries
 
 - No SSH/VPS, Google API, credential provisioning, isolation execution, or activation without new Owner approval.
-- Phase 18B.9 **OPEN / PRODUCTION NOT READY**. Drive **NOT CONFIGURED**. Cloud Sync **OFF**. AI-M4 **NOT AUTHORIZED**.
+- No source commit/push/PR until Architect review and explicit approval.
+- Phase 18B.9 **OPEN / PRODUCTION NOT READY**. Drive **NOT CONFIGURED**. Cloud Sync **OFF**.

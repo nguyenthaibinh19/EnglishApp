@@ -20,12 +20,12 @@ Gate A **PASS** + Gate B **CONFIG PASS**.
 | Native age v1.3.2 Linux amd64 + `age1pq1` encrypt path (D5A2B3) | **VALIDATED** (lab) / **LOCAL ONLY** binary | Lab PASS `ENCRYPTED`; WSL binary present; **not** on VPS |
 | Lab age archive SHA-256 `cbe24006…` / binary SHA-256 `eb7dd1b5…` | **VALIDATED** artifact identity | Reusable as *versioned binary bytes*; not a secret |
 | Lab `age1pq1` recipient + offline identity | **LOCAL ONLY** | Public recipient prefix/length observed in preflight; **do not reuse for production** |
-| HTTPS Drive adapter + oauth refresh exchange libraries (D5A2C1-R1) | **VALIDATED** (source-merged) | Reusable libraries; see **SOURCE GAP** for production entrypoint |
-| Production worker entrypoint that wires transport/exchanger into `run()` | **SOURCE GAP** | Current `backup_worker.main()` refuses live-upload env and does not pass transport args |
+| HTTPS Drive adapter + oauth refresh exchange libraries (D5A2C1-R1) | **VALIDATED** (source-merged) | Reusable libraries |
+| Production worker entrypoint that wires transport/exchanger into `run()` | **SOURCE IMPLEMENTED (R2 local) — NOT REVIEWED/MERGED/DEPLOYED** | Wrapper + independent integrity pin; inactive exit≠off-box success; frozen `main()` unchanged |
 | D5A2C2 one-shot synthetic Drive `VERIFIED` | **VALIDATED** (historical one-shot) | Ciphertext `a423f281…`; **do not rerun**; not production |
 | D5A2C2 External Testing OAuth refresh (~7-day) | **LOCAL ONLY** / expired-policy | Unsuitable for unattended production |
 | Production GCP project / durable consent / Desktop client | **PRODUCTION MISSING** | Owner action |
-| OAuth client ID (+ optional client secret) least-privilege delivery | **PRODUCTION MISSING** / **not designed** | Required by `GoogleRefreshExchanger`; not covered by `oauth-refresh` alone |
+| OAuth client ID (+ optional client secret) least-privilege delivery | **CONTRACT DESIGNED (R1)** / **PRODUCTION MISSING** | LoadCredential names designed; real files not provisioned |
 | Production Drive folder id | **PRODUCTION MISSING** | Owner action; My Drive; scope `drive.file` |
 | VPS age binary at `/usr/local/lib/language-guard-age/age` | **PRODUCTION MISSING** | Unit `LG_AGE_BIN` already points here |
 | VPS public recipient `/etc/language-guard/age-recipient` | **PRODUCTION MISSING** | Public only; never identity |
@@ -55,22 +55,25 @@ Observed from accepted docs/labs (no credential files opened this task):
 
 - Scope: exactly `https://www.googleapis.com/auth/drive.file`.
 - Refresh token alone is insufficient: `oauth_exchange.GoogleRefreshExchanger(transport, client_id, client_secret="")` also needs a **client ID** and may need a **client secret**.
-- Current production unit template only declares `LoadCredential=oauth-refresh:…`. Client ID/secret delivery is **not designed/provisioned** (must not place raw secrets in process environment, unit files, git, issues, or chat). Future design must use least-privilege delivery comparable to LoadCredential/root-owned files, reviewed separately.
+- R1 designs LoadCredential delivery for `oauth-client-id`, optional `oauth-client-secret`, `drive-folder-id`, and `upload-activation` (see [OFFBOX_OAUTH_CREDENTIALS_RUNBOOK.md](OFFBOX_OAUTH_CREDENTIALS_RUNBOOK.md)). Default unit template still declares **only** `LoadCredential=oauth-refresh:…` so missing activation files keep the worker inert. **Provisioning remains Owner-only and absent.**
 - Helper must never see tokens or client secrets (`InaccessiblePaths` includes `/etc/language-guard` and `/run/credentials`).
 - D5A2C2 used External Testing refresh policy (~7 days after consent) — **not** production-durable.
 - Publishing status of any existing GCP project: **UNKNOWN**.
 - Whether a prior lab folder/client can be reused: **UNKNOWN** and **not recommended**.
 
-### SOURCE GAP — production upload entrypoint (not an env toggle)
+### Production upload entrypoint R2 (source implemented; not merged/deployed)
 
-The Drive **adapter libraries** are validated and reusable. That is **not** the same as a production-ready worker entrypoint.
+The Drive **adapter libraries** are validated and reusable. R2 (after Architect F1–F3 on R1) keeps a separate orchestration wrapper **outside** the 15 frozen modules:
 
-Frozen `backup_worker.main()` today:
+- Path: `deploy/hetzner/production_upload_worker.py` (installed under `/opt/language-guard-offbox/deploy/hetzner/`).
+- Reuses frozen `backup_worker.run()`, `HttpsTransport`, and `GoogleRefreshExchanger`.
+- Frozen `backup_worker.main()` behavior is **preserved**: `LG_DRIVE_FOLDER` / `LG_UPLOAD_ENABLED` still exit `live-transport-disabled`.
+- **Packaging (F1/R3):** independent `ACCEPTED_PRODUCTION_UPLOAD_WORKER_SHA256` pin on **LF-canonical** wrapper bytes (`.gitattributes` `eol=lf`); never pin CRLF working-tree digests. `verify` / `verify-deps` / stage / install reject missing/modified/symlinked wrapper; wrapper deps stdlib+frozen only. Pin is **not** part of D5A2D0-P1.
+- Default/disabled: without valid `upload-activation=authorized` (+ folder/client/refresh), inactive or fail-closed — **no network**. Symlinks/dangling/non-regular activation entries fail closed (F3). `LG_RESUME` accepts only `""` or `"1"`.
+- Upload mode: HTTPS transport + exchanger; object `accounts-{attempt_id}.age`; resume preserves remote identity.
+- **Exit codes (F2):** upload → `0` only for `VERIFIED` / `RECONCILED`. Inactive encrypt-only may record attempt state `ENCRYPTED` but process exits `INACTIVE_NOT_OFFBOX_EXIT=3` (never systemd off-box success). Hard failures exit `1`.
 
-1. If `LG_DRIVE_FOLDER` or `LG_UPLOAD_ENABLED` is set → exits `live-transport-disabled` (fail-closed).
-2. If those env vars are absent → calls `run(...)` **without** `transport`, `token_exchanger`, `folder_id`, or `object_name`, so the default `transport=None` path stops at **`ENCRYPTED`** and never invokes Drive.
-
-Therefore setting upload env vars on the current unit is **not** activation and must not be treated as such. Before any live upload or activation, a **separately reviewed SOURCE** change is required: an authorized production orchestration/entrypoint (for example a reviewed wrapper that constructs approved HTTPS transport + `GoogleRefreshExchanger` and invokes existing `run()` with folder/object arguments), plus focused tests. **Do not edit the 15 frozen modules in opportunistic patches**; design and gates come under a future Architect-reviewed PR and Owner authorization. Until that lands, classify production upload wiring as **SOURCE GAP**.
+**Status:** SOURCE IMPLEMENTED (R2) for final Architect review. **Not** merged. **Not** installed/enabled/operational on VPS.
 
 ## 4. Staged execution package (Owner-authorized sessions later)
 
@@ -90,18 +93,18 @@ Each stage needs its own Product Owner authorization. This file is not permissio
 4. Record offline (Owner store only): **client ID** (non-secret identifier but still sensitive operationally), **client secret if required**, refresh token, My Drive folder id.
 5. Consent once; store refresh token offline for later VPS install only.
 6. Create/designate a My Drive folder owned by that identity; record folder id offline.
-7. Explicitly plan least-privilege VPS delivery for client ID/(optional) secret — **not designed yet**; no raw secrets in environment or GitHub.
+7. Follow R1 LoadCredential contract for client ID/(optional) secret / folder / activation — **provision later**; no raw secrets in environment or GitHub.
 8. See also [OFFBOX_OAUTH_CREDENTIALS_RUNBOOK.md](OFFBOX_OAUTH_CREDENTIALS_RUNBOOK.md).
 
 ### Stage 2 — Safe VPS credential/binary provisioning (write session)
 
-Install only. Still **no** timer enable, **no** live-upload env, and **no** production entrypoint activation:
+Install only. Still **no** timer enable and **no** production upload activation:
 
 1. Install age v1.3.2 binary to `/usr/local/lib/language-guard-age/age` (`root:root 0755`); verify SHA-256.
 2. Install public recipient to `/etc/language-guard/age-recipient` (`root:root 0640` or stricter as approved); confirm prefix `age1pq1`, no `AGE-SECRET`.
 3. Install `oauth-refresh` for `LoadCredential` (`root:root 0400`).
-4. Client ID/(optional) secret provisioning waits for the reviewed delivery design (Stage 1 item 7 / SOURCE GAP).
-5. Optionally sync packager fix into `/opt/language-guard-offbox` if the source PR is merged (modules stay frozen).
+4. After R1 merge + Owner approval: install LoadCredential files for client-id / optional client-secret / folder-id; keep `upload-activation` absent until activation gate.
+5. Sync packager/execution tree (PR #16 + R1) into `/opt/language-guard-offbox` when authorized (modules stay frozen).
 6. Re-run static verify from installed packager; confirm units still inactive.
 
 ### Stage 3 — Controlled isolation tests (execution session)
@@ -129,13 +132,13 @@ Preserve historical D2/D3 FAIL labels. Production units remain disabled/inactive
 
 1. Synthetic or explicitly approved non-production artifact encrypt path.
 2. Offline decrypt + `PRAGMA integrity_check` on clean host ([OFFBOX_CLEAN_HOST_RESTORE_RUNBOOK.md](OFFBOX_CLEAN_HOST_RESTORE_RUNBOOK.md)).
-3. Live production-folder upload requires: merged production entrypoint (**SOURCE GAP** closed), durable OAuth delivery including client ID/(optional) secret, and a dedicated Owner activation approval. Until then, no upload.
+3. Live production-folder upload requires: Architect-merged R1 entrypoint, durable OAuth delivery including client ID/(optional) secret, LoadCredential activation, and a dedicated Owner activation approval. Until then, no upload.
 
 ### Stage 5 — Monitoring + activation criteria
 
 Before enablement:
 
-- Production entrypoint SOURCE GAP closed and Architect-accepted.
+- Production entrypoint R1 Architect-accepted and merged; VPS tree updated; still inactive until activation.
 - Off-box lines wired into 09:00 report ([OFFBOX_MONITORING_SCHEDULE_TEMPLATES.md](OFFBOX_MONITORING_SCHEDULE_TEMPLATES.md)); default Drive line remains **NOT CONFIGURED** until production-eligible provenance.
 - Separate Healthchecks missed-job URL (not the report heartbeat).
 - Explicit Owner acceptance of RPO/RTO proposals (26h / 4h remain proposals).
@@ -146,11 +149,11 @@ Before enablement:
 - [ ] New production age identity (offline) + public recipient
 - [ ] Dedicated production GCP project + durable OAuth consent + Desktop client
 - [ ] Production refresh token + client ID + (if required) client secret + My Drive folder id
-- [ ] Approve least-privilege client ID/secret delivery design (separate source review)
-- [ ] Authorize VPS age binary + recipient + oauth-refresh install
+- [ ] Architect-review / merge R1 production upload entrypoint + credential contract
+- [ ] Authorize VPS packager sync (PR #16 + R1) while units stay inactive
+- [ ] Authorize VPS age binary + recipient + oauth-refresh (+ later client/folder files) install
 - [ ] Authorize synthetic-only isolation execution package
-- [ ] Authorize / merge production upload entrypoint SOURCE GAP + tests
-- [ ] Authorize restore drill / first production-eligible upload
+- [ ] Authorize restore drill / first production-eligible upload (requires `upload-activation`)
 - [ ] Authorize monitoring wiring and, separately, timer activation
 
 ## 6. Explicit non-goals

@@ -1,9 +1,11 @@
 # TEMPLATE ONLY — not installed by default. Not enabled by setup.sh.
 # No StateDirectory= on /var/lib/language-guard-backup (D5A2A ownership hazard).
-# No age private identity on the host. OAuth refresh via LoadCredential only.
-# Live upload stays fail-closed: do not set LG_DRIVE_FOLDER or LG_UPLOAD_ENABLED
-# until a separate activation gate. Missing oauth-refresh fails closed on start.
-# Runtime trust: ExecStart uses system /usr/bin/python3 -I and modules under
+# No age private identity on the host. OAuth credentials via LoadCredential only.
+# Production upload stays fail-closed: ExecStart uses production_upload_worker.py,
+# which performs network upload only when LoadCredential upload-activation plus
+# drive-folder-id / oauth-client-id (and oauth-refresh) are present. Do not set
+# LG_DRIVE_FOLDER or LG_UPLOAD_ENABLED. Missing oauth-refresh fails closed.
+# Runtime trust: ExecStart uses system /usr/bin/python3 -I under
 # /opt/language-guard-offbox (root-owned sibling of the guard app tree).
 [Unit]
 Description=Language Guard off-box backup worker
@@ -43,5 +45,5 @@ ReadOnlyPaths=/opt/language-guard-offbox
 ReadWritePaths=/var/lib/language-guard-backup
 InaccessiblePaths=-/opt/language-guard/accounts.db -/var/lib/language-guard-helper -/opt/language-guard/venv
 LoadCredential=oauth-refresh:/etc/language-guard/oauth-refresh
-ExecStart=/usr/bin/python3 -I /opt/language-guard-offbox/offbox/backup_worker.py
+ExecStart=/usr/bin/python3 -I /opt/language-guard-offbox/deploy/hetzner/production_upload_worker.py
 TimeoutStartSec=300
