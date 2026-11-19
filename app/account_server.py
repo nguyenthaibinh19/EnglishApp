@@ -62,13 +62,28 @@ class Handler(BaseHTTPRequestHandler):
             return
         try:
             if self.path == "/api/login":
-                token = account_store.login(str(payload.get("username") or ""), str(payload.get("password") or ""))
+                # Contract for Account UX / RC clients: token + stable server user_id.
+                # Older clients that only read ``token`` remain compatible. Never omit
+                # user_id for a successful login — that surfaces as a desktop error.
+                token = account_store.login(
+                    str(payload.get("username") or ""),
+                    str(payload.get("password") or ""),
+                )
                 user = account_store.user_for_token(token)
-                body = {"token": token}
-                if user is not None:
-                    body["user_id"] = int(user["id"])
-                    body["username"] = user["username"]
-                self._send(200, body)
+                if user is None:
+                    self._send(
+                        500,
+                        {"error": "Không xác định được tài khoản sau đăng nhập."},
+                    )
+                    return
+                self._send(
+                    200,
+                    {
+                        "token": token,
+                        "user_id": int(user["id"]),
+                        "username": user["username"],
+                    },
+                )
                 return
             token = _bearer(self.headers.get("Authorization") or "") or str(payload.get("token") or "").strip()
             user = account_store.user_for_token(token)

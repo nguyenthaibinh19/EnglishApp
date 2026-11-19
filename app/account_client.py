@@ -97,7 +97,12 @@ def login(username: str, password: str) -> str:
 
 
 def login_session(username: str, password: str) -> tuple:
-    """Return ``(token, user_id)`` for account-local sync bootstrap."""
+    """Return ``(token, user_id)`` for account-local sync bootstrap.
+
+    ``user_id`` must be the server-issued integer from ``/api/login`` (or, when
+    the login body is an older token-only shape, from ``/api/session``). The
+    client never invents or derives it from the username.
+    """
     body = _post("/api/login", {"username": username, "password": password}, timeout=20)
     token = str(body.get("token") or "")
     if not token:
@@ -106,6 +111,14 @@ def login_session(username: str, password: str) -> tuple:
         user_id = int(body.get("user_id") or 0)
     except (TypeError, ValueError):
         user_id = 0
+    if user_id < 1:
+        # Compatibility path for a server that issues a token but still omits
+        # user_id on /api/login while already exposing /api/session.
+        try:
+            session = _post("/api/session", {}, token, timeout=8)
+            user_id = int(session.get("user_id") or 0)
+        except (AccountError, TypeError, ValueError):
+            user_id = 0
     if user_id < 1:
         raise AccountError("Máy chủ không trả về user_id.")
     return token, user_id

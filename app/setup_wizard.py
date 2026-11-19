@@ -17,6 +17,10 @@ def _env_banner(parent) -> None:
     if identity.identity_error:
         text = "ENVIRONMENT ERROR"
         color = ui_common.COLOR_BAD
+    elif getattr(identity, "rc_smoke", False):
+        # RC must not look like a fully activated production install.
+        text = "PRODUCTION BACKEND · RC TEST DATA"
+        color = ui_common.COLOR_WARN
     elif identity.runtime_environment == "production":
         text = "PRODUCTION"
         color = ui_common.COLOR_OK
