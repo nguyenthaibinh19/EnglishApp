@@ -27,6 +27,7 @@ Status: **18C.1 local core sync demonstration** (Architect review). Not producti
 - Signed-in Tkinter study and vocabulary flows still read/write **guest** machine-global files.
 - Login does **not** auto-import guest data into an account.
 - Cross-device daily streak / account preferences / consent migration remain **18C.2**.
+- Divergent vocabulary edits across devices record **Conflict / Action required** and freeze the local mutation without silent last-write-wins; resolution UI is **18C.2**.
 
 ## 18C.2 roadmap (deferred)
 

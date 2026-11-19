@@ -31,6 +31,7 @@ STATUS_CONFLICT = "Conflict"
 OUTBOX_PENDING = "pending"
 OUTBOX_ACKED = "acked"
 OUTBOX_SUPERSEDED = "superseded"
+OUTBOX_CONFLICT = "conflict"
 OUTBOX_KIND_VOCAB_PUT = "vocab_put"
 OUTBOX_KIND_VOCAB_DELETE = "vocab_delete"
 OUTBOX_KIND_PROGRESS = "progress"
@@ -271,7 +272,7 @@ class AccountLocalStore:
             vocab_cursor = int(_meta_get(self._conn, "vocab_cursor") or "0")
             progress_cursor = int(_meta_get(self._conn, "progress_cursor") or "0")
             if conflict:
-                status, detail = STATUS_CONFLICT, "Unresolved sync conflict"
+                status, detail = STATUS_CONFLICT, "Conflict / Action required"
             elif offline:
                 status, detail = STATUS_OFFLINE, "Server unreachable"
             elif pending_vocab or pending_progress or not vocab_caught or not progress_caught:
@@ -904,6 +905,34 @@ class AccountLocalStore:
             ).fetchone()
         return row is not None
 
+    def conflicted_vocab_outbox(self, language_code: str, vocab_id: str) -> List[dict]:
+        """Local mutations frozen for 18C.2 resolution (not uploaded)."""
+        language_code = language_code.strip().lower()
+        with self._lock:
+            rows = self._conn.execute(
+                """
+                SELECT * FROM outbox
+                WHERE state = ?
+                  AND language_code = ?
+                  AND vocab_id = ?
+                  AND kind IN (?, ?)
+                ORDER BY id ASC
+                """,
+                (
+                    OUTBOX_CONFLICT,
+                    language_code,
+                    vocab_id,
+                    OUTBOX_KIND_VOCAB_PUT,
+                    OUTBOX_KIND_VOCAB_DELETE,
+                ),
+            ).fetchall()
+        result = []
+        for row in rows:
+            item = dict(row)
+            item["payload"] = json.loads(row["payload_json"])
+            result.append(item)
+        return result
+
     def mark_conflict(self, kind: str, detail: str) -> None:
         with self._lock:
             self._record_conflict_unlocked(kind, detail)
@@ -1016,39 +1045,15 @@ class AccountLocalStore:
             ),
         ).fetchone()
 
-    def _rebase_pending_vocab_unlocked(
-        self, language_code: str, vocab_id: str, server_revision: int, stamp: str
-    ) -> None:
-        """Point the coalesced pending op at the newer server base revision."""
-        pending = self._pending_vocab_unlocked(language_code, vocab_id)
-        if pending is None:
-            return
-        payload = json.loads(pending["payload_json"])
-        payload["expected_revision"] = int(server_revision)
-        self._conn.execute(
-            """
-            UPDATE outbox
-            SET payload_json = ?, updated_at = ?
-            WHERE id = ? AND state = ?
-            """,
-            (
-                json.dumps(payload, ensure_ascii=False, sort_keys=True),
-                stamp,
-                int(pending["id"]),
-                OUTBOX_PENDING,
-            ),
-        )
-        self._conn.execute(
-            """
-            UPDATE vocabulary_entities
-            SET revision = ?, expected_revision = ?, updated_at = ?
-            WHERE language_code = ? AND vocab_id = ?
-            """,
-            (int(server_revision), int(server_revision), stamp, language_code, vocab_id),
-        )
-
     def _apply_remote_vocab_change_unlocked(self, record: dict) -> None:
-        """Apply a downloaded change without discarding a newer local mutation."""
+        """Apply a downloaded change; divergent pending locals become explicit conflicts.
+
+        ADR-018: never silently last-write-wins over another device's accepted edit.
+        Matching remote content idempotently clears the pending op (lost-ack safe).
+        Divergent remote content applies the server-accepted row, freezes the local
+        mutation in ``outbox`` state ``conflict`` (not uploaded), and records a
+        blocking conflict for 18C.2 resolution UI.
+        """
         language_code = str(record["language_code"]).strip().lower()
         vocab_id = str(record["vocab_id"])
         stamp = to_utc_iso(utc_now())
@@ -1062,12 +1067,13 @@ class AccountLocalStore:
         remote_deleted = bool(record.get("deleted"))
         remote_payload = record.get("payload")
 
-        if pending_deleted == remote_deleted and (
+        same_intent = pending_deleted == remote_deleted and (
             pending_deleted
             or _payload_fingerprint(pending_payload.get("payload"))
             == _payload_fingerprint(remote_payload)
-        ):
-            # Remote already reflects our intent — adopt server row and clear pending.
+        )
+        if same_intent:
+            # Same intended change (including lost HTTP ack) — adopt server row.
             self._apply_vocab_entity_unlocked(record)
             self._conn.execute(
                 "UPDATE outbox SET state = ?, updated_at = ? WHERE id = ?",
@@ -1075,15 +1081,61 @@ class AccountLocalStore:
             )
             return
 
-        # Keep local intent; rebase the pending op onto the remote revision tip.
+        base_revision = int(pending_payload.get("expected_revision") or 0)
         remote_revision = int(record["revision"])
-        local = self._conn.execute(
-            "SELECT deleted, payload_json FROM vocabulary_entities "
+        if remote_revision <= base_revision:
+            # Catch-up of our edit base / older history — not a concurrent tip.
+            # Keep the pending mutation uploadable; do not clobber local intent.
+            self._preserve_pending_vocab_working_copy_unlocked(
+                language_code=language_code,
+                vocab_id=vocab_id,
+                pending=pending,
+                pending_payload=pending_payload,
+                pending_deleted=pending_deleted,
+                remote_revision=remote_revision,
+                stamp=stamp,
+            )
+            return
+
+        # Newer divergent remote tip: adopt server-accepted entity; freeze local
+        # mutation. Do not rewrite expected_revision; do not leave the op uploadable.
+        self._apply_vocab_entity_unlocked(record)
+        self._conn.execute(
+            "UPDATE outbox SET state = ?, updated_at = ? WHERE id = ? AND state = ?",
+            (OUTBOX_CONFLICT, stamp, int(pending["id"]), OUTBOX_PENDING),
+        )
+        detail = (
+            f"vocabulary conflict {language_code}/{vocab_id}: "
+            f"local pending {'delete' if pending_deleted else 'put'} vs "
+            f"remote revision {remote_revision}"
+            f"{' (tombstone)' if remote_deleted else ''}"
+        )
+        self._record_conflict_unlocked("vocabulary", detail)
+
+    def _preserve_pending_vocab_working_copy_unlocked(
+        self,
+        *,
+        language_code: str,
+        vocab_id: str,
+        pending: sqlite3.Row,
+        pending_payload: dict,
+        pending_deleted: bool,
+        remote_revision: int,
+        stamp: str,
+    ) -> None:
+        """Adopt a remote revision watermark without discarding a pending local edit."""
+        existing = self._conn.execute(
+            "SELECT revision FROM vocabulary_entities "
             "WHERE language_code = ? AND vocab_id = ?",
             (language_code, vocab_id),
         ).fetchone()
-        local_deleted = bool(local and int(local["deleted"]))
-        local_payload_json = local["payload_json"] if local else None
+        revision = max(int(existing["revision"]) if existing else 0, int(remote_revision))
+        payload_json = None
+        if not pending_deleted:
+            body = dict(pending_payload.get("payload") or {})
+            body["id"] = vocab_id
+            payload_json = json.dumps(body, ensure_ascii=False, sort_keys=True)
+        base = int(pending_payload.get("expected_revision") or 0)
         self._conn.execute(
             """
             INSERT INTO vocabulary_entities (
@@ -1092,25 +1144,22 @@ class AccountLocalStore:
             ) VALUES (?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(language_code, vocab_id) DO UPDATE SET
                 revision = excluded.revision,
-                expected_revision = excluded.expected_revision,
                 deleted = excluded.deleted,
                 payload_json = excluded.payload_json,
+                expected_revision = excluded.expected_revision,
                 updated_at = excluded.updated_at
             """,
             (
                 language_code,
                 vocab_id,
-                remote_revision,
-                1 if local_deleted else 0,
-                local_payload_json,
-                remote_revision,
+                revision,
+                1 if pending_deleted else 0,
+                payload_json,
+                base,
                 stamp,
             ),
         )
-        self._rebase_pending_vocab_unlocked(
-            language_code, vocab_id, remote_revision, stamp
-        )
-        _meta_set(self._conn, "vocab_caught_up", "0")
+        # pending outbox row unchanged (still uploadable; expected_revision untouched).
 
     def _apply_vocab_entity_unlocked(self, record: dict) -> None:
         language_code = str(record["language_code"]).strip().lower()

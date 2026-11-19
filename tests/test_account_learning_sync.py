@@ -15,6 +15,7 @@ import account_server
 import account_store
 import sync_store
 from account_local_store import (
+    OUTBOX_CONFLICT,
     STATUS_CONFLICT,
     STATUS_OFFLINE,
     STATUS_PENDING,
@@ -414,7 +415,7 @@ def test_f2_repeated_edits_and_partial_ack_requeue(staging):
     eng.stop()
 
 
-def test_f2_remote_change_while_local_pending_preserves_mutation(staging):
+def test_f2_divergent_remote_edit_blocks_with_conflict(staging):
     root_a = staging["tmp"] / "remote_a"
     root_b = staging["tmp"] / "remote_b"
     s1 = AccountLocalStore(staging["user_a"], data_root=str(root_a))
@@ -425,22 +426,103 @@ def test_f2_remote_change_while_local_pending_preserves_mutation(staging):
     e1.sync_once()
     e2.sync_once()
 
-    # Device B edits and syncs while device A has a local pending edit.
     s1.upsert_vocabulary(
         language_code="nl", vocab_id=VOCAB, payload=_payload(meaning="local-pending")
     )
     s2.upsert_vocabulary(
-        language_code="nl", vocab_id=VOCAB, payload=_payload(meaning="remote-wins-tip")
+        language_code="nl", vocab_id=VOCAB, payload=_payload(meaning="remote-accepted")
     )
     e2.sync_once()
-    e1.sync_once()  # pull remote tip, rebase local pending, then push local
-    meanings = {item["meaning"] for item in s1.list_vocabulary("nl")}
-    assert meanings == {"local-pending"}
-    pending = s1.pending_outbox("vocab_put")
-    # After full sync_once, local pending should upload successfully on rebase.
-    assert s1.list_vocabulary("nl")[0]["meaning"] == "local-pending"
+    status = e1.sync_once()
+
+    assert status.status == STATUS_CONFLICT
+    assert status.detail == "Conflict / Action required"
+    assert s1.pending_outbox("vocab_put") == []
+    frozen = s1.conflicted_vocab_outbox("nl", VOCAB)
+    assert len(frozen) == 1
+    assert frozen[0]["state"] == OUTBOX_CONFLICT
+    assert frozen[0]["payload"]["payload"]["meaning"] == "local-pending"
+    assert frozen[0]["payload"]["expected_revision"] == 1  # not rebased
+    # Working entity mirrors server-accepted remote tip (no silent LWW upload).
+    assert s1.list_vocabulary("nl")[0]["meaning"] == "remote-accepted"
+
+    conn = sqlite3.connect(str(staging["server_dir"] / "study_sync.db"))
+    server_payload = conn.execute(
+        "SELECT payload_json FROM vocabulary_entities WHERE vocab_id = ?",
+        (VOCAB,),
+    ).fetchone()[0]
+    conn.close()
+    assert "remote-accepted" in server_payload
+    assert "local-pending" not in server_payload
+
     e2.sync_once()
-    assert s2.list_vocabulary("nl")[0]["meaning"] == "local-pending"
-    assert pending == [] or s1.status().status == STATUS_SYNCED
+    assert s2.list_vocabulary("nl")[0]["meaning"] == "remote-accepted"
+    e1.stop()
+    e2.stop()
+
+
+def test_f2_same_semantic_change_lost_ack_is_idempotent(staging):
+    store = AccountLocalStore(staging["user_a"], data_root=str(staging["tmp"] / "lostack"))
+    eng = _engine(store, staging["base"], staging["token_a"])
+    store.upsert_vocabulary(
+        language_code="nl", vocab_id=VOCAB, payload=_payload(meaning="same")
+    )
+    pending = store.pending_outbox("vocab_put")
+    assert len(pending) == 1
+    operation_id = pending[0]["operation_id"]
+    # Server accepts the mutation, but local ack is "lost" (row stays pending).
+    record = AccountSyncClient(staging["base"], staging["token_a"]).put_vocabulary(
+        pending[0]["payload"]
+    )
+    assert int(record["revision"]) == 1
+    assert store.is_outbox_pending(operation_id)
+    # Download the same accepted tip → idempotent clear, no duplicate mutation.
+    status = eng.sync_once()
+    assert status.status == STATUS_SYNCED
+    assert store.pending_outbox("vocab_put") == []
+    assert store.conflicted_vocab_outbox("nl", VOCAB) == []
+    assert store.list_vocabulary("nl")[0]["meaning"] == "same"
+    conn = sqlite3.connect(str(staging["server_dir"] / "study_sync.db"))
+    count = conn.execute(
+        "SELECT COUNT(*) FROM vocabulary_changes WHERE vocab_id = ?",
+        (VOCAB,),
+    ).fetchone()[0]
+    conn.close()
+    assert count == 1
+    eng.stop()
+
+
+def test_f2_pending_edit_vs_remote_tombstone_no_resurrection(staging):
+    root_a = staging["tmp"] / "tomb_a"
+    root_b = staging["tmp"] / "tomb_b"
+    s1 = AccountLocalStore(staging["user_a"], data_root=str(root_a))
+    s2 = AccountLocalStore(staging["user_a"], data_root=str(root_b))
+    e1 = _engine(s1, staging["base"], staging["token_a"])
+    e2 = _engine(s2, staging["base"], staging["token_a"])
+    s1.upsert_vocabulary(language_code="nl", vocab_id=VOCAB, payload=_payload(meaning="live"))
+    e1.sync_once()
+    e2.sync_once()
+
+    s1.upsert_vocabulary(
+        language_code="nl", vocab_id=VOCAB, payload=_payload(meaning="local-edit")
+    )
+    s2.delete_vocabulary(language_code="nl", vocab_id=VOCAB)
+    e2.sync_once()
+    status = e1.sync_once()
+
+    assert status.status == STATUS_CONFLICT
+    assert s1.list_vocabulary("nl") == []
+    frozen = s1.conflicted_vocab_outbox("nl", VOCAB)
+    assert len(frozen) == 1
+    assert frozen[0]["payload"]["payload"]["meaning"] == "local-edit"
+    assert s1.pending_outbox() == []
+
+    conn = sqlite3.connect(str(staging["server_dir"] / "study_sync.db"))
+    row = conn.execute(
+        "SELECT deleted, payload_json FROM vocabulary_entities WHERE vocab_id = ?",
+        (VOCAB,),
+    ).fetchone()
+    conn.close()
+    assert int(row[0]) == 1
     e1.stop()
     e2.stop()

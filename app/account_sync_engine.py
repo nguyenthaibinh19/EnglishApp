@@ -78,8 +78,8 @@ class AccountSyncEngine:
     def sync_once(self) -> SyncStatusSnapshot:
         """Run one full push/pull cycle (tests and local demo)."""
         try:
-            # Vocabulary: pull first so pending local ops rebase onto the server tip
-            # before upload (avoids stale expected_revision after remote edits).
+            # Vocabulary: pull first so identical remote tips can clear lost acks,
+            # and divergent remote edits become explicit conflicts before any push.
             self._pull_vocabulary()
             self._push_vocabulary()
             self._push_progress()
