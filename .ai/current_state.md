@@ -4,11 +4,13 @@
 
 ## Latest verified coordination checkpoint — 2026-11-19
 
-**Current priority:** Phase 18B.9 off-box backup, **OPEN / PRODUCTION NOT READY**. Inactive packaging is on the VPS under the **pre-remediation** paths (`/opt/language-guard/offbox` + venv ExecStart); units remain inactive. Executable-path audit **ACCEPTED UNSAFE** ([#7009010670](https://github.com/nguyenthaibinh19/EnglishApp/issues/8#issuecomment-7009010670), Architect [#7009128705](https://github.com/nguyenthaibinh19/EnglishApp/issues/8#issuecomment-7009128705)).
+**Current priority:** Phase 18B.9 off-box backup, **OPEN / PRODUCTION NOT READY**.
 
-**Source-only remediation (review boundary):** dedicated `/opt/language-guard-offbox` root-owned execution tree; templates use `/usr/bin/python3 -I`; `install-execution-tree`; offline stdlib dependency closure; security regressions for writable parents, venv symlink substitution, guard-owned deps, ownership drift, and hash fail-closed. Fifteen frozen module bytes unchanged. Account server deployment paths unchanged. Design: [OFFBOX_RUNTIME_TRUST.md](procedures/OFFBOX_RUNTIME_TRUST.md). **No VPS write. No auto-merge.**
+**RUNTIME TRUST REMEDIATION SOURCE MERGED — VPS NOT UPDATED.** PR #15 merged at `adbc3d5f8fd71ee8a2d462d806dc4c4a91fd0241` (approved head `d65150cbaa26899ee08fcc8a3d9ee26629c9f92c`). Source now pins `/opt/language-guard-offbox` + `/usr/bin/python3 -I`, exact unit contracts, and production destination preflight. Design: [OFFBOX_RUNTIME_TRUST.md](procedures/OFFBOX_RUNTIME_TRUST.md).
 
-**Outstanding live gate:** separate Product Owner authorization required for any corrective VPS write and for any later read-only post-fix audit. Default corrective scope excludes daemon-reload/start/enable, age/OAuth/Drive, isolation, and activation.
+Inactive packaging on the VPS remains under the **pre-remediation** paths (`/opt/language-guard/offbox` + venv ExecStart); units remain inactive. Executable-path audit **ACCEPTED UNSAFE** remains historical evidence ([#7009010670](https://github.com/nguyenthaibinh19/EnglishApp/issues/8#issuecomment-7009010670), Architect [#7009128705](https://github.com/nguyenthaibinh19/EnglishApp/issues/8#issuecomment-7009128705)) until a separately authorized corrective write and post-fix read-only audit report **PASS**.
+
+**Outstanding live gate:** Product Owner must separately authorize any VPS corrective write. Default corrective scope excludes daemon-reload/start/enable, age/OAuth/Drive, isolation, and activation.
 
 **Existing operational facts (Cursor-reported):** VPS Python `3.14.4`; journal `delete`; `guard` 995/982; `lg-backup` 994/977. Drive **NOT CONFIGURED**; Cloud Sync **OFF**; D5A2D2/D5A2D3 **FAIL** preserved.
 
