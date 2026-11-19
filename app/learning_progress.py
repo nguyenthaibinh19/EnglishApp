@@ -288,14 +288,17 @@ def load_learning_progress(
     from vocab_store import VocabStore
 
     code = str(language_code or config.active_code()).strip().lower()
-    store = vocab_store or VocabStore(config.vocab_path(code))
-    prog = progress or Progress(config.progress_path(code))
+    if vocab_store is None or progress is None or attempts is None:
+        from study_data import open_study_data
 
-    if attempts is None:
-        history = AttemptHistory(
-            config.attempts_path(code), language_code=code
-        )
-        attempts = history.load_attempts()
+        bundle = open_study_data(code)
+        store = vocab_store or bundle.vocab
+        prog = progress or bundle.progress
+        if attempts is None:
+            attempts = bundle.attempts.load_attempts()
+    else:
+        store = vocab_store
+        prog = progress
     if mistake_summaries is None:
         mistake_summaries = summarize_mistakes(attempts, language_code=code)
 

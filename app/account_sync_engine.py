@@ -84,6 +84,7 @@ class AccountSyncEngine:
             self._push_vocabulary()
             self._push_progress()
             self._pull_progress()
+            self._sync_preferences()
             self.store.set_offline(False)
             self._backoff = 1.0
         except SyncOfflineError:
@@ -115,19 +116,29 @@ class AccountSyncEngine:
             self._wake.clear()
 
     def _push_vocabulary(self) -> None:
-        # Snapshot then skip any row superseded while the HTTP call ran.
+        # Snapshot then handle rows superseded while the HTTP call ran.
         for item in list(self.store.pending_outbox(OUTBOX_KIND_VOCAB_PUT)):
             if not self.store.is_outbox_pending(item["operation_id"]):
                 continue
             record = self.client.put_vocabulary(item["payload"])
             if self.store.is_outbox_pending(item["operation_id"]):
                 self.store.acknowledge_vocab_outbox(item["operation_id"], record)
+            else:
+                # In-flight race: user saved Y while X was uploading. Consume X's
+                # acceptance without discarding Y or inventing a false conflict.
+                self.store.note_accepted_vocab_upload(
+                    item["operation_id"], item["payload"], record
+                )
         for item in list(self.store.pending_outbox(OUTBOX_KIND_VOCAB_DELETE)):
             if not self.store.is_outbox_pending(item["operation_id"]):
                 continue
             record = self.client.delete_vocabulary(item["payload"])
             if self.store.is_outbox_pending(item["operation_id"]):
                 self.store.acknowledge_vocab_outbox(item["operation_id"], record)
+            else:
+                self.store.note_accepted_vocab_upload(
+                    item["operation_id"], item["payload"], record
+                )
 
     def _pull_vocabulary(self) -> None:
         while True:
@@ -160,6 +171,11 @@ class AccountSyncEngine:
             )
             if not has_more:
                 break
+
+    def _sync_preferences(self) -> None:
+        from account_prefs import sync_preferences_once
+
+        sync_preferences_once(self.store, self.client)
 
 
 # Process-wide engine registry for the running Windows app.

@@ -63,6 +63,10 @@ def _form(parent, on_success):
             try:
                 from account_sync_bootstrap import maybe_start_account_sync
 
+                # Start sync for this account only. Preferences are pulled (or seeded
+                # once for a brand-new empty server tip) inside sync_preferences_once —
+                # never copy the previous account's machine settings into the next one.
+                # Never auto-import guest vocabulary on login.
                 maybe_start_account_sync()
             except Exception:
                 pass

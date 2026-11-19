@@ -58,6 +58,15 @@ class AccountSyncClient:
             payload["language_code"] = language_code
         return self._post(sync_http.SYNC_PROGRESS_CHANGES, payload)
 
+    def get_preferences(self) -> dict:
+        return self._post(sync_http.SYNC_PREFERENCES_GET, {})
+
+    def put_preferences(self, *, values: dict, expected_revision: int) -> dict:
+        return self._post(
+            sync_http.SYNC_PREFERENCES_PUT,
+            {"values": values, "expected_revision": expected_revision},
+        )
+
     def _post(self, path: str, payload: dict) -> dict:
         data = json.dumps(payload).encode("utf-8")
         request = urllib.request.Request(

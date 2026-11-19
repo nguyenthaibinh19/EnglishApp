@@ -1,0 +1,42 @@
+{
+  "status": "GUI_WALKTHROUGH_OK",
+  "notes": [
+    "staging=http://127.0.0.1:51287",
+    "work=C:\\Users\\mrbin\\AppData\\Local\\Temp\\lg-18c2-gui-y22mgx8f",
+    "device_a_words=['fiets', 'huis']",
+    "device_a_attempts=1",
+    "device_b_words=['fiets', 'huis']",
+    "device_b_mistakes=1",
+    "device_b_progress_total=2 attempts=1",
+    "after_offline_converge=['fiets', 'boom', 'huis']",
+    "account_b_words=[]"
+  ],
+  "screenshots": [
+    {
+      "name": "vocab_a",
+      "captured": true,
+      "path": "D:\\EnglishApp-worktrees\\phase18b9-local-poc\\qa-evidence\\phase18c2-gui-sync\\gui-walkthrough\\01_device_a_vocabulary.png"
+    },
+    {
+      "name": "quiz_a",
+      "captured": true,
+      "path": "D:\\EnglishApp-worktrees\\phase18b9-local-poc\\qa-evidence\\phase18c2-gui-sync\\gui-walkthrough\\02_device_a_quiz.png"
+    },
+    {
+      "name": "vocab_b",
+      "captured": true,
+      "path": "D:\\EnglishApp-worktrees\\phase18b9-local-poc\\qa-evidence\\phase18c2-gui-sync\\gui-walkthrough\\03_device_b_vocabulary.png"
+    },
+    {
+      "name": "mistakes_b",
+      "captured": true,
+      "path": "D:\\EnglishApp-worktrees\\phase18b9-local-poc\\qa-evidence\\phase18c2-gui-sync\\gui-walkthrough\\04_device_b_mistake_book.png"
+    },
+    {
+      "name": "progress_b",
+      "captured": true,
+      "path": "D:\\EnglishApp-worktrees\\phase18b9-local-poc\\qa-evidence\\phase18c2-gui-sync\\gui-walkthrough\\05_device_b_progress.png"
+    }
+  ],
+  "png_captured": 5
+}

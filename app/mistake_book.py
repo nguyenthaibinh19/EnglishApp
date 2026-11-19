@@ -114,9 +114,18 @@ def load_mistake_summaries(
     filename: Optional[str] = None,
     language_code: Optional[str] = None,
 ) -> List[MistakeSummary]:
-    """Load attempts from disk (missing file → empty) and summarize."""
-    history = AttemptHistory(filename, language_code=language_code)
-    code = language_code if language_code is not None else history.language_code
+    """Load attempts (account store when signed in; guest JSONL otherwise)."""
+    import config
+
+    code = str(language_code or config.active_code()).strip().lower()
+    if filename is None:
+        from study_data import open_study_data
+
+        return summarize_mistakes(
+            open_study_data(code).attempts.load_attempts(),
+            language_code=code,
+        )
+    history = AttemptHistory(filename, language_code=code)
     return summarize_mistakes(history.load_attempts(), language_code=code)
 
 

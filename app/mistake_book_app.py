@@ -128,9 +128,11 @@ class MistakeBookApp:
         self.empty_label.pack_forget()
         self.info_label.config(text="")
 
-        path = config.attempts_path(self.language_code)
-        summaries = load_mistake_summaries(path, language_code=self.language_code)
-        store = VocabStore(config.vocab_path(self.language_code))
+        from study_data import open_study_data
+
+        bundle = open_study_data(self.language_code)
+        summaries = load_mistake_summaries(language_code=self.language_code)
+        store = bundle.vocab
         self._practice_entries = resolve_practice_entries(summaries, store.all())
 
         lang_name = config.language_name(self.language_code)
@@ -184,9 +186,11 @@ class MistakeBookApp:
             return
 
         # Re-resolve in case vocab changed since last refresh.
-        path = config.attempts_path(self.language_code)
-        summaries = load_mistake_summaries(path, language_code=self.language_code)
-        store = VocabStore(config.vocab_path(self.language_code))
+        from study_data import open_study_data
+
+        bundle = open_study_data(self.language_code)
+        summaries = load_mistake_summaries(language_code=self.language_code)
+        store = bundle.vocab
         entries = resolve_practice_entries(summaries, store.all())
         self._practice_entries = entries
         if not entries:
@@ -202,12 +206,12 @@ class MistakeBookApp:
         from quiz_app import VocabQuizApp
 
         target = practice_target(len(entries))
-        progress = Progress(config.progress_path(self.language_code))
         self.practice_window = tk.Toplevel(self.window)
         ui_common.own_toplevel(self.practice_window, self.window)
         VocabQuizApp(
             self.practice_window,
-            progress=progress,
+            store=bundle.vocab,
+            progress=bundle.progress,
             quiz_entries=entries,
             target=target,
             language_code=self.language_code,

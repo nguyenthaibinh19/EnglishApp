@@ -44,11 +44,15 @@ class VocabQuizApp:
         self.on_closed = on_closed
         self._closed_notified = False
 
+        from study_data import open_study_data
+
+        code = language_code or config.active_code()
+        bundle = open_study_data(code)
         if quiz_entries is not None:
             self.store = ReadOnlyVocabView(quiz_entries)
             self.allow_manage = False
         else:
-            self.store = store or VocabStore()
+            self.store = store or bundle.vocab
 
         default_title = (
             config.ui("Kho từ", "Word list")
@@ -59,15 +63,16 @@ class VocabQuizApp:
             f"{config.APP_NAME} — " + (window_title if window_title else default_title)
         )
 
-        self.progress = progress or Progress()
+        self.progress = progress or bundle.progress
         # Practice Mistakes (quiz_entries) must ignore long-term due dates.
         apply_due_filter = quiz_entries is None
         self.engine = QuizEngine(
             self.store,
             self.progress,
             target=target,
-            language_code=language_code,
+            language_code=code,
             apply_due_filter=apply_due_filter,
+            attempt_history=bundle.attempts,
         )
 
         self.on_completed = on_completed

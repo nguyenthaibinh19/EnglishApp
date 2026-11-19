@@ -36,8 +36,11 @@ class ReadingApp:
         self.window = window
         self.window.title(f"{config.APP_NAME} — {config.ui('Đọc', 'Reading')}")
 
-        self.store = store or VocabStore()
-        self.progress = progress or Progress()
+        from study_data import open_study_data
+
+        bundle = open_study_data()
+        self.store = store or bundle.vocab
+        self.progress = progress or bundle.progress
 
         self.on_completed = on_completed
         self.on_request_switch = on_request_switch
