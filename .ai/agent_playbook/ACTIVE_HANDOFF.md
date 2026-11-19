@@ -5,22 +5,22 @@ Rolling coordination checkpoint. The detailed history remains in [current_state.
 ## 1. Checkpoint metadata
 
 - Written: 2026-11-19.
-- **PRODUCTION REUSE READINESS PACKAGE** prepared (source PR + runbook). Not activation.
-- Baseline: `dc9ec43355f686f62842d0cddabf16ce05ca2d72`. Post-fix Gate A PASS + Gate B CONFIG PASS remain current VPS evidence.
-- Historical pre-fix audit **UNSAFE**; D5A2D2/D5A2D3 **FAIL** preserved.
+- **PR #16 SOURCE MERGED — VPS PACKAGER NOT UPDATED.**
+- Merge: `bf5442b532cb514aa6c5ca442d21ac1aa7afb3b5` (approved head `40e31908655a39ca0147802f0e3105e30ca9f558`).
+- Post-fix Gate A PASS + Gate B CONFIG PASS remain current VPS evidence. Historical pre-fix audit **UNSAFE**; D5A2D2/D5A2D3 **FAIL** preserved.
 
 ## 2. Last completed / accepted results
 
 - Inactive install + post-fix audit/config (Issue #8) — accepted; VPS units inactive.
-- Readiness inventory: age v1.3.2 / `age1pq1`, Drive **adapter libraries**, and D5A2C2 one-shot are reusable validations; production identity/OAuth/folder/binary install remain Owner actions.
-- **SOURCE GAP (documented):** current `backup_worker.main()` refuses live-upload env and does not wire transport/exchanger — production entrypoint integration still required before upload/activation.
-- Isolation tests must use a synthetic harness only (never production `accounts.db` / unauthorized Drive).
-- Source-only packager fix: installed-layout `verify`/`verify-deps` resolve `<root>/offbox` (frozen module bytes unchanged). See readiness PR #16.
+- **PR #16 MERGED:** installed-layout packager `verify`/`verify-deps` via `resolve_offbox_dir()`; production reuse runbook; Architect-accepted docs corrections. Frozen 15 modules unchanged.
+- **SOURCE GAP (preserved):** production upload entrypoint — current `backup_worker.main()` refuses live-upload env and does not wire transport/exchanger.
+- **OAuth client ID/(optional) secret** least-privilege delivery still not designed.
+- Isolation must use synthetic harness only (never production `accounts.db` / unauthorized Drive).
 
 ## 3. Next App task
 
-1. Architect review/merge of the production-reuse readiness source PR (packager path + tests + runbook/docs).
-2. **OWNER ACTION REQUIRED** (separate authorizations): production age identity/recipient; durable OAuth + Drive folder; VPS binary/credential install; isolation execution; restore drill; monitoring; activation.
+1. **NOT AUTHORIZED without new Owner approval:** VPS packager sync, age/OAuth/Drive credential install, isolation execution, restore drill, monitoring, activation.
+2. Future source work: production upload entrypoint + OAuth client delivery design (separate PRs).
 3. Canonical runbook: [OFFBOX_PRODUCTION_DEPLOYMENT_RUNBOOK.md](../procedures/OFFBOX_PRODUCTION_DEPLOYMENT_RUNBOOK.md).
 
 ## 4. STOP / boundaries
