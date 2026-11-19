@@ -3,6 +3,8 @@
 Status: **RUNBOOK ONLY — not executed.** Creates no credentials, clients, tokens, or Drive folders.
 Does not authorize live Google API calls.
 
+See the consolidated staged package: [OFFBOX_PRODUCTION_DEPLOYMENT_RUNBOOK.md](OFFBOX_PRODUCTION_DEPLOYMENT_RUNBOOK.md). Lab External Testing refresh tokens are **not** production-durable.
+
 ## Goals
 
 - Dedicated production Google Cloud project (not External Testing lab client).

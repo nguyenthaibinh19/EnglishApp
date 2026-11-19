@@ -13,6 +13,10 @@ Trusted runtime destination (source design):
     offbox/*.py (+ SHA256SUMS, SOURCE_AUTHORITY.md)
     deploy/hetzner/<helpers and unit templates>
 
+``verify`` / ``verify-deps`` auto-detect modules either beside this
+script (repo layout) or at ``<exec_root>/offbox`` when this script is
+installed under ``<exec_root>/deploy/hetzner/``.
+
 That tree must remain outside any guard-writable ancestor (not under
 /opt/language-guard). Units must ExecStart /usr/bin/python3 -I against
 modules in that tree — never the guard-owned app venv.
@@ -51,6 +55,28 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent.parent
 OFFBOX_SRC = HERE / "offbox"
+
+
+def resolve_offbox_dir(hetzner_dir: Path = HERE) -> Path:
+    """Locate frozen modules for repo layout or installed execution tree.
+
+    Repo / offline staging keeps modules at ``<hetzner_dir>/offbox``.
+    Production installs place modules at ``<exec_root>/offbox`` while this
+    packager lives at ``<exec_root>/deploy/hetzner/``. Auto-detect both so
+    ``verify`` / ``verify-deps`` work from the installed tree without moving
+    frozen module bytes.
+    """
+    sibling = hetzner_dir / "offbox"
+    if sibling.is_dir() and (sibling / "SHA256SUMS").is_file():
+        return sibling
+    if hetzner_dir.name == "hetzner" and hetzner_dir.parent.name == "deploy":
+        candidate = hetzner_dir.parent.parent / "offbox"
+        if candidate.is_dir() and (candidate / "SHA256SUMS").is_file():
+            return candidate
+    raise FileNotFoundError(
+        "unable to locate offbox modules for "
+        f"{hetzner_dir} (expected {sibling} or production <root>/offbox)"
+    )
 
 # Independently accepted D5A2D0-P1 / import commit 98b590e inventory.
 # Do not derive this map from a mutable working-tree SHA256SUMS file.
@@ -1011,18 +1037,24 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     try:
         if args.command == "verify":
-            listed = verify_modules()
+            offbox = resolve_offbox_dir()
+            listed = verify_modules(offbox)
             verify_units()
-            verify_dependency_closure()
+            verify_dependency_closure(offbox)
             print(
                 f"VERIFY_OK modules={len(listed)} units={len(UNIT_NAMES)} "
                 f"inventory=D5A2D0-P1 exec_root={OFFBOX_EXEC_ROOT} "
-                f"interpreter={TRUSTED_INTERPRETER}"
+                f"interpreter={TRUSTED_INTERPRETER} "
+                f"modules_dir={offbox.as_posix()}"
             )
             return 0
         if args.command == "verify-deps":
-            per_file = verify_dependency_closure()
-            print(f"DEPS_OK modules={len(per_file)} stdlib_or_local_only=1")
+            offbox = resolve_offbox_dir()
+            per_file = verify_dependency_closure(offbox)
+            print(
+                f"DEPS_OK modules={len(per_file)} stdlib_or_local_only=1 "
+                f"modules_dir={offbox.as_posix()}"
+            )
             return 0
         if args.command == "stage":
             dest = args.dest
