@@ -4,7 +4,7 @@
 
 ## Latest verified coordination checkpoint — 2026-11-19
 
-**Current priority:** **Hetzner login API read-only inspection complete** ([HETZNER-LOGIN-API-READONLY-INSPECTION.md](plans/HETZNER-LOGIN-API-READONLY-INSPECTION.md); `APP_HETZNER_LOGIN_READONLY_INSPECTION_READY`). Deployed `/api/login` is **token-only**; `/api/session` **absent**; Cloud Sync **OFF**. PR #24 source merged (`62c567b`) but **not deployed**. **VPS hotfix deploy NOT AUTHORIZED.** Account UX / RC (PR #23 / `a08a9e0`). **ADR-025 Accepted**. **18C.1 CLOSED**, **18C.2 CLOSED**. **18B.9 PAUSED, NOT CLOSED.** Staging **RESERVED**. Sync pilot **NO-GO**. Do not overwrite `dist/langstudyguard.exe`.
+**Current priority:** **Hetzner login API controlled hotfix DEPLOYED** (`APP_HETZNER_LOGIN_HOTFIX_DEPLOYED`; UTC `2026-11-19T23:02:32Z`). Live `/opt/language-guard/account_server.py` SHA-256 `4101e111…749685b9` (login returns `token`+`user_id`+`username`; `/api/session` present). Cloud Sync **OFF**. Owner manual RC login smoke pending. Account UX / RC (PR #23). Login compat source (PR #24). **ADR-025 Accepted**. **18C.1 CLOSED**, **18C.2 CLOSED**. **18B.9 PAUSED, NOT CLOSED.** Staging **RESERVED**. Sync pilot **NO-GO**. Do not overwrite `dist/langstudyguard.exe`.
 
 **18C.1 CLOSED — Architect Accepted** (PR #20, merge `8e94f77491cc2f318c93fc511e258d0299ff4d03`): local core Account Sync demonstration — schema-v3 progress tables + `/api/sync/progress/*` behind the existing default-off flag; per-account local SQLite; vocabulary + event-first progress sync engine; localhost two-device demo; explicit vocabulary conflict freeze (no silent LWW).
 
