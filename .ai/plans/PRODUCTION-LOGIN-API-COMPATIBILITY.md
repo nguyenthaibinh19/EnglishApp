@@ -1,6 +1,13 @@
 # Production Login API Compatibility
 
-Status: **Architect Accepted — source merge** (`APP_LOGIN_COMPAT_SOURCE_MERGED`). Source merge only — **no VPS/SSH/deploy** until separate Owner authorization.
+Status: **Architect Accepted — source merged** (`APP_LOGIN_COMPAT_SOURCE_MERGED`).
+
+| Field | Value |
+|-------|--------|
+| PR | [#24](https://github.com/nguyenthaibinh19/EnglishApp/pull/24) |
+| Merge commit | `62c567b5d912bd5853ddb1d0ae6cca630e95c6f3` |
+| Verdict | Architect Accepted (source merge only) |
+| Production deploy | **NOT AUTHORIZED** — merge ≠ deploy |
 
 ## Root cause (evidence)
 
