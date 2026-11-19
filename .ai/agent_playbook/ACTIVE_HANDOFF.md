@@ -18,8 +18,8 @@ Rolling coordination checkpoint. The detailed history remains in [current_state.
 
 ## 3. Next App task
 
-1. Product Owner must **separately authorize** any VPS corrective write (install execution tree + replace inactive unit files only; default scope excludes daemon-reload/start).
-2. After corrective write: Owner-authorized read-only re-audit must report **PASS** before isolation/activation requests.
+1. **NEW OWNER AUTHORIZATION GRANTED — NOT YET EXECUTED:** exactly ONE corrective VPS write session limited to installing the verified root-owned offbox execution tree and replacing four inactive unit files, with static checks/report only. Canonical approval: [Issue #8 #7011064958](https://github.com/nguyenthaibinh19/EnglishApp/issues/8#issuecomment-7011064958). No daemon-reload/start/enable, age/OAuth/Drive, or account-server changes. Report `APP_18B9_VPS_CORRECTIVE_INACTIVE_INSTALL_RESULT` and STOP.
+2. After corrective write: a **new, separately Owner-authorized** read-only re-audit must report **PASS** before isolation/activation requests.
 
 ## 4. STOP / boundaries
 
