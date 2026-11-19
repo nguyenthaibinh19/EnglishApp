@@ -1,6 +1,6 @@
 # Phase 18B.9 — Offbox runtime trust layout (source design)
 
-**Status (2026-11-19):** Source-only remediation design after the accepted **UNSAFE** executable-path audit ([Issue #8 #7009010670](https://github.com/nguyenthaibinh19/EnglishApp/issues/8#issuecomment-7009010670), Architect verdict [#7009128705](https://github.com/nguyenthaibinh19/EnglishApp/issues/8#issuecomment-7009128705)). This document does **not** authorize a VPS corrective write, daemon-reload, enable/start, isolation, age/OAuth/Drive, or activation.
+**Status (2026-11-19):** Source remediation (PR #15) is merged, and the Owner-authorized **corrective inactive VPS install** reported **INSTALL PASS** (static packaging only). Historical pre-fix executable-path audit remains **UNSAFE** ([Issue #8 #7009010670](https://github.com/nguyenthaibinh19/EnglishApp/issues/8#issuecomment-7009010670), Architect verdict [#7009128705](https://github.com/nguyenthaibinh19/EnglishApp/issues/8#issuecomment-7009128705)). This document does **not** authorize `daemon-reload`, enable/start, isolation, age/OAuth/Drive, post-fix audit, or activation.
 
 Historical D5A2D2/D5A2D3 **FAIL** preserved. Drive **NOT CONFIGURED**. Cloud Sync **OFF**. Production **NOT READY**.
 
@@ -55,18 +55,17 @@ python deploy/hetzner/install_offbox_packaging.py verify-deps
 python -m pytest tests/test_offbox_runtime_trust.py tests/test_offbox_packaging.py tests/test_offbox_setup_boundary.py tests/test_offbox_integrity.py tests/test_offbox_import_smoke.py -q
 ```
 
-## Exact future VPS corrective-write scope (NOT authorized by this file)
+## Corrective inactive VPS write (executed; authorization exhausted)
 
-When Product Owner separately authorizes one corrective write session, the intended scope is:
+Cursor-reported under [Issue #8 #7011064958](https://github.com/nguyenthaibinh19/EnglishApp/issues/8#issuecomment-7011064958):
 
-1. Install/sync source revision containing this remediation.
-2. Run `install-execution-tree --dest /opt/language-guard-offbox --production` (preflight + verify-before-copy); apply `root:root` `0755`/`0644`.
-3. Replace the four inactive unit files under `/etc/systemd/system` with the updated templates (still **disabled/inactive**).
-4. Leave `/opt/language-guard` account-server tree and venv untouched aside from not relying on them for offbox ExecStart.
-5. Optionally leave or later remove the obsolete `/opt/language-guard/offbox` tree only under explicit Owner wording (default: leave in place; units must not reference it).
-6. **No** `daemon-reload` / enable / start unless a further Owner authorization says so.
-7. Follow with a new Owner-authorized **read-only** post-fix path audit that must report **PASS** before any isolation/activation request.
+1. Staged approved source; ran `install-execution-tree --dest /opt/language-guard-offbox --production`; applied `root:root` `0755`/`0644`.
+2. Replaced the four inactive unit files under `/etc/systemd/system` with reviewed templates (still **disabled/inactive**; **no** `daemon-reload`).
+3. Left `/opt/language-guard` account-server tree/venv/`accounts.db` and obsolete `/opt/language-guard/offbox` untouched.
+4. Static checks: 15/15 module hashes; unit SHA match; no guard/lg-backup-writable component under the new tree path; offbox units inactive.
+
+**Still required before isolation/activation:** a separately Owner-authorized **read-only** post-fix path audit that must report **PASS**. Static install evidence alone is not runtime trust PASS.
 
 ## Prohibited without new Owner authorization
 
-SSH corrective writes, systemd activation, age install, OAuth/Drive provisioning, Cloud Sync, live isolation, backup/restore, and automatic merge of related PRs.
+Further SSH/VPS writes, `daemon-reload`, systemd activation, age install, OAuth/Drive provisioning, Cloud Sync, live isolation, backup/restore, and removal of the obsolete `/opt/language-guard/offbox` tree.

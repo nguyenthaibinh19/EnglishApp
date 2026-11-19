@@ -5,24 +5,25 @@ Rolling coordination checkpoint. The detailed history remains in [current_state.
 ## 1. Checkpoint metadata
 
 - Written: 2026-11-19.
-- **RUNTIME TRUST REMEDIATION SOURCE MERGED — VPS NOT UPDATED.**
-- Merge: PR #15 / `adbc3d5f8fd71ee8a2d462d806dc4c4a91fd0241` (approved head `d65150cbaa26899ee08fcc8a3d9ee26629c9f92c`).
-- Historical executable-path audit remains **UNSAFE** until a separately authorized VPS corrective write and post-fix read-only audit report **PASS**.
+- **CORRECTIVE INACTIVE VPS INSTALL — INSTALL PASS (static only).** Authorization exhausted.
+- Merge source used: PR #15 / `adbc3d5f8fd71ee8a2d462d806dc4c4a91fd0241` (session docs tip `ed41f690d5a165ca37cb29cf908ceef566f4ddd0`).
+- Historical executable-path audit remains **UNSAFE** (pre-fix evidence preserved). A **new** Owner-authorized post-fix read-only audit must report **PASS** before isolation/activation.
 
 ## 2. Last completed / accepted results
 
-- Executable-path trust audit **ACCEPTED UNSAFE** (Issue #8 #7009010670 / Architect #7009128705) — preserved.
-- Inactive packaging remains on the VPS under the **old** `/opt/language-guard/offbox` + venv ExecStart paths; units **inactive**.
-- **PR #15 SOURCE MERGED:** dedicated `/opt/language-guard-offbox` execution tree; `/usr/bin/python3 -I`; `install-execution-tree --production`; exact active unit contracts; ancestor/descendant preflight. Frozen 15 module bytes unchanged. Account-server paths unchanged. Design: [OFFBOX_RUNTIME_TRUST.md](../procedures/OFFBOX_RUNTIME_TRUST.md).
-- **VPS corrective write NOT AUTHORIZED.**
+- Executable-path trust audit **ACCEPTED UNSAFE** (Issue #8 #7009010670 / Architect #7009128705) — preserved as historical evidence.
+- Obsolete inactive tree `/opt/language-guard/offbox` left **untouched** (still present; units no longer reference it).
+- **PR #15 SOURCE MERGED** earlier; design: [OFFBOX_RUNTIME_TRUST.md](../procedures/OFFBOX_RUNTIME_TRUST.md).
+- **Owner-authorized corrective inactive write EXECUTED and reported:** `/opt/language-guard-offbox` installed `root:root` `0755`/`0644`, 15/15 D5A2D0-P1 module SHA MATCH; four `language-guard-offbox*` unit files replaced on disk (`root:root 0644`) with reviewed templates referencing `/usr/bin/python3 -I` and `/opt/language-guard-offbox`; all four remain inactive/not enabled; **no** `daemon-reload`/start/enable; account server unchanged. Classification: **INSTALL PASS** (static packaging only — not live isolation).
 
 ## 3. Next App task
 
-1. **NEW OWNER AUTHORIZATION GRANTED — NOT YET EXECUTED:** exactly ONE corrective VPS write session limited to installing the verified root-owned offbox execution tree and replacing four inactive unit files, with static checks/report only. Canonical approval: [Issue #8 #7011064958](https://github.com/nguyenthaibinh19/EnglishApp/issues/8#issuecomment-7011064958). No daemon-reload/start/enable, age/OAuth/Drive, or account-server changes. Report `APP_18B9_VPS_CORRECTIVE_INACTIVE_INSTALL_RESULT` and STOP.
-2. After corrective write: a **new, separately Owner-authorized** read-only re-audit must report **PASS** before isolation/activation requests.
+1. **NOT AUTHORIZED without new Owner approval:** post-fix read-only executable-path audit (resolved interpreter/import path + effective systemd config after any future reload).
+2. **NOT AUTHORIZED:** `daemon-reload`, enable/start, isolation, age/OAuth/Drive, Cloud Sync, backup execution, or production activation.
+3. Do not claim runtime trust PASS from the static install evidence alone.
 
 ## 4. STOP / boundaries
 
-- SSH/VPS authorization is restricted to the ONE explicitly approved inactive corrective-write session in Issue #8 #7011064958. No other VPS operation is authorized; the approval expires after that session and its report.
-- No daemon-reload, enable/start, age/OAuth/Drive, Cloud Sync, isolation, or backup execution.
+- The ONE corrective inactive-write authorization ([Issue #8 #7011064958](https://github.com/nguyenthaibinh19/EnglishApp/issues/8#issuecomment-7011064958)) is **exhausted** after the install report.
+- No further SSH/VPS write or activation without fresh Product Owner approval.
 - Phase 18B.9 **OPEN / PRODUCTION NOT READY**. D5A2D2/D5A2D3 **FAIL preserved**. AI-M4 **NOT AUTHORIZED**.

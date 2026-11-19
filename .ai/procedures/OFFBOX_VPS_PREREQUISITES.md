@@ -1,6 +1,6 @@
 # Phase 18B.9 — VPS prerequisites and executable-path audit
 
-**Status (2026-11-19):** The first read-only prerequisites probe, the separately authorized *inactive-only* offbox packaging install, and the Owner-authorized **executable-path trust audit** have been completed **as reported by Cursor**. Audit classification: **UNSAFE**. Authorization for the audit: [Issue #8 comment #7008591938](https://github.com/nguyenthaibinh19/EnglishApp/issues/8#issuecomment-7008591938). Result report: [Issue #8 comment #7009010670](https://github.com/nguyenthaibinh19/EnglishApp/issues/8#issuecomment-7009010670). The read-only audit authorization is **exhausted**. This document does not authorize corrective writes, daemon-reload, service execution, isolation proof, age/OAuth/Drive, or activation.
+**Status (2026-11-19):** The first read-only prerequisites probe, the first inactive packaging install, the Owner-authorized **executable-path trust audit** (**UNSAFE**, preserved), and the Owner-authorized **corrective inactive VPS install** (**INSTALL PASS**, static only) have been completed **as reported by Cursor**. Audit authorization: [Issue #8 #7008591938](https://github.com/nguyenthaibinh19/EnglishApp/issues/8#issuecomment-7008591938); audit result: [#7009010670](https://github.com/nguyenthaibinh19/EnglishApp/issues/8#issuecomment-7009010670); corrective write authorization: [#7011064958](https://github.com/nguyenthaibinh19/EnglishApp/issues/8#issuecomment-7011064958) (**exhausted**). This document does not authorize `daemon-reload`, service execution, post-fix audit, isolation proof, age/OAuth/Drive, or activation.
 
 **Phase 18B.9 is OPEN; production NOT READY; Drive NOT CONFIGURED; Cloud Sync OFF.** Historical D5A2D2/D5A2D3 FAIL stays recorded.
 
@@ -31,18 +31,18 @@ Systemd `language-guard-offbox-worker.service` runs as `lg-backup` but executes 
 
 **UNSAFE.** Less-trusted `guard` can control the worker's invoked interpreter path (`venv/bin` symlink replaceability) and can replace the offbox tree via parent-directory rename; `guard` can also write `site-packages`. `lg-backup` itself cannot write those paths. Install-time 15/15 root leaf hashes ≠ runtime trust.
 
-## Source remediation design (NOT applied on VPS)
+## Source remediation + corrective inactive install (observed)
 
-Source-only correction is documented in [OFFBOX_RUNTIME_TRUST.md](OFFBOX_RUNTIME_TRUST.md) (PR #15):
+Source correction is documented in [OFFBOX_RUNTIME_TRUST.md](OFFBOX_RUNTIME_TRUST.md) (PR #15). Cursor-reported corrective inactive install under [#7011064958](https://github.com/nguyenthaibinh19/EnglishApp/issues/8#issuecomment-7011064958):
 
-1. Dedicated `/opt/language-guard-offbox` root-owned execution tree (sibling of `/opt/language-guard`).
-2. Unit templates use `/usr/bin/python3 -I` (not the guard-owned app venv).
-3. Packager `install-execution-tree --production` requires the exact trusted root and ancestry/symlink/ownership preflight before copy; offline/test installs omit `--production`.
-4. Unit verify parses active directives only (exactly one approved `ExecStart`; duplicate security-sensitive keys rejected).
-5. Path-trust classification requires resolved interpreter identity, leaf/ancestor metadata and ACL evidence; incomplete metadata is **UNKNOWN**, not PASS.
-6. Offline `verify-deps` confirms stdlib + local offbox import closure.
+1. Dedicated `/opt/language-guard-offbox` root-owned execution tree installed (sibling of `/opt/language-guard`).
+2. On-disk unit templates now use `/usr/bin/python3 -I` (not the guard-owned app venv).
+3. Packager `install-execution-tree --production` used; tree `root:root` dirs `0755` / files `0644`; 15/15 D5A2D0-P1 hashes MATCH.
+4. Four inactive unit files replaced; **no** `daemon-reload`/start/enable.
+5. Obsolete `/opt/language-guard/offbox` left untouched; account server unchanged.
+6. Static checks do **not** prove live isolation.
 
-**VPS corrective write remains separately Owner-authorized.** After any permitted write, a new read-only audit must report **PASS** before isolation/activation requests.
+**Next:** a new Owner-authorized read-only post-fix audit must report **PASS** before isolation/activation requests. Historical pre-fix **UNSAFE** evidence remains preserved.
 
 ## Strict prohibited operations
 
@@ -53,4 +53,4 @@ Source-only correction is documented in [OFFBOX_RUNTIME_TRUST.md](OFFBOX_RUNTIME
 
 ## Authorization boundary
 
-Owner's read-only executable-path approval is **exhausted** after the reported session. Any corrective ownership/layout write, daemon reload, live isolation, age/OAuth/Drive setup or activation needs a separate explicit Product Owner authorization.
+Owner's read-only executable-path approval and the corrective inactive-write approval are both **exhausted**. Any post-fix audit, daemon reload, live isolation, age/OAuth/Drive setup or activation needs a separate explicit Product Owner authorization.
