@@ -4,27 +4,34 @@ Rolling coordination checkpoint. The detailed history remains in [current_state.
 
 ## 1. Checkpoint metadata
 
-- Written: 2026-11-19 (Owner priority redirect).
-- **18C Account Data Sync — ACTIVE**
+- Written: 2026-11-19 (Architect Accepted merge of 18C.1).
+- **18C.1 CLOSED — Architect Accepted** (PR #20, reviewed SHA `d2493c881335c046290555af5e6a9f6d8d480c72`). Local core Account Sync demonstration only.
+- **Next active milestone: 18C.2** (signed-in GUI integration and related UX/safety — not started in this handoff).
 - **18B.9 Off-box Recovery — PAUSED, NOT CLOSED**
-- Active review PR: [#20](https://github.com/nguyenthaibinh19/EnglishApp/pull/20) (18C.1). Production Cloud Sync remains **OFF**.
-- Historical 18B.9 note: SOURCE INSTALLED INACTIVE — NOT ACTIVATED (`APP_18B9_INACTIVE_VPS_PACKAGING_SYNC`); approved main `eb869eaf310504862a10c902ea2e8803fbab0b53`; VPS units remain disabled. Historical pre-fix audit **UNSAFE**; D5A2D2/D5A2D3 **FAIL** preserved.
+- Production Cloud Sync remains **OFF**. GUI integration remains **not complete**.
+- Historical 18B.9 note: SOURCE INSTALLED INACTIVE — NOT ACTIVATED; VPS units remain disabled. Historical pre-fix audit **UNSAFE**; D5A2D2/D5A2D3 **FAIL** preserved.
 
 ## 2. Last completed / accepted results
 
-- **18C.1 local vertical slice** in source for Architect review: schema v3, progress HTTP (default-off), per-account store, sync engine, localhost two-device demo.
-- GUI boundary documented: primary Tkinter study/vocab paths remain guest-file based; account store is engine/demo until **18C.2**. See [PHASE-18C.1-gui-boundary.md](../plans/PHASE-18C.1-gui-boundary.md).
+- **18C.1** Architect Accepted: schema v3, progress HTTP (default-off), per-account store, sync engine, conflict freeze, localhost two-device demo.
+- GUI boundary unchanged: primary Tkinter study/vocab/progress/Mistake Book paths remain guest-file based. See [PHASE-18C.1-gui-boundary.md](../plans/PHASE-18C.1-gui-boundary.md).
 - 18B.9 packaging sync remains historically PASS (static/inactive only). **No** daemon-reload / start / enable / OAuth / Drive.
 
-## 3. Next App task
+## 3. Next App task — 18C.2
 
-1. Architect acceptance of PR #20 corrections (F1–F4). **Do not merge** without Architect acceptance.
-2. **18C.2** (after acceptance): signed-in GUI integration, account preferences, daily activity/streak UX, remaining ADR-022 consent/migration — still no production activation by default.
-3. **18B.9** remains paused: no VPS/Drive/OAuth/activation without new Owner approval.
+1. Real signed-in Tkinter Vocabulary / Quiz / Progress / Mistake Book integration.
+2. Account preferences and study language sync.
+3. Account-wide daily activity / learning streak.
+4. Conflict resolution UX and blocked-conflict safety.
+5. In-flight vocabulary upload versus newer local edits, with a deterministic race regression.
+6. Safe engine shutdown, logout and account switching.
+7. Legacy guest-data import with explicit user consent.
+8. End-to-end GUI demonstration with two isolated profiles.
+
+Do not claim the 18C.1 local demo proves full GUI integration. Production activation stays separately gated.
 
 ## 4. STOP / boundaries
 
-- No PR merge without Architect acceptance.
-- No VPS/SSH, production DB, production `STUDY_SYNC_ENABLED=1`, Google Drive/OAuth, or off-box changes from the 18C.1 workstream.
+- No VPS/SSH, production DB, production `STUDY_SYNC_ENABLED=1`, Google Drive/OAuth, or off-box changes without new Owner approval.
 - No real-user guest→account auto-import on login.
 - Phase 18B.9 **OPEN but PAUSED / PRODUCTION NOT READY**. Drive **NOT CONFIGURED**. Cloud Sync **OFF**.

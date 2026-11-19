@@ -4,11 +4,11 @@
 
 ## Latest verified coordination checkpoint — 2026-11-19
 
-**Current priority:** **18C Account Data Sync is ACTIVE. 18B.9 off-box is PAUSED, NOT CLOSED.**
+**Current priority:** **18C.2 signed-in GUI account sync is the next active implementation milestone. 18B.9 off-box is PAUSED, NOT CLOSED.** Cloud Sync production remains **OFF**.
 
-Owner redirected product work to Phase **18C.1** end-to-end account learning sync (local vertical slice). Off-box recovery remains open historically and is not cancelled; no new 18B.9 activation, VPS, Drive, OAuth, or `STUDY_SYNC_ENABLED=1` production work is authorized while 18C.1 is in Architect review.
+**18C.1 CLOSED — Architect Accepted** (PR #20, reviewed SHA `d2493c881335c046290555af5e6a9f6d8d480c72`): local core Account Sync demonstration only — schema-v3 progress tables + `/api/sync/progress/*` behind the existing default-off flag; per-account local SQLite; vocabulary + event-first progress sync engine; localhost two-device demo (`tools/demo_18c1_account_sync.py`); explicit vocabulary conflict freeze (no silent LWW). **GUI integration is not complete** — primary Tkinter vocab/quiz/progress/Mistake Book paths remain guest-file based; see [PHASE-18C.1-gui-boundary.md](plans/PHASE-18C.1-gui-boundary.md). The local demo does **not** prove full signed-in GUI integration.
 
-**18C.1 (this checkpoint):** schema-v3 progress tables + `/api/sync/progress/*` behind the existing default-off flag; per-account local SQLite; vocabulary + event-first progress sync engine; local two-device demo (`tools/demo_18c1_account_sync.py`). Primary Tkinter vocab/quiz/progress paths remain guest-file based until **18C.2** — see [PHASE-18C.1-gui-boundary.md](plans/PHASE-18C.1-gui-boundary.md). **Production unchanged** — flag stays off; no merge/activation without Architect acceptance.
+**18C.2 (next):** real signed-in Vocabulary/Quiz/Progress/Mistake Book wiring; account preferences and study language sync; account-wide daily activity/streak; conflict-resolution UX; in-flight vocab upload vs newer local edits (deterministic race regression); safe engine shutdown/logout/account switch; legacy guest import with explicit consent; end-to-end GUI demo with two isolated profiles. Production activation remains separately gated.
 
 **18B.9 historical note (paused):** SOURCE INSTALLED INACTIVE — NOT ACTIVATED. Owner-authorized VPS packaging sync applied approved main `eb869eaf310504862a10c902ea2e8803fbab0b53` (PR #16 + #17) under `/opt/language-guard-offbox/`. Installed-layout `verify`/`verify-deps` PASS; frozen 15/15 MATCH; wrapper LF pin `cc9ce5b7aadbd690f800a0a29cacfd0bbaf0c5f46d3c107ac3100ae1bc9e8427`. Off-box units remain disabled/inactive. **No** `daemon-reload`, start/enable, OAuth/Drive, credentials, backup/restore, isolation, or Cloud Sync.
 
@@ -211,9 +211,8 @@ Documentation checkpoint policy is IN FORCE, 2026-11-16. Documentation-only upda
 B2 is not assumed to be append-only. Object Lock and a deleting lifecycle stay off. A 26-hour RPO and a 4-hour RTO remain proposals.
 Windows Startup ``--lock`` hotfix remains DEFERRED until the affected computer is available. It is not diagnosed. Website W1 is handled by Antigravity in a separate workspace.
 Committed at ``3dff28d3f78a22da0fda73a50168ed9c3d6e9d57``: Windows installation safety ([ADR-023](decisions/ADR-023-windows-installation-safety.md)). Startup ``--lock`` and Emergency Exit under ``--lock`` remain unverified. This is not a release.
-**18C Account Data Sync is ACTIVE.** **18B.9 off-box is PAUSED, NOT CLOSED.**
-Phase 18C.1 delivers the local account learning sync vertical slice for Architect review (not production activation).
-Then (directional): resume 18B.9 when Owner re-prioritizes; AI Local Reading/Listening; optional Listening history/SRS; dictionary/pronunciation enrichment; Reading Lab
+**18C.1 CLOSED — Architect Accepted.** **18C.2 is next.** **18B.9 off-box is PAUSED, NOT CLOSED.** Cloud Sync **OFF**. GUI integration **not complete**.
+Then (directional): 18C.2 signed-in GUI sync; resume 18B.9 when Owner re-prioritizes; AI Local Reading/Listening; optional Listening history/SRS; dictionary/pronunciation enrichment; Reading Lab
 ```
 
 Listening is optional (settings default **off**). Content is AI-generated from StudyGuard-selected targets (max 2) with validated cache + bundled fallback; question/answer/transcript are study language; meaning is native; word lookup on demand. Audio remains Windows local TTS only.

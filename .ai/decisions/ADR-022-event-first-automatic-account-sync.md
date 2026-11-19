@@ -1,8 +1,8 @@
 # ADR-022 Event-first Progress Sync and Automatic Account Sync
 
-Status: **Accepted.** Architecture locked at `d9d0fe3`. **Phase 18C.1 implements the local vertical slice in source** (schema v3, progress HTTP behind the existing default-off flag, per-account client store/engine, local demo). Production activation, VPS enablement, and `STUDY_SYNC_ENABLED=1` on production remain separately gated. Live position: [current_state.md](../current_state.md).
+Status: **Accepted.** Architecture locked at `d9d0fe3`. **Phase 18C.1 CLOSED — Architect Accepted** (PR #20): local vertical slice in source (schema v3, progress HTTP behind the existing default-off flag, per-account client store/engine, local demo). **18C.2** covers signed-in GUI integration and related UX; GUI is not complete in 18C.1. Production activation, VPS enablement, and `STUDY_SYNC_ENABLED=1` on production remain separately gated. Live position: [current_state.md](../current_state.md).
 
-This ADR originally did not authorize implementation. Owner-directed Phase 18C.1 authorizes the local source slice only. It still does not authorize production timer installation, deployment, or production `STUDY_SYNC_ENABLED=1`.
+This ADR originally did not authorize implementation. Owner-directed Phase 18C.1 authorized the local source slice only. It still does not authorize production timer installation, deployment, or production `STUDY_SYNC_ENABLED=1`.
 
 Baseline: `d2777913e7d175fea0ad26c629c5cf7f2c0feca8` (Phase 18B.4). Vocabulary sync remains the Accepted contracts in [ADR-018](ADR-018-account-cloud-sync.md), [ADR-019](ADR-019-vocabulary-sync-http.md), [ADR-020](ADR-020-sync-database-backup.md), and [ADR-021](ADR-021-sync-backup-alerts.md). Production gates remain [PHASE-18B.3-production-readiness.md](../plans/PHASE-18B.3-production-readiness.md). When this ADR was accepted, Phase 18B.5 was the next repo-only milestone and was not started by this decision.
 

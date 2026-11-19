@@ -1,6 +1,6 @@
 # Phase 18C.1 — GUI integration boundary
 
-Status: **18C.1 local core sync demonstration** (Architect review). Not production activation. Not full signed-in GUI integration (that is **18C.2**).
+Status: **18C.1 CLOSED — Architect Accepted** (PR #20, reviewed SHA `d2493c881335c046290555af5e6a9f6d8d480c72`). Local core sync demonstration only. Not production activation. **GUI integration is not complete** (that is **18C.2**).
 
 ## Owner priority (official)
 
