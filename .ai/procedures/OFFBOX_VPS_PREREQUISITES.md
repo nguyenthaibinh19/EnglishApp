@@ -1,6 +1,6 @@
 # Phase 18B.9 — VPS prerequisites and executable-path audit
 
-**Status (2026-11-19):** The first read-only prerequisites probe and the separately authorized *inactive-only* offbox packaging install have been completed **as reported by Cursor** and reviewed by the System Architect. The current **executable-path trust audit is OWNER AUTHORIZED, NOT EXECUTED / NOT PASSED**. Authorization: [Issue #8 comment #7008591938](https://github.com/nguyenthaibinh19/EnglishApp/issues/8#issuecomment-7008591938). **One read-only SSH session only.** This document is instructions, not independent permission to run other sessions or change the VPS.
+**Status (2026-11-19):** The first read-only prerequisites probe, the separately authorized *inactive-only* offbox packaging install, and the Owner-authorized **executable-path trust audit** have been completed **as reported by Cursor**. Audit classification: **UNSAFE**. Authorization for the audit: [Issue #8 comment #7008591938](https://github.com/nguyenthaibinh19/EnglishApp/issues/8#issuecomment-7008591938). Result report: [Issue #8 comment #7009010670](https://github.com/nguyenthaibinh19/EnglishApp/issues/8#issuecomment-7009010670). The read-only audit authorization is **exhausted**. This document does not authorize corrective writes, daemon-reload, service execution, isolation proof, age/OAuth/Drive, or activation.
 
 **Phase 18B.9 is OPEN; production NOT READY; Drive NOT CONFIGURED; Cloud Sync OFF.** Historical D5A2D2/D5A2D3 FAIL stays recorded.
 
@@ -8,51 +8,42 @@
 
 - First prerequisites probe (Cursor-reported; Architect did **not** rerun SSH): production venv/system Python `3.14.4`, `accounts.db` `PRAGMA journal_mode=delete` via SQLite read-only URI; VPS `guard` UID/GID `995/982`, `lg-backup` `994/977`; backup dir `lg-backup:lg-backup 0700` empty; offbox units, age, recipient and OAuth refresh initially absent. See [Issue #8 review #7008262047](https://github.com/nguyenthaibinh19/EnglishApp/issues/8#issuecomment-7008262047).
 - One inactive packaging **write** session (Cursor-reported): source `f99e73cf01a599425cbc66dd84f5ed53d154a2b4`; `VERIFY_OK modules=15 units=4 inventory=D5A2D0-P1`; `/opt/language-guard/offbox` 15 module SHA-256 matches, leaf files `root:root 0644` and directory `0755`; `/var/lib/language-guard-helper` created `guard:guard 0700`; four unit files copied to `/etc/systemd/system` `root:root 0644`, **not daemon-reloaded, enabled or started**. Existing app and timer unchanged. See [Issue #8 install #7008470434](https://github.com/nguyenthaibinh19/EnglishApp/issues/8#issuecomment-7008470434) and [Architect review #7008526944](https://github.com/nguyenthaibinh19/EnglishApp/issues/8#issuecomment-7008526944).
-- The first post-install permissions checker falsely treated root-owned leaf `0644` as unsafe because root can write; a corrected **read-only** check confirmed 15/15 hashes. This does **not** prove runtime path safety.
+- The first post-install permissions checker falsely treated root-owned leaf `0644` as unsafe because root can write; a corrected **read-only** check confirmed 15/15 hashes. That check still did **not** prove runtime path safety.
+- **Executable-path trust audit (ONE read-only SSH, exit 0; docs SHA `bf9107e…`; host `ubuntu-4gb-fsn1-1`): UNSAFE.** Observed metadata (not prior assumptions):
+  - Identities: `guard` 995/982 groups=`guard` only; `lg-backup` 994/977 groups=`lg-backup` only; no shared supplementary groups.
+  - `namei -l` / `stat`: `/opt` `root:root 755`; `/opt/language-guard` **`guard:guard 755`**; `/opt/language-guard/offbox` `root:root 755`; leaf `backup_worker.py` / `snapshot_helper.py` `root:root 644`.
+  - Effective write (`runuser` + `test -w`, no probe files): `guard` **YES** on `/opt/language-guard`, `/opt/language-guard/venv`, `/opt/language-guard/venv/bin`, and `…/site-packages`; `guard` **NO** on offbox dir/leaves and on `/usr/bin/python3.14`; `lg-backup` **NO** on all of those paths.
+  - Parent `/opt/language-guard` is writable by `guard` and **not sticky**, so `guard` can rename/replace the `offbox` directory entry even though current leaves are root-owned.
+  - Interpreter chain: `/opt/language-guard/venv/bin/python` (`guard:guard` symlink) → `python3` → `/usr/bin/python3` → `/usr/bin/python3.14` (`root:root 755` under root-owned `/usr/bin`). Resolved system interpreter leaf is safe; the **venv symlink parents are not**.
+  - `venv` / `venv/bin` / `venv/lib/python3.14/site-packages` are `guard:guard 755`; site-packages contents are guard-owned. `pyvenv.cfg`: `home=/usr/bin`, `include-system-site-packages=false`, `version=3.14.4`.
+  - `getfacl` present; ACL entries match owner/group/other unix modes (no extra ACL grants observed).
+  - Note: `test -w` on the `venv/bin/python` symlink reported NO for `guard` because that query follows to the root-owned target; replaceability of the symlink itself is still YES via writable `venv/bin`.
 
-## Why the additional read-only check is required
+## Why the additional read-only check was required
 
-Systemd `language-guard-offbox-worker.service` runs as `lg-backup` but executes `/opt/language-guard/venv/bin/python /opt/language-guard/offbox/backup_worker.py`. The helper runs as `guard` using the same interpreter. In the source, `deploy/hetzner/setup.sh` contains `chown -R guard:guard /opt/language-guard`. **We have not confirmed actual on-host ancestry, symlink targets, venv/dependency ownership or effective write access.** Root ownership of a file does not prevent another user from replacing it if that user can write/rename its parent directory. Do not infer a vulnerability or safety from one file mode alone.
+Systemd `language-guard-offbox-worker.service` runs as `lg-backup` but executes `/opt/language-guard/venv/bin/python /opt/language-guard/offbox/backup_worker.py`. The helper runs as `guard` using the same interpreter. In the source, `deploy/hetzner/setup.sh` contains `chown -R guard:guard /opt/language-guard`. Root ownership of leaf modules alone does not prevent replacement when a less-trusted principal can write/rename a parent directory or retarget the interpreter/import path.
 
-## Owner-authorized executable-path READ-ONLY audit
-
-Use established public-key SSH with `BatchMode=yes`, `StrictHostKeyChecking=yes`, `ForwardAgent=no`. One session only. Commands below are examples of **metadata inspection**, not a blanket command authorization. Record exit statuses and output in redacted private audit evidence (no host/account secrets). Avoid executing the app venv/interpreter to inspect its path; use filesystem metadata.
-
-```bash
-# Metadata only; no filesystem modifications
-id guard
-id lg-backup
-getent group guard
-getent group lg-backup
-
-# Inspect ancestor replaceability and symlink chains
-namei -l /opt/language-guard/offbox/backup_worker.py
-namei -l /opt/language-guard/offbox/snapshot_helper.py
-namei -l /opt/language-guard/venv/bin/python
-readlink -f /opt/language-guard/venv/bin/python
-
-# All target and parent paths must be examined, not just leaf modules
-stat -c '%A %a %U:%G %n' /opt /opt/language-guard   /opt/language-guard/offbox /opt/language-guard/venv   /opt/language-guard/venv/bin
-# Inspect relevant venv/lib, site-packages, interpreter target and import
-# ancestors by metadata once resolved; include symlink targets.
-# Optional where available: getfacl -p PATH (ACL metadata only).
-# Optional: non-writing permission query as guard/lg-backup using test -w.
-# Do not create probe files, import/execute app modules or run offbox services.
-```
-
-Check the actual interpreter target (symlink mode `777` alone is not its target permission), venv configuration/import paths, Python `site-packages`, offbox import dependencies and every replaceable ancestor. Assess effective write/rename permissions for `guard`, `lg-backup`, groups and ACLs; group membership matters. If `getfacl` is missing or a relevant path cannot be resolved, classify it **UNKNOWN**; do not install tools or assume PASS.
+## Audit classification criteria (retained)
 
 **PASS** only when all relevant runtime entrypoint/import paths are independently verifiable and cannot be rewritten or replaced by a less-trusted principal. **UNSAFE** if such a principal can replace worker-executable bytes (including via writable parent, interpreter or import dependency). **UNKNOWN** where evidence is incomplete. No proof-by-writing, and no unapproved repairs.
 
+## Observed assessment
+
+**UNSAFE.** Less-trusted `guard` can control the worker's invoked interpreter path (`venv/bin` symlink replaceability) and can replace the offbox tree via parent-directory rename; `guard` can also write `site-packages`. `lg-backup` itself cannot write those paths. Install-time 15/15 root leaf hashes ≠ runtime trust.
+
+## Minimal proposed remediation (NOT applied; needs separate Owner write auth)
+
+1. Stop using the guard-owned app venv for the offbox worker/helper; prefer system `/usr/bin/python3` (stdlib-only offbox) or a root-owned dedicated interpreter tree outside guard write reach.
+2. Place offbox modules under a root-owned path whose **ancestors** are not writable by `guard`/`lg-backup` (or make `/opt/language-guard` root-owned with narrow guard write grants only where required).
+3. Re-verify with a follow-up read-only audit after any corrective write; still no activation.
+
 ## Strict prohibited operations
 
-- No file writes, `chmod`/`chown`, `setup.sh`, package install, systemd `daemon-reload`/`enable`/`start`/`restart`/`stop`, socket/worker/helper execution or isolation tests.
+- No file writes, `chmod`/`chown`, `setup.sh`, package install, systemd `daemon-reload`/`enable`/`start`/`restart`/`stop`, socket/worker/helper execution or isolation tests without new Owner authorization.
 - No reading `.env`, OAuth/other credential contents, private keys, user DB rows, account data, backup artifacts or recovery data.
 - No age install, recipient/token provisioning, Google Drive API calls, backup/restore, Cloud Sync, AI-M4 or production activation.
-- If any observation appears to require a change, **STOP and report it**, do not fix it.
+- Do not auto-correct unsafe configuration observed by this audit.
 
-## Required report / authorization boundary
+## Authorization boundary
 
-Return `APP_18B9_EXEC_PATH_READONLY_AUDIT_RESULT` with exact source revision, read-only commands and exit codes, redacted owner/group/mode/ACL and resolved path evidence, principal-by-principal ability to replace runtime files, `PASS | UNSAFE | UNKNOWN`, and the smallest proposed remediation **only if needed**. Preserve historic D2/D3 FAIL and current inactive state. Update Issue #8 and this procedure/current handoff with results **after** the probe, explicitly distinguishing observed facts from proposed corrective actions.
-
-Owner's read-only approval is exhausted after **one session/report**. Any corrective ownership/layout write, daemon reload, live isolation, age/OAuth/Drive setup or activation needs a separate explicit Product Owner authorization.
+Owner's read-only executable-path approval is **exhausted** after the reported session. Any corrective ownership/layout write, daemon reload, live isolation, age/OAuth/Drive setup or activation needs a separate explicit Product Owner authorization.
