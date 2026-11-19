@@ -31,11 +31,16 @@ Systemd `language-guard-offbox-worker.service` runs as `lg-backup` but executes 
 
 **UNSAFE.** Less-trusted `guard` can control the worker's invoked interpreter path (`venv/bin` symlink replaceability) and can replace the offbox tree via parent-directory rename; `guard` can also write `site-packages`. `lg-backup` itself cannot write those paths. Install-time 15/15 root leaf hashes ≠ runtime trust.
 
-## Minimal proposed remediation (NOT applied; needs separate Owner write auth)
+## Source remediation design (NOT applied on VPS)
 
-1. Stop using the guard-owned app venv for the offbox worker/helper; prefer system `/usr/bin/python3` (stdlib-only offbox) or a root-owned dedicated interpreter tree outside guard write reach.
-2. Place offbox modules under a root-owned path whose **ancestors** are not writable by `guard`/`lg-backup` (or make `/opt/language-guard` root-owned with narrow guard write grants only where required).
-3. Re-verify with a follow-up read-only audit after any corrective write; still no activation.
+Source-only correction is documented in [OFFBOX_RUNTIME_TRUST.md](OFFBOX_RUNTIME_TRUST.md):
+
+1. Dedicated `/opt/language-guard-offbox` root-owned execution tree (sibling of `/opt/language-guard`).
+2. Unit templates use `/usr/bin/python3 -I` (not the guard-owned app venv).
+3. Packager `install-execution-tree` refuses install under the app path segment `language-guard`.
+4. Offline `verify-deps` confirms stdlib + local offbox import closure.
+
+**VPS corrective write remains separately Owner-authorized.** After any permitted write, a new read-only audit must report **PASS** before isolation/activation requests.
 
 ## Strict prohibited operations
 

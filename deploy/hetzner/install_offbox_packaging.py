@@ -8,14 +8,25 @@ Module bytes are verified against the independently accepted D5A2D0-P1
 inventory embedded below. A local SHA256SUMS file must match that inventory;
 rewriting the manifest alone cannot authorize tampered module bytes.
 
-Staging (`stage` / `install-app-tree`) assumes a trusted dedicated
-destination directory. Do not run as root into a shared or untrusted path.
+Trusted runtime destination (source design):
+  /opt/language-guard-offbox/
+    offbox/*.py (+ SHA256SUMS, SOURCE_AUTHORITY.md)
+    deploy/hetzner/<helpers and unit templates>
+
+That tree must remain outside any guard-writable ancestor (not under
+/opt/language-guard). Units must ExecStart /usr/bin/python3 -I against
+modules in that tree — never the guard-owned app venv.
+
+Staging / install commands assume a trusted dedicated destination directory.
+Do not run as root into a shared or untrusted path.
 
 Usage examples (from repository root):
 
   python deploy/hetzner/install_offbox_packaging.py verify
+  python deploy/hetzner/install_offbox_packaging.py verify-deps
   python deploy/hetzner/install_offbox_packaging.py stage --dest /tmp/offbox-stage
-  python deploy/hetzner/install_offbox_packaging.py install-app-tree --dest /opt/language-guard
+  python deploy/hetzner/install_offbox_packaging.py install-execution-tree \\
+      --dest /opt/language-guard-offbox
 
 Exit codes:
   0 success
@@ -26,6 +37,7 @@ Exit codes:
 from __future__ import annotations
 
 import argparse
+import ast
 import hashlib
 import os
 import shutil
@@ -66,22 +78,36 @@ APP_TREE_HELPERS = (
     "install_offbox_packaging.py",
     "offbox_report_lines.py",
 )
+
+# Trusted execution layout (source design; VPS write still separately authorized).
+OFFBOX_EXEC_ROOT = "/opt/language-guard-offbox"
+OFFBOX_EXEC_MODULES = f"{OFFBOX_EXEC_ROOT}/offbox"
+TRUSTED_INTERPRETER = "/usr/bin/python3"
+# Account DB remains under the app tree (data, not executable code).
+APP_ACCOUNTS_DB = "/opt/language-guard/accounts.db"
+
 FORBIDDEN_UNIT_MARKERS = (
     "StateDirectory=language-guard-backup",
     "/mnt/d/Tools/",
     "LG_DRIVE_FOLDER=",
     "LG_UPLOAD_ENABLED=",
+    "/opt/language-guard/venv/",
+    "/opt/language-guard/offbox/",
+    "venv/bin/python",
 )
 REQUIRED_HELPER_MARKERS = (
     "StandardError=journal",
     "StandardOutput=socket",
     "User=guard",
     "LG_EXPECTED_UNIT=language-guard-offbox-worker.service",
+    f"ExecStart={TRUSTED_INTERPRETER} -I {OFFBOX_EXEC_MODULES}/snapshot_helper.py",
+    f"WorkingDirectory={OFFBOX_EXEC_MODULES}",
 )
 REQUIRED_WORKER_MARKERS = (
     "User=lg-backup",
     "LoadCredential=oauth-refresh:",
     "LG_SOCKET=/run/language-guard-offbox/handoff.sock",
+    f"ExecStart={TRUSTED_INTERPRETER} -I {OFFBOX_EXEC_MODULES}/backup_worker.py",
 )
 REQUIRED_SOCKET_MARKERS = (
     "ListenStream=/run/language-guard-offbox/handoff.sock",
@@ -89,6 +115,12 @@ REQUIRED_SOCKET_MARKERS = (
     "SocketMode=0600",
     "Accept=yes",
 )
+
+# Expected modes for a future corrective VPS write (documented + tested offline).
+EXPECTED_EXEC_DIR_MODE = 0o755
+EXPECTED_EXEC_FILE_MODE = 0o644
+EXPECTED_EXEC_OWNER = "root"
+EXPECTED_EXEC_GROUP = "root"
 
 
 def _sha256(path: Path) -> str:
@@ -177,6 +209,133 @@ def verify_units(unit_dir: Path = HERE) -> None:
         raise ValueError("timer must target language-guard-offbox-worker.service")
 
 
+def _top_level_module(name: str) -> str:
+    return name.split(".", 1)[0]
+
+
+def _imported_names(tree: ast.AST) -> set[str]:
+    names: set[str] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            for alias in node.names:
+                names.add(_top_level_module(alias.name))
+        elif isinstance(node, ast.ImportFrom):
+            if node.level and node.level > 0:
+                # Relative imports are not used by the frozen offbox tree.
+                names.add(f".{'.' * (node.level - 1)}{node.module or ''}")
+                continue
+            if node.module:
+                names.add(_top_level_module(node.module))
+    return names
+
+
+def verify_dependency_closure(offbox: Path = OFFBOX_SRC) -> dict[str, set[str]]:
+    """Offline import closure: stdlib + local offbox modules only."""
+    verify_modules(offbox)
+    local = {name[:-3] for name in ACCEPTED_D5A2D0_P1_SHA256}
+    stdlib = set(getattr(sys, "stdlib_module_names", ()))
+    if not stdlib:
+        raise ValueError("sys.stdlib_module_names unavailable; need Python >= 3.10")
+    # typing_extensions is not used by frozen modules; keep allowlist strict.
+    per_file: dict[str, set[str]] = {}
+    illegal: list[str] = []
+    for name in sorted(ACCEPTED_D5A2D0_P1_SHA256):
+        path = offbox / name
+        tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+        imported = _imported_names(tree)
+        per_file[name] = imported
+        for mod in sorted(imported):
+            if mod.startswith("."):
+                illegal.append(f"{name}: relative import {mod!r}")
+                continue
+            if mod in local or mod in stdlib:
+                continue
+            illegal.append(f"{name}: non-stdlib dependency {mod!r}")
+    if illegal:
+        raise ValueError("dependency closure failed: " + "; ".join(illegal))
+    return per_file
+
+
+class PathTrustMeta:
+    """Metadata-only description of one path component for offline trust tests."""
+
+    __slots__ = ("path", "owner", "group", "mode", "is_dir", "sticky", "writable_by")
+
+    def __init__(
+        self,
+        path: str,
+        owner: str,
+        group: str,
+        mode: int,
+        is_dir: bool,
+        sticky: bool = False,
+        writable_by: frozenset[str] | None = None,
+    ) -> None:
+        self.path = path
+        self.owner = owner
+        self.group = group
+        self.mode = mode
+        self.is_dir = is_dir
+        self.sticky = sticky
+        self.writable_by = writable_by if writable_by is not None else frozenset()
+
+
+def _posix_ancestor_dirs(path: str) -> list[str]:
+    """Return POSIX ancestor directories of a file path, root-first."""
+    normalized = path.replace("\\", "/").rstrip("/")
+    if not normalized.startswith("/"):
+        normalized = "/" + normalized
+    segments = [seg for seg in normalized.split("/") if seg]
+    out = ["/"]
+    current = ""
+    for seg in segments[:-1]:
+        current += "/" + seg
+        out.append(current)
+    return out
+
+
+def classify_execution_path_trust(
+    *,
+    ancestors: list[PathTrustMeta],
+    interpreter_exec: str,
+    module_paths: list[str],
+    less_trusted: str = "guard",
+) -> str:
+    """Classify PASS/UNSAFE/UNKNOWN from metadata fixtures (no filesystem writes).
+
+    PASS only when every ancestor of executable module paths is not writable by
+    the less-trusted principal (sticky alone is not treated as sufficient), and
+    the interpreter is the trusted system binary rather than a replaceable venv
+    symlink path.
+    """
+    if not ancestors or not module_paths:
+        return "UNKNOWN"
+    if not interpreter_exec.startswith(TRUSTED_INTERPRETER):
+        return "UNSAFE"
+    if "/venv/" in interpreter_exec or interpreter_exec.endswith("venv/bin/python"):
+        return "UNSAFE"
+    by_path = {item.path.rstrip("/") or "/": item for item in ancestors}
+    for module in module_paths:
+        for parent in _posix_ancestor_dirs(module):
+            meta = by_path.get(parent)
+            if meta is None:
+                return "UNKNOWN"
+            if less_trusted in meta.writable_by:
+                return "UNSAFE"
+            if meta.owner == less_trusted and meta.is_dir and (meta.mode & 0o200):
+                return "UNSAFE"
+    return "PASS"
+
+
+def expected_execution_tree_modes(dest: Path) -> list[tuple[str, int]]:
+    """Document expected root-immutable modes after a corrective VPS write."""
+    expected: list[tuple[str, int]] = [(str(dest), EXPECTED_EXEC_DIR_MODE)]
+    expected.append((str(dest / "offbox"), EXPECTED_EXEC_DIR_MODE))
+    for name in ACCEPTED_D5A2D0_P1_SHA256:
+        expected.append((str(dest / "offbox" / name), EXPECTED_EXEC_FILE_MODE))
+    return expected
+
+
 def _exclusive_copy(src: Path, dest: Path) -> None:
     dest.parent.mkdir(parents=True, exist_ok=True)
     if dest.exists():
@@ -201,6 +360,7 @@ def stage(
     offbox = hetzner_dir / "offbox"
     listed = verify_modules(offbox)
     verify_units(hetzner_dir)
+    verify_dependency_closure(offbox)
     written: list[str] = []
     modules_dest = dest / "offbox"
     for name in listed:
@@ -221,16 +381,31 @@ def stage(
     return written
 
 
-def install_app_tree(dest: Path, *, hetzner_dir: Path = HERE) -> list[str]:
-    """Verify first, then install modules/helpers/units into an app tree.
+def install_execution_tree(dest: Path, *, hetzner_dir: Path = HERE) -> list[str]:
+    """Verify first, then install the dedicated immutable execution tree.
 
-    Layout:
+    Layout (intended production dest: /opt/language-guard-offbox):
       <dest>/offbox/*.py (+ SHA256SUMS, SOURCE_AUTHORITY.md)
       <dest>/deploy/hetzner/<helpers and unit templates>
+
+    Does not chown (may run offline on Windows). A future authorized VPS write
+    must apply root:root 0755/0644 and must never place this tree under a
+    guard-writable ancestor such as /opt/language-guard.
     """
+    resolved = dest.resolve()
+    # Fail-closed: never install the trusted execution tree under the app path
+    # segment ``language-guard`` (guard-writable on the VPS). The distinct
+    # sibling ``language-guard-offbox`` is allowed.
+    if "language-guard" in resolved.parts:
+        raise ValueError(
+            "refusing to install execution tree under the guard-owned app path; "
+            f"use {OFFBOX_EXEC_ROOT}"
+        )
+
     offbox = hetzner_dir / "offbox"
     listed = verify_modules(offbox)
     verify_units(hetzner_dir)
+    verify_dependency_closure(offbox)
     written: list[str] = []
     modules_dest = dest / "offbox"
     deploy_dest = dest / "deploy" / "hetzner"
@@ -253,10 +428,25 @@ def install_app_tree(dest: Path, *, hetzner_dir: Path = HERE) -> list[str]:
     return written
 
 
+def install_app_tree(dest: Path, *, hetzner_dir: Path = HERE) -> list[str]:
+    """Backward-compatible alias.
+
+    Historical name from accelerated readiness. New installs must use
+    ``install-execution-tree`` into ``/opt/language-guard-offbox``. This alias
+    still performs the same verify-before-copy into ``dest`` for offline tests,
+    but refuses the known-unsafe ``/opt/language-guard`` destination.
+    """
+    return install_execution_tree(dest, hetzner_dir=hetzner_dir)
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     sub = parser.add_subparsers(dest="command", required=True)
     sub.add_parser("verify", help="Verify frozen module hashes and unit safety markers")
+    sub.add_parser(
+        "verify-deps",
+        help="Verify offline import dependency closure (stdlib + local offbox only)",
+    )
     stage_p = sub.add_parser("stage", help="Stage modules/units into a destination tree")
     stage_p.add_argument("--dest", required=True, type=Path, help="Trusted dedicated destination")
     stage_p.add_argument(
@@ -265,10 +455,23 @@ def build_parser() -> argparse.ArgumentParser:
         help="Stage frozen modules only (skip unit templates)",
     )
     install_p = sub.add_parser(
-        "install-app-tree",
-        help="Verify then install into <dest>/offbox and <dest>/deploy/hetzner",
+        "install-execution-tree",
+        help=(
+            "Verify then install into <dest>/offbox and <dest>/deploy/hetzner "
+            f"(production dest: {OFFBOX_EXEC_ROOT})"
+        ),
     )
-    install_p.add_argument("--dest", required=True, type=Path, help="Trusted app-tree destination")
+    install_p.add_argument(
+        "--dest",
+        required=True,
+        type=Path,
+        help=f"Trusted execution-tree destination (e.g. {OFFBOX_EXEC_ROOT})",
+    )
+    legacy_p = sub.add_parser(
+        "install-app-tree",
+        help="Legacy alias of install-execution-tree (refuses /opt/language-guard)",
+    )
+    legacy_p.add_argument("--dest", required=True, type=Path, help="Destination tree")
     return parser
 
 
@@ -279,7 +482,15 @@ def main(argv: list[str] | None = None) -> int:
         if args.command == "verify":
             listed = verify_modules()
             verify_units()
-            print(f"VERIFY_OK modules={len(listed)} units={len(UNIT_NAMES)} inventory=D5A2D0-P1")
+            verify_dependency_closure()
+            print(
+                f"VERIFY_OK modules={len(listed)} units={len(UNIT_NAMES)} "
+                f"inventory=D5A2D0-P1 exec_root={OFFBOX_EXEC_ROOT} interpreter={TRUSTED_INTERPRETER}"
+            )
+            return 0
+        if args.command == "verify-deps":
+            per_file = verify_dependency_closure()
+            print(f"DEPS_OK modules={len(per_file)} stdlib_or_local_only=1")
             return 0
         if args.command == "stage":
             dest = args.dest.resolve()
@@ -288,10 +499,11 @@ def main(argv: list[str] | None = None) -> int:
             for path in written:
                 print(path)
             return 0
-        if args.command == "install-app-tree":
+        if args.command in {"install-execution-tree", "install-app-tree"}:
             dest = args.dest.resolve()
-            written = install_app_tree(dest)
-            print(f"INSTALL_OK dest={dest} files={len(written)} inventory=D5A2D0-P1")
+            written = install_execution_tree(dest)
+            label = "INSTALL_EXEC_OK" if args.command == "install-execution-tree" else "INSTALL_OK"
+            print(f"{label} dest={dest} files={len(written)} inventory=D5A2D0-P1")
             for path in written:
                 print(path)
             return 0

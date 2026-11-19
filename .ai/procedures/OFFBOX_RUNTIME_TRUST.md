@@ -1,0 +1,55 @@
+# Phase 18B.9 — Offbox runtime trust layout (source design)
+
+**Status (2026-11-19):** Source-only remediation design after the accepted **UNSAFE** executable-path audit ([Issue #8 #7009010670](https://github.com/nguyenthaibinh19/EnglishApp/issues/8#issuecomment-7009010670), Architect verdict [#7009128705](https://github.com/nguyenthaibinh19/EnglishApp/issues/8#issuecomment-7009128705)). This document does **not** authorize a VPS corrective write, daemon-reload, enable/start, isolation, age/OAuth/Drive, or activation.
+
+Historical D5A2D2/D5A2D3 **FAIL** preserved. Drive **NOT CONFIGURED**. Cloud Sync **OFF**. Production **NOT READY**.
+
+## Problem (observed)
+
+- `/opt/language-guard` is `guard:guard 0755` and writable by `guard` (not sticky).
+- Root-owned leaves under `/opt/language-guard/offbox` can still be replaced via parent rename.
+- Worker/helper templates previously used `/opt/language-guard/venv/bin/python`, whose symlink and `site-packages` are guard-controlled.
+
+## Proposed trusted layout
+
+| Path | Owner/mode (intended) | Role |
+|---|---|---|
+| `/opt` | `root:root 0755` | Ancestor (already root) |
+| `/opt/language-guard-offbox` | `root:root 0755` | Dedicated execution root (sibling of app tree) |
+| `/opt/language-guard-offbox/offbox/*.py` | `root:root 0644` | Frozen D5A2D0-P1 modules (unchanged bytes) |
+| `/usr/bin/python3` | system root-owned | Interpreter (`-I` isolated mode) |
+| `/opt/language-guard` | unchanged `guard` app tree | Account server only; **no** offbox executables |
+| `/opt/language-guard/accounts.db` | existing | Helper read-only data path (`LG_SOURCE_DB`) |
+| `/var/lib/language-guard-backup` | `lg-backup:lg-backup 0700` | Worker state (unchanged) |
+| `/var/lib/language-guard-helper` | `guard:guard 0700` | Helper audit (unchanged) |
+
+Unit templates:
+
+- Helper: `User=guard`, `ExecStart=/usr/bin/python3 -I /opt/language-guard-offbox/offbox/snapshot_helper.py`
+- Worker: `User=lg-backup`, `ExecStart=/usr/bin/python3 -I /opt/language-guard-offbox/offbox/backup_worker.py`
+
+`setup.sh` opt-in `LG_INSTALL_OFFBOX=1` installs via `install-execution-tree --dest /opt/language-guard-offbox` and root-owns that tree. It must never nest the execution tree under `APP_DIR` and must not chown it to `guard`.
+
+## Offline verification
+
+```bash
+python deploy/hetzner/install_offbox_packaging.py verify
+python deploy/hetzner/install_offbox_packaging.py verify-deps
+python -m pytest tests/test_offbox_runtime_trust.py tests/test_offbox_packaging.py tests/test_offbox_setup_boundary.py tests/test_offbox_integrity.py tests/test_offbox_import_smoke.py -q
+```
+
+## Exact future VPS corrective-write scope (NOT authorized by this file)
+
+When Product Owner separately authorizes one corrective write session, the intended scope is:
+
+1. Install/sync source revision containing this remediation.
+2. Run `install-execution-tree --dest /opt/language-guard-offbox` (verify-before-copy); apply `root:root` `0755`/`0644`.
+3. Replace the four inactive unit files under `/etc/systemd/system` with the updated templates (still **disabled/inactive**).
+4. Leave `/opt/language-guard` account-server tree and venv untouched aside from not relying on them for offbox ExecStart.
+5. Optionally leave or later remove the obsolete `/opt/language-guard/offbox` tree only under explicit Owner wording (default: leave in place; units must not reference it).
+6. **No** `daemon-reload` / enable / start unless a further Owner authorization says so.
+7. Follow with a new Owner-authorized **read-only** post-fix path audit that must report **PASS** before any isolation/activation request.
+
+## Prohibited without new Owner authorization
+
+SSH corrective writes, systemd activation, age install, OAuth/Drive provisioning, Cloud Sync, live isolation, backup/restore, and automatic merge of related PRs.
