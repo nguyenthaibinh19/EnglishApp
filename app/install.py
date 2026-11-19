@@ -212,6 +212,18 @@ def _discard_incomplete_install(dest: str, *, remove_startup_link: bool) -> None
         pass
 
 
+def is_release_candidate_smoke() -> bool:
+    """True for isolated RC smoke — no install/Startup; isolated AppData.
+
+    Detection lives in ``app_environment`` so RC identity is available before
+    settings and data paths initialize. Genuine ``langstudyguard.exe`` without
+    RC markers keeps production install semantics.
+    """
+    import app_environment
+
+    return app_environment.is_release_candidate_smoke(frozen=config.is_frozen())
+
+
 def prepare() -> bool:
     """Chuẩn bị bản .exe.
 
@@ -221,8 +233,15 @@ def prepare() -> bool:
     Staging/development: never install over production paths, never create the
     production Startup shortcut, and never auto-install into LOCALAPPDATA.
     Run in place from the staging EXE path instead.
+
+    Production RC smoke (``langstudyguard-rc.exe`` / ``--rc-smoke`` / ``LG_RC_SMOKE=1``):
+    run in place only — do not overwrite an existing install or register Startup.
     """
     if not config.is_frozen():
+        return True
+
+    if is_release_candidate_smoke():
+        seed_vocab()
         return True
 
     identity = config.environment_identity()

@@ -1,0 +1,3 @@
+status=Khách / Chưa đăng nhập
+detail=Dữ liệu đang lưu local trên máy này. Đồng bộ tài khoản tắt.
+sync=Cloud Sync: Guest / Disabled — Local-only guest data — account sync inactive

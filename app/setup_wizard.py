@@ -38,8 +38,13 @@ def _window_title() -> str:
     return config.environment_identity().display_title("Language Guard")
 
 
-def _form(parent, on_success):
-    """Vẽ form đăng nhập. `on_success` chạy trên luồng giao diện sau khi có token."""
+def _form(parent, on_success, *, commit_session: bool = True, result_holder: dict = None):
+    """Vẽ form đăng nhập. `on_success` chạy trên luồng giao diện sau khi có token.
+
+    When ``commit_session`` is False, credentials are returned via ``result_holder``
+    as ``{"username", "token", "user_id"}`` without saving or starting sync — used
+    for transactional account switch (keep A until B authenticates).
+    """
     card = ttk.Frame(parent, padding=28)
     card.pack(fill=tk.BOTH, expand=True)
 
@@ -87,21 +92,24 @@ def _form(parent, on_success):
 
         def ok(result):
             token, user_id = result
-            config.save_account(username, token, user_id=user_id)
-            try:
-                from account_sync_bootstrap import maybe_start_account_sync
+            if commit_session:
+                config.save_account(username, token, user_id=user_id)
+                try:
+                    from account_sync_bootstrap import maybe_start_account_sync
 
-                # Start sync for this account only. Preferences are pulled (or seeded
-                # once for a brand-new empty server tip) inside sync_preferences_once —
-                # never copy the previous account's machine settings into the next one.
-                # Never auto-import guest vocabulary on login.
-                maybe_start_account_sync()
-            except Exception:
-                pass
+                    # Never auto-import guest vocabulary on login.
+                    maybe_start_account_sync()
+                except Exception:
+                    pass
+            elif result_holder is not None:
+                result_holder["username"] = username
+                result_holder["token"] = token
+                result_holder["user_id"] = int(user_id)
             on_success()
 
         def failed(error):
             button.state(["!disabled"])
+            # Never surface tokens; account_client errors are user-facing messages.
             error_label.config(text=str(error))
 
         ui_common.run_async(parent, work, ok, failed)
@@ -144,7 +152,7 @@ def run(root: tk.Tk) -> bool:
     return done["ok"]
 
 
-def ask(parent) -> bool:
+def ask(parent, *, commit_session: bool = True) -> bool:
     """Hỏi đăng nhập lại khi server từ chối phiên cũ. Không đụng cửa sổ bài học."""
     dialog = tk.Toplevel(parent)
     dialog.title(_window_title())
@@ -162,9 +170,50 @@ def ask(parent) -> bool:
         done["ok"] = True
         dialog.destroy()
 
-    _form(dialog, success)
+    _form(dialog, success, commit_session=commit_session)
     _place(dialog, 480, 420)
     dialog.protocol("WM_DELETE_WINDOW", dialog.destroy)
     dialog.grab_set()
     parent.wait_window(dialog)
     return done["ok"]
+
+
+def authenticate(parent):
+    """Authenticate without committing the session. Returns (username, token, user_id) or None.
+
+    Used for transactional account switch: keep the current account until this succeeds.
+    Tokens are never written to logs or dialog text.
+    """
+    dialog = tk.Toplevel(parent)
+    dialog.title(_window_title())
+    dialog.resizable(False, False)
+    dialog.transient(parent)
+    try:
+        dialog.attributes("-topmost", True)
+    except tk.TclError:
+        pass
+    ui_common.apply_theme(dialog)
+
+    holder = {}
+    done = {"ok": False}
+
+    def success():
+        done["ok"] = True
+        dialog.destroy()
+
+    _form(dialog, success, commit_session=False, result_holder=holder)
+    _place(dialog, 480, 420)
+    dialog.protocol("WM_DELETE_WINDOW", dialog.destroy)
+    dialog.grab_set()
+    parent.wait_window(dialog)
+    if not done["ok"]:
+        return None
+    username = str(holder.get("username") or "").strip()
+    token = str(holder.get("token") or "").strip()
+    try:
+        user_id = int(holder.get("user_id") or 0)
+    except (TypeError, ValueError):
+        user_id = 0
+    if not username or not token or user_id < 1:
+        return None
+    return username, token, user_id

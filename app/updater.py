@@ -96,8 +96,22 @@ def _pick_asset(release: dict) -> tuple:
     return "", 0, ""
 
 
+def updates_allowed() -> bool:
+    """RC smoke must never trigger the production auto-updater replace flow."""
+    import app_environment
+
+    identity = config.environment_identity()
+    if getattr(identity, "rc_smoke", False):
+        return False
+    if app_environment.is_release_candidate_smoke(frozen=config.is_frozen()):
+        return False
+    return True
+
+
 def prompt_if_needed(window: tk.Misc):
     """Hỏi cập nhật nếu GitHub có bản mới hơn bản đang chạy."""
+    if not updates_allowed():
+        return
 
     def work():
         release = _latest_release()
@@ -357,6 +371,13 @@ def _download_and_restart(
 
 def _swap_and_restart(downloaded: str):
     """Thoát app, rồi để PowerShell ghi đè file exe đang chạy và mở lại."""
+    if not updates_allowed():
+        raise OSError(
+            config.ui(
+                "Bản RC không được ghi đè bản production qua updater.",
+                "RC smoke must not replace the production install via the updater.",
+            )
+        )
     destination = config.installed_exe() if config.is_frozen() else os.path.abspath(sys.executable)
     os.makedirs(os.path.dirname(destination), exist_ok=True)
     if not os.path.isfile(downloaded) or os.path.getsize(downloaded) < _MIN_EXE_BYTES:

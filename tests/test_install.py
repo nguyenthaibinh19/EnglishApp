@@ -20,12 +20,35 @@ class _Record:
         self.launches: list[tuple[list[str], str | None]] = []
 
 
+def _production_identity():
+    """Production identity so install.prepare() exercises real install paths in tests."""
+    from app_environment import EnvironmentIdentity
+
+    return EnvironmentIdentity(
+        build_channel="production",
+        runtime_environment="production",
+        version="test",
+        commit_sha="test",
+        data_folder="langstudyguard",
+        install_folder="langstudyguard",
+        exe_basename="langstudyguard.exe",
+        startup_link="langstudyguard.lnk",
+        network_writes_allowed=True,
+        identity_error="",
+    )
+
+
 def _bind(monkeypatch, tmp_path: Path, *, frozen: bool, executable: Path, installed: Path) -> _Record:
     record = _Record()
     monkeypatch.setenv("APPDATA", str(tmp_path / "AppData"))
+    monkeypatch.delenv("LG_RC_SMOKE", raising=False)
     monkeypatch.setattr(install.config, "is_frozen", lambda: frozen)
     monkeypatch.setattr(install.config, "installed_exe", lambda: str(installed))
+    monkeypatch.setattr(install.config, "environment_identity", _production_identity)
     monkeypatch.setattr(sys, "executable", str(executable), raising=False)
+    # Avoid leftover pytest argv markers leaking into RC detection.
+    if "--rc-smoke" in sys.argv:
+        monkeypatch.setattr(sys, "argv", [a for a in sys.argv if a != "--rc-smoke"])
 
     def seed() -> None:
         record.seeds += 1
@@ -347,6 +370,66 @@ def test_source_launch_does_not_install_or_touch_startup(tmp_path, monkeypatch):
     assert record.startup == []
     assert record.launches == []
     assert record.notices == 0
+
+
+def test_rc_basename_runs_in_place_without_install_or_startup(tmp_path, monkeypatch):
+    """langstudyguard-rc.exe must not overwrite production install or Startup."""
+    installed = tmp_path / "Local" / "langstudyguard" / "langstudyguard.exe"
+    rc = tmp_path / "dist-rc" / "langstudyguard-rc.exe"
+    _write(installed, b"production-installed")
+    _write(rc, b"rc-smoke-bytes")
+    record = _bind(monkeypatch, tmp_path, frozen=True, executable=rc, installed=installed)
+    monkeypatch.setattr(sys, "argv", [str(rc)])
+    monkeypatch.delenv("LG_RC_SMOKE", raising=False)
+
+    assert install.is_release_candidate_smoke() is True
+    assert install.prepare() is True
+
+    assert installed.read_bytes() == b"production-installed"
+    assert rc.read_bytes() == b"rc-smoke-bytes"
+    assert record.seeds == 1
+    assert record.startup == []
+    assert record.launches == []
+    assert record.notices == 0
+
+
+def test_rc_smoke_flag_and_env_skip_install(tmp_path, monkeypatch):
+    installed = tmp_path / "Local" / "langstudyguard" / "langstudyguard.exe"
+    external = tmp_path / "download" / "langstudyguard.exe"
+    _write(installed, b"keep-me")
+    _write(external, b"would-install")
+    record = _bind(monkeypatch, tmp_path, frozen=True, executable=external, installed=installed)
+
+    monkeypatch.setattr(sys, "argv", [str(external), "--rc-smoke"])
+    assert install.is_release_candidate_smoke() is True
+    assert install.prepare() is True
+    assert installed.read_bytes() == b"keep-me"
+    assert record.startup == []
+    assert record.launches == []
+
+    record2 = _bind(monkeypatch, tmp_path, frozen=True, executable=external, installed=installed)
+    monkeypatch.setattr(sys, "argv", [str(external)])
+    monkeypatch.setenv("LG_RC_SMOKE", "1")
+    assert install.is_release_candidate_smoke() is True
+    assert install.prepare() is True
+    assert installed.read_bytes() == b"keep-me"
+    assert record2.startup == []
+    assert record2.launches == []
+
+
+def test_production_exe_without_rc_markers_still_installs(tmp_path, monkeypatch):
+    """Genuine langstudyguard.exe first-install semantics stay unchanged."""
+    installed = tmp_path / "Local" / "langstudyguard" / "langstudyguard.exe"
+    external = tmp_path / "first" / "langstudyguard.exe"
+    payload = b"first-install-bytes"
+    _write(external, payload)
+    record = _bind(monkeypatch, tmp_path, frozen=True, executable=external, installed=installed)
+    monkeypatch.setattr(sys, "argv", [str(external)])
+    monkeypatch.delenv("LG_RC_SMOKE", raising=False)
+    assert install.is_release_candidate_smoke() is False
+    assert install.prepare() is False
+    assert installed.read_bytes() == payload
+    assert record.startup == [str(installed)]
 
 
 def test_updater_still_replaces_installed_executable_directly(tmp_path, monkeypatch):

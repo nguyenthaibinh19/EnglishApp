@@ -27,6 +27,12 @@ DATA_FOLDER = {
     ENV_PRODUCTION: "langstudyguard",
 }
 
+# Isolated Product Owner RC smoke folder — never shares production AppData.
+RC_DATA_FOLDER = "langstudyguard-rc"
+RC_SETTINGS_MARKER = "production-rc"
+RC_EXE_BASENAME = "langstudyguard-rc.exe"
+RC_STARTUP_LINK = "langstudyguard-rc.lnk"
+
 EXE_BASENAME = {
     ENV_DEVELOPMENT: "langstudyguard-dev.exe",
     ENV_STAGING: "langstudyguard-staging.exe",
@@ -87,16 +93,20 @@ class EnvironmentIdentity:
     startup_link: str
     network_writes_allowed: bool
     identity_error: str = ""
+    # Explicit RC smoke overlay — independent of production build channel.
+    rc_smoke: bool = False
 
     @property
     def is_production(self) -> bool:
-        return self.runtime_environment == ENV_PRODUCTION
+        return self.runtime_environment == ENV_PRODUCTION and not self.rc_smoke
 
     @property
     def is_non_production(self) -> bool:
-        return self.runtime_environment != ENV_PRODUCTION
+        return self.runtime_environment != ENV_PRODUCTION or self.rc_smoke
 
     def display_title(self, app_name: str = "Language Guard") -> str:
+        if self.rc_smoke:
+            return f"{app_name} — PRODUCTION BACKEND · RC TEST DATA"
         label = {
             ENV_PRODUCTION: "PRODUCTION",
             ENV_STAGING: "STAGING",
@@ -107,6 +117,8 @@ class EnvironmentIdentity:
     def banner_text(self) -> str:
         if self.identity_error:
             return f"ENVIRONMENT ERROR — {self.identity_error}"
+        if self.rc_smoke:
+            return "PRODUCTION BACKEND · RC TEST DATA"
         if self.runtime_environment == ENV_PRODUCTION:
             return "PRODUCTION"
         if self.runtime_environment == ENV_STAGING:
@@ -116,6 +128,28 @@ class EnvironmentIdentity:
 
 def is_frozen() -> bool:
     return bool(getattr(sys, "frozen", False))
+
+
+def is_release_candidate_smoke(*, frozen: Optional[bool] = None) -> bool:
+    """True for isolated RC smoke runs (data/updater/Startup isolation).
+
+    Explicit markers (any one):
+    - EXE basename starts with ``langstudyguard-rc``
+    - CLI flag ``--rc-smoke``
+    - Environment ``LG_RC_SMOKE=1``
+
+    Established before settings/data paths initialize. Genuine
+    ``langstudyguard.exe`` without these markers is unaffected.
+    """
+    if "--rc-smoke" in sys.argv:
+        return True
+    if (os.environ.get("LG_RC_SMOKE") or "").strip() == "1":
+        return True
+    frozen = is_frozen() if frozen is None else bool(frozen)
+    if not frozen:
+        return False
+    name = os.path.basename(sys.executable).lower()
+    return name.startswith("langstudyguard-rc")
 
 
 def resource_dir() -> str:
@@ -197,16 +231,25 @@ def resolve_identity(
     manifest: object = _MANIFEST_UNSET,
     runtime_override: Optional[str] = None,
     frozen: Optional[bool] = None,
+    rc_smoke: Optional[bool] = None,
 ) -> EnvironmentIdentity:
     """Resolve and validate environment identity. Fail closed on conflict.
 
     Pass ``manifest=None`` to simulate a frozen build with no manifest.
     Omit ``manifest`` to load ``build_manifest.json`` from disk when present.
+
+    ``rc_smoke`` overlays isolated AppData on a production-channel build without
+    changing genuine production EXE semantics when markers are absent.
     """
     frozen = is_frozen() if frozen is None else bool(frozen)
     if manifest is _MANIFEST_UNSET:
         manifest = load_build_manifest()
     runtime_env = _normalize_env(runtime_override) if runtime_override else _runtime_from_environ()
+    smoke = (
+        bool(rc_smoke)
+        if rc_smoke is not None
+        else is_release_candidate_smoke(frozen=frozen)
+    )
 
     error = ""
     if frozen:
@@ -221,10 +264,14 @@ def resolve_identity(
             version = manifest.version
             commit_sha = manifest.commit_sha
             if runtime_env and runtime_env != build_channel:
-                error = (
-                    f"runtime {runtime_env!r} conflicts with build channel "
-                    f"{build_channel!r}"
-                )
+                # RC smoke on a production-channel EXE intentionally keeps the
+                # production backend while isolating data — ignore leftover
+                # LG_APP_ENVIRONMENT mismatches so isolation still applies.
+                if not (smoke and build_channel == ENV_PRODUCTION):
+                    error = (
+                        f"runtime {runtime_env!r} conflicts with build channel "
+                        f"{build_channel!r}"
+                    )
             runtime_env = build_channel
     else:
         # Source runs default to development; optional LG_APP_ENVIRONMENT.
@@ -266,6 +313,8 @@ def resolve_identity(
         display_runtime = folder_key
 
     folder = DATA_FOLDER[folder_key]
+    exe_name = EXE_BASENAME.get(folder_key, EXE_BASENAME[ENV_STAGING])
+    startup = STARTUP_LINK.get(folder_key, STARTUP_LINK[ENV_STAGING])
     writes_ok = (
         not bool(error)
         and display_runtime in VALID_ENVIRONMENTS
@@ -274,6 +323,16 @@ def resolve_identity(
     if frozen and manifest is None:
         writes_ok = False
 
+    # RC smoke: keep production build channel (HTTPS account/AI backend) but
+    # isolate data/install paths and settings marker from genuine production.
+    rc_active = bool(smoke) and (
+        build_channel == ENV_PRODUCTION or display_runtime == ENV_PRODUCTION
+    )
+    if rc_active and not error:
+        folder = RC_DATA_FOLDER
+        exe_name = RC_EXE_BASENAME
+        startup = RC_STARTUP_LINK
+
     return EnvironmentIdentity(
         build_channel=build_channel or "unknown",
         runtime_environment=display_runtime,
@@ -281,10 +340,11 @@ def resolve_identity(
         commit_sha=commit_sha or "unknown",
         data_folder=folder,
         install_folder=folder,
-        exe_basename=EXE_BASENAME.get(folder_key, EXE_BASENAME[ENV_STAGING]),
-        startup_link=STARTUP_LINK.get(folder_key, STARTUP_LINK[ENV_STAGING]),
+        exe_basename=exe_name,
+        startup_link=startup,
         network_writes_allowed=writes_ok,
         identity_error=error,
+        rc_smoke=bool(rc_active and not error),
     )
 
 
@@ -440,23 +500,29 @@ def validate_data_root_for_identity(
     appdata: Optional[str] = None,
     localappdata: Optional[str] = None,
 ) -> Optional[str]:
-    """Return an error if a non-production build may not use this data root.
+    """Return an error if a non-production / RC build may not use this data root.
 
     Isolated synthetic directories (including pytest temp dirs) remain allowed.
-    Production AppData / install trees are always rejected for non-production.
+    Production AppData / install trees are always rejected for non-production
+    and for RC smoke (even when build_channel is production).
     """
     identity = identity or get_identity()
-    if identity.runtime_environment == ENV_PRODUCTION and not identity.identity_error:
+    if (
+        identity.runtime_environment == ENV_PRODUCTION
+        and not identity.identity_error
+        and not identity.rc_smoke
+    ):
         return None
     candidate = normalize_fs_path(path)
     if not candidate:
         return "empty data directory"
     prod_data = production_data_dir(appdata=appdata)
     prod_install = production_install_dir(localappdata=localappdata)
+    label = "RC smoke" if identity.rc_smoke else "non-production"
     if paths_overlap(candidate, prod_data):
-        return f"non-production data root overlaps production AppData: {prod_data}"
+        return f"{label} data root overlaps production AppData: {prod_data}"
     if paths_overlap(candidate, prod_install):
-        return f"non-production data root overlaps production install dir: {prod_install}"
+        return f"{label} data root overlaps production install dir: {prod_install}"
     # Exact production folder name under AppData/LocalAppData even if env roots differ.
     base = os.path.basename(candidate.rstrip("\\/"))
     if os.path.normcase(base) == os.path.normcase(DATA_FOLDER[ENV_PRODUCTION]):
@@ -467,7 +533,7 @@ def validate_data_root_for_identity(
             "local",
             "application data",
         } or paths_overlap(candidate, prod_data) or paths_overlap(candidate, prod_install):
-            return f"non-production build refused production folder name {base!r}"
+            return f"{label} refused production folder name {base!r}"
     return None
 
 
@@ -539,6 +605,8 @@ def open_without_redirects(request: "urllib.request.Request", timeout: float):
 
 def settings_environment_marker(identity: Optional[EnvironmentIdentity] = None) -> str:
     identity = identity or get_identity()
+    if identity.rc_smoke:
+        return RC_SETTINGS_MARKER
     return identity.runtime_environment
 
 
@@ -551,10 +619,17 @@ def settings_token_compatible(
     if not isinstance(settings, dict):
         return False
     marker = str(settings.get("environment") or settings.get("app_environment") or "").strip().lower()
+    if identity.rc_smoke:
+        # RC never adopts unmarked or production session tokens.
+        return marker == RC_SETTINGS_MARKER
     if not marker:
-        # Legacy production settings have no marker. Only production may adopt them,
-        # and only when using the production data folder.
-        return identity.runtime_environment == ENV_PRODUCTION and identity.data_folder == DATA_FOLDER[ENV_PRODUCTION]
+        # Legacy production settings have no marker. Only genuine production may
+        # adopt them, and only when using the production data folder.
+        return (
+            identity.runtime_environment == ENV_PRODUCTION
+            and not identity.rc_smoke
+            and identity.data_folder == DATA_FOLDER[ENV_PRODUCTION]
+        )
     return marker == identity.runtime_environment
 
 
@@ -569,11 +644,14 @@ def cloud_sync_ui_state(
 ) -> tuple[str, str]:
     """Return (label, detail) for Cloud Sync — never guess 'Synced'."""
     if not signed_in:
-        return "Disabled", "Guest mode — account sync off"
+        return "Guest / Disabled", "Local-only guest data — account sync inactive"
     if feature_flag_known is False:
         return "Unavailable", "Server feature flag could not be verified"
     if not engine_running:
-        return "Disabled", "Sync worker not running"
+        return (
+            "Signed in / Server Sync disabled",
+            "Signed in locally; server sync worker is not running",
+        )
     status = (engine_status or "").strip().lower()
     if status in {"conflict"}:
         return "Conflict", engine_detail or "Action required"

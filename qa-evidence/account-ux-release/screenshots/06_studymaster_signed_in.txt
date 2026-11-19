@@ -1,0 +1,4 @@
+window=Language Guard — DEVELOPMENT
+status=Signed in: devtest (id 1)
+detail=Environment development · backend 127.0.0.1
+sync=Cloud Sync: Signed in / Server Sync disabled — Signed in, but server account sync is off or the worker is not running. Learning data still stays in this account's local store.

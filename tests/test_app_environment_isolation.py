@@ -183,9 +183,15 @@ def test_production_settings_token_not_adopted_by_staging(tmp_path):
 
 def test_cloud_sync_never_guesses_synced():
     label, detail = app_environment.cloud_sync_ui_state(
+        signed_in=False, engine_running=False
+    )
+    assert "Guest" in label or "Disabled" in label
+    assert label != "Synced"
+
+    label, detail = app_environment.cloud_sync_ui_state(
         signed_in=True, engine_running=False
     )
-    assert label == "Disabled"
+    assert "Server Sync disabled" in label
     assert "Synced" not in label
 
     label, _ = app_environment.cloud_sync_ui_state(
