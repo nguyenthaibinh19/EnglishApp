@@ -5,8 +5,8 @@ Directional plan — **not** a rigid release commitment. Update when phases comp
 ## Latest operational checkpoint — 2026-11-19 (supersedes older narrative below)
 
 - **Active priority: Phase 18B.9 OFF-BOX — OPEN / PRODUCTION NOT READY.**
-- **CORRECTIVE INACTIVE VPS INSTALL — INSTALL PASS (static only).** PR #15 merge `adbc3d5f8fd71ee8a2d462d806dc4c4a91fd0241` installed to `/opt/language-guard-offbox` with `/usr/bin/python3 -I` unit templates ([OFFBOX_RUNTIME_TRUST.md](procedures/OFFBOX_RUNTIME_TRUST.md)). Authorization [#7011064958](https://github.com/nguyenthaibinh19/EnglishApp/issues/8#issuecomment-7011064958) exhausted.
-- Historical pre-fix executable-path audit remains **UNSAFE** ([Issue #8](https://github.com/nguyenthaibinh19/EnglishApp/issues/8#issuecomment-7009010670)). Static install ≠ live isolation. Next gate requires a **new** Owner-authorized post-fix read-only audit reporting **PASS** before any `daemon-reload`, isolation, age/OAuth/Drive or activation.
+- **POST-FIX AUDIT — Gate A PASS + Gate B CONFIG PASS.** PR #15 / `adbc3d5` tree at `/opt/language-guard-offbox`; conditional auth [#7011582969](https://github.com/nguyenthaibinh19/EnglishApp/issues/8#issuecomment-7011582969) exhausted ([OFFBOX_RUNTIME_TRUST.md](procedures/OFFBOX_RUNTIME_TRUST.md)).
+- Historical pre-fix executable-path audit remains **UNSAFE** ([Issue #8](https://github.com/nguyenthaibinh19/EnglishApp/issues/8#issuecomment-7009010670)). Next production blockers: age/recipient/OAuth/Drive provisioning, then separately authorized live isolation / activation. No enable/start authorized.
 - **Cloud Sync:** OFF. **Google Drive production:** NOT CONFIGURED. **age / recipient / OAuth:** not provisioned for offbox. **Historical D5A2D2 and D5A2D3:** FAIL preserved.
 - **AI:** `C-APP-AI-001` v0.2.0 accepted; PR #14 conformance MERGED. `LocalAIProvider` / AI-M4 NOT AUTHORIZED.
 

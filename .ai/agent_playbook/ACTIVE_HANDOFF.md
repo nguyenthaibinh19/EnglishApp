@@ -5,23 +5,27 @@ Rolling coordination checkpoint. The detailed history remains in [current_state.
 ## 1. Checkpoint metadata
 
 - Written: 2026-11-19.
-- **CORRECTIVE INACTIVE VPS INSTALL — INSTALL PASS (static only).** Authorization exhausted.
-- Merge source used: PR #15 / `adbc3d5f8fd71ee8a2d462d806dc4c4a91fd0241` (session docs tip `ed41f690d5a165ca37cb29cf908ceef566f4ddd0`).
-- Historical executable-path audit remains **UNSAFE** (pre-fix evidence preserved). A **new** Owner-authorized post-fix read-only audit must report **PASS** before isolation/activation.
+- **POST-FIX AUDIT Gate A PASS + Gate B CONFIG PASS.** Conditional authorization exhausted.
+- Merge source: PR #15 / `adbc3d5f8fd71ee8a2d462d806dc4c4a91fd0241`; docs baseline `a5b89bf725a947e0a6cfbaa1f595f4eb17820bc1`.
+- Historical pre-fix executable-path audit remains **UNSAFE** (preserved). D5A2D2/D5A2D3 **FAIL** preserved.
 
 ## 2. Last completed / accepted results
 
-- Executable-path trust audit **ACCEPTED UNSAFE** (Issue #8 #7009010670 / Architect #7009128705) — preserved as historical evidence.
-- Obsolete inactive tree `/opt/language-guard/offbox` left **untouched** (still present; units no longer reference it).
-- **PR #15 SOURCE MERGED** earlier; design: [OFFBOX_RUNTIME_TRUST.md](../procedures/OFFBOX_RUNTIME_TRUST.md).
-- **Owner-authorized corrective inactive write EXECUTED and reported:** `/opt/language-guard-offbox` installed `root:root` `0755`/`0644`, 15/15 D5A2D0-P1 module SHA MATCH; four `language-guard-offbox*` unit files replaced on disk (`root:root 0644`) with reviewed templates referencing `/usr/bin/python3 -I` and `/opt/language-guard-offbox`; all four remain inactive/not enabled; **no** `daemon-reload`/start/enable; account server unchanged. Classification: **INSTALL PASS** (static packaging only — not live isolation).
+- Pre-fix executable-path trust audit **ACCEPTED UNSAFE** (Issue #8 #7009010670 / Architect #7009128705) — preserved.
+- Corrective inactive install **INSTALL PASS** (static) under [#7011064958](https://github.com/nguyenthaibinh19/EnglishApp/issues/8#issuecomment-7011064958) / Architect [#7011509111](https://github.com/nguyenthaibinh19/EnglishApp/issues/8#issuecomment-7011509111).
+- **Conditional post-fix session EXECUTED** under [#7011582969](https://github.com/nguyenthaibinh19/EnglishApp/issues/8#issuecomment-7011582969):
+  - Gate A **PASS**: 15/15 module hashes; root-owned `/opt/language-guard-offbox`; no guard/lg-backup write on trusted path; `/usr/bin/python3 -I -B` import-only 15/15 from trusted tree; 4/4 unit hashes + exact contracts; no drop-ins; units inactive; account server active; `systemd-analyze verify` rc=0.
+  - Gate B **CONFIG PASS**: exactly one `systemctl daemon-reload` (rc=0); loaded ExecStart/User/Group/sandbox match reviewed templates; no DropInPaths; socket/timer disabled+inactive; worker/helper inactive; account server unchanged (same ActiveEnterTimestamp/MainPID, NRestarts=0).
+- Obsolete `/opt/language-guard/offbox` left untouched. No offbox service execution.
 
-## 3. Next App task — Owner authorized, NOT YET EXECUTED
+## 3. Next App task
 
-Exactly **ONE conditional VPS audit/config session** is now approved under [Issue #8 #7011582969](https://github.com/nguyenthaibinh19/EnglishApp/issues/8#issuecomment-7011582969): Gate A read-only post-fix executable-path, Python `-I` import and on-disk unit/drop-in audit; only on unequivocal Gate A PASS, Gate B **one** `systemctl daemon-reload` followed by read-only loaded unit config/state checks. STOP on any FAIL/UNSAFE/UNKNOWN; no fixes or retries. Return `APP_18B9_POSTFIX_CONFIG_AUDIT_RESULT` with one consolidated docs/Issue update. This **does not authorize** starting/enabling/restarting units, executing worker/helper, live isolation, backup/restore, age/OAuth/Drive, Cloud Sync or activation. The known deployed-layout `verify` path quirk is for a future source-maintenance task, not a VPS patch. Historical UNSAFE/D2/D3 FAIL remain unchanged.
+1. **NOT AUTHORIZED:** live isolation, worker/helper/socket/timer execution, age/OAuth/Drive, Cloud Sync, backup/restore, enable/start, or production activation.
+2. Next production blockers remain: age binary + recipient, OAuth refresh credential, Drive folder, then separately authorized isolation/activation.
+3. Known nonblocking source note: packager `verify` from installed `deploy/hetzner/` path expects sibling `offbox/` (layout quirk).
 
 ## 4. STOP / boundaries
 
-- The ONE corrective inactive-write authorization ([Issue #8 #7011064958](https://github.com/nguyenthaibinh19/EnglishApp/issues/8#issuecomment-7011064958)) is **exhausted** after the install report.
-- No further SSH/VPS write or activation without fresh Product Owner approval.
-- Phase 18B.9 **OPEN / PRODUCTION NOT READY**. D5A2D2/D5A2D3 **FAIL preserved**. AI-M4 **NOT AUTHORIZED**.
+- Authorization [#7011582969](https://github.com/nguyenthaibinh19/EnglishApp/issues/8#issuecomment-7011582969) is **exhausted** after this report.
+- No further SSH/VPS session without fresh Product Owner approval.
+- Phase 18B.9 **OPEN / PRODUCTION NOT READY**. AI-M4 **NOT AUTHORIZED**.

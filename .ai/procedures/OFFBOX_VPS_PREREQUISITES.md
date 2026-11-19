@@ -1,6 +1,6 @@
 # Phase 18B.9 — VPS prerequisites and executable-path audit
 
-**Status (2026-11-19):** The first read-only prerequisites probe, the first inactive packaging install, the Owner-authorized **executable-path trust audit** (**UNSAFE**, preserved), and the Owner-authorized **corrective inactive VPS install** (**INSTALL PASS**, static only) have been completed **as reported by Cursor**. Audit authorization: [Issue #8 #7008591938](https://github.com/nguyenthaibinh19/EnglishApp/issues/8#issuecomment-7008591938); audit result: [#7009010670](https://github.com/nguyenthaibinh19/EnglishApp/issues/8#issuecomment-7009010670); corrective write authorization: [#7011064958](https://github.com/nguyenthaibinh19/EnglishApp/issues/8#issuecomment-7011064958) (**exhausted**). This document does not authorize `daemon-reload`, service execution, post-fix audit, isolation proof, age/OAuth/Drive, or activation.
+**Status (2026-11-19):** The first read-only prerequisites probe, the first inactive packaging install, the Owner-authorized **executable-path trust audit** (**UNSAFE**, preserved), and the Owner-authorized **corrective inactive VPS install** (**INSTALL PASS**, static only) have been completed **as reported by Cursor**. Audit authorization: [Issue #8 #7008591938](https://github.com/nguyenthaibinh19/EnglishApp/issues/8#issuecomment-7008591938); audit result: [#7009010670](https://github.com/nguyenthaibinh19/EnglishApp/issues/8#issuecomment-7009010670); corrective write authorization: [#7011064958](https://github.com/nguyenthaibinh19/EnglishApp/issues/8#issuecomment-7011064958) (**exhausted**). Conditional post-fix audit + one daemon-reload were Owner-authorized and are now exhausted. This document does not authorize service execution, isolation proof, age/OAuth/Drive, or activation.
 
 **Phase 18B.9 is OPEN; production NOT READY; Drive NOT CONFIGURED; Cloud Sync OFF.** Historical D5A2D2/D5A2D3 FAIL stays recorded.
 
@@ -42,7 +42,7 @@ Source correction is documented in [OFFBOX_RUNTIME_TRUST.md](OFFBOX_RUNTIME_TRUS
 5. Obsolete `/opt/language-guard/offbox` left untouched; account server unchanged.
 6. Static checks do **not** prove live isolation.
 
-**Next:** a new Owner-authorized read-only post-fix audit must report **PASS** before isolation/activation requests. Historical pre-fix **UNSAFE** evidence remains preserved.
+**Post-fix Gate A PASS + Gate B CONFIG PASS** under [#7011582969](https://github.com/nguyenthaibinh19/EnglishApp/issues/8#issuecomment-7011582969) (exhausted). Historical pre-fix **UNSAFE** evidence remains preserved. Live isolation/activation still require new Owner authorization.
 
 ## Strict prohibited operations
 
@@ -53,4 +53,4 @@ Source correction is documented in [OFFBOX_RUNTIME_TRUST.md](OFFBOX_RUNTIME_TRUS
 
 ## Authorization boundary
 
-Owner's read-only executable-path approval and the corrective inactive-write approval are both **exhausted**. Any post-fix audit, daemon reload, live isolation, age/OAuth/Drive setup or activation needs a separate explicit Product Owner authorization.
+Owner's read-only executable-path approval, corrective inactive-write approval, and conditional post-fix audit/daemon-reload approval are all **exhausted**. Any live isolation, age/OAuth/Drive setup, enable/start or activation needs a separate explicit Product Owner authorization.

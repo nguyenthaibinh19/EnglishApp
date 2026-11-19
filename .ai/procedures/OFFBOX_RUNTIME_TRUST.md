@@ -1,6 +1,6 @@
 # Phase 18B.9 — Offbox runtime trust layout (source design)
 
-**Status (2026-11-19):** Source remediation (PR #15) is merged, and the Owner-authorized **corrective inactive VPS install** reported **INSTALL PASS** (static packaging only). Historical pre-fix executable-path audit remains **UNSAFE** ([Issue #8 #7009010670](https://github.com/nguyenthaibinh19/EnglishApp/issues/8#issuecomment-7009010670), Architect verdict [#7009128705](https://github.com/nguyenthaibinh19/EnglishApp/issues/8#issuecomment-7009128705)). This document does **not** authorize `daemon-reload`, enable/start, isolation, age/OAuth/Drive, post-fix audit, or activation.
+**Status (2026-11-19):** Source remediation (PR #15) is merged; corrective inactive install **INSTALL PASS**; post-fix Gate A **PASS** and Gate B **CONFIG PASS** under [#7011582969](https://github.com/nguyenthaibinh19/EnglishApp/issues/8#issuecomment-7011582969) (authorization exhausted). Historical pre-fix executable-path audit remains **UNSAFE** ([Issue #8 #7009010670](https://github.com/nguyenthaibinh19/EnglishApp/issues/8#issuecomment-7009010670), Architect [#7009128705](https://github.com/nguyenthaibinh19/EnglishApp/issues/8#issuecomment-7009128705)). This document does **not** authorize enable/start, isolation, age/OAuth/Drive, or activation.
 
 Historical D5A2D2/D5A2D3 **FAIL** preserved. Drive **NOT CONFIGURED**. Cloud Sync **OFF**. Production **NOT READY**.
 
@@ -64,8 +64,8 @@ Cursor-reported under [Issue #8 #7011064958](https://github.com/nguyenthaibinh19
 3. Left `/opt/language-guard` account-server tree/venv/`accounts.db` and obsolete `/opt/language-guard/offbox` untouched.
 4. Static checks: 15/15 module hashes; unit SHA match; no guard/lg-backup-writable component under the new tree path; offbox units inactive.
 
-**Still required before isolation/activation:** a separately Owner-authorized **read-only** post-fix path audit that must report **PASS**. Static install evidence alone is not runtime trust PASS.
+**Post-fix audit completed (Cursor-reported):** Gate A PASS + Gate B CONFIG PASS. Manager configuration reloaded once; units remain inactive/not enabled. This is **not** live isolation PASS and **not** activation.
 
 ## Prohibited without new Owner authorization
 
-Further SSH/VPS writes, `daemon-reload`, systemd activation, age install, OAuth/Drive provisioning, Cloud Sync, live isolation, backup/restore, and removal of the obsolete `/opt/language-guard/offbox` tree.
+Further SSH/VPS sessions, systemd enable/start/stop/restart, age install, OAuth/Drive provisioning, Cloud Sync, live isolation, backup/restore, and removal of the obsolete `/opt/language-guard/offbox` tree.
