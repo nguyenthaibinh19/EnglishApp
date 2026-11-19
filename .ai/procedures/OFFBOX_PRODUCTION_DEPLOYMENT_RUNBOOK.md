@@ -21,7 +21,7 @@ Gate A **PASS** + Gate B **CONFIG PASS**.
 | Lab age archive SHA-256 `cbe24006…` / binary SHA-256 `eb7dd1b5…` | **VALIDATED** artifact identity | Reusable as *versioned binary bytes*; not a secret |
 | Lab `age1pq1` recipient + offline identity | **LOCAL ONLY** | Public recipient prefix/length observed in preflight; **do not reuse for production** |
 | HTTPS Drive adapter + oauth refresh exchange libraries (D5A2C1-R1) | **VALIDATED** (source-merged) | Reusable libraries |
-| Production worker entrypoint that wires transport/exchanger into `run()` | **SOURCE MERGED — NOT DEPLOYED / NOT ACTIVATED** (PR #17 / `b6e515e`) | Wrapper + LF integrity pin; inactive exit≠off-box success; frozen `main()` unchanged |
+| Production worker entrypoint that wires transport/exchanger into `run()` | **SOURCE MERGED + VPS INSTALLED INACTIVE** (PR #17; main `eb869ea`) | Wrapper + LF pin on VPS; units inactive; not activated |
 | D5A2C2 one-shot synthetic Drive `VERIFIED` | **VALIDATED** (historical one-shot) | Ciphertext `a423f281…`; **do not rerun**; not production |
 | D5A2C2 External Testing OAuth refresh (~7-day) | **LOCAL ONLY** / expired-policy | Unsuitable for unattended production |
 | Production GCP project / durable consent / Desktop client | **PRODUCTION MISSING** | Owner action |
@@ -73,7 +73,7 @@ The Drive **adapter libraries** are validated and reusable. R2 (after Architect 
 - Upload mode: HTTPS transport + exchanger; object `accounts-{attempt_id}.age`; resume preserves remote identity.
 - **Exit codes (F2):** upload → `0` only for `VERIFIED` / `RECONCILED`. Inactive encrypt-only may record attempt state `ENCRYPTED` but process exits `INACTIVE_NOT_OFFBOX_EXIT=3` (never systemd off-box success). Hard failures exit `1`.
 
-**Status:** **SOURCE MERGED** (PR #17). **Not** installed/enabled/operational on VPS.
+**Status:** **SOURCE MERGED** (PR #17) and **VPS INSTALLED INACTIVE** (sync at main `eb869ea`). **Not** enabled/operational. No daemon-reload/activation in the sync session.
 
 ## 4. Staged execution package (Owner-authorized sessions later)
 
@@ -150,7 +150,7 @@ Before enablement:
 - [ ] Dedicated production GCP project + durable OAuth consent + Desktop client
 - [ ] Production refresh token + client ID + (if required) client secret + My Drive folder id
 - [x] Architect-review / merge production upload entrypoint + credential contract (PR #17)
-- [ ] Authorize VPS packager sync (PR #16 + #17) while units stay inactive
+- [x] Authorize VPS packager sync (PR #16 + #17) while units stay inactive
 - [ ] Authorize VPS age binary + recipient + oauth-refresh (+ later client/folder files) install
 - [ ] Authorize synthetic-only isolation execution package
 - [ ] Authorize restore drill / first production-eligible upload (requires `upload-activation`)
