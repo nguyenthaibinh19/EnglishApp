@@ -16,11 +16,9 @@ Rolling coordination checkpoint. The detailed history remains in [current_state.
 - **PR #15 SOURCE MERGED** earlier; design: [OFFBOX_RUNTIME_TRUST.md](../procedures/OFFBOX_RUNTIME_TRUST.md).
 - **Owner-authorized corrective inactive write EXECUTED and reported:** `/opt/language-guard-offbox` installed `root:root` `0755`/`0644`, 15/15 D5A2D0-P1 module SHA MATCH; four `language-guard-offbox*` unit files replaced on disk (`root:root 0644`) with reviewed templates referencing `/usr/bin/python3 -I` and `/opt/language-guard-offbox`; all four remain inactive/not enabled; **no** `daemon-reload`/start/enable; account server unchanged. Classification: **INSTALL PASS** (static packaging only — not live isolation).
 
-## 3. Next App task
+## 3. Next App task — Owner authorized, NOT YET EXECUTED
 
-1. **NOT AUTHORIZED without new Owner approval:** post-fix read-only executable-path audit (resolved interpreter/import path + effective systemd config after any future reload).
-2. **NOT AUTHORIZED:** `daemon-reload`, enable/start, isolation, age/OAuth/Drive, Cloud Sync, backup execution, or production activation.
-3. Do not claim runtime trust PASS from the static install evidence alone.
+Exactly **ONE conditional VPS audit/config session** is now approved under [Issue #8 #7011582969](https://github.com/nguyenthaibinh19/EnglishApp/issues/8#issuecomment-7011582969): Gate A read-only post-fix executable-path, Python `-I` import and on-disk unit/drop-in audit; only on unequivocal Gate A PASS, Gate B **one** `systemctl daemon-reload` followed by read-only loaded unit config/state checks. STOP on any FAIL/UNSAFE/UNKNOWN; no fixes or retries. Return `APP_18B9_POSTFIX_CONFIG_AUDIT_RESULT` with one consolidated docs/Issue update. This **does not authorize** starting/enabling/restarting units, executing worker/helper, live isolation, backup/restore, age/OAuth/Drive, Cloud Sync or activation. The known deployed-layout `verify` path quirk is for a future source-maintenance task, not a VPS patch. Historical UNSAFE/D2/D3 FAIL remain unchanged.
 
 ## 4. STOP / boundaries
 
