@@ -46,6 +46,60 @@ def test_packager_verify_cli_ok() -> None:
     assert "modules=15" in result.stdout
 
 
+def test_resolve_offbox_dir_repo_layout() -> None:
+    packager = _load_packager()
+    resolved = packager.resolve_offbox_dir(HETZNER)
+    assert resolved == HETZNER / "offbox"
+    assert (resolved / "SHA256SUMS").is_file()
+
+
+def test_resolve_offbox_dir_and_verify_from_production_layout(tmp_path: Path) -> None:
+    """Installed tree: <root>/offbox + <root>/deploy/hetzner/packager."""
+    packager = _load_packager()
+    dest = tmp_path / "language-guard-offbox"
+    written = packager.install_execution_tree(dest, hetzner_dir=HETZNER, production=False)
+    assert written
+    installed_packager = dest / "deploy" / "hetzner" / "install_offbox_packaging.py"
+    assert installed_packager.is_file()
+    assert not (dest / "deploy" / "hetzner" / "offbox").exists()
+
+    # Load the *installed* copy so HERE resolves under deploy/hetzner.
+    spec = importlib.util.spec_from_file_location(
+        "install_offbox_packaging_installed", installed_packager
+    )
+    assert spec and spec.loader
+    installed = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = installed
+    spec.loader.exec_module(installed)
+
+    resolved = installed.resolve_offbox_dir()
+    assert resolved.resolve() == (dest / "offbox").resolve()
+    listed = installed.verify_modules(resolved)
+    assert len(listed) == 15
+    installed.verify_units(dest / "deploy" / "hetzner")
+    installed.verify_dependency_closure(resolved)
+
+    cli = subprocess.run(
+        [PY, str(installed_packager), "verify"],
+        cwd=str(dest / "deploy" / "hetzner"),
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert cli.returncode == 0, cli.stderr
+    assert "VERIFY_OK" in cli.stdout
+    assert "modules=15" in cli.stdout
+    deps = subprocess.run(
+        [PY, str(installed_packager), "verify-deps"],
+        cwd=str(dest / "deploy" / "hetzner"),
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert deps.returncode == 0, deps.stderr
+    assert "DEPS_OK" in deps.stdout
+
+
 def test_stage_is_idempotent_and_hash_faithful(tmp_path: Path) -> None:
     dest = tmp_path / "stage"
     first = subprocess.run(
