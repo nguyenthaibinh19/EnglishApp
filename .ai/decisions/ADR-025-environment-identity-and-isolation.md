@@ -1,6 +1,6 @@
 # ADR-025 — Environment Identity and Isolation
 
-Status: **Proposed for Architect merge review** (PR #22; R1 safety fixes applied).
+Status: **Accepted** (Architect merge authorization 2026-11-19; PR #22 merge `2da93c3fc31ce790b164343dd72c620bfd3f754f`; approved head `71e142b7df03d596e50da698e0eddcc44ae70547`).
 
 ## Context
 
