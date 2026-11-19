@@ -109,19 +109,24 @@ def test_two_accounts_remain_isolated(login_lab):
 def test_ordinary_grade_api_compatible_after_login(login_lab, monkeypatch):
     token, _ = account_client.login_session("alice", "alice-secret")
     monkeypatch.setattr(config, "account_token", lambda: token)
-    # Grade without AI key may fail closed on missing key — exercise auth path.
-    # A 401 would clear the account; any non-auth response proves token accepted.
-    try:
-        account_client._post(
-            "/api/grade",
-            {"word": "huis", "sentence": "Het huis is groot.", "meaning": "house"},
-            token,
-            timeout=5,
-        )
-    except account_client.AccountError as error:
-        assert not isinstance(error, account_client.SessionExpired)
-        message = str(error).lower()
-        assert "đăng nhập" not in message or "hãy" not in message
+    # Never call a real AI provider regardless of developer .env / key config.
+    monkeypatch.setattr(
+        account_server,
+        "_grade",
+        lambda _payload: {
+            "ok": True,
+            "feedback": "mock-grade",
+            "score": 1,
+        },
+    )
+    body = account_client._post(
+        "/api/grade",
+        {"word": "huis", "sentence": "Het huis is groot.", "meaning": "house"},
+        token,
+        timeout=5,
+    )
+    assert body.get("ok") is True
+    assert body.get("feedback") == "mock-grade"
 
 
 def test_study_sync_remains_off(login_lab, monkeypatch):

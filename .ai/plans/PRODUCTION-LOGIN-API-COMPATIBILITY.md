@@ -1,6 +1,6 @@
 # Production Login API Compatibility
 
-Status: **STOP for Architect review** (`APP_PRODUCTION_LOGIN_COMPATIBILITY_READY`). Source PR only — **no VPS/SSH/deploy** until separate Owner authorization.
+Status: **Architect Accepted — source merge** (`APP_LOGIN_COMPAT_SOURCE_MERGED`). Source merge only — **no VPS/SSH/deploy** until separate Owner authorization.
 
 ## Root cause (evidence)
 
@@ -26,12 +26,14 @@ This hotfix hardens the login contract (always emit `user_id`/`username` on succ
 
 **Not in scope:** account DB migration, `STUDY_SYNC_ENABLED`, production EXE replace, public Release, staging activation.
 
-## Deployed-version verification (read-only, when authorized)
+## Deployed-version verification (strictly read-only, when authorized)
 
-1. On the VPS account service host, record running unit name and working directory (e.g. `language-guard.service`).
-2. Compare SHA-256 of deployed `account_server.py` (and `account_store.py` if co-deployed) to `main` at the merge commit.
-3. Optional read-only probe against localhost behind Caddy: `POST /api/login` with a **synthetic test account only** — expect JSON keys `token`, `user_id`, `username`. Do not use live learner passwords in logs.
-4. Confirm `STUDY_SYNC_ENABLED` is unset / not `1` in the service environment.
+Initial VPS version verification must **not** call `POST /api/login`. Login is **not** read-only: a successful login **inserts a session row** into `accounts.db`.
+
+1. On the VPS account service host, record running unit name, working directory / entrypoint, and service dependencies (e.g. `language-guard.service`).
+2. Compare SHA-256 of deployed `account_server.py` (and co-located modules such as `account_store.py` if present) to `main` at the merge commit. Diff the exact proposed replacement against the deployed package before any write.
+3. Confirm `STUDY_SYNC_ENABLED` is unset / not `1` in the service environment (read-only env inspection).
+4. Authenticated login smoke (`POST /api/login` / RC login) is a **separately authorized deployment step** after backup — never part of the initial read-only version check. Do not use live learner passwords in logs.
 
 ## Pre-deployment backup and rollback
 
