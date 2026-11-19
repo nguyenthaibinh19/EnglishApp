@@ -1,8 +1,8 @@
 # APP-114 — Controlled Dutch vocab recovery + RC Sync status fix
 
-Status: **Owner-authorized local recovery complete; client Sync-status fix in PR review**  
-Verdict token: `APP_114_VOCAB_RECOVERED_RC_READY`  
-PR: [#25](https://github.com/nguyenthaibinh19/EnglishApp/pull/25) (`0baf385`)  
+Status: **Local 114-word recovery ACCEPTED; Architect R1 Sync lifecycle correction ready**  
+Verdict token: `APP_114_VOCAB_RC_R1_FINAL_READY`  
+PR: [#25](https://github.com/nguyenthaibinh19/EnglishApp/pull/25)  
 Cloud Sync: **OFF** (no VPS / `STUDY_SYNC_ENABLED` change)  
 18B.9: **PAUSED, NOT CLOSED** · Staging: **RESERVED**
 
@@ -69,13 +69,17 @@ Account sync worker starts after login without verifying server Sync routes. Wit
 | Path | Change |
 |------|--------|
 | `app/account_local_store.py` | `STATUS_UNAVAILABLE`; `set_server_sync_unavailable` / `server_sync_unavailable`; status priority ahead of Pending |
-| `app/account_sync_engine.py` | Map Sync endpoint **404** → unavailable; suspend ineffective poll loop for the session; clear flag on successful cycle |
+| `app/account_sync_engine.py` | Map Sync endpoint **404** → unavailable; **session-scoped** suspend (notify/local edits do not re-hit HTTP); **new engine clears flag** for one fresh capability probe; clear flag on successful cycle |
 | `app/app_environment.py` | UI: `Server Sync unavailable` / `Data saved locally; not uploaded` |
 | `app/account_session.py` | Surface the same label/detail in account status |
-| `tests/test_sync_unavailable_status.py` | 404 → unavailable; outbox stays pending; no Synced; offline/auth/conflict remain distinct; session suspend behavior |
+| `tests/test_sync_unavailable_status.py` | Worker-loop: first 404 → unavailable; no retry storm on notify; new session probes once; success clears flag; outbox survives disabled attempts; offline/auth/409 preserved |
 
 UI shows: **Cloud Sync: Server Sync unavailable — Data saved locally; not uploaded**  
-Does **not** show Synced. Login / AI APIs unchanged. Worker can resume when Sync is intentionally enabled in a future authorized pilot.
+Does **not** show Synced. Login / AI APIs unchanged. A future authorized Sync pilot that starts a new engine/session gets one probe; still-disabled servers return to unavailable without a loop.
+
+### Architect R1 lifecycle correction
+
+Persisted `server_sync_unavailable=1` must not permanently block a later engine. `AccountSyncEngine.__init__` resets the flag so login / account switch / engine restart may attempt Sync once. Within one running worker, 404 suspends automatic and notify-driven Sync HTTP for that session only.
 
 ## Part D — RC rebuild
 
@@ -83,8 +87,8 @@ Does **not** show Synced. Login / AI APIs unchanged. Worker can resume when Sync
 |------|--------|
 | Build script | `build_production_rc.bat` |
 | Output | `dist-rc/langstudyguard-rc.exe` only (never `dist/langstudyguard.exe`) |
-| RC EXE SHA-256 | `bf76d90a64ba19a9f293267936841629d39f05c369bbbf69fa9cbfd5a2ca57a2` |
-| RC EXE size | 36203771 bytes |
+| RC EXE SHA-256 | `01fa9a587f5040a025c65081bfe5ee5e7550b42dbd8d6568be86f16cd751fe6e` |
+| RC EXE size | 36203600 bytes (R1 rebuild) |
 | Data root | `%APPDATA%\langstudyguard-rc` |
 | Production `dist/` EXE | **Not present / not modified** in this worktree |
 | Production Cloud Sync | Remains **OFF** |

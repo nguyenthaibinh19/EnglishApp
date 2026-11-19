@@ -282,9 +282,12 @@ class AccountLocalStore:
             self._conn.commit()
 
     def set_server_sync_unavailable(self, unavailable: bool) -> None:
-        """Record that Account Sync HTTP routes are not enabled on the server.
+        """Record Sync-route availability for UI/status within the active session.
 
         Outbox rows stay pending — this is not Synced and not a completed upload.
+        ``AccountSyncEngine`` clears this flag when a new engine/session starts so a
+        future authorized Sync pilot can probe once; a still-disabled server returns
+        to unavailable without a retry loop.
         """
         with self._lock:
             _meta_set(

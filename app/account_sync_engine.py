@@ -38,7 +38,8 @@ class AccountSyncEngine:
     ):
         self.store = store
         self.client = client
-        self.poll_seconds = max(5.0, float(poll_seconds))
+        # Floor is low so tests can exercise the worker loop; production uses ~60s.
+        self.poll_seconds = max(0.05, float(poll_seconds))
         self.on_status = on_status
         self._wake = threading.Event()
         self._stop = threading.Event()
@@ -46,6 +47,10 @@ class AccountSyncEngine:
         self._lock = threading.Lock()
         self._backoff = 1.0
         self._last_status: Optional[SyncStatusSnapshot] = None
+        # New engine/session: allow one Sync capability probe. A prior session may
+        # have persisted unavailable=1; that must not permanently block a future
+        # authorized Sync pilot after login/account switch/engine restart.
+        self.store.set_server_sync_unavailable(False)
 
     def start(self) -> None:
         with self._lock:
@@ -115,8 +120,10 @@ class AccountSyncEngine:
     def _run(self) -> None:
         while not self._stop.is_set():
             if self.store.server_sync_unavailable():
-                # Suspend ineffective 404 polling for this session; wake/notify can
-                # retry later (e.g. future authorized Sync pilot).
+                # Session-scoped suspend after Sync 404: do not call sync_once.
+                # notify()/local edits may wake this wait early, but they must not
+                # re-issue Sync HTTP while unavailable. A fresh AccountSyncEngine
+                # (new login/session) clears the flag and probes once again.
                 snapshot = self.store.status()
                 self._last_status = snapshot
                 if self.on_status is not None:
