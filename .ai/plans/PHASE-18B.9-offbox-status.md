@@ -1,10 +1,10 @@
 # Phase 18B.9 off-box status
 
-Status date: **2026-11-16**. Phase 18B.9 remains **OPEN**. This file is the phase map. It is not a deployment and it does not authorize the next live test.
+Status updated: **2026-11-19**. Phase 18B.9 remains **OPEN / PRODUCTION NOT READY**. This is the phase map; it does not independently authorize VPS actions. See the latest Owner approval on Issue #8 and the active handoff.
 
 The names `18B9D4C` and `PHASE18B9D4C` are the same step: Phase **18B.9**, local step **D4C**. They are not Phase 18B.4. Phase 18B.4 is the already closed sync-backup timer contract.
 
-The implementation is not in this repository. `app/offbox_poc.py` is the closed Phase 18B.9B Restic proof and must not be installed as the uploader. The helper, worker, and Drive adapter live in local labs under `D:\Tools`. Those labs are evidence. They are not production.
+The accepted frozen offbox source and systemd unit templates are now in this repository under `deploy/hetzner/offbox/` and `deploy/hetzner/`, from PR #12 and PR #13. `app/offbox_poc.py` is still the closed 18B.9B Restic proof and must not be installed as the uploader. Earlier `D:\Tools` labs remain historical evidence, not production. Cursor has reported an **inactive-only VPS packaging installation**; it is not an operational backup.
 
 ## How to read a step
 
@@ -48,7 +48,7 @@ Phase 18B.9C1 is **DESIGN ACCEPTED, 2026-11-10**. The standalone age `.age` arti
 | 18B.9D5A2D5 | [PHASE-18B.9D5A2D5-revised-isolation-evidence.md](PHASE-18B.9D5A2D5-revised-isolation-evidence.md) | **CLOSED — Leader Accepted:** revised WSL isolation safety gate. Historical D2/D3 FAIL preserved. Not production | Composite A/B/C/D/E1/E2/F/G/H |
 | 18B.9D5A2D6 | [PHASE-18B.9D5A2D6-source-integration-readiness.md](PHASE-18B.9D5A2D6-source-integration-readiness.md) | **CLOSED — Leader Accepted:** READY_FOR_SOURCE_INTEGRATION_REVIEW. **Not** merge approval. Import unmerged | 17-file allowlist frozen |
 | 18B.9D5A2D7 | [PHASE-18B.9D5A2D7-source-integration-candidate.md](PHASE-18B.9D5A2D7-source-integration-candidate.md) | **SOURCE MERGED — NOT DEPLOYED** (PR #12 / `c03a0f5`) | 23 files on main; no VPS/units/Drive/Cloud Sync |
-| 18B.9 accelerated readiness | [PHASE-18B.9-accelerated-readiness.md](PHASE-18B.9-accelerated-readiness.md) | **SOURCE MERGED — NOT DEPLOYED** (PR #13 / d6643e0) | Packaging/units on main; not installed/enabled; D2/D3 FAIL preserved |
+| 18B.9 accelerated readiness | [PHASE-18B.9-accelerated-readiness.md](PHASE-18B.9-accelerated-readiness.md) | **SOURCE MERGED** (PR #13 / d6643e0); **inactive VPS packaging installed** (Cursor evidence 2026-11-19, Issue #8) | 15 pinned offbox modules and 4 inert unit files copied; no daemon reload, execution or production backup; D2/D3 FAIL preserved |
 
 Earlier local labs C2B, C2C, C2D, D3, D3A, and D3B informed the adapter. They are not re-opened by this map. The one C2D synthetic upload does not validate the D5A2C adapter. Their OAuth files were not read for this record.
 
@@ -78,7 +78,7 @@ The WSL uid 994 is `lgd5a2b1-guard`. The VPS uid 994 is `lg-backup`. They are di
 
 ## What is installed, and what is not
 
-On the VPS, Phase 18B.9 has created only the `lg-backup` user and the empty `/var/lib/language-guard-backup` directory. No off-box unit, age binary, recipient, or `oauth-refresh` file is installed. `language-guard-sync-backup.timer` stays disabled. Accounts backup retention stays 14. `STUDY_SYNC_ENABLED` stays unset. `study_sync.db` stays absent. Google Drive stays **NOT CONFIGURED**.
+**Latest reported VPS state (2026-11-19):** Following one Owner-authorized inactive install, `/opt/language-guard/offbox` now holds 15/15 SHA-verified modules (`root:root 0644`); four offbox unit files are present in `/etc/systemd/system` (`root:root 0644`) and **not daemon-reloaded, started or enabled**. `/var/lib/language-guard-helper` is `guard:guard 0700`, while the existing `/var/lib/language-guard-backup` remains `lg-backup:lg-backup 0700`, empty. Production age binary, recipient and `oauth-refresh` are still absent. The older sync-backup timer stays disabled; accounts retention remains 14, `STUDY_SYNC_ENABLED` unset and `study_sync.db` absent. Google Drive **NOT CONFIGURED**. Source and ownership evidence: [Issue #8 install](https://github.com/nguyenthaibinh19/EnglishApp/issues/8#issuecomment-7008470434), [Architect review](https://github.com/nguyenthaibinh19/EnglishApp/issues/8#issuecomment-7008526944).
 
 On WSL, these four units exist, are inactive, and are not enabled: `lgd5a2b1-handoff.socket`, `lgd5a2b1-handoff@.service`, `lgd5a2b1-worker.service`, `lgd5a2b1-intruder.service`. The worker unit hash after D5A2B3 is `7fba4c491aa20c6ef9b6ffdb61e0e0708b5467947ad3e8ab8ca21370a77b1fd1`. The D4C units remain installed and inactive. Do not reset the three failed helper instances left by D5A2B2.
 
@@ -102,4 +102,4 @@ Local evidence stays outside GitHub under the private WSL evidence root. Credent
 
 ## Still unknown
 
-The production venv Python version and the production `accounts.db` journal mode were not read. Native age is not on the VPS. No production age identity exists.
+The first Owner-approved read-only VPS probe (Cursor report) recorded deployed Python **3.14.4** and `accounts.db` journal mode **delete**, with no account-row reads. **Still unknown:** whether `guard` can replace paths executed by the `lg-backup` worker via writable `/opt/language-guard` ancestors, venv interpreter symlink targets or import dependencies/ACLs. `setup.sh` may recursively set `guard` ownership; on-host runtime path safety is not established by `root:root 0644` offbox leaf files alone. A **single read-only path-trust audit is Owner-authorized, NOT YET REPORTED**: [Issue #8 #7008591938](https://github.com/nguyenthaibinh19/EnglishApp/issues/8#issuecomment-7008591938). Details and evidence gate: [OFFBOX_VPS_PREREQUISITES.md](../procedures/OFFBOX_VPS_PREREQUISITES.md). Native age is not installed, and no production age private identity is on the VPS.
