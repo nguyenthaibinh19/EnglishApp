@@ -4,4 +4,5 @@ deploy/hetzner/offbox/** text eol=lf
 deploy/hetzner/language-guard-offbox* text eol=lf
 deploy/hetzner/install_offbox_packaging.py text eol=lf
 deploy/hetzner/offbox_report_lines.py text eol=lf
+deploy/hetzner/production_upload_worker.py text eol=lf
 deploy/hetzner/setup.sh text eol=lf

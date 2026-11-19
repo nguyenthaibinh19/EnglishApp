@@ -11,7 +11,7 @@ rewriting the manifest alone cannot authorize tampered module bytes.
 Trusted runtime destination (source design):
   /opt/language-guard-offbox/
     offbox/*.py (+ SHA256SUMS, SOURCE_AUTHORITY.md)
-    deploy/hetzner/<helpers and unit templates>
+    deploy/hetzner/<helpers, production_upload_worker.py, unit templates>
 
 ``verify`` / ``verify-deps`` auto-detect modules either beside this
 script (repo layout) or at ``<exec_root>/offbox`` when this script is
@@ -107,18 +107,31 @@ UNIT_NAMES = (
 APP_TREE_HELPERS = (
     "install_offbox_packaging.py",
     "offbox_report_lines.py",
+    "production_upload_worker.py",
 )
 
 # Trusted execution layout (source design; VPS write still separately authorized).
 OFFBOX_EXEC_ROOT = "/opt/language-guard-offbox"
 OFFBOX_EXEC_MODULES = f"{OFFBOX_EXEC_ROOT}/offbox"
+OFFBOX_EXEC_DEPLOY = f"{OFFBOX_EXEC_ROOT}/deploy/hetzner"
 TRUSTED_INTERPRETER = "/usr/bin/python3"
 TRUSTED_RESOLVED_INTERPRETER_RE = re.compile(r"^/usr/bin/python3(\.\d+)?$")
 # Account DB remains under the app tree (data, not executable code).
 APP_ACCOUNTS_DB = "/opt/language-guard/accounts.db"
 
 HELPER_EXEC_START = f"{TRUSTED_INTERPRETER} -I {OFFBOX_EXEC_MODULES}/snapshot_helper.py"
-WORKER_EXEC_START = f"{TRUSTED_INTERPRETER} -I {OFFBOX_EXEC_MODULES}/backup_worker.py"
+# Production orchestration wrapper (outside the 15 frozen offbox modules).
+PRODUCTION_UPLOAD_WORKER = "production_upload_worker.py"
+WORKER_EXEC_START = (
+    f"{TRUSTED_INTERPRETER} -I {OFFBOX_EXEC_DEPLOY}/{PRODUCTION_UPLOAD_WORKER}"
+)
+
+# Independent integrity pin for the production wrapper (NOT part of D5A2D0-P1).
+# Canonical bytes are LF-only (see .gitattributes eol=lf). Pin the LF digest so
+# Linux checkouts and packaging verification match; never pin CRLF working-tree bytes.
+ACCEPTED_PRODUCTION_UPLOAD_WORKER_SHA256 = (
+    "cc9ce5b7aadbd690f800a0a29cacfd0bbaf0c5f46d3c107ac3100ae1bc9e8427"
+)
 
 FORBIDDEN_ACTIVE_SUBSTRINGS = (
     "StateDirectory=language-guard-backup",
@@ -486,6 +499,80 @@ def verify_dependency_closure(offbox: Path = OFFBOX_SRC) -> dict[str, set[str]]:
     if illegal:
         raise ValueError("dependency closure failed: " + "; ".join(illegal))
     return per_file
+
+
+def _assert_regular_non_symlink(path: Path, *, label: str) -> None:
+    if path.is_symlink():
+        raise ValueError(f"{label} must not be a symlink: {path}")
+    if not path.is_file():
+        raise FileNotFoundError(f"missing {label}: {path}")
+
+
+def verify_production_upload_worker_deps(
+    wrapper: Path, *, offbox: Path
+) -> set[str]:
+    """Wrapper may import stdlib + frozen offbox modules only."""
+    local = {name[:-3] for name in ACCEPTED_D5A2D0_P1_SHA256}
+    stdlib = set(getattr(sys, "stdlib_module_names", ()))
+    if not stdlib:
+        raise ValueError("sys.stdlib_module_names unavailable; need Python >= 3.10")
+    tree = ast.parse(wrapper.read_text(encoding="utf-8"), filename=str(wrapper))
+    imported = _imported_names(tree)
+    illegal: list[str] = []
+    for mod in sorted(imported):
+        if mod.startswith("."):
+            illegal.append(f"{PRODUCTION_UPLOAD_WORKER}: relative import {mod!r}")
+            continue
+        if mod in local or mod in stdlib:
+            continue
+        illegal.append(
+            f"{PRODUCTION_UPLOAD_WORKER}: non-stdlib dependency {mod!r}"
+        )
+    if illegal:
+        raise ValueError(
+            "production wrapper dependency closure failed: " + "; ".join(illegal)
+        )
+    # Require the frozen modules the wrapper is designed to reuse exist.
+    for required in (
+        "backup_worker.py",
+        "credential.py",
+        "https_transport.py",
+        "logutil.py",
+        "oauth_exchange.py",
+    ):
+        candidate = offbox / required
+        _assert_regular_non_symlink(candidate, label=f"wrapper dependency {required}")
+    return imported
+
+
+def verify_production_upload_worker(
+    hetzner_dir: Path = HERE,
+    *,
+    offbox: Path | None = None,
+) -> str:
+    """Independent integrity check for the production upload wrapper.
+
+    Separate from the 15-module D5A2D0-P1 inventory. Rejects missing, replaced,
+    modified, or symlinked wrapper bytes. Validates dependency closure and that
+    the trusted ExecStart path still targets this wrapper under the execution tree.
+    """
+    wrapper = hetzner_dir / PRODUCTION_UPLOAD_WORKER
+    _assert_regular_non_symlink(wrapper, label=PRODUCTION_UPLOAD_WORKER)
+    got = _sha256(wrapper)
+    if got != ACCEPTED_PRODUCTION_UPLOAD_WORKER_SHA256:
+        raise ValueError(
+            f"production wrapper hash mismatch for {PRODUCTION_UPLOAD_WORKER}: "
+            f"{got} != {ACCEPTED_PRODUCTION_UPLOAD_WORKER_SHA256}"
+        )
+    modules = offbox if offbox is not None else resolve_offbox_dir(hetzner_dir)
+    verify_modules(modules)
+    verify_production_upload_worker_deps(wrapper, offbox=modules)
+    expected_exec = f"{OFFBOX_EXEC_DEPLOY}/{PRODUCTION_UPLOAD_WORKER}"
+    if WORKER_EXEC_START != f"{TRUSTED_INTERPRETER} -I {expected_exec}":
+        raise ValueError(
+            "WORKER_EXEC_START drifted from trusted production wrapper path"
+        )
+    return got
 
 
 class PathTrustMeta:
@@ -919,6 +1006,7 @@ def stage(
     listed = verify_modules(offbox)
     verify_units(hetzner_dir)
     verify_dependency_closure(offbox)
+    verify_production_upload_worker(hetzner_dir, offbox=offbox)
     written: list[str] = []
     modules_dest = dest / "offbox"
     for name in listed:
@@ -931,6 +1019,18 @@ def stage(
     for meta in ("SHA256SUMS", "SOURCE_AUTHORITY.md"):
         _exclusive_copy(offbox / meta, modules_dest / meta)
         written.append(f"offbox/{meta}")
+    # Stage the production wrapper under deploy/hetzner for layout parity checks.
+    wrapper_dest = dest / "deploy" / "hetzner"
+    _exclusive_copy(
+        hetzner_dir / PRODUCTION_UPLOAD_WORKER,
+        wrapper_dest / PRODUCTION_UPLOAD_WORKER,
+    )
+    if _sha256(wrapper_dest / PRODUCTION_UPLOAD_WORKER) != (
+        ACCEPTED_PRODUCTION_UPLOAD_WORKER_SHA256
+    ):
+        raise ValueError("staged production wrapper hash mismatch")
+    verify_production_upload_worker(wrapper_dest, offbox=modules_dest)
+    written.append(f"deploy/hetzner/{PRODUCTION_UPLOAD_WORKER}")
     if include_units:
         units_dest = dest / "units"
         for name in UNIT_NAMES:
@@ -961,6 +1061,7 @@ def install_execution_tree(
     listed = verify_modules(offbox)
     verify_units(hetzner_dir)
     verify_dependency_closure(offbox)
+    verify_production_upload_worker(hetzner_dir, offbox=offbox)
     written: list[str] = []
     modules_dest = dest / "offbox"
     deploy_dest = dest / "deploy" / "hetzner"
@@ -980,6 +1081,12 @@ def install_execution_tree(
     for name in UNIT_NAMES:
         _exclusive_copy(hetzner_dir / name, deploy_dest / name)
         written.append(f"deploy/hetzner/{name}")
+    # Re-validate the installed wrapper against the independent pin.
+    if _sha256(deploy_dest / PRODUCTION_UPLOAD_WORKER) != (
+        ACCEPTED_PRODUCTION_UPLOAD_WORKER_SHA256
+    ):
+        raise ValueError("installed production wrapper hash mismatch")
+    verify_production_upload_worker(deploy_dest, offbox=modules_dest)
     return written
 
 
@@ -1041,9 +1148,12 @@ def main(argv: list[str] | None = None) -> int:
             listed = verify_modules(offbox)
             verify_units()
             verify_dependency_closure(offbox)
+            wrapper_digest = verify_production_upload_worker(offbox=offbox)
             print(
                 f"VERIFY_OK modules={len(listed)} units={len(UNIT_NAMES)} "
-                f"inventory=D5A2D0-P1 exec_root={OFFBOX_EXEC_ROOT} "
+                f"inventory=D5A2D0-P1 wrapper={PRODUCTION_UPLOAD_WORKER} "
+                f"wrapper_sha256={wrapper_digest} "
+                f"exec_root={OFFBOX_EXEC_ROOT} "
                 f"interpreter={TRUSTED_INTERPRETER} "
                 f"modules_dir={offbox.as_posix()}"
             )
@@ -1051,8 +1161,13 @@ def main(argv: list[str] | None = None) -> int:
         if args.command == "verify-deps":
             offbox = resolve_offbox_dir()
             per_file = verify_dependency_closure(offbox)
+            wrapper_imports = verify_production_upload_worker_deps(
+                HERE / PRODUCTION_UPLOAD_WORKER, offbox=offbox
+            )
+            verify_production_upload_worker(offbox=offbox)
             print(
-                f"DEPS_OK modules={len(per_file)} stdlib_or_local_only=1 "
+                f"DEPS_OK modules={len(per_file)} wrapper={PRODUCTION_UPLOAD_WORKER} "
+                f"wrapper_imports={len(wrapper_imports)} stdlib_or_local_only=1 "
                 f"modules_dir={offbox.as_posix()}"
             )
             return 0

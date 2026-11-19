@@ -1,6 +1,6 @@
 # Phase 18B.9 — Offbox runtime trust layout (source design)
 
-**Status (2026-11-19):** Source remediation (PR #15) is merged; corrective inactive install **INSTALL PASS**; post-fix Gate A **PASS** and Gate B **CONFIG PASS**. **PR #16 SOURCE MERGED — VPS PACKAGER NOT UPDATED** (`bf5442b`; frozen modules unchanged). Drive adapter libraries are reusable, but production upload entrypoint wiring remains a documented **SOURCE GAP** (current `backup_worker.main()` does not enable live upload via env). Historical pre-fix executable-path audit remains **UNSAFE** ([Issue #8 #7009010670](https://github.com/nguyenthaibinh19/EnglishApp/issues/8#issuecomment-7009010670), Architect [#7009128705](https://github.com/nguyenthaibinh19/EnglishApp/issues/8#issuecomment-7009128705)). This document does **not** authorize enable/start, isolation, age/OAuth/Drive, or activation. See [OFFBOX_PRODUCTION_DEPLOYMENT_RUNBOOK.md](OFFBOX_PRODUCTION_DEPLOYMENT_RUNBOOK.md).
+**Status (2026-11-19):** Source remediation (PR #15) is merged; corrective inactive install **INSTALL PASS**; post-fix Gate A **PASS** and Gate B **CONFIG PASS**. **PR #16 SOURCE MERGED — VPS PACKAGER NOT UPDATED** (`bf5442b`; frozen modules unchanged). **APP_18B9_PRODUCTION_UPLOAD_ENTRYPOINT_R2 — SOURCE IMPLEMENTED locally (Architect F1–F3; not reviewed/merged/deployed):** worker ExecStart targets `production_upload_worker.py` under `/opt/language-guard-offbox/deploy/hetzner/`. Packager `verify`/`verify-deps` pin the wrapper independently of D5A2D0-P1. Inactive encrypt-only exits non-zero (`INACTIVE_NOT_OFFBOX_EXIT=3`). Default remains inert without deliberate LoadCredential activation files. Frozen `backup_worker.main()` still refuses live-upload env. Historical pre-fix executable-path audit remains **UNSAFE** ([Issue #8 #7009010670](https://github.com/nguyenthaibinh19/EnglishApp/issues/8#issuecomment-7009010670), Architect [#7009128705](https://github.com/nguyenthaibinh19/EnglishApp/issues/8#issuecomment-7009128705)). This document does **not** authorize enable/start, isolation, age/OAuth/Drive, or activation. See [OFFBOX_PRODUCTION_DEPLOYMENT_RUNBOOK.md](OFFBOX_PRODUCTION_DEPLOYMENT_RUNBOOK.md).
 
 Historical D5A2D2/D5A2D3 **FAIL** preserved. Drive **NOT CONFIGURED**. Cloud Sync **OFF**. Production **NOT READY**.
 
@@ -17,6 +17,7 @@ Historical D5A2D2/D5A2D3 **FAIL** preserved. Drive **NOT CONFIGURED**. Cloud Syn
 | `/opt` | `root:root 0755` | Ancestor (already root) |
 | `/opt/language-guard-offbox` | `root:root 0755` | Dedicated execution root (sibling of app tree) |
 | `/opt/language-guard-offbox/offbox/*.py` | `root:root 0644` | Frozen D5A2D0-P1 modules (unchanged bytes) |
+| `/opt/language-guard-offbox/deploy/hetzner/production_upload_worker.py` | `root:root 0644` | Production orchestration wrapper (outside frozen modules; LF-only via `.gitattributes`; independent SHA pin) |
 | `/usr/bin/python3` | system root-owned | Interpreter (`-I` isolated mode) |
 | `/opt/language-guard` | unchanged `guard` app tree | Account server only; **no** offbox executables |
 | `/opt/language-guard/accounts.db` | existing | Helper read-only data path (`LG_SOURCE_DB`) |
@@ -26,7 +27,8 @@ Historical D5A2D2/D5A2D3 **FAIL** preserved. Drive **NOT CONFIGURED**. Cloud Syn
 Unit templates:
 
 - Helper: `User=guard`, `ExecStart=/usr/bin/python3 -I /opt/language-guard-offbox/offbox/snapshot_helper.py`
-- Worker: `User=lg-backup`, `ExecStart=/usr/bin/python3 -I /opt/language-guard-offbox/offbox/backup_worker.py`
+- Worker: `User=lg-backup`, `ExecStart=/usr/bin/python3 -I /opt/language-guard-offbox/deploy/hetzner/production_upload_worker.py`
+  (wrapper reuses frozen `backup_worker.run()`; default unit LoadCredential remains `oauth-refresh` only)
 
 `setup.sh` opt-in `LG_INSTALL_OFFBOX=1` installs via
 `install-execution-tree --dest /opt/language-guard-offbox --production` and
@@ -52,7 +54,7 @@ drift), including correct-hash files with unsafe ownership, before any copy.
 ```bash
 python deploy/hetzner/install_offbox_packaging.py verify
 python deploy/hetzner/install_offbox_packaging.py verify-deps
-python -m pytest tests/test_offbox_runtime_trust.py tests/test_offbox_packaging.py tests/test_offbox_setup_boundary.py tests/test_offbox_integrity.py tests/test_offbox_import_smoke.py -q
+python -m pytest tests/test_offbox_runtime_trust.py tests/test_offbox_packaging.py tests/test_offbox_setup_boundary.py tests/test_offbox_integrity.py tests/test_offbox_import_smoke.py tests/test_production_upload_worker.py -q
 ```
 
 ## Corrective inactive VPS write (executed; authorization exhausted)
