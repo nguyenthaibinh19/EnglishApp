@@ -32,7 +32,7 @@ Even with the approved PR #25 EXE, FreeHome only refreshed AccountPanel on login
 | Path | Change |
 |------|--------|
 | `app/account_panel.py` | `AccountSyncStatusPoller` — Tk `after` loop; UI-only `AccountPanel.refresh()` |
-| `app/home_app.py` | Start poller on FreeHome; stop on destroy / leave to StudyMaster; no second loop on account switch |
+| `app/home_app.py` | Start poller on FreeHome; stop on panel-frame destroy / leave to StudyMaster; no root `<Destroy>` accumulation; no second loop on account switch |
 | `tests/test_freehome_sync_label_refresh.py` | Pending→unavailable after synthetic 404; no duplicate loops; destroy/stop; StudyMaster loop unchanged; no Sync HTTP on UI refresh |
 
 ## Task D — RC rebuild (Owner smoke only)

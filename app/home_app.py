@@ -173,16 +173,32 @@ class FreeHome:
 
         self.refresh()
         self._sync_status_poller.start()
-        self.root.bind("<Destroy>", self._on_root_destroy_stop_sync_poller, add="+")
+        # Bind cleanup to the FreeHome-owned AccountPanel frame — never accumulate
+        # <Destroy> handlers on the long-lived Tk root across FreeHome recreations.
+        self._sync_panel_destroy_bind = self.account_panel.frame.bind(
+            "<Destroy>",
+            self._on_account_panel_destroy_stop_sync_poller,
+            add="+",
+        )
 
-    def _on_root_destroy_stop_sync_poller(self, event) -> None:
-        if event.widget is self.root:
-            self._stop_sync_status_polling()
+    def _on_account_panel_destroy_stop_sync_poller(self, event) -> None:
+        panel = getattr(self, "account_panel", None)
+        if panel is None or event.widget is not panel.frame:
+            return
+        self._stop_sync_status_polling()
 
     def _stop_sync_status_polling(self) -> None:
         poller = getattr(self, "_sync_status_poller", None)
         if poller is not None:
             poller.stop()
+        bind_id = getattr(self, "_sync_panel_destroy_bind", None)
+        self._sync_panel_destroy_bind = None
+        frame = getattr(getattr(self, "account_panel", None), "frame", None)
+        if bind_id and frame is not None:
+            try:
+                frame.unbind("<Destroy>", bind_id)
+            except tk.TclError:
+                pass
 
     # ---------- plan / view ----------
 

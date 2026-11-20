@@ -248,3 +248,68 @@ def test_ui_refresh_does_not_call_sync_http(tk_root, tmp_path, monkeypatch):
         panel.refresh()
     assert client.calls == calls
     store.close()
+
+
+def test_freehome_study_master_roundtrip_no_stale_root_destroy_or_poller(
+    tk_root, monkeypatch
+):
+    """FreeHome → StudyMaster → FreeHome must not stack root Destroy handlers."""
+    from home_app import FreeHome
+
+    monkeypatch.setattr("home_app.plan_for_language", lambda _code: None)
+    monkeypatch.setattr(
+        "home_app.config.environment_identity",
+        lambda: type(
+            "I",
+            (),
+            {
+                "display_title": lambda self, name: name,
+                "runtime_environment": "production-rc",
+                "rc_smoke": True,
+            },
+        )(),
+    )
+
+    class _DummyStudyMaster:
+        def __init__(self, root, on_finished=None):
+            self.root = root
+            self.on_finished = on_finished
+
+    monkeypatch.setattr(
+        FreeHome, "_study_master_class", staticmethod(lambda: _DummyStudyMaster)
+    )
+
+    root_bind_calls = []
+    real_bind = tk_root.bind
+
+    def tracking_bind(sequence, func=None, add=None):
+        if sequence == "<Destroy>":
+            root_bind_calls.append((sequence, add))
+        return real_bind(sequence, func, add)
+
+    monkeypatch.setattr(tk_root, "bind", tracking_bind)
+
+    homes = []
+    for _ in range(3):
+        home = FreeHome(tk_root)
+        homes.append(home)
+        assert home._sync_status_poller.active
+        assert getattr(home, "_sync_panel_destroy_bind", None)
+        # Account-switch style refresh must not start a second poll loop.
+        before_gen = home._sync_status_poller._generation
+        home._on_account_session_changed()
+        assert home._sync_status_poller._generation == before_gen
+        home._start_study()
+        assert not home._sync_status_poller.active
+        _pump(tk_root, 40)
+
+    # Cleanup is bound to the panel frame, never stacked on the long-lived root.
+    assert root_bind_calls == []
+    # Exactly one live FreeHome poller after the last return (new FreeHome).
+    final = FreeHome(tk_root)
+    assert final._sync_status_poller.active
+    assert final._sync_status_poller._generation == 1
+    for prior in homes:
+        assert not prior._sync_status_poller.active
+    final._stop_sync_status_polling()
+    assert not final._sync_status_poller.active
