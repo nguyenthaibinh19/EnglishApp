@@ -1,8 +1,9 @@
 # APP — RC FreeHome Cloud Sync stale label correction
 
-Status: **Ready for Architect review** (`APP_RC_FREEHOME_SYNC_LABEL_FIX_READY`)  
+Status: **Architect Accepted — source merged** (`APP_RC_FREEHOME_SYNC_LABEL_MERGED_ACCEPTED`)  
 Baseline: `main` `a2660f0e4bdd649efe37e5731e721de35ecf1e77` (PR #25 merged)  
-PR: [#26](https://github.com/nguyenthaibinh19/EnglishApp/pull/26)  
+PR: [#26](https://github.com/nguyenthaibinh19/EnglishApp/pull/26) (final HEAD `7940509eade0353b4d5d6c92504df175a65bb091`)  
+Merge commit / `main`: `693cc72195fe53bb424a1aa39f528fc9a8298321`  
 Cloud Sync: **OFF**
 
 ## Task A — Read-only diagnosis
@@ -40,7 +41,7 @@ Even with the approved PR #25 EXE, FreeHome only refreshed AccountPanel on login
 | Item | Value |
 |------|--------|
 | Path | `D:\EnglishApp-worktrees\env-isolation\dist-rc\langstudyguard-rc.exe` |
-| SHA-256 | `26df6fafd7be7e4bcd808765faf07a06cf309c58dc34663df4c81150926bbbc6` |
+| SHA-256 | `cc9cff172f1ae5fdf6f505e440cd7b9411d06538f8202a9a08e662209df9bc4b` (post-merge rebuild) |
 | Data root | `%APPDATA%\langstudyguard-rc` |
 | Dutch vocab / pending outbox | **114 / 114** (unchanged) |
 | Recovery backups | Intact under `%LOCALAPPDATA%\LanguageGuard-Recovery\vocab-114-20261119-232144\` |
