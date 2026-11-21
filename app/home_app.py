@@ -514,7 +514,10 @@ class FreeHome:
         self.bank_window = tk.Toplevel(self.root)
         ui_common.own_toplevel(self.bank_window, self.root)
         self._library_app = VocabularyLibraryApp(
-            self.bank_window, language_code=code, focus_add=focus_add
+            self.bank_window,
+            language_code=code,
+            focus_add=focus_add,
+            on_saved=self.refresh,
         )
         self.bank_window.bind("<Destroy>", lambda _e: self.root.after(80, self.refresh), add="+")
 

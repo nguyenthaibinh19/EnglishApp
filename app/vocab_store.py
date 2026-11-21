@@ -289,7 +289,9 @@ class VocabStore:
             else:
                 # Legacy single-field editors pass ``example`` only. Preserve
                 # additional structured examples that the UI cannot edit yet.
-                examples = self._merge_legacy_example_edit(
+                # Call on VocabStore: AccountVocabStore reuses this method and
+                # does not define _merge_legacy_example_edit itself.
+                examples = VocabStore._merge_legacy_example_edit(
                     existing if isinstance(existing, dict) else {},
                     extra.get("example"),
                 )
