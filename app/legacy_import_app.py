@@ -104,13 +104,22 @@ class LegacyImportApp:
         ttk.Label(
             self.root,
             text=config.ui(
-                "Lịch sử trả lời guest chưa được nhập tự động trong 18C.2 "
-                "(cần ledger ADR-022 đầy đủ). Chỉ từ vựng được sao chép khi đồng ý.",
-                "Guest attempt history is not auto-imported in 18C.2 "
-                "(full ADR-022 ledger deferred). Only vocabulary is copied on consent.",
+                "Đồng ý từ vựng không nhập lịch sử trả lời. Lịch sử cần một lần "
+                "đồng ý riêng cho đúng tài khoản và đúng file nguồn.",
+                "Vocabulary consent does not import attempt history. History needs "
+                "its own consent for this account and this source file.",
             ),
             wraplength=520,
             style="Muted.TLabel",
+        ).pack(anchor="w", pady=(0, 8))
+        self.attempt_consent_var = tk.BooleanVar(value=False)
+        ttk.Checkbutton(
+            self.root,
+            text=config.ui(
+                "Tôi đồng ý nhập lịch sử trả lời guest vào tài khoản đang đăng nhập.",
+                "I consent to import guest attempt history into the current account.",
+            ),
+            variable=self.attempt_consent_var,
         ).pack(anchor="w", pady=(0, 8))
         buttons = ttk.Frame(self.root)
         buttons.pack(anchor="e", fill=tk.X)
@@ -119,6 +128,11 @@ class LegacyImportApp:
             text=config.ui("Hủy", "Cancel"),
             command=self.window.destroy,
         ).pack(side=tk.RIGHT)
+        ttk.Button(
+            buttons,
+            text=config.ui("Nhập lịch sử", "Import attempt history"),
+            command=self._import_attempts,
+        ).pack(side=tk.RIGHT, padx=(0, 8))
         ttk.Button(
             buttons,
             text=config.ui("Nhập từ vựng", "Import vocabulary"),
@@ -173,6 +187,148 @@ class LegacyImportApp:
         if callable(self.on_done):
             self.on_done(result)
         self.window.destroy()
+
+    def _import_attempts(self):
+        if not self.attempt_consent_var.get():
+            messagebox.showwarning(
+                config.APP_NAME,
+                config.ui(
+                    "Cần đồng ý riêng cho lịch sử trả lời.",
+                    "Attempt history needs its own consent.",
+                ),
+                parent=self.window,
+            )
+            return
+        from study_data import active_account_store, is_signed_in
+
+        if not is_signed_in():
+            messagebox.showerror(
+                config.APP_NAME,
+                config.ui("Cần đăng nhập.", "Sign in required."),
+                parent=self.window,
+            )
+            return
+        store = active_account_store()
+        if store is None:
+            messagebox.showerror(config.APP_NAME, "No account store.", parent=self.window)
+            return
+        path = self.preview["attempts_path"]
+        if not os.path.isfile(path):
+            messagebox.showinfo(
+                config.APP_NAME,
+                config.ui("Không có file lịch sử guest.", "No guest attempt file."),
+                parent=self.window,
+            )
+            return
+        from legacy_attempt_import import (
+            LegacySourceIdentityError,
+            import_guest_attempts,
+            read_windows_file_identity,
+        )
+
+        try:
+            identity = read_windows_file_identity(path)
+        except LegacySourceIdentityError:
+            store.note_legacy_attempt_conflict(
+                f"identity_unavailable {self.language_code}"
+            )
+            messagebox.showwarning(
+                config.APP_NAME,
+                config.ui(
+                    "Không xác định được file nguồn. Lịch sử chưa được nhập.",
+                    "The source file identity could not be verified. Nothing was imported.",
+                ),
+                parent=self.window,
+            )
+            return
+        store.grant_attempt_import_consent(
+            self.language_code,
+            identity,
+            note="explicit-attempt-consent",
+        )
+        result = import_guest_attempts(
+            store,
+            language_code=self.language_code,
+            path=path,
+        )
+        if result["status"] == "overlap":
+            choice = _prompt_overlap_choice(self.window)
+            if choice is None:
+                messagebox.showwarning(
+                    config.APP_NAME,
+                    config.ui(
+                        "Cần chọn cách xử lý dòng trùng. Chưa nhập thêm.",
+                        "Choose how to handle overlapping lines. Nothing further was imported.",
+                    ),
+                    parent=self.window,
+                )
+                return
+            resolutions = {offset: choice for offset in result["overlap_offsets"]}
+            result = import_guest_attempts(
+                store,
+                language_code=self.language_code,
+                path=path,
+                resolutions=resolutions,
+            )
+        if result["status"] in {"conflict", "identity_unavailable", "replacement_consent_required"}:
+            messagebox.showwarning(
+                config.APP_NAME,
+                config.ui(
+                    "Nhập lịch sử bị chặn. Dữ liệu đã nhận không bị xóa.",
+                    "Attempt import is blocked. Accepted history was not deleted.",
+                ),
+                parent=self.window,
+            )
+            return
+        messagebox.showinfo(
+            config.APP_NAME,
+            config.ui(
+                f"Đã nhập {result['imported']} lần trả lời vào tài khoản này.",
+                f"Imported {result['imported']} attempts into this account.",
+            ),
+            parent=self.window,
+        )
+
+
+def _prompt_overlap_choice(parent: tk.Misc):
+    """Return skip, distinct, or None. Skip is the default action."""
+    dialog = tk.Toplevel(parent)
+    dialog.title(config.APP_NAME)
+    dialog.transient(parent)
+    dialog.grab_set()
+    choice = {"value": None}
+    frame = ttk.Frame(dialog, padding=12)
+    frame.pack(fill=tk.BOTH, expand=True)
+    ttk.Label(
+        frame,
+        text=config.ui(
+            "Một số dòng đã có trong tài khoản. Bỏ qua là mặc định. "
+            "Nhập thành lần trả lời riêng chỉ khi bạn chọn rõ.",
+            "Some lines were already imported. Skip is the default. "
+            "Import them as distinct attempts only if you choose that explicitly.",
+        ),
+        wraplength=420,
+    ).pack(anchor="w", pady=(0, 8))
+
+    def _choose(value):
+        choice["value"] = value
+        dialog.destroy()
+
+    buttons = ttk.Frame(frame)
+    buttons.pack(anchor="e")
+    ttk.Button(
+        buttons,
+        text=config.ui("Bỏ qua", "Skip"),
+        command=lambda: _choose("skip"),
+    ).pack(side=tk.RIGHT)
+    ttk.Button(
+        buttons,
+        text=config.ui("Nhập riêng", "Import as distinct"),
+        command=lambda: _choose("distinct"),
+    ).pack(side=tk.RIGHT, padx=(0, 8))
+    dialog.protocol("WM_DELETE_WINDOW", dialog.destroy)
+    parent.wait_window(dialog)
+    return choice["value"]
 
 
 def open_legacy_import(parent: tk.Misc, language_code: str = None, on_done=None):
