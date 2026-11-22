@@ -29,12 +29,49 @@ from vocabulary_library import (
 from vocab_store import VocabStore
 
 
+def commit_vocab_edit(
+    store,
+    *,
+    mode: str,
+    word: str,
+    meaning: str,
+    extra: dict,
+    store_index: int | None = None,
+) -> tuple[bool, str]:
+    """Persist an add/edit. Failure returns a user message and does not imply close."""
+    try:
+        if mode == "add":
+            ok = bool(store.add(word, meaning, **extra))
+        else:
+            ok = bool(store.update(store_index, word, meaning, **extra))
+    except Exception:
+        return False, config.ui("Không lưu được.", "Could not save.")
+    if ok:
+        return True, ""
+    if mode == "add":
+        return (
+            False,
+            config.ui(
+                "Từ đã tồn tại (sau chuẩn hóa) hoặc không lưu được.",
+                "Word already exists (after normalization) or could not be saved.",
+            ),
+        )
+    return False, config.ui("Không lưu được.", "Could not save.")
+
+
 class VocabularyLibraryApp:
     """Browse/search vocabulary, open Word Detail, add/edit/delete via VocabStore."""
 
-    def __init__(self, window: tk.Misc, language_code: str = None, focus_add: bool = False):
+    def __init__(
+        self,
+        window: tk.Misc,
+        language_code: str = None,
+        focus_add: bool = False,
+        on_saved=None,
+    ):
         self.window = window
         self.language_code = language_code or config.active_code()
+        self.on_saved = on_saved
         config.set_language(self.language_code)
         self.focus_add = focus_add
 
@@ -299,23 +336,21 @@ class VocabularyLibraryApp:
                     )
                 )
                 return
-            if mode == "add":
-                if not self.store.add(word, meaning, **extra):
-                    status.config(
-                        text=config.ui(
-                            "Từ đã tồn tại (sau chuẩn hóa) hoặc không lưu được.",
-                            "Word already exists (after normalization) or could not be saved.",
-                        )
-                    )
-                    return
-            else:
-                if not self.store.update(store_index, word, meaning, **extra):
-                    status.config(
-                        text=config.ui("Không lưu được.", "Could not save.")
-                    )
-                    return
+            ok, message = commit_vocab_edit(
+                self.store,
+                mode=mode,
+                word=word,
+                meaning=meaning,
+                extra=extra,
+                store_index=store_index,
+            )
+            if not ok:
+                status.config(text=message)
+                return
             dialog.destroy()
             self.reload()
+            if callable(self.on_saved):
+                self.on_saved()
 
         buttons = ttk.Frame(frame)
         buttons.grid(row=len(labels) + 1, column=0, columnspan=2, sticky="e", pady=(12, 0))
@@ -750,6 +785,8 @@ class WordDetailApp:
             ttk.Entry(frame, textvariable=vars_map[key], width=36).grid(
                 row=row, column=1, sticky="ew", padx=(8, 0), pady=4
             )
+        status = ttk.Label(frame, text="", style="Muted.TLabel")
+        status.grid(row=4, column=0, columnspan=2, sticky="w", pady=(4, 0))
 
         def save():
             word = vars_map["word"].get().strip()
@@ -757,21 +794,30 @@ class WordDetailApp:
             alt = [a.strip() for a in vars_map["alt"].get().split("|") if a.strip()]
             example = vars_map["example"].get().strip()
             if not word or not meaning:
+                status.config(
+                    text=config.ui(
+                        "Cần có từ và nghĩa.", "Word and meaning are required."
+                    )
+                )
                 return
-            if self.store.update(
-                self.detail.store_index,
-                word,
-                meaning,
-                alternatives=alt,
-                example=example,
-            ):
-                dialog.destroy()
-                if callable(self.on_changed):
-                    self.on_changed()
-                self._refresh_from_disk()
+            ok, message = commit_vocab_edit(
+                self.store,
+                mode="edit",
+                word=word,
+                meaning=meaning,
+                extra={"alternatives": alt, "example": example},
+                store_index=self.detail.store_index,
+            )
+            if not ok:
+                status.config(text=message)
+                return
+            dialog.destroy()
+            if callable(self.on_changed):
+                self.on_changed()
+            self._refresh_from_disk()
 
         buttons = ttk.Frame(frame)
-        buttons.grid(row=4, column=0, columnspan=2, sticky="e", pady=(12, 0))
+        buttons.grid(row=5, column=0, columnspan=2, sticky="e", pady=(12, 0))
         ttk.Button(
             buttons,
             text=config.ui("Lưu", "Save"),
