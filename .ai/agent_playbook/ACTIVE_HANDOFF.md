@@ -1,32 +1,32 @@
 # Active handoff
 
-Rolling coordination checkpoint. See [current_state.md](../current_state.md) and [APP-RC-FREEHOME-SYNC-LABEL.md](../plans/APP-RC-FREEHOME-SYNC-LABEL.md).
+Rolling coordination checkpoint. See [current_state.md](../current_state.md) and [APP-RC-ADD-WORD-SAVE.md](../plans/APP-RC-ADD-WORD-SAVE.md).
 
 ## 1. Checkpoint metadata
 
-- Written: 2026-11-20 (PR #26 FreeHome Sync-label **Architect Accepted — source merged**).
-- Tag: `APP_RC_FREEHOME_SYNC_LABEL_MERGED_ACCEPTED`.
-- Merge commit / `main`: `693cc72195fe53bb424a1aa39f528fc9a8298321`.
-- Final PR HEAD: `7940509eade0353b4d5d6c92504df175a65bb091`.
-- FreeHome polls AccountPanel Cloud Sync on the Tk main thread; panel-frame Destroy cleanup (no root handler stack).
+- Written: 2026-11-22 (PR #27 signed-in Add Word save **Architect Accepted — source merged**).
+- Tag: `APP_RC_ADD_WORD_SAVE_FIX_ARCHITECT_ACCEPTED`.
+- Merge commit: `6cfade645dbdd4fbddec9fb83d4d295e632b1e1b`.
+- Approved PR HEAD: `26f9c90b465de2b265e79e0daf0832d6c58ab591`.
+- Empty `example` on signed-in Add/Edit no longer raises `AttributeError`; Guest and Account share `VocabStore._merge_legacy_example_edit`.
 - Local 114-word RC recovery remains intact (account `id 1`; outbox pending preserved; recovery backups untouched).
 - Cloud Sync **OFF**. No VPS/Sync flag change. No production EXE replace. No public Release.
-- Isolated RC build is for **Owner smoke testing only** (close outdated `account-ux-rc` EXE first).
+- Isolated RC build is for **Owner GUI smoke only**.
 - **18C.1 / 18C.2 CLOSED**. **18B.9 PAUSED, NOT CLOSED**. Staging **RESERVED**. Sync pilot **NO-GO**.
 
 ## 2. Last results
 
-- PR [#26](https://github.com/nguyenthaibinh19/EnglishApp/pull/26) merged to `main` (follows PR #25).
-- Focused regressions green (`test_freehome_sync_label_refresh`, sync-unavailable, RC isolation).
-- RC EXE (Owner smoke only): `dist-rc/langstudyguard-rc.exe` SHA-256 `cc9cff172f1ae5fdf6f505e440cd7b9411d06538f8202a9a08e662209df9bc4b`.
+- PR [#27](https://github.com/nguyenthaibinh19/EnglishApp/pull/27) merged to `main`.
+- Focused regressions were green at review (`test_account_add_word_save`, signed-in study data, vocab identity). Architect accepted that evidence; CI was not independently rerun.
+- RC EXE (Owner smoke only): `dist-rc/langstudyguard-rc.exe` SHA-256 `a55099f56099f6d0edbe1eb889cec7b68c288bba61f5551b75df0cf223d94831`. Built from the code fix; the following docs commit does not change runtime.
 
 ## 3. Next
 
-1. Owner RC smoke with the post-merge isolated RC build (manual).
+1. Owner RC GUI smoke: signed-in Add Word with a blank example, Add Word with an example, edit, and duplicate rejection.
 2. No further VPS changes unless Owner/Architect authorize.
 3. Do not enable `STUDY_SYNC_ENABLED` or resume 18B.9 from this handoff.
 4. Do not rerun the 114-word import or reset the RC account DB.
 
 ## 4. STOP / boundaries
 
-- STOP after merge report — no new milestone.
+- STOP after this merge report — no new milestone.

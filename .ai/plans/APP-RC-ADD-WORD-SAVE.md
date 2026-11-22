@@ -1,8 +1,11 @@
 # APP — RC signed-in Add Word save fix
 
-Status: **Ready for Architect review** (`APP_RC_ADD_WORD_SAVE_FIX_READY`)  
+Status: **Architect Accepted — source merged** (`APP_RC_ADD_WORD_SAVE_FIX_ARCHITECT_ACCEPTED`)  
 Baseline: `main` `c1ce12eb6df0da1550702e4fd05226753972ec3e`  
-Cloud Sync: **OFF**
+PR: [#27](https://github.com/nguyenthaibinh19/EnglishApp/pull/27) (approved HEAD `26f9c90b465de2b265e79e0daf0832d6c58ab591`)  
+Merge commit / `main`: `6cfade645dbdd4fbddec9fb83d4d295e632b1e1b`  
+Cloud Sync: **OFF**  
+Next: **Owner RC GUI smoke** — do not start another milestone.
 
 ## Root cause
 
