@@ -1,11 +1,13 @@
 # APP — RC signed-in Add Word save fix
 
-Status: **Architect Accepted — source merged** (`APP_RC_ADD_WORD_SAVE_FIX_ARCHITECT_ACCEPTED`)  
+Status: **CLOSED — Owner GUI smoke accepted** (`APP_RC_ADD_WORD_SAVE_FIX_CLOSED_OWNER_ACCEPTED`)  
 Baseline: `main` `c1ce12eb6df0da1550702e4fd05226753972ec3e`  
-PR: [#27](https://github.com/nguyenthaibinh19/EnglishApp/pull/27) (approved HEAD `26f9c90b465de2b265e79e0daf0832d6c58ab591`)  
-Merge commit / `main`: `6cfade645dbdd4fbddec9fb83d4d295e632b1e1b`  
+PR: [#27](https://github.com/nguyenthaibinh19/EnglishApp/pull/27) **MERGED** (approved HEAD `26f9c90b465de2b265e79e0daf0832d6c58ab591`)  
+Merge commit: `6cfade645dbdd4fbddec9fb83d4d295e632b1e1b`  
+`main` at acceptance docs: `623847c9549832b5821566028055739d86094a29`  
 Cloud Sync: **OFF**  
-Next: **Owner RC GUI smoke** — do not start another milestone.
+18B.9: **PAUSED, NOT CLOSED** · Staging: **RESERVED** · Sync pilot: **NO-GO**  
+Next: **none** — no new milestone from this closure.
 
 ## Root cause
 
@@ -32,6 +34,12 @@ The failed call returned before `upsert_vocabulary`, so the account SQLite trans
 | Owner RC Dutch / pending | **114 / 114** (unchanged) |
 | Recovery backup | Intact |
 | Production `dist/langstudyguard.exe` | Not present / not modified |
+
+## Owner RC GUI smoke
+
+Owner confirmed on 2026-11-22 that all RC GUI smoke checks for PR #27 **PASSED**.
+
+Signed-in Add Word with a blank example, Add Word with an example, edit, and duplicate rejection are accepted. Original RC account data and recovery backups were not modified for this closure.
 
 ## Boundaries
 

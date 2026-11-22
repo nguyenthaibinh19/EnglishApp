@@ -2,9 +2,9 @@
 
 > First file a new agent should read. Keep this concise and update when phases complete.
 
-## Latest verified coordination checkpoint — 2026-11-19
+## Latest verified coordination checkpoint — 2026-11-22
 
-**Current priority:** **PR #27 signed-in Add Word save Architect Accepted — source merged** (`APP_RC_ADD_WORD_SAVE_FIX_ARCHITECT_ACCEPTED`). Merge `6cfade645dbdd4fbddec9fb83d4d295e632b1e1b` on `main` (approved HEAD `26f9c90`). Guest and account stores share example merging, so an empty example no longer raises `AttributeError` before SQLite write. Next step is **Owner RC GUI smoke** only. RC account `id 1` recovery stays intact (114 Dutch words, 114 pending outbox). Cloud Sync **OFF**. **18B.9 PAUSED, NOT CLOSED.** Staging **RESERVED**. Sync pilot **NO-GO**. Do not overwrite `dist/langstudyguard.exe`. No public Release. See [APP-RC-ADD-WORD-SAVE.md](plans/APP-RC-ADD-WORD-SAVE.md).
+**Current priority:** **PR #27 signed-in Add Word save CLOSED — Owner GUI smoke accepted** (`APP_RC_ADD_WORD_SAVE_FIX_CLOSED_OWNER_ACCEPTED`). PR [#27](https://github.com/nguyenthaibinh19/EnglishApp/pull/27) is **MERGED** (`6cfade645dbdd4fbddec9fb83d4d295e632b1e1b`; approved HEAD `26f9c90`). `main` before this closure doc is `623847c9549832b5821566028055739d86094a29`. Owner confirmed all RC GUI smoke checks **PASSED**. No further milestone is authorized. RC account data and recovery backups stay intact. Cloud Sync **OFF**. **18B.9 PAUSED, NOT CLOSED.** Staging **RESERVED**. Sync pilot **NO-GO**. Do not overwrite `dist/langstudyguard.exe`. No public Release. See [APP-RC-ADD-WORD-SAVE.md](plans/APP-RC-ADD-WORD-SAVE.md).
 
 **18C.1 CLOSED — Architect Accepted** (PR #20, merge `8e94f77491cc2f318c93fc511e258d0299ff4d03`): local core Account Sync demonstration — schema-v3 progress tables + `/api/sync/progress/*` behind the existing default-off flag; per-account local SQLite; vocabulary + event-first progress sync engine; localhost two-device demo; explicit vocabulary conflict freeze (no silent LWW).
 
