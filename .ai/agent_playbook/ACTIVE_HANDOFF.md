@@ -1,31 +1,31 @@
 # Active handoff
 
-Rolling coordination checkpoint. See [current_state.md](../current_state.md) and [APP-RC-ADD-WORD-SAVE.md](../plans/APP-RC-ADD-WORD-SAVE.md).
+Rolling coordination checkpoint. See [current_state.md](../current_state.md) and [PHASE-18C.3A-sync-readiness-audit.md](../plans/PHASE-18C.3A-sync-readiness-audit.md).
 
 ## 1. Checkpoint metadata
 
-- Written: 2026-11-22 (PR #27 signed-in Add Word save **CLOSED — Owner GUI smoke accepted**).
-- Tag: `APP_RC_ADD_WORD_SAVE_FIX_CLOSED_OWNER_ACCEPTED`.
-- PR [#27](https://github.com/nguyenthaibinh19/EnglishApp/pull/27) state: **MERGED** (2026-11-22T10:34:00Z).
-- Merge commit: `6cfade645dbdd4fbddec9fb83d4d295e632b1e1b`.
-- Approved PR HEAD: `26f9c90b465de2b265e79e0daf0832d6c58ab591`.
-- `main` before this closure doc: `623847c9549832b5821566028055739d86094a29`.
-- Owner RC GUI smoke: **PASSED** (blank example, example text, edit, duplicate rejection).
-- Local 114-word RC recovery remains intact (account `id 1`; outbox pending preserved; recovery backups untouched).
-- Cloud Sync **OFF**. No VPS/Sync flag change. No production EXE replace. No public Release.
-- **18C.1 / 18C.2 CLOSED**. **18B.9 PAUSED, NOT CLOSED**. Staging **RESERVED**. Sync pilot **NO-GO**.
+- Written: 2026-11-22 (Phase 18C.3A local readiness audit).
+- Tag: `APP_18C3A_READY_FOR_ARCHITECT_REVIEW`.
+- Baseline `main`: `dc6dc8a0b51a3a258598c2b7735c9d6e9e059987`.
+- PR #27 remains **CLOSED — Owner accepted**. This audit does not reopen it.
+- 18C.1/18C.2 store, outbox, worker, and signed-in GUI paths stay in source. Do not rebuild them.
+- Guest AttemptHistory ledger, replacement, truncation, and overlap import remain **not implemented**.
+- Cloud Sync **OFF**. No VPS. No production EXE replace. No public Release.
+- RC account id 1, the 114 Dutch words, the 114 pending outbox rows, and recovery backups were not opened or modified.
+- **18B.9 PAUSED, NOT CLOSED**. Staging **RESERVED**. Sync pilot **NO-GO**.
 
 ## 2. Last results
 
-- Documentation-only closure. Application source, RC EXE, account data, and VPS were not changed.
-- RC EXE used for the accepted smoke: `dist-rc/langstudyguard-rc.exe` SHA-256 `a55099f56099f6d0edbe1eb889cec7b68c288bba61f5551b75df0cf223d94831`.
+- Focused synthetic pytest: **73 passed, 0 failed, 0 skipped**.
+- Local uncommitted probe: `tests/test_18c3a_progress_cursor_rules.py` (4 of those 73). Application source was not committed.
+- No material sync defect was reproduced.
 
 ## 3. Next
 
-1. No new milestone is authorized from this closure.
-2. Do not enable `STUDY_SYNC_ENABLED` or resume 18B.9 from this handoff.
-3. Do not rerun the 114-word import or reset the RC account DB.
+1. Architect review of the 18C.3A audit.
+2. Do not start 18C.3B (AttemptHistory ledger) until that review authorizes application-source edits.
+3. Do not enable `STUDY_SYNC_ENABLED` or resume 18B.9 from this handoff.
 
 ## 4. STOP / boundaries
 
-- STOP after this documentation checkpoint — no new milestone.
+- STOP after this audit — no new milestone.

@@ -1,0 +1,8 @@
+# 18C.3A focused pytest
+
+Date: 2026-11-22  
+Baseline: `dc6dc8a0b51a3a258598c2b7735c9d6e9e059987`  
+Command: `python -m pytest` on the eight modules listed in [PHASE-18C.3A-sync-readiness-audit.md](../../.ai/plans/PHASE-18C.3A-sync-readiness-audit.md)  
+Result: **73 passed, 0 failed, 0 skipped**, exit 0, elapsed about 34s.
+
+Owner RC AppData was not used. The cursor-rule module is a local uncommitted probe.
