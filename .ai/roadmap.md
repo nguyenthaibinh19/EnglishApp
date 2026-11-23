@@ -4,7 +4,7 @@ Directional plan — **not** a rigid release commitment. Update when phases comp
 
 ## Latest operational checkpoint — 2026-11-23
 
-- **Active priority: Phase 18C.4 real two-device Account Sync.** 18C.4B machine A smoke is ready for Architect review (`APP_18C4B_MACHINE_A_READY_FOR_ARCHITECT_REVIEW`). The lab server was stopped. The original junction probe remains a **FAIL**. Computer B is not connected. Real two-PC acceptance is **NOT TESTED**.
+- **Active priority: Phase 18C.4 real two-device Account Sync.** 18C.4A and 18C.4B are CLOSED. 18C.4C is **BLOCKED** (`APP_18C4C_BLOCKED`): no trusted SSH path to a second computer. The lab server was not restarted. The original junction probe remains a **FAIL**. Real two-PC acceptance is **NOT TESTED**.
 - 18C.1, 18C.2, and 18C.3B are **CLOSED**. 18B.10A is **AUDIT ACCEPTED, IMPLEMENTATION DEFERRED**. 18B.10B–E are **NOT AUTHORIZED**.
 - **18B.9 PAUSED, NOT CLOSED.** Production Cloud Sync **OFF**. Staging deployment **NOT STARTED**. Sync pilot **NO-GO**.
 

@@ -4,7 +4,7 @@
 
 ## Latest verified coordination checkpoint — 2026-11-23
 
-**Current priority:** **Phase 18C.4 — Real Two-Device Sync remains ACTIVE.** **18C.4B machine A smoke is ready for Architect review** (`APP_18C4B_MACHINE_A_READY_FOR_ARCHITECT_REVIEW`). The isolated lab server started on `127.0.0.1:18765`, synthetic login passed, and the server was stopped. The original junction probe remains a **FAIL**. Real two-PC acceptance is **NOT TESTED**. Computer B was not connected. Staging deployment is **NOT STARTED**. Production Cloud Sync **OFF**. **18B.9 PAUSED, NOT CLOSED.** Sync pilot **NO-GO**. See [PHASE-18C.4B-machine-a-lab-smoke.md](plans/PHASE-18C.4B-machine-a-lab-smoke.md).
+**Current priority:** **Phase 18C.4 — Real Two-Device Sync remains ACTIVE.** **18C.4C is BLOCKED** (`APP_18C4C_BLOCKED`). 18C.4A and 18C.4B are Architect Accepted / CLOSED. Machine A’s lab preflight passed, and no trusted SSH path to a second computer was available. The six scenarios were not started. The lab server was not restarted. The original junction probe remains a **FAIL**. Real two-PC acceptance is **NOT TESTED**. Staging deployment is **NOT STARTED**. Production Cloud Sync **OFF**. **18B.9 PAUSED, NOT CLOSED.** Sync pilot **NO-GO**. See [PHASE-18C.4C-real-two-pc-acceptance.md](plans/PHASE-18C.4C-real-two-pc-acceptance.md).
 
 **Phase 18B.10A: AUDIT ACCEPTED, IMPLEMENTATION DEFERRED** (`APP_18B10A_ARCHITECT_AUDIT_ACCEPTED_DEFERRED`). The audit and its proposed, unapproved numerical limits stay in [PHASE-18B.10A-api-abuse-resistance-audit.md](plans/PHASE-18B.10A-api-abuse-resistance-audit.md). Do not implement 18B.10B, 18B.10C, 18B.10D, or 18B.10E.
 

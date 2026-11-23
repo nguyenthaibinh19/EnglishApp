@@ -1,6 +1,6 @@
 # Phase 18C.4 — Two-device sync acceptance
 
-Status: **18C.4B machine A smoke ready for Architect review** (`APP_18C4B_MACHINE_A_READY_FOR_ARCHITECT_REVIEW`)  
+Status: **18C.4C blocked before the two-PC connection** (`APP_18C4C_BLOCKED`)  
 Owner priority: working Account Sync between two real Windows computers, before production hardening and Google Drive backup.  
 Date: 2026-11-23  
 Cloud Sync production: **OFF** · 18B.9: **PAUSED, NOT CLOSED** · Staging: **RESERVED, not deployed** · Sync pilot: **NO-GO** until explicitly authorized  
@@ -246,8 +246,6 @@ Still required from the Owner, after 18C.4B authorization:
 
 ## 11. STOP
 
-`APP_18C4B_MACHINE_A_READY_FOR_ARCHITECT_REVIEW`
+`APP_18C4C_BLOCKED`
 
-PR [#29](https://github.com/nguyenthaibinh19/EnglishApp/pull/29) is merged. Approved source HEAD `be7df9a7b5d38d2ffc61766511d5affae491cd4c`. Merge commit `e5763ff08097c6bb62901f6a858eda355b26f97c`. The original junction **FAIL** stays in the evidence above.
-
-Machine A ran under `APP_18C4B_OWNER_AUTHORIZED_MACHINE_A_ONLY` and the lab server has been stopped. Evidence: [PHASE-18C.4B-machine-a-lab-smoke.md](PHASE-18C.4B-machine-a-lab-smoke.md). Computer B, SSH, and the two-device scenarios remain unauthorized.
+18C.4A and 18C.4B are Architect Accepted / CLOSED. Machine A preflight for 18C.4C passed, and the six scenarios were not started. No trusted SSH path or second computer was available. Evidence: [PHASE-18C.4C-real-two-pc-acceptance.md](PHASE-18C.4C-real-two-pc-acceptance.md). The original junction **FAIL** stays in the evidence above.
