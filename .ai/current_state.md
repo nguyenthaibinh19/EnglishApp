@@ -4,7 +4,9 @@
 
 ## Latest verified coordination checkpoint — 2026-11-23
 
-**Current priority:** **18C.3B CLOSED — Architect Accepted** (`APP_18C3B_PR28_ARCHITECT_MERGE_APPROVED`). PR [#28](https://github.com/nguyenthaibinh19/EnglishApp/pull/28) is merged. Merge `610d979434f8ff10274e8000916563e1e2f57126`. Approved source HEAD `867700198665edb80ba5b96fbf72a5bd0ae96fa2` on base `2cea161f5453909f2503ee1bc3cb41c153603010`. Focused tests: **94 passed, 0 failed, 1 skipped** (Cursor-reported). `test_windows_file_symlink_fails_closed` remains **UNVERIFIED**. Production Cloud Sync **OFF**. **18B.9 PAUSED, NOT CLOSED.** Staging **RESERVED**. Sync pilot **NO-GO**. No new milestone. See [PHASE-18C.3B-guest-attempt-ledger.md](plans/PHASE-18C.3B-guest-attempt-ledger.md).
+**Current priority:** **Phase 18B.10A API abuse-resistance audit ready for Architect review** (`APP_18B10A_READY_FOR_ARCHITECT_REVIEW`). Baseline `d6578c0f579d7ee9bd02aec855193339a7d8c124`. Repository inspection only. Per-account rate limits and storage quotas are not implemented. Proposed numbers are not approved. Implementation is not authorized. Production Cloud Sync **OFF**. **18B.9 PAUSED, NOT CLOSED.** Staging **RESERVED**. Sync pilot **NO-GO**. See [PHASE-18B.10A-api-abuse-resistance-audit.md](plans/PHASE-18B.10A-api-abuse-resistance-audit.md).
+
+**18C.3B CLOSED — Architect Accepted** (`APP_18C3B_PR28_ARCHITECT_MERGE_APPROVED`). PR [#28](https://github.com/nguyenthaibinh19/EnglishApp/pull/28) is merged. Merge `610d979434f8ff10274e8000916563e1e2f57126`. Approved source HEAD `867700198665edb80ba5b96fbf72a5bd0ae96fa2` on base `2cea161f5453909f2503ee1bc3cb41c153603010`. Focused tests: **94 passed, 0 failed, 1 skipped** (Cursor-reported). `test_windows_file_symlink_fails_closed` remains **UNVERIFIED**.
 
 **18C.1 CLOSED — Architect Accepted** (PR #20, merge `8e94f77491cc2f318c93fc511e258d0299ff4d03`): local core Account Sync demonstration — schema-v3 progress tables + `/api/sync/progress/*` behind the existing default-off flag; per-account local SQLite; vocabulary + event-first progress sync engine; localhost two-device demo; explicit vocabulary conflict freeze (no silent LWW).
 
