@@ -4,11 +4,14 @@ Rolling coordination checkpoint. See [current_state.md](../current_state.md) and
 
 ## 1. Checkpoint metadata
 
-- Written: 2026-11-22 (Phase 18C.3B source approved, pull request pending, not merged).
-- Tag: `APP_18C3B_PR_READY_FOR_ARCHITECT_REVIEW`.
-- Baseline `main`: `2cea161f5453909f2503ee1bc3cb41c153603010`.
+- Written: 2026-11-23 (Phase 18C.3B closed after the Architect Accepted merge).
+- Tag: `APP_18C3B_CLOSED_OWNER_HANDOFF_READY`.
+- Status: **18C.3B CLOSED — Architect Accepted**.
+- PR #28 merged: https://github.com/nguyenthaibinh19/EnglishApp/pull/28
+- Merge SHA: `610d979434f8ff10274e8000916563e1e2f57126`.
+- Approved source HEAD: `867700198665edb80ba5b96fbf72a5bd0ae96fa2`.
+- Reviewed base: `2cea161f5453909f2503ee1bc3cb41c153603010`.
 - 18C.3A audit is accepted. This handoff does not reopen it.
-- Status: **SOURCE APPROVED — PR PENDING**. Not closed. Do not merge from this handoff.
 - Cloud Sync **OFF**. No VPS. No production EXE replace. No public Release.
 - RC account id 1, the 114 Dutch words, the 114 pending outbox rows, and recovery backups were not opened or modified.
 - **18B.9 PAUSED, NOT CLOSED**. Staging **RESERVED**. Sync pilot **NO-GO**.
@@ -21,9 +24,9 @@ Rolling coordination checkpoint. See [current_state.md](../current_state.md) and
 
 ## 3. Next
 
-1. Architect review of the 18C.3B pull request. Do not merge until that review accepts it.
-2. Do not enable `STUDY_SYNC_ENABLED`, resume 18B.9, or start another milestone from this handoff.
+1. Owner handoff of the closed 18C.3B ledger. Do not start another milestone from this handoff.
+2. Do not enable `STUDY_SYNC_ENABLED`, resume 18B.9, deploy, or publish a release.
 
 ## 4. STOP / boundaries
 
-- STOP after this implementation — no new milestone.
+- STOP after this closure — no new milestone.

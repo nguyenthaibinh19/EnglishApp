@@ -1,13 +1,17 @@
 # Phase 18C.3B — Guest AttemptHistory import ledger
 
-Status: **SOURCE APPROVED — PR PENDING** (`APP_18C3B_R3_ARCHITECT_SOURCE_APPROVED`)  
+Status: **18C.3B CLOSED — Architect Accepted** (`APP_18C3B_PR28_ARCHITECT_MERGE_APPROVED`)  
 Authorization: `APP_18C3B_LOCAL_IMPLEMENTATION_AUTHORIZED`  
 Decision accepted: `APP_18C3A_ARCHITECT_ACCEPTED`  
-Baseline: `main` `2cea161f5453909f2503ee1bc3cb41c153603010`  
-Date: 2026-11-22  
+Merge decision: `APP_18C3B_PR28_ARCHITECT_MERGE_APPROVED`  
+PR: [#28](https://github.com/nguyenthaibinh19/EnglishApp/pull/28) merged  
+Merge SHA: `610d979434f8ff10274e8000916563e1e2f57126`  
+Approved source HEAD: `867700198665edb80ba5b96fbf72a5bd0ae96fa2`  
+Reviewed base: `2cea161f5453909f2503ee1bc3cb41c153603010`  
+Date: 2026-11-23  
 Cloud Sync: **OFF** · 18B.9: **PAUSED, NOT CLOSED** · Staging: **RESERVED** · Sync pilot: **NO-GO**
 
-Source is approved for the feature-branch pull request. It is not merged and not closed.
+Sections 1–9 below are the preserved pre-merge review snapshot. The closure is section 10.
 
 ## 1. Baseline and worktree
 
@@ -145,8 +149,10 @@ A replacement line whose hash matches an earlier `unreadable` or `skipped_no_voc
 - Web and Local AI repositories were not modified.
 - No answer text, vocabulary content, tokens, or credentials were logged.
 
-## 10. STOP
+## 10. Closure
 
-`APP_18C3B_PR_READY_FOR_ARCHITECT_REVIEW`
+**18C.3B CLOSED — Architect Accepted.** PR #28 is merged at `610d979434f8ff10274e8000916563e1e2f57126`. Focused tests: **94 passed, 0 failed, 1 skipped** (Cursor-reported). `test_windows_file_symlink_fails_closed` remains **UNVERIFIED**. Production Cloud Sync **OFF**. Phase 18B.9 **PAUSED, NOT CLOSED**. Staging **RESERVED**. Sync pilot **NO-GO**.
+
+`APP_18C3B_CLOSED_OWNER_HANDOFF_READY`
 
 Do not activate Cloud Sync. Do not start another milestone.

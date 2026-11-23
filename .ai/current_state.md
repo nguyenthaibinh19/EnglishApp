@@ -2,9 +2,9 @@
 
 > First file a new agent should read. Keep this concise and update when phases complete.
 
-## Latest verified coordination checkpoint — 2026-11-22
+## Latest verified coordination checkpoint — 2026-11-23
 
-**Current priority:** **Phase 18C.3B guest AttemptHistory ledger — SOURCE APPROVED — PR PENDING** (`APP_18C3B_R3_ARCHITECT_SOURCE_APPROVED`). Baseline `2cea161f5453909f2503ee1bc3cb41c153603010`. Not merged and not closed. A verified import clears only its own transient identity conflict, and an invalid replacement line cannot become a distinct event. Focused synthetic tests: **94 passed, 0 failed, 1 skipped**. The skip is the unexecuted file-symlink check and is **UNVERIFIED**. Production Cloud Sync **OFF**. **18B.9 PAUSED, NOT CLOSED.** Staging **RESERVED**. Sync pilot **NO-GO**. STOP for Architect review of the pull request. See [PHASE-18C.3B-guest-attempt-ledger.md](plans/PHASE-18C.3B-guest-attempt-ledger.md).
+**Current priority:** **18C.3B CLOSED — Architect Accepted** (`APP_18C3B_PR28_ARCHITECT_MERGE_APPROVED`). PR [#28](https://github.com/nguyenthaibinh19/EnglishApp/pull/28) is merged. Merge `610d979434f8ff10274e8000916563e1e2f57126`. Approved source HEAD `867700198665edb80ba5b96fbf72a5bd0ae96fa2` on base `2cea161f5453909f2503ee1bc3cb41c153603010`. Focused tests: **94 passed, 0 failed, 1 skipped** (Cursor-reported). `test_windows_file_symlink_fails_closed` remains **UNVERIFIED**. Production Cloud Sync **OFF**. **18B.9 PAUSED, NOT CLOSED.** Staging **RESERVED**. Sync pilot **NO-GO**. No new milestone. See [PHASE-18C.3B-guest-attempt-ledger.md](plans/PHASE-18C.3B-guest-attempt-ledger.md).
 
 **18C.1 CLOSED — Architect Accepted** (PR #20, merge `8e94f77491cc2f318c93fc511e258d0299ff4d03`): local core Account Sync demonstration — schema-v3 progress tables + `/api/sync/progress/*` behind the existing default-off flag; per-account local SQLite; vocabulary + event-first progress sync engine; localhost two-device demo; explicit vocabulary conflict freeze (no silent LWW).
 
