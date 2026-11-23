@@ -1,6 +1,6 @@
 # Phase 18C.4 — Two-device sync acceptance
 
-Status: **18C.4P production pilot blocked before activation** (`APP_18C4P_BLOCKED`)  
+Status: **18C.4P-R1 upgrade candidate ready for review** (`APP_18C4P_R1_UPGRADE_CANDIDATE_READY_FOR_ARCHITECT_REVIEW`)  
 Owner priority: working Account Sync between two real Windows computers, before production hardening and Google Drive backup.  
 Date: 2026-11-23  
 Cloud Sync production: **OFF** · 18B.9: **PAUSED, NOT CLOSED** · Staging: **RESERVED, not deployed** · Sync pilot: **NO-GO** until explicitly authorized  
@@ -246,6 +246,6 @@ Still required from the Owner, after 18C.4B authorization:
 
 ## 11. STOP
 
-`APP_18C4P_BLOCKED`
+`APP_18C4P_R1_UPGRADE_CANDIDATE_READY_FOR_ARCHITECT_REVIEW`
 
-The Owner replaced the blocked LAN/SSH test with a direct production pilot. The live VPS was inspected and Sync was not enabled. The deployed server is schema 2 with three vocabulary routes. Approved source is schema 3 with seven routes. Evidence: [PHASE-18C.4P-production-pilot.md](PHASE-18C.4P-production-pilot.md). The original junction **FAIL** stays in the evidence above.
+The direct production path remains. The upgrade package and desktop candidate are prepared and not deployed. Evidence: [PHASE-18C.4P-R1-upgrade-candidate.md](PHASE-18C.4P-R1-upgrade-candidate.md). The original junction **FAIL** stays in the evidence above.

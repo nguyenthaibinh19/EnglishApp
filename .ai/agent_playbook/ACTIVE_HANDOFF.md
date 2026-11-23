@@ -5,9 +5,9 @@ Rolling coordination checkpoint. See [current_state.md](../current_state.md) and
 ## 1. Checkpoint metadata
 
 - Written: 2026-11-23.
-- Tag: `APP_18C4P_BLOCKED`.
-- Source baseline: `7d21019ed970e54b6040857d61d145a06ec4a2f2`.
-- Active priority: **Phase 18C.4 — direct production Cloud Sync pilot.** The LAN/SSH plan is no longer the path. Production Sync was not enabled.
+- Tag: `APP_18C4P_R1_UPGRADE_CANDIDATE_READY_FOR_ARCHITECT_REVIEW`.
+- Source baseline: `3332dc5d018b1d03b49bcd372dff6dc360afcc3f`.
+- Active priority: **Phase 18C.4 — direct production Cloud Sync.** The upgrade candidate is not deployed. Production Sync stays off.
 - Application source baseline: `d6578c0f579d7ee9bd02aec855193339a7d8c124`.
 - Remote main at start: `2ef0552d6cda58ff94dc02c680b2dd391b77aaef`.
 - 18C.1, 18C.2, and 18C.3B remain CLOSED. The Sync Engine was not rebuilt.
@@ -23,17 +23,18 @@ Rolling coordination checkpoint. See [current_state.md](../current_state.md) and
 
 - Lab root `D:\lg-18c4a-lab` holds `package`, `sync`, `backup`, `verify`, `proof`, and `client-a`.
 - Nineteen copied modules matched their source SHA-256 before startup. The lab now keeps `package\accounts.db` and `sync\study_sync.db` for the next authorized phase.
-- 18C.4P inspection: production listener `127.0.0.1:8765`, flag unset, sync route 404, schema 2, three vocabulary routes, `srs.py` absent. Accounts backup from 2026-11-23 integrity `ok`. No code or flag change. Details: [PHASE-18C.4P-production-pilot.md](../plans/PHASE-18C.4P-production-pilot.md).
-- Production EXE dated 2026-11-08 does not contain the sync route strings. Source staging clients refuse the production host.
+- 18C.4P-R1 synthetic upgrade passed: schema 2 migrates to 3, accounts schema unchanged, seven routes answer only when the flag is on. Details: [PHASE-18C.4P-R1-upgrade-candidate.md](../plans/PHASE-18C.4P-R1-upgrade-candidate.md).
+- Desktop candidate `D:\lg-18c4p-r1-candidate\dist\langstudyguard.exe` is not installed. The 2026-11-08 production EXE and the RC database were not modified.
 - `client-a` holds the synthetic staging session and bundled starter files. It is outside production, RC, recovery, and the repository.
 
 ## 3. Next
 
-1. Architect review of the allowlisted production sync update before any deploy.
-2. A production desktop build that contains Account Sync, then two physical computers and a new synthetic production account.
+1. Architect review of the four-file server copy before any deploy.
+2. Owner connects the second Windows computer, then two synthetic clients. Do not use the real account.
 
 ## 4. STOP
 
-- Do not deploy the allowlisted sync modules or set production `STUDY_SYNC_ENABLED` from this handoff.
+- Do not deploy the four server files or set production `STUDY_SYNC_ENABLED` from this handoff.
+- Do not install the desktop candidate.
 - Do not resume 18B.9 or implement 18B.10B–E.
 - Do not upload the preserved 114-word account.
