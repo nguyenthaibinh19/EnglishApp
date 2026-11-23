@@ -4,7 +4,7 @@
 
 ## Latest verified coordination checkpoint — 2026-11-23
 
-**Current priority:** **Phase 18C.4 — direct production Cloud Sync.** **18C.4P-R4A** (`APP_18C4P_R4A_BLOCKED_VERIFIER_CANNOT_READ_BACKUP`). Sync stays **ON**. Schema-3 `study_sync.db` holds the synthetic marker, and the one-shot backup restores as `guard`. The verify service cannot read the private backup directory. Machine B is **UNVERIFIED**. **18B.9 PAUSED.** 18B.10B–E are **NOT AUTHORIZED.** See [PHASE-18C.4P-R4-sync-activation.md](plans/PHASE-18C.4P-R4-sync-activation.md).
+**Current priority:** **Phase 18C.4 — direct production Cloud Sync.** **18C.4P-R4B** (`APP_18C4P_R4B_VERIFIER_AND_PERMISSIONS_PASS`). Sync stays **ON**. The verifier service completed `VERIFIED`. `study_sync.db` is mode `0600` and the account service umask is `0077`. Machine B is **UNVERIFIED**. **18B.9 PAUSED.** 18B.10B–E are **NOT AUTHORIZED.** See [PHASE-18C.4P-R4-sync-activation.md](plans/PHASE-18C.4P-R4-sync-activation.md).
 
 **Phase 18B.10A: AUDIT ACCEPTED, IMPLEMENTATION DEFERRED** (`APP_18B10A_ARCHITECT_AUDIT_ACCEPTED_DEFERRED`). The audit and its proposed, unapproved numerical limits stay in [PHASE-18B.10A-api-abuse-resistance-audit.md](plans/PHASE-18B.10A-api-abuse-resistance-audit.md). Do not implement 18B.10B, 18B.10C, 18B.10D, or 18B.10E.
 

@@ -1,6 +1,6 @@
 # Phase 18C.4P-R4 — Production sync activation
 
-Status: **SYNC ON, first row stored, verifier service blocked** (`APP_18C4P_R4A_BLOCKED_VERIFIER_CANNOT_READ_BACKUP`)  
+Status: **SYNC ON, verifier and permissions passed** (`APP_18C4P_R4B_VERIFIER_AND_PERMISSIONS_PASS`)  
 Date: 2026-11-23  
 Baseline: `59f0b4bfe218da895b3fbf218d1728a0ad28889f`
 
@@ -20,9 +20,9 @@ Local health and `https://langstudyguard.com/` return 200. All seven sync routes
 
 One-shot `backup_sync.py` as `guard` published `study-sync-20261123-163213-072149.db`, 86016 bytes, mode `0600`, directory mode `0700`. Backup integrity is `ok` and its schema is 3. The same restore verifier, run as `guard`, returned `VERIFIED`.
 
-`language-guard-sync-verify.service` failed. `lg-verify` cannot list the mode `0700` backup directory, so the service treats the live database as having no backup. The sync backup timer remains disabled. The 08:00 verifier timer is still enabled and will hit the same permission failure. Production Sync stays on for the supervised Machine B test.
+`language-guard-sync-verify.service` now runs as `guard` with primary group `lg-health`. A drop-in hides `/var/backups/language-guard` and bind-mounts only `study-sync` read-only at `/var/lib/language-guard-sync-view` inside that service. `ProtectSystem=strict`, `NoNewPrivileges=true`, and the `accounts.db` and `.env` masks remain. The host view directory stays empty. The service completed `VERIFIED`. `result.json` is mode `0640`, owner `guard:lg-health`, and the health collector can read its status. The backup file and directory remain mode `0600` and `0700`. The original unit is saved under `pre-18c4p-code`. The sync backup timer remains disabled.
 
-The live `study_sync.db` is mode `0644` in a mode `0755` application directory.
+`study_sync.db` is mode `0600`, owner `guard:guard`. No SQLite sidecar files were present. `language-guard.service` has `UMask=0077`, and the running process umask is `0077`. After restart, health and HTTPS return 200, the marker is unchanged, and Sync stays on.
 
 ## Machine A
 
