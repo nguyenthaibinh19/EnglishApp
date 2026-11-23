@@ -1,6 +1,6 @@
 # Phase 18C.4 — Two-device sync acceptance
 
-Status: **18C.4P-R1 final package ready for review** (`APP_18C4P_R1_FINAL_DEPLOYMENT_PACKAGE_READY_FOR_REVIEW`)  
+Status: **18C.4P-R2 dark deploy ready for review** (`APP_18C4P_R2_DARK_DEPLOY_READY_FOR_ARCHITECT_REVIEW`)  
 Owner priority: working Account Sync between two real Windows computers, before production hardening and Google Drive backup.  
 Date: 2026-11-23  
 Cloud Sync production: **OFF** · 18B.9: **PAUSED, NOT CLOSED** · Staging: **RESERVED, not deployed** · Sync pilot: **NO-GO** until explicitly authorized  
@@ -246,6 +246,6 @@ Still required from the Owner, after 18C.4B authorization:
 
 ## 11. STOP
 
-`APP_18C4P_R1_FINAL_DEPLOYMENT_PACKAGE_READY_FOR_REVIEW`
+`APP_18C4P_R2_DARK_DEPLOY_READY_FOR_ARCHITECT_REVIEW`
 
-The four-file package is ready for review and is not deployed. The desktop candidate was not launched. Evidence: [PHASE-18C.4P-R1-final-deployment-package.md](PHASE-18C.4P-R1-final-deployment-package.md). The original junction **FAIL** stays in the evidence above.
+The four approved files are on the production account service and Cloud Sync remains off. Evidence: [PHASE-18C.4P-R2-dark-deploy.md](PHASE-18C.4P-R2-dark-deploy.md). The original junction **FAIL** stays in the evidence above.
