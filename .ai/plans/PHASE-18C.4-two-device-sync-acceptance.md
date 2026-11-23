@@ -1,6 +1,6 @@
 # Phase 18C.4 — Two-device sync acceptance
 
-Status: **18C.4C blocked before the two-PC connection** (`APP_18C4C_BLOCKED`)  
+Status: **18C.4P production pilot blocked before activation** (`APP_18C4P_BLOCKED`)  
 Owner priority: working Account Sync between two real Windows computers, before production hardening and Google Drive backup.  
 Date: 2026-11-23  
 Cloud Sync production: **OFF** · 18B.9: **PAUSED, NOT CLOSED** · Staging: **RESERVED, not deployed** · Sync pilot: **NO-GO** until explicitly authorized  
@@ -246,6 +246,6 @@ Still required from the Owner, after 18C.4B authorization:
 
 ## 11. STOP
 
-`APP_18C4C_BLOCKED`
+`APP_18C4P_BLOCKED`
 
-18C.4A and 18C.4B are Architect Accepted / CLOSED. Machine A preflight for 18C.4C passed, and the six scenarios were not started. No trusted SSH path or second computer was available. Evidence: [PHASE-18C.4C-real-two-pc-acceptance.md](PHASE-18C.4C-real-two-pc-acceptance.md). The original junction **FAIL** stays in the evidence above.
+The Owner replaced the blocked LAN/SSH test with a direct production pilot. The live VPS was inspected and Sync was not enabled. The deployed server is schema 2 with three vocabulary routes. Approved source is schema 3 with seven routes. Evidence: [PHASE-18C.4P-production-pilot.md](PHASE-18C.4P-production-pilot.md). The original junction **FAIL** stays in the evidence above.
