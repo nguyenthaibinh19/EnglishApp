@@ -1,6 +1,6 @@
 # Phase 18C.4 — Two-device sync acceptance
 
-Status: **18C.4P-R4 sync on, two-PC review open** (`APP_18C4P_R4_SYNC_ACTIVATED_READY_FOR_TWO_PC_REVIEW`)  
+Status: **18C.4P-R4A first row stored, verifier service blocked** (`APP_18C4P_R4A_BLOCKED_VERIFIER_CANNOT_READ_BACKUP`)  
 Owner priority: working Account Sync between two real Windows computers, before production hardening and Google Drive backup.  
 Date: 2026-11-23  
 Cloud Sync production: **OFF** · 18B.9: **PAUSED, NOT CLOSED** · Staging: **RESERVED, not deployed** · Sync pilot: **NO-GO** until explicitly authorized  
@@ -246,6 +246,6 @@ Still required from the Owner, after 18C.4B authorization:
 
 ## 11. STOP
 
-`APP_18C4P_R4_SYNC_ACTIVATED_READY_FOR_TWO_PC_REVIEW`
+`APP_18C4P_R4A_BLOCKED_VERIFIER_CANNOT_READ_BACKUP`
 
-Production Sync is on. `syncpilot_18c4p` is active. Machine A is open and has not signed in yet. Machine B is not claimed. Evidence: [PHASE-18C.4P-R4-sync-activation.md](PHASE-18C.4P-R4-sync-activation.md). The original junction **FAIL** stays in the evidence above.
+The synthetic Dutch marker is stored and the one-shot backup restores as `guard`. The verify service cannot read that private backup. Machine B is not claimed. Evidence: [PHASE-18C.4P-R4-sync-activation.md](PHASE-18C.4P-R4-sync-activation.md). The original junction **FAIL** stays in the evidence above.
