@@ -16,3 +16,6 @@ languages/
 settings.json
 dicts/
 accounts.db
+
+# Disposable local pilots, labs, builds, and payloads. Never commit.
+.local/

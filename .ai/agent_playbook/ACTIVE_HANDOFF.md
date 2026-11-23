@@ -42,3 +42,4 @@ Rolling coordination checkpoint. See [current_state.md](../current_state.md) and
 - Do not enable the sync backup timer.
 - Do not upload the preserved 114-word account.
 - Do not resume 18B.9 or implement 18B.10B–E.
+- Put disposable artifacts in `D:\EnglishApp\.local`. Do not create a new `D:\lg-*` directory. See [LOCAL_WORKSPACE_POLICY.md](../procedures/LOCAL_WORKSPACE_POLICY.md).
