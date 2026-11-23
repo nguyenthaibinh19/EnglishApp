@@ -117,7 +117,7 @@ def test_guard_rejects_symlink_into_a_protected_tree(tmp_path, monkeypatch):
     try:
         os.symlink(protected, alias, target_is_directory=True)
     except OSError:
-        pytest.skip("symlinks are not available")
+        pytest.skip("directory symlink creation not permitted; UNVERIFIED")
     nested = alias / "language-guard-staging"
     layout = _layout(
         tmp_path,
@@ -131,6 +131,116 @@ def test_guard_rejects_symlink_into_a_protected_tree(tmp_path, monkeypatch):
     assert marker.read_text(encoding="utf-8") == "keep"
     assert not nested.exists()
     assert stat.S_IMODE(os.stat(protected).st_mode) == before_mode
+
+
+def _make_junction(link: Path, target: Path) -> None:
+    if os.name != "nt":
+        pytest.skip("directory junction check is Windows-only and UNVERIFIED here")
+    target.mkdir(parents=True, exist_ok=True)
+    completed = subprocess.run(
+        ["cmd", "/c", "mklink", "/J", str(link), str(target)],
+        capture_output=True,
+        text=True,
+    )
+    if completed.returncode != 0:
+        pytest.fail("Windows junction creation failed: " + (completed.stderr or completed.stdout or "").strip())
+
+
+def _assert_rejected_without_artifacts(layout: staging_guard.StagingLayout, root: Path) -> None:
+    before = _names(root)
+    with pytest.raises(staging_guard.StagingGuardError) as caught:
+        staging_guard.validate(layout, require_env_file=True)
+    assert caught.value.code == "symlink"
+    assert _names(root) == before
+    assert not Path(layout.account_db).exists()
+    assert not Path(layout.sync_db).exists()
+    assert _names(Path(layout.proof_dir)) == []
+    assert not staging_guard._port_is_occupied(layout.port)
+
+
+def test_guard_accepts_an_ordinary_directory(tmp_path):
+    layout = _layout(tmp_path)
+    for directory in (
+        layout.package_dir,
+        layout.sync_dir,
+        layout.backup_dir,
+        layout.verify_root,
+        layout.proof_dir,
+    ):
+        os.makedirs(directory)
+    Path(layout.env_file).write_text(_env_text(layout), encoding="utf-8")
+    staging_guard.validate(layout, require_env_file=True)
+    assert not Path(layout.account_db).exists()
+    assert not Path(layout.sync_db).exists()
+    assert _names(Path(layout.proof_dir)) == []
+    assert not staging_guard._port_is_occupied(layout.port)
+
+
+def test_guard_rejects_a_windows_junction_package(tmp_path):
+    external = tmp_path / "external-target"
+    link = tmp_path / "package-junction"
+    _make_junction(link, external)
+    layout = _layout(
+        tmp_path,
+        package_dir=str(link),
+        account_db=str(link / "accounts.db"),
+        env_file=str(link / ".env"),
+    )
+    _assert_rejected_without_artifacts(layout, tmp_path)
+
+
+@pytest.mark.parametrize(
+    "field",
+    ("package_dir", "sync_dir", "backup_dir", "verify_root", "proof_dir"),
+)
+def test_guard_rejects_a_junction_ancestor(tmp_path, field):
+    external = tmp_path / "ancestor-target"
+    link = tmp_path / "ancestor-junction"
+    _make_junction(link, external)
+    child = link / "child"
+    layout = _layout(tmp_path)
+    changes = {field: str(child)}
+    if field == "package_dir":
+        changes["account_db"] = str(child / "accounts.db")
+        changes["env_file"] = str(child / ".env")
+    elif field == "sync_dir":
+        changes["sync_db"] = str(child / "study_sync.db")
+    layout = replace(layout, **changes)
+    _assert_rejected_without_artifacts(layout, tmp_path)
+
+
+def test_guard_rejects_an_unreadable_existing_component(tmp_path, monkeypatch):
+    layout = _layout(tmp_path)
+    for directory in (
+        layout.package_dir,
+        layout.sync_dir,
+        layout.backup_dir,
+        layout.verify_root,
+        layout.proof_dir,
+    ):
+        os.makedirs(directory)
+    blocked = os.path.normcase(os.path.abspath(layout.package_dir))
+    real_lstat = os.lstat
+
+    def unreadable(path, *args, **kwargs):
+        if os.path.normcase(os.path.abspath(path)) == blocked:
+            raise PermissionError(13, "Permission denied", path)
+        return real_lstat(path, *args, **kwargs)
+
+    monkeypatch.setattr(os, "lstat", unreadable)
+    _assert_rejected_without_artifacts(layout, tmp_path)
+
+
+def test_file_symlink_creation_is_unverified_when_not_permitted(tmp_path):
+    target = tmp_path / "plain.txt"
+    target.write_text("synthetic", encoding="utf-8")
+    link = tmp_path / "plain-link.txt"
+    try:
+        os.symlink(target, link)
+    except OSError:
+        pytest.skip("file symlink creation not permitted; UNVERIFIED")
+    layout = _layout(tmp_path, env_file=str(link))
+    _assert_rejected_without_artifacts(layout, tmp_path)
 
 
 def test_guard_rejects_production_like_secrets_without_writing(tmp_path):
@@ -307,7 +417,7 @@ def test_proof_partial_symlink_does_not_change_the_marker(tmp_path):
     try:
         os.symlink(marker, proof + ".partial")
     except OSError:
-        pytest.skip("symlinks are not available")
+        pytest.skip("file symlink creation not permitted; UNVERIFIED")
     with pytest.raises(staging_guard.StagingGuardError) as caught:
         staging_guard.write_proof(layout, proof, sync_enabled=False)
     assert caught.value.code in {"symlink", "proof"}
