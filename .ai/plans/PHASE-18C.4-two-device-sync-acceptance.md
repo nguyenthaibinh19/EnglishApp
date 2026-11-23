@@ -1,6 +1,6 @@
 # Phase 18C.4 — Two-device sync acceptance
 
-Status: **18C.4P-R3 source client ready for sync activation review** (`APP_18C4P_R3_TEST_CLIENT_READY_FOR_SYNC_ACTIVATION`)  
+Status: **18C.4P-R4 blocked before account creation** (`APP_18C4P_R4_BLOCKED`)  
 Owner priority: working Account Sync between two real Windows computers, before production hardening and Google Drive backup.  
 Date: 2026-11-23  
 Cloud Sync production: **OFF** · 18B.9: **PAUSED, NOT CLOSED** · Staging: **RESERVED, not deployed** · Sync pilot: **NO-GO** until explicitly authorized  
@@ -246,6 +246,6 @@ Still required from the Owner, after 18C.4B authorization:
 
 ## 11. STOP
 
-`APP_18C4P_R3_TEST_CLIENT_READY_FOR_SYNC_ACTIVATION`
+`APP_18C4P_R4_BLOCKED`
 
-Machine A can open an isolated production-identity source client against `https://langstudyguard.com`. No login and no Sync activation were performed. Evidence: [PHASE-18C.4P-R3-test-client.md](PHASE-18C.4P-R3-test-client.md). The original junction **FAIL** stays in the evidence above.
+Production preflight passed and Sync stays off. The synthetic account was not created because this session cannot take a private `getpass` password. Evidence: [PHASE-18C.4P-R4-sync-activation.md](PHASE-18C.4P-R4-sync-activation.md). The original junction **FAIL** stays in the evidence above.
