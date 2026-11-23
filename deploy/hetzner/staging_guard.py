@@ -265,6 +265,13 @@ def _reject_symlink_components(path: str) -> None:
 
 
 def _symlink_component(path: str) -> bool:
+    """True when any existing component is a symlink, junction, or other reparse point.
+
+    ``os.lstat`` decides existence. Only ``FileNotFoundError`` is a genuinely
+    missing component and stops the walk. Permission errors and any other
+    ``lstat`` failure reject the path, because its safety cannot be established.
+    ``os.path.realpath`` is not used here because it follows a junction.
+    """
     current = os.path.abspath(path)
     chain = []
     while True:
@@ -274,11 +281,47 @@ def _symlink_component(path: str) -> bool:
         chain.append(current)
         current = parent
     for candidate in reversed(chain):
-        if os.path.islink(candidate):
-            return True
-        if not os.path.lexists(candidate):
+        try:
+            os.lstat(candidate)
+        except FileNotFoundError:
             return False
+        except (OSError, ValueError):
+            return True
+        if _reparse_or_link(candidate):
+            return True
     return False
+
+
+def _reparse_or_link(path: str) -> bool:
+    try:
+        if os.path.islink(path):
+            return True
+    except OSError:
+        return True
+    is_junction = getattr(os.path, "isjunction", None)
+    if is_junction is not None:
+        try:
+            if is_junction(path):
+                return True
+        except OSError:
+            return True
+    if os.name != "nt":
+        return False
+    return _windows_reparse_attribute(path)
+
+
+def _windows_reparse_attribute(path: str) -> bool:
+    """Fail closed. ``GetFileAttributesW`` reports the component itself."""
+    import ctypes
+    from ctypes import wintypes
+
+    get_attributes = ctypes.windll.kernel32.GetFileAttributesW
+    get_attributes.argtypes = (wintypes.LPCWSTR,)
+    get_attributes.restype = wintypes.DWORD
+    attributes = get_attributes(path)
+    if attributes == 0xFFFFFFFF:
+        return True
+    return bool(attributes & 0x400)
 
 
 def _app_root() -> str:

@@ -5,7 +5,7 @@ Rolling coordination checkpoint. See [current_state.md](../current_state.md) and
 ## 1. Checkpoint metadata
 
 - Written: 2026-11-23.
-- Tag: `APP_18C4A_OFFLINE_PREFLIGHT_READY_FOR_ARCHITECT_REVIEW`.
+- Tag: `APP_18C4A_R1_FINAL_PR_READY_FOR_ARCHITECT_REVIEW`.
 - Active priority: **Phase 18C.4 — Real Two-Device Sync.** 18C.4A is the offline preflight. It is not the live test.
 - Application source baseline: `d6578c0f579d7ee9bd02aec855193339a7d8c124`.
 - Remote main at start: `2ef0552d6cda58ff94dc02c680b2dd391b77aaef`.
@@ -23,13 +23,15 @@ Rolling coordination checkpoint. See [current_state.md](../current_state.md) and
 - Lab root `D:\lg-18c4a-lab` holds `package`, `sync`, `backup`, `verify`, `proof`, and `client-a`.
 - Nineteen copied modules match their source SHA-256. `accounts.db` and `study_sync.db` are absent.
 - Imported `account_store.__file__` is the lab copy. Sync path resolves under `lab\sync` and was not opened.
-- `staging_guard.validate(..., require_env_file=True)` returned PASS for bind `127.0.0.1`, port `18765`, and the fake provider key. `staging_server.py` was not run.
-- Windows file symlink and directory-junction rejection are **UNVERIFIED**. The prepared directories themselves are ordinary directories.
+- Original junction probe: **FAIL**. `os.path.islink` missed it and the guard accepted the path.
+- Junction detection remains in the review: a fresh `junction-probe` was rejected with `symlink`, then removed. `os.path.islink` on it was false.
+- Final correction: `os.lstat` replaces `os.path.lexists` in the component walk. Only `FileNotFoundError` means missing. An unreadable existing component is rejected. Focused tests: **22 passed, 3 skipped**. The skips are file or directory symlink creation, **UNVERIFIED**.
+- Lab revalidation of the ordinary directories returned PASS. `staging_server.py` was not run. Port `18765` was not listening. Both database files remain absent.
 - `client-a` is empty and outside production, RC, recovery, and the repository.
 
 ## 3. Next
 
-1. Architect review of this offline preflight.
+1. Architect review of the 18C.4A-R1 pull request. Do not merge it from this handoff.
 2. 18C.4B requires a separate authorization before the server starts, before accounts are created, and before SSH or computer B is used.
 
 ## 4. STOP

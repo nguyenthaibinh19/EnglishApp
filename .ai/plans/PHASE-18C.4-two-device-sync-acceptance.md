@@ -1,6 +1,6 @@
 # Phase 18C.4 — Two-device sync acceptance
 
-Status: **18C.4A offline preflight ready for Architect review** (`APP_18C4A_OFFLINE_PREFLIGHT_READY_FOR_ARCHITECT_REVIEW`)  
+Status: **18C.4A-R1 final PR ready for Architect review** (`APP_18C4A_R1_FINAL_PR_READY_FOR_ARCHITECT_REVIEW`)  
 Owner priority: working Account Sync between two real Windows computers, before production hardening and Google Drive backup.  
 Date: 2026-11-23  
 Cloud Sync production: **OFF** · 18B.9: **PAUSED, NOT CLOSED** · Staging: **RESERVED, not deployed** · Sync pilot: **NO-GO** until explicitly authorized  
@@ -222,7 +222,13 @@ Guard command: `python -I D:\lg-18c4a-lab\check_guard.py`, which calls `staging_
 
 `client-a` is empty and does not overlap production AppData, RC AppData, recovery, or either EnglishApp tree. A staging identity accepts that path.
 
-Reparse safety: **UNVERIFIED**. Creating a file symlink returned Windows error 1314. A directory junction was not reported by `os.path.islink`, and the guard accepted that junction path. The junction was removed. The real lab directories are ordinary directories, not junctions.
+Reparse safety, original 18C.4A result: **FAIL**. `os.path.islink` did not see a directory junction, and the guard accepted that path. The probe was removed. The real lab directories were ordinary directories.
+
+Reparse safety, 18C.4A-R1: the guard rejects a junction, including when it is only an ancestor. A probe of `D:\lg-18c4a-lab\junction-probe` returned `symlink`. `os.path.islink` on that junction was still false. The probe was removed again. The six lab directories remain ordinary directories.
+
+18C.4A-R1 required correction: `os.path.lexists()` treats an `lstat` access error as a missing path. The walk now uses `os.lstat`. Only `FileNotFoundError` is a genuinely missing component. Permission errors and other `lstat` failures reject the path. A focused test simulates `PermissionError` on an existing package directory and expects code `symlink` with no database and no proof file.
+
+Focused suite after that correction: `tests/test_sync_staging_isolation.py`, **22 passed, 3 skipped**. The skips remain **UNVERIFIED** file or directory symlink creation (Windows error 1314), not passes. The lab guard was run again with this module and returned **PASS**. Both database files are still absent. Port `18765` was not listening. The 19 copied module hashes are unchanged. The server was not started.
 
 ## 10. SSH prerequisites
 
@@ -240,6 +246,6 @@ Still required from the Owner, after 18C.4B authorization:
 
 ## 11. STOP
 
-`APP_18C4A_OFFLINE_PREFLIGHT_READY_FOR_ARCHITECT_REVIEW`
+`APP_18C4A_R1_FINAL_PR_READY_FOR_ARCHITECT_REVIEW`
 
 18C.4B is a separate authorization. It is required before the lab server starts, before any synthetic account is created, and before the SSH tunnel or the two-computer test.
