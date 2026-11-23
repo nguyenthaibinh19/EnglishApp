@@ -5,7 +5,8 @@ Rolling coordination checkpoint. See [current_state.md](../current_state.md) and
 ## 1. Checkpoint metadata
 
 - Written: 2026-11-23.
-- Tag: `APP_18C4A_R1_FINAL_PR_READY_FOR_ARCHITECT_REVIEW`.
+- Tag: `APP_18C4A_R1_MERGED_READY_FOR_18C4B_AUTHORIZATION`.
+- PR #29 merged. Approved source HEAD `be7df9a7b5d38d2ffc61766511d5affae491cd4c`. Merge and `origin/main`: `e5763ff08097c6bb62901f6a858eda355b26f97c`.
 - Active priority: **Phase 18C.4 — Real Two-Device Sync.** 18C.4A is the offline preflight. It is not the live test.
 - Application source baseline: `d6578c0f579d7ee9bd02aec855193339a7d8c124`.
 - Remote main at start: `2ef0552d6cda58ff94dc02c680b2dd391b77aaef`.
@@ -31,8 +32,7 @@ Rolling coordination checkpoint. See [current_state.md](../current_state.md) and
 
 ## 3. Next
 
-1. Architect review of the 18C.4A-R1 pull request. Do not merge it from this handoff.
-2. 18C.4B requires a separate authorization before the server starts, before accounts are created, and before SSH or computer B is used.
+1. 18C.4B requires a separate authorization before the server starts, before accounts are created, and before SSH or computer B is used.
 
 ## 4. STOP
 

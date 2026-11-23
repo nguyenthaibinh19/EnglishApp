@@ -1,6 +1,6 @@
 # Phase 18C.4 — Two-device sync acceptance
 
-Status: **18C.4A-R1 final PR ready for Architect review** (`APP_18C4A_R1_FINAL_PR_READY_FOR_ARCHITECT_REVIEW`)  
+Status: **18C.4A-R1 merged. Ready for 18C.4B authorization** (`APP_18C4A_R1_MERGED_READY_FOR_18C4B_AUTHORIZATION`)  
 Owner priority: working Account Sync between two real Windows computers, before production hardening and Google Drive backup.  
 Date: 2026-11-23  
 Cloud Sync production: **OFF** · 18B.9: **PAUSED, NOT CLOSED** · Staging: **RESERVED, not deployed** · Sync pilot: **NO-GO** until explicitly authorized  
@@ -246,6 +246,8 @@ Still required from the Owner, after 18C.4B authorization:
 
 ## 11. STOP
 
-`APP_18C4A_R1_FINAL_PR_READY_FOR_ARCHITECT_REVIEW`
+`APP_18C4A_R1_MERGED_READY_FOR_18C4B_AUTHORIZATION`
+
+PR [#29](https://github.com/nguyenthaibinh19/EnglishApp/pull/29) is merged. Approved source HEAD `be7df9a7b5d38d2ffc61766511d5affae491cd4c`. Merge commit `e5763ff08097c6bb62901f6a858eda355b26f97c` is `origin/main`. The original junction **FAIL** stays in the evidence above.
 
 18C.4B is a separate authorization. It is required before the lab server starts, before any synthetic account is created, and before the SSH tunnel or the two-computer test.

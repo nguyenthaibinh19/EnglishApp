@@ -4,7 +4,7 @@ Directional plan — **not** a rigid release commitment. Update when phases comp
 
 ## Latest operational checkpoint — 2026-11-23
 
-- **Active priority: Phase 18C.4 real two-device Account Sync.** 18C.4A-R1 final fail-closed guard correction is in review (`APP_18C4A_R1_FINAL_PR_READY_FOR_ARCHITECT_REVIEW`). The original junction probe remains a **FAIL**. The lab server has not been started. Real two-PC acceptance is **NOT TESTED**.
+- **Active priority: Phase 18C.4 real two-device Account Sync.** 18C.4A-R1 is merged (`APP_18C4A_R1_MERGED_READY_FOR_18C4B_AUTHORIZATION`, PR #29, `e5763ff`). The original junction probe remains a **FAIL**. 18C.4B is not authorized. The lab server has not been started. Real two-PC acceptance is **NOT TESTED**.
 - 18C.1, 18C.2, and 18C.3B are **CLOSED**. 18B.10A is **AUDIT ACCEPTED, IMPLEMENTATION DEFERRED**. 18B.10B–E are **NOT AUTHORIZED**.
 - **18B.9 PAUSED, NOT CLOSED.** Production Cloud Sync **OFF**. Staging deployment **NOT STARTED**. Sync pilot **NO-GO**.
 
