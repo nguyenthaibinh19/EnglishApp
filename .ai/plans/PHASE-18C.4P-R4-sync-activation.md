@@ -1,21 +1,38 @@
 # Phase 18C.4P-R4 — Production sync activation
 
-Status: **BLOCKED** (`APP_18C4P_R4_BLOCKED`)  
+Status: **SYNC ON, CLIENT TEST OPEN** (`APP_18C4P_R4_SYNC_ACTIVATED_READY_FOR_TWO_PC_REVIEW`)  
 Date: 2026-11-23  
-Baseline: `17365b084d8f92fa13a446592f1c68c0a41302c6`
+Baseline: `59f0b4bfe218da895b3fbf218d1728a0ad28889f`
 
-Cloud Sync stays **OFF**. No account was created. No client signed in.
+The flag is server-wide. This is a supervised pilot, not a public release.
 
-## Preflight
+## Account and service
 
-The account service is active. Local and HTTPS health return 200. The four deployed modules match the approved LF hashes. `STUDY_SYNC_ENABLED` is unset. `study_sync.db` is absent. `accounts-20261123-154201.db` and `/var/backups/language-guard/pre-18c4p-code/` are present. `backup_sync.py` is present. Port 8765 is not public. The accounts backup timer stays enabled. The sync backup timer stays disabled. The verifier timer stays enabled.
+`syncpilot_18c4p` is present and active. The password was not read. Live `accounts.db` integrity is `ok`. The account count is 3, unchanged by the restart.
 
-## Blocker
+`STUDY_SYNC_ENABLED=1` is set in `/etc/systemd/system/language-guard.service.d/10-sync.conf` and in the service `.env`. `language-guard.service` was restarted. The process environment contains `STUDY_SYNC_ENABLED=1`.
 
-`account_server.py add` reads the password twice with `getpass` from the controlling terminal. This session's shell records that terminal, so a password entered there would be stored in the command log and read back into the agent. No other private prompt is available. A generated or piped password was not used.
+Local health and `https://langstudyguard.com/` return 200. All seven sync routes return 401 without a token. Port 8765 is not public. No new listener appeared. `study_sync.db` does not exist yet, because no authenticated sync has run. The accounts backup timer stays enabled. The sync backup timer stays disabled.
 
-`syncpilot_18c4p` was not created. `STUDY_SYNC_ENABLED` was not set. Machine A and Machine B were not signed in. No sync backup was required because no sync database exists.
+## Machine A
 
-## Owner action
+The isolated client is open, PID 38768, title `Language Guard — PRODUCTION`. Before launch the token was empty, the host was `langstudyguard.com`, and the data root was `D:\lg-18c4p-r3-data`.
 
-On a private terminal the agent cannot see, run the existing add command as the service user and type the password at the two prompts. Do not paste it into chat. After that, the activation can be repeated.
+Sign-in and the vocabulary upload are **UNVERIFIED**. The Owner does this in that window:
+
+1. Click **Log in**.
+2. Username `syncpilot_18c4p`. Type the password in the dialog. Do not paste it into chat.
+3. Click **Sign in**.
+4. Click **Add words**, choose Dutch, then **Add word**.
+5. Word `syncprobe`, meaning `lab-marker`. Save.
+6. Wait until the Account line says **Synced**.
+
+No server vocabulary row is claimed yet. The one-shot `backup_sync.py` run waits until `study_sync.db` exists, and it will be run before 08:00 Europe/Amsterdam.
+
+## Machine B
+
+**UNVERIFIED.** On the second computer, use the R3 source client at `ed4e49ea8b977468d10869adec8d2ec3b494fe91`, an isolated data directory, production identity, and `https://langstudyguard.com`. Sign in as `syncpilot_18c4p` and wait at least 90 seconds. `syncprobe` / `lab-marker` should appear without copying a database.
+
+## Rollback
+
+Remove the drop-in and the `STUDY_SYNC_ENABLED` line, run `systemctl daemon-reload`, and restart `language-guard.service`. Leave any `study_sync.db` and client outbox in place. Do not restore `accounts.db` automatically.
