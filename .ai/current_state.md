@@ -4,7 +4,7 @@
 
 ## Latest verified coordination checkpoint — 2026-11-23
 
-**Current priority:** **Phase 18C.4 — direct production Cloud Sync.** **18C.4P-R2 dark deploy is READY FOR ARCHITECT REVIEW** (`APP_18C4P_R2_DARK_DEPLOY_READY_FOR_ARCHITECT_REVIEW`). The four LF files are installed. `language-guard.service` is healthy, all seven sync routes return 404, and `STUDY_SYNC_ENABLED` is unset. `study_sync.db` does not exist. Production Cloud Sync **OFF**. Real two-PC acceptance is **NOT TESTED**. Staging is **NOT STARTED**. **18B.9 PAUSED.** 18B.10B–E are **NOT AUTHORIZED.** See [PHASE-18C.4P-R2-dark-deploy.md](plans/PHASE-18C.4P-R2-dark-deploy.md).
+**Current priority:** **Phase 18C.4 — direct production Cloud Sync.** **18C.4P-R3 source client is READY FOR SYNC ACTIVATION REVIEW** (`APP_18C4P_R3_TEST_CLIENT_READY_FOR_SYNC_ACTIVATION`). Machine A opened an isolated production-identity source window against `https://langstudyguard.com` and did not sign in. The installed EXE and RC database were unchanged. Production Cloud Sync **OFF**. Real two-PC acceptance is **NOT TESTED**. **18B.9 PAUSED.** 18B.10B–E are **NOT AUTHORIZED.** See [PHASE-18C.4P-R3-test-client.md](plans/PHASE-18C.4P-R3-test-client.md).
 
 **Phase 18B.10A: AUDIT ACCEPTED, IMPLEMENTATION DEFERRED** (`APP_18B10A_ARCHITECT_AUDIT_ACCEPTED_DEFERRED`). The audit and its proposed, unapproved numerical limits stay in [PHASE-18B.10A-api-abuse-resistance-audit.md](plans/PHASE-18B.10A-api-abuse-resistance-audit.md). Do not implement 18B.10B, 18B.10C, 18B.10D, or 18B.10E.
 

@@ -1,6 +1,6 @@
 # Phase 18C.4 — Two-device sync acceptance
 
-Status: **18C.4P-R2 dark deploy ready for review** (`APP_18C4P_R2_DARK_DEPLOY_READY_FOR_ARCHITECT_REVIEW`)  
+Status: **18C.4P-R3 source client ready for sync activation review** (`APP_18C4P_R3_TEST_CLIENT_READY_FOR_SYNC_ACTIVATION`)  
 Owner priority: working Account Sync between two real Windows computers, before production hardening and Google Drive backup.  
 Date: 2026-11-23  
 Cloud Sync production: **OFF** · 18B.9: **PAUSED, NOT CLOSED** · Staging: **RESERVED, not deployed** · Sync pilot: **NO-GO** until explicitly authorized  
@@ -246,6 +246,6 @@ Still required from the Owner, after 18C.4B authorization:
 
 ## 11. STOP
 
-`APP_18C4P_R2_DARK_DEPLOY_READY_FOR_ARCHITECT_REVIEW`
+`APP_18C4P_R3_TEST_CLIENT_READY_FOR_SYNC_ACTIVATION`
 
-The four approved files are on the production account service and Cloud Sync remains off. Evidence: [PHASE-18C.4P-R2-dark-deploy.md](PHASE-18C.4P-R2-dark-deploy.md). The original junction **FAIL** stays in the evidence above.
+Machine A can open an isolated production-identity source client against `https://langstudyguard.com`. No login and no Sync activation were performed. Evidence: [PHASE-18C.4P-R3-test-client.md](PHASE-18C.4P-R3-test-client.md). The original junction **FAIL** stays in the evidence above.
