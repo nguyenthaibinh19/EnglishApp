@@ -1,9 +1,10 @@
 # Phase 18C.4 — Two-device sync acceptance
 
-Status: **Ready for Architect review** (`APP_18C4_READY_FOR_ARCHITECT_REVIEW`)  
-Owner priority: working Account Sync between two real Windows computers, before production backup work or unrelated features.  
+Status: **ACTIVE PRIORITY, planning/verification only** (`APP_18C4_READY_FOR_ARCHITECT_REVIEW`)  
+Owner priority: working Account Sync between two real Windows computers, before production hardening and Google Drive backup.  
 Date: 2026-11-23  
-Cloud Sync production: **OFF** · 18B.9: **PAUSED, NOT CLOSED** · Staging on the VPS: **RESERVED** · Sync pilot: **NO-GO**
+Cloud Sync production: **OFF** · 18B.9: **PAUSED, NOT CLOSED** · Staging: **RESERVED, not deployed** · Sync pilot: **NO-GO** until explicitly authorized  
+18B.10A: **AUDIT ACCEPTED, IMPLEMENTATION DEFERRED.** Do not implement 18B.10B, 18B.10C, 18B.10D, or 18B.10E.
 
 This document is the readiness and test plan. It does not start a server, build an EXE, change application source, or run the two-computer test.
 
@@ -11,11 +12,11 @@ This document is the readiness and test plan. It does not start a server, build 
 
 | Check | Result |
 |-------|--------|
-| Named application baseline | `d6578c0f579d7ee9bd02aec855193339a7d8c124` |
-| `main` at inspection | `46e84f869aae1501f16a5b05116fbb81112939bf` |
-| Difference | The later commit is the 18B.10A documentation audit only. Account Sync source is the named baseline. |
-| Closed product slices | 18C.1, 18C.2, and 18C.3B. Do not rebuild them. |
-| 18B.10A | Recorded audit. Not the active priority. Its rate-limit and quota work is not a prerequisite for this acceptance. |
+| Architect named `main` | `46e84f869aae1501f16a5b05116fbb81112939bf` |
+| This worktree before the correction | `d27c8d95b9c6d9ca1da63cda23aeab6a195a6d77`, which contains that commit plus the first 18C.4 plan |
+| Application source | Unchanged since `d6578c0f579d7ee9bd02aec855193339a7d8c124` |
+| Closed product slices | 18C.1, 18C.2, and 18C.3B. Reuse them. Do not rebuild the Sync Engine. |
+| 18B.10A | Audit accepted as documentation. Implementation deferred. Its limits are not a prerequisite for this test. |
 
 No sync suite was rerun. No Owner data was opened.
 
@@ -56,43 +57,38 @@ Unplugging computer A's Ethernet does not make A's own client offline, because A
 
 `langstudyguard.exe` and `langstudyguard-rc.exe` are the wrong clients. The RC smoke identity keeps the production channel and the production account host, with data under `%APPDATA%\langstudyguard-rc`. This test uses a source tree on both computers, commit `d6578c0f579d7ee9bd02aec855193339a7d8c124` or a later commit that does not change Account Sync source.
 
-## 4. Minimum missing work
+## 4. Readiness
 
-No application change is required for the first live test if the lab below is authorized.
+| Requirement | Class | Evidence |
+|-------------|-------|----------|
+| Two Windows apps, same synthetic account, vocabulary, attempts, Progress, and SRS | **Already implemented** | `account_sync_engine.sync_once` and the signed-in UI. In-process coverage is `tests/test_account_ux_two_device.py`. |
+| Offline retry without a second event | **Already implemented** | Outbox stays pending. HTTP 500 and network errors back off. Idempotent `event_id` and `operation_id` retries are tested. |
+| Simultaneous vocabulary edits | **Already implemented** | `sync_conflict_app.py` offers Keep local and Keep server. No silent last-write-wins. |
+| Account switch | **Already implemented** | `account_session.switch_account` stops the previous worker and starts the next. Local SQLite for the previous user stays on disk. |
+| Restart without loss or duplication | **Already implemented** | The account SQLite and `settings.json` live under `LG_DATA_DIR`. Launch calls `maybe_start_account_sync`. |
+| Production host refused by a staging or development client | **Already implemented** | `validate_backend_for_identity` rejects `langstudyguard.com` and every subdomain. |
+| Sync engine rebuild, rate limits, quotas | **Missing functionality: none for this test** | 18C.1, 18C.2, and 18C.3B stay as they are. 18B.10B–E stay deferred. |
+| Isolated server whose `accounts.db` is not the repository file | **Missing deployment/configuration** | `account_store.db_path()` is the directory of the imported `account_store.py`. `STUDY_SYNC_DIR` moves only `study_sync.db`. `deploy/hetzner/staging_server.py` already refuses to start unless the effective account file is `STAGING_PACKAGE_DIR\accounts.db`. |
+| Loopback path from the second computer | **Missing deployment/configuration** | The guard allows bind `127.0.0.1` only. An SSH local forward is the path that keeps both clients on localhost. |
+| Client data outside the repo, production AppData, and RC AppData | **Missing deployment/configuration** | A source run without `LG_DATA_DIR` writes development data into the repository tree. |
+| Any pass/fail from two physical computers | **Missing real-device evidence** | Every existing two-device test is one process. |
+| Second computer, SSH session, and the synthetic password | **Requires Owner action** | Cursor cannot see or operate that computer. The password is not written into the repo. |
+| Decision to run the lab at all | **Requires Owner action** | This plan does not authorize the process, the tunnel, or `STUDY_SYNC_ENABLED=1` even on localhost. |
 
-| Gap | Why it blocks a real pair | Who closes it |
-|-----|---------------------------|---------------|
-| No isolated server is running | Both apps currently target `http://127.0.0.1:8765` or whatever the developer `.env` already has. Production sync is off, so a client that hits production gets 404. | Later authorized lab on computer A only |
-| Second computer has no path to that server | Loopback on B is not A's loopback | Owner, SSH forward, after authorization |
-| Second computer needs this source tree and the same Python launch | A production or RC EXE must not be used | Owner copies the source checkout. No new EXE in this phase |
-| Lab directories do not exist yet | A source run without `LG_DATA_DIR` writes the development data into the repository tree | Created only when the test is authorized, outside AppData and outside the repo |
-| Evidence sheet | Pass/fail has to be written without tokens or Owner data | Filled during the authorized test |
+## 5. Minimum execution steps
 
-18B.10A quotas are not in this list. A few synthetic rows will not decide that audit.
+Do not perform these steps until a later authorization. Do not point them at the VPS. If the guard rejects the layout, stop. Do not fall back to `python account_server.py` from the live source tree.
 
-## 5. Lab configuration
+1. On computer A, create five sibling directories outside the repository, `%APPDATA%\langstudyguard`, `%APPDATA%\langstudyguard-rc`, `%APPDATA%\langstudyguard-staging`, and `%LOCALAPPDATA%\LanguageGuard-Recovery`: `lab\package`, `lab\sync`, `lab\backup`, `lab\verify`, and `lab\proof`. None may contain another. Add `lab\client-a` on A and `lab\client-b` on B.
+2. Copy the server modules into `lab\package`. Do not copy an existing `accounts.db`, `study_sync.db`, `.env`, or anything from the RC folder.
+3. Write `lab\package\.env` with only these six lines: `OPENAI_API_KEY=staging-fake-not-a-provider-key`, `OPENAI_BASE_URL=http://127.0.0.1:9`, `ACCOUNT_BIND=127.0.0.1`, `ACCOUNT_PORT=18765`, `STUDY_SYNC_DIR` set to `lab\sync`, and `STUDY_SYNC_ENABLED=1`.
+4. Start `deploy/hetzner/staging_server.py` with `PYTHONPATH=lab\package` and the matching `STAGING_PACKAGE_DIR`, `STAGING_ENV_FILE`, `STAGING_PROOF_DIR`, `STUDY_SYNC_BACKUP_DIR`, and `STUDY_SYNC_VERIFY_DIR`. The guard must accept loopback, port `18765`, the fake key, and those separated paths.
+5. With the same `PYTHONPATH`, create two synthetic users through the copied `account_server.py add`. The names must not be an Owner account. Keep the passwords out of the repo and out of logs.
+6. On each computer, launch this source tree with `LG_APP_ENVIRONMENT=staging`, `LG_DATA_DIR` set to that computer's client directory, and `ACCOUNT_SERVER_URL=http://127.0.0.1:18765`. Do not set `LG_RC_SMOKE`. Do not set `STUDY_SYNC_ENABLED` in the client shell. Do not use `langstudyguard.exe` or `langstudyguard-rc.exe`.
+7. On B, open an SSH local forward from B's `127.0.0.1:18765` to A's `127.0.0.1:18765`. Then sign both apps into the first synthetic user.
+8. Run the six scenarios in section 7. Wait up to 90 seconds for the other computer's 60-second poll.
 
-Do not perform this section until authorization. Do not point it at the VPS.
-
-Computer A holds three new directories, all outside the repository, `%APPDATA%\langstudyguard`, `%APPDATA%\langstudyguard-rc`, `%APPDATA%\langstudyguard-staging`, and `%LOCALAPPDATA%\LanguageGuard-Recovery`:
-
-- `lab\server` — `accounts.db`, `study_sync.db`, and the lab `.env`
-- `lab\client-a` — `LG_DATA_DIR` for the first app
-- The second computer uses its own `lab\client-b`
-
-Server process on A, and nowhere else:
-
-- `ACCOUNT_BIND=127.0.0.1`
-- `ACCOUNT_PORT=18765`
-- `STUDY_SYNC_ENABLED=1`
-- `STUDY_SYNC_DIR` = the new `lab\server` directory
-- `OPENAI_API_KEY=staging-fake-not-a-provider-key`
-- `OPENAI_BASE_URL=http://127.0.0.1:9`
-- Account database path overridden to `lab\server\accounts.db` for that process only
-
-Set those in the server shell before launch. `load_dotenv()` does not override variables already present, so a developer `.env` must not be able to replace them. Run `staging_guard.validate` against that layout first. The guard must accept it: loopback bind, port not `8765`, fake key, and paths that are not `/opt/language-guard` or `/var/backups/language-guard`. The guard does not start the server.
-
-Create one synthetic user with the lab `account_server.py add` command. The username must not be an existing Owner account. The password stays in the Owner's password manager for the test and is not written into the plan, the repo, or a log.
+Before step 7, confirm the listener is `127.0.0.1` only, public sync routes still return 404, both client directories are the new lab folders, and `lab\package\accounts.db` is a new file. The 114 Dutch words and 114 pending outbox rows are not imported.
 
 Both apps, from this source tree:
 
@@ -116,9 +112,10 @@ Before the first login, confirm all of the following. Any failure stops the test
 
 Cursor, on the development machine, after a later authorization and still without the second computer:
 
-- Create the three lab directories and run the guard preflight.
-- Start the lab server and create the synthetic user.
-- Launch client A from source and sign in.
+- Create the sibling lab directories, copy the server package, and start it only through `staging_server.py`.
+- Create the two synthetic users in that copied package.
+- Launch client A from the source tree with `LG_DATA_DIR` and sign in.
+- Stop there. Cursor cannot observe computer B.
 - Stop there. Cursor cannot observe computer B.
 
 Owner, on the second computer:
@@ -154,7 +151,7 @@ Scenario 3 is B, not A. A's localhost client does not go offline when the house 
 - The lab flag lives only in the one server shell on computer A.
 - Rollback of the lab: stop that process, close the SSH forward, and delete the new `lab` directories. Do not delete `%APPDATA%\langstudyguard`, `%APPDATA%\langstudyguard-rc`, or the recovery folder.
 - A failed test does not authorize a VPS staging host, a public port, or a production flag change.
-- Phase 18B.9 stays paused. Phase 18B.10A stays a reviewed audit, not this priority.
+- Phase 18B.9 stays paused. Phase 18B.10A stays accepted documentation. Do not implement 18B.10B, 18B.10C, 18B.10D, or 18B.10E.
 
 ## 9. STOP
 

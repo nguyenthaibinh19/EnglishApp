@@ -4,26 +4,28 @@ Rolling coordination checkpoint. See [current_state.md](../current_state.md) and
 
 ## 1. Checkpoint metadata
 
-- Written: 2026-11-23 (Phase 18C.4 readiness plan, not a live test).
+- Written: 2026-11-23.
 - Tag: `APP_18C4_READY_FOR_ARCHITECT_REVIEW`.
-- Application baseline: `d6578c0f579d7ee9bd02aec855193339a7d8c124`.
-- 18C.1, 18C.2, and 18C.3B remain CLOSED. This handoff does not reopen them.
-- 18B.10A remains a recorded audit and is not the active priority.
-- Cloud Sync **OFF**. No VPS. No production EXE replace. No public Release.
+- Active priority: **Phase 18C.4 — Real Two-Device Sync: ACTIVE PRIORITY, planning/verification only.**
+- Phase 18B.10A: **AUDIT ACCEPTED, IMPLEMENTATION DEFERRED** (`APP_18B10A_ARCHITECT_AUDIT_ACCEPTED_DEFERRED`). Do not implement 18B.10B, 18B.10C, 18B.10D, or 18B.10E. The proposed numerical limits stay unapproved.
+- Phase 18B.9: **PAUSED, NOT CLOSED.**
+- Cloud Sync production: **OFF.**
+- Staging: **RESERVED, not deployed.**
+- Sync pilot: **NO-GO** until explicitly authorized.
+- Application source baseline: `d6578c0f579d7ee9bd02aec855193339a7d8c124`. Architect named docs baseline `46e84f869aae1501f16a5b05116fbb81112939bf`.
+- 18C.1, 18C.2, and 18C.3B remain CLOSED. Do not rebuild the Sync Engine.
 - RC account id 1, the 114 Dutch words, the 114 pending outbox rows, and recovery backups were not opened or modified.
-- **18B.9 PAUSED, NOT CLOSED**. Staging **RESERVED**. Sync pilot **NO-GO**.
 
 ## 2. Last results
 
-- Inspection only. No application source edit. No lab server. No SSH tunnel.
-- The existing worker, outbox, conflict UI, and offline retry already cover the product behavior.
-- A real pair of computers still needs an authorized loopback lab on one PC and an SSH forward from the other.
-- Production and RC executables must not be the clients for that test.
+- Planning only. No application source edit. No lab process. No public port. No VPS change.
+- The sync engine, conflict UI, offline retry, restart, and account switch already exist.
+- A real pair of computers still needs an authorized copied lab package, `staging_server.py`, and an SSH forward. Launching `account_server.py` from the live source tree would put `accounts.db` beside the repository.
 
 ## 3. Next
 
 1. Architect review of the 18C.4 plan. Do not start the lab or the second computer from this handoff.
-2. Do not enable production `STUDY_SYNC_ENABLED`, resume 18B.9, resume 18B.10A implementation, deploy, or publish a release.
+2. Do not enable production `STUDY_SYNC_ENABLED`, resume 18B.9, implement 18B.10B–E, deploy, or publish a release.
 
 ## 4. STOP / boundaries
 

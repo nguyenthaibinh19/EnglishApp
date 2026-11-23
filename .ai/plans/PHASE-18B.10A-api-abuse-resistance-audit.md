@@ -1,11 +1,11 @@
 # Phase 18B.10A — API abuse-resistance audit
 
-Status: **Ready for Architect review** (`APP_18B10A_READY_FOR_ARCHITECT_REVIEW`)  
+Status: **AUDIT ACCEPTED, IMPLEMENTATION DEFERRED** (`APP_18B10A_ARCHITECT_AUDIT_ACCEPTED_DEFERRED`)  
 Baseline: `main` `d6578c0f579d7ee9bd02aec855193339a7d8c124`  
 Date: 2026-11-23  
 Cloud Sync: **OFF** · 18B.9: **PAUSED, NOT CLOSED** · Staging: **RESERVED** · Sync pilot: **NO-GO**
 
-Repository inspection only. No application source change, no VPS action, no credential use, and no learner-data access. This audit does not authorize implementation, a dark deploy, or `STUDY_SYNC_ENABLED=1`.
+Repository inspection only. No application source change, no VPS action, no credential use, and no learner-data access. The Architect accepted this audit as documentation. Do not implement 18B.10B, 18B.10C, 18B.10D, or 18B.10E. The numerical limits below stay proposed and unapproved. This audit does not authorize a dark deploy or `STUDY_SYNC_ENABLED=1`.
 
 The requirement source is [PHASE-18B.3-production-readiness.md](PHASE-18B.3-production-readiness.md) section “Public API abuse-resistance gate” and gate 10. ADR-022 already assigns numeric limits to Phase 18B.10 and forbids silent trimming of accepted attempts.
 
@@ -162,4 +162,4 @@ Rollback of a future dark deploy:
 
 `APP_18B10A_READY_FOR_ARCHITECT_REVIEW`
 
-Implementation waits for Architect approval of the section 4 numbers. Do not activate Cloud Sync. Do not start another milestone from this audit.
+Architect decision after this audit: `APP_18B10A_ARCHITECT_AUDIT_ACCEPTED_DEFERRED`. The section 4 numbers remain unapproved. Do not implement 18B.10B, 18B.10C, 18B.10D, or 18B.10E. Do not activate Cloud Sync. Phase 18C.4 is the active priority.

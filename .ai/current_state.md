@@ -4,9 +4,9 @@
 
 ## Latest verified coordination checkpoint — 2026-11-23
 
-**Current priority:** **Phase 18C.4 two-device sync acceptance plan ready for Architect review** (`APP_18C4_READY_FOR_ARCHITECT_REVIEW`). Owner priority is working Account Sync between two real Windows computers. Application baseline `d6578c0f579d7ee9bd02aec855193339a7d8c124`. The plan does not start a lab server, open a tunnel, or change application source. Production Cloud Sync **OFF**. **18B.9 PAUSED, NOT CLOSED.** Staging **RESERVED**. Sync pilot **NO-GO**. See [PHASE-18C.4-two-device-sync-acceptance.md](plans/PHASE-18C.4-two-device-sync-acceptance.md).
+**Current priority:** **Phase 18C.4 — Real Two-Device Sync: ACTIVE PRIORITY, planning/verification only** (`APP_18C4_READY_FOR_ARCHITECT_REVIEW`). The Owner prioritized two real Windows computers before production hardening and Google Drive backup. Application source is unchanged from `d6578c0f579d7ee9bd02aec855193339a7d8c124`. No lab server, tunnel, or second-computer test has been started. Production Cloud Sync **OFF**. **18B.9 PAUSED, NOT CLOSED.** Staging **RESERVED, not deployed.** Sync pilot **NO-GO** until explicitly authorized. See [PHASE-18C.4-two-device-sync-acceptance.md](plans/PHASE-18C.4-two-device-sync-acceptance.md).
 
-**18B.10A audit remains on record and is not the active priority** (`APP_18B10A_READY_FOR_ARCHITECT_REVIEW`). Proposed rate limits and quotas are not approved and are not a prerequisite for the two-computer test.
+**Phase 18B.10A: AUDIT ACCEPTED, IMPLEMENTATION DEFERRED** (`APP_18B10A_ARCHITECT_AUDIT_ACCEPTED_DEFERRED`). The audit and its proposed, unapproved numerical limits stay in [PHASE-18B.10A-api-abuse-resistance-audit.md](plans/PHASE-18B.10A-api-abuse-resistance-audit.md). Do not implement 18B.10B, 18B.10C, 18B.10D, or 18B.10E.
 
 **18C.3B CLOSED — Architect Accepted** (`APP_18C3B_PR28_ARCHITECT_MERGE_APPROVED`). PR [#28](https://github.com/nguyenthaibinh19/EnglishApp/pull/28) is merged. Merge `610d979434f8ff10274e8000916563e1e2f57126`. Approved source HEAD `867700198665edb80ba5b96fbf72a5bd0ae96fa2` on base `2cea161f5453909f2503ee1bc3cb41c153603010`. Focused tests: **94 passed, 0 failed, 1 skipped** (Cursor-reported). `test_windows_file_symlink_fails_closed` remains **UNVERIFIED**.
 
