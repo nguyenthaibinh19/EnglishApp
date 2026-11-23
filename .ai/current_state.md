@@ -4,7 +4,7 @@
 
 ## Latest verified coordination checkpoint — 2026-11-23
 
-**Current priority:** **Phase 18C.4 — Real Two-Device Sync: ACTIVE PRIORITY, planning/verification only** (`APP_18C4_READY_FOR_ARCHITECT_REVIEW`). The Owner prioritized two real Windows computers before production hardening and Google Drive backup. Application source is unchanged from `d6578c0f579d7ee9bd02aec855193339a7d8c124`. No lab server, tunnel, or second-computer test has been started. Production Cloud Sync **OFF**. **18B.9 PAUSED, NOT CLOSED.** Staging **RESERVED, not deployed.** Sync pilot **NO-GO** until explicitly authorized. See [PHASE-18C.4-two-device-sync-acceptance.md](plans/PHASE-18C.4-two-device-sync-acceptance.md).
+**Current priority:** **Phase 18C.4 — Real Two-Device Sync remains ACTIVE.** **18C.4A offline preflight is ready for Architect review** (`APP_18C4A_OFFLINE_PREFLIGHT_READY_FOR_ARCHITECT_REVIEW`). The isolated lab at `D:\lg-18c4a-lab` passed package, path, and guard checks. The server was not started. No account was created. No tunnel was opened. Real two-PC acceptance is **NOT TESTED**. Staging deployment is **NOT STARTED**. Production Cloud Sync **OFF**. **18B.9 PAUSED, NOT CLOSED.** Sync pilot **NO-GO**. See [PHASE-18C.4-two-device-sync-acceptance.md](plans/PHASE-18C.4-two-device-sync-acceptance.md).
 
 **Phase 18B.10A: AUDIT ACCEPTED, IMPLEMENTATION DEFERRED** (`APP_18B10A_ARCHITECT_AUDIT_ACCEPTED_DEFERRED`). The audit and its proposed, unapproved numerical limits stay in [PHASE-18B.10A-api-abuse-resistance-audit.md](plans/PHASE-18B.10A-api-abuse-resistance-audit.md). Do not implement 18B.10B, 18B.10C, 18B.10D, or 18B.10E.
 

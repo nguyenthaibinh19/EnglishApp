@@ -2,6 +2,14 @@
 
 Directional plan — **not** a rigid release commitment. Update when phases complete or priorities shift.
 
+## Latest operational checkpoint — 2026-11-23
+
+- **Active priority: Phase 18C.4 real two-device Account Sync.** 18C.4A offline lab preflight is ready for Architect review. The lab server has not been started. Real two-PC acceptance is **NOT TESTED**.
+- 18C.1, 18C.2, and 18C.3B are **CLOSED**. 18B.10A is **AUDIT ACCEPTED, IMPLEMENTATION DEFERRED**. 18B.10B–E are **NOT AUTHORIZED**.
+- **18B.9 PAUSED, NOT CLOSED.** Production Cloud Sync **OFF**. Staging deployment **NOT STARTED**. Sync pilot **NO-GO**.
+
+The 2026-11-19 checkpoint below is historical and is not the current priority.
+
 ## Latest operational checkpoint — 2026-11-19 (supersedes older narrative below)
 
 - **Active priority: Account UX + Production RC (Architect review). ADR-025 Accepted (PR #22 / `2da93c3`). 18C.2 CLOSED (PR #21). 18C.1 CLOSED (PR #20). 18B.9 PAUSED, NOT CLOSED. Cloud Sync OFF. Staging reserved. Sync pilot NO-GO until allowlist.**

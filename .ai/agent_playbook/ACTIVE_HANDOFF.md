@@ -5,28 +5,37 @@ Rolling coordination checkpoint. See [current_state.md](../current_state.md) and
 ## 1. Checkpoint metadata
 
 - Written: 2026-11-23.
-- Tag: `APP_18C4_READY_FOR_ARCHITECT_REVIEW`.
-- Active priority: **Phase 18C.4 — Real Two-Device Sync: ACTIVE PRIORITY, planning/verification only.**
-- Phase 18B.10A: **AUDIT ACCEPTED, IMPLEMENTATION DEFERRED** (`APP_18B10A_ARCHITECT_AUDIT_ACCEPTED_DEFERRED`). Do not implement 18B.10B, 18B.10C, 18B.10D, or 18B.10E. The proposed numerical limits stay unapproved.
+- Tag: `APP_18C4A_OFFLINE_PREFLIGHT_READY_FOR_ARCHITECT_REVIEW`.
+- Active priority: **Phase 18C.4 — Real Two-Device Sync.** 18C.4A is the offline preflight. It is not the live test.
+- Application source baseline: `d6578c0f579d7ee9bd02aec855193339a7d8c124`.
+- Remote main at start: `2ef0552d6cda58ff94dc02c680b2dd391b77aaef`.
+- 18C.1, 18C.2, and 18C.3B remain CLOSED. The Sync Engine was not rebuilt.
+- Phase 18B.10A: **AUDIT ACCEPTED, IMPLEMENTATION DEFERRED.** 18B.10B–E are **NOT AUTHORIZED.**
 - Phase 18B.9: **PAUSED, NOT CLOSED.**
 - Cloud Sync production: **OFF.**
-- Staging: **RESERVED, not deployed.**
-- Sync pilot: **NO-GO** until explicitly authorized.
-- Application source baseline: `d6578c0f579d7ee9bd02aec855193339a7d8c124`. Architect named docs baseline `46e84f869aae1501f16a5b05116fbb81112939bf`.
-- 18C.1, 18C.2, and 18C.3B remain CLOSED. Do not rebuild the Sync Engine.
-- RC account id 1, the 114 Dutch words, the 114 pending outbox rows, and recovery backups were not opened or modified.
+- Staging deployment: **NOT STARTED.**
+- Real two-PC acceptance: **NOT TESTED.**
+- Sync pilot: **NO-GO.**
+- RC account id 1, the 114 Dutch words, the 114 pending outbox rows, and recovery backups were not opened.
 
-## 2. Last results
+## 2. Evidence
 
-- Planning only. No application source edit. No lab process. No public port. No VPS change.
-- The sync engine, conflict UI, offline retry, restart, and account switch already exist.
-- A real pair of computers still needs an authorized copied lab package, `staging_server.py`, and an SSH forward. Launching `account_server.py` from the live source tree would put `accounts.db` beside the repository.
+- Lab root `D:\lg-18c4a-lab` holds `package`, `sync`, `backup`, `verify`, `proof`, and `client-a`.
+- Nineteen copied modules match their source SHA-256. `accounts.db` and `study_sync.db` are absent.
+- Imported `account_store.__file__` is the lab copy. Sync path resolves under `lab\sync` and was not opened.
+- `staging_guard.validate(..., require_env_file=True)` returned PASS for bind `127.0.0.1`, port `18765`, and the fake provider key. `staging_server.py` was not run.
+- Windows file symlink and directory-junction rejection are **UNVERIFIED**. The prepared directories themselves are ordinary directories.
+- `client-a` is empty and outside production, RC, recovery, and the repository.
 
 ## 3. Next
 
-1. Architect review of the 18C.4 plan. Do not start the lab or the second computer from this handoff.
-2. Do not enable production `STUDY_SYNC_ENABLED`, resume 18B.9, implement 18B.10B–E, deploy, or publish a release.
+1. Architect review of this offline preflight.
+2. 18C.4B requires a separate authorization before the server starts, before accounts are created, and before SSH or computer B is used.
 
-## 4. STOP / boundaries
+## 4. STOP
 
-- STOP for Architect review — no infrastructure, no source change, and no second-machine test.
+- Do not start the lab server.
+- Do not create test accounts.
+- Do not open an SSH tunnel.
+- Do not run the two-computer scenarios.
+- Do not enable production `STUDY_SYNC_ENABLED`, resume 18B.9, or implement 18B.10B–E.

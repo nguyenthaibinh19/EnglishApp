@@ -1,6 +1,6 @@
 # Phase 18C.4 — Two-device sync acceptance
 
-Status: **ACTIVE PRIORITY, planning/verification only** (`APP_18C4_READY_FOR_ARCHITECT_REVIEW`)  
+Status: **18C.4A offline preflight ready for Architect review** (`APP_18C4A_OFFLINE_PREFLIGHT_READY_FOR_ARCHITECT_REVIEW`)  
 Owner priority: working Account Sync between two real Windows computers, before production hardening and Google Drive backup.  
 Date: 2026-11-23  
 Cloud Sync production: **OFF** · 18B.9: **PAUSED, NOT CLOSED** · Staging: **RESERVED, not deployed** · Sync pilot: **NO-GO** until explicitly authorized  
@@ -73,11 +73,11 @@ Unplugging computer A's Ethernet does not make A's own client offline, because A
 | Client data outside the repo, production AppData, and RC AppData | **Missing deployment/configuration** | A source run without `LG_DATA_DIR` writes development data into the repository tree. |
 | Any pass/fail from two physical computers | **Missing real-device evidence** | Every existing two-device test is one process. |
 | Second computer, SSH session, and the synthetic password | **Requires Owner action** | Cursor cannot see or operate that computer. The password is not written into the repo. |
-| Decision to run the lab at all | **Requires Owner action** | This plan does not authorize the process, the tunnel, or `STUDY_SYNC_ENABLED=1` even on localhost. |
+| Decision to start the lab process | **Requires Owner action** | 18C.4A prepared the files only. Starting the process, the tunnel, and accounts still needs 18C.4B. |
 
 ## 5. Minimum execution steps
 
-Do not perform these steps until a later authorization. Do not point them at the VPS. If the guard rejects the layout, stop. Do not fall back to `python account_server.py` from the live source tree.
+18C.4A completed the offline part of steps 1–3 at `D:\lg-18c4a-lab` and validated the guard without starting a process. Steps 4–8 stay unauthorized. Do not point them at the VPS. Do not fall back to `python account_server.py` from the live source tree.
 
 1. On computer A, create five sibling directories outside the repository, `%APPDATA%\langstudyguard`, `%APPDATA%\langstudyguard-rc`, `%APPDATA%\langstudyguard-staging`, and `%LOCALAPPDATA%\LanguageGuard-Recovery`: `lab\package`, `lab\sync`, `lab\backup`, `lab\verify`, and `lab\proof`. None may contain another. Add `lab\client-a` on A and `lab\client-b` on B.
 2. Copy the server modules into `lab\package`. Do not copy an existing `accounts.db`, `study_sync.db`, `.env`, or anything from the RC folder.
@@ -137,13 +137,29 @@ Record pass or fail, the status label, and the time. Do not record the token, th
 | # | Steps | Pass | Fail |
 |---|-------|------|------|
 | 1. Vocabulary A to B | A adds `syncprobe` / `lab-marker` and waits. | B's signed-in list shows that item. Both status labels reach Synced. | B never shows it, or the status becomes Sync unavailable (the lab flag is off or B reached the wrong host). |
-| 2. Quiz B to A | B studies `syncprobe` once and submits an answer. | A shows one attempt for that item and the same Progress/SRS streak and due state after the next poll. Repeating the wait does not add a second attempt. | A stays at no attempt, or a second identical submit on B creates a second server event. |
-| 3. Offline then once | B closes the SSH forward, studies one new synthetic item, then opens the forward. | B shows Offline or Pending while the tunnel is closed. After it returns, both computers show the new item and exactly one attempt. | The item never sends, or reopening the tunnel duplicates it. |
-| 4. Conflict | While both are caught up, A and B each change the meaning of `syncprobe` to different synthetic meanings before either polls. | Both end in Conflict. Sync conflicts offers Keep local and Keep server. The chosen meaning is the one both sides show after they catch up. The other meaning is not silently dropped. | One meaning disappears with no conflict, or the status returns to Synced with the two meanings still different. |
+| 2a. Same event replay | After scenario 2b has one accepted attempt, retransmit that same `event_id` and body. | The server returns the original result. Attempt count stays 1. Progress counters do not increment again. | A second row appears for that `event_id`. |
+| 2b. Second quiz submission | B submits one new answer for `syncprobe`. The app allocates a new `event_id`. | A shows that one new attempt and the updated Progress/SRS after the next poll. | The new answer never arrives, or it reuses the previous `event_id`. |
+| 3. Offline recovery on B | B closes only its SSH forward, completes one synthetic study action, then opens the forward. | While closed, B is Offline or Pending and the event remains local. After reconnect, both computers show that event once. Nothing already accepted is lost. | The pending event disappears, never uploads, or appears twice. |
+| 4. Deterministic conflict | Follow the eight steps below. Do not depend on both people editing at the same moment. | B shows Conflict after reconnect. Keep local or Keep server is an explicit choice. Both computers then show the chosen meaning, and the unchosen meaning is not deleted without that choice. | The meanings converge with no conflict screen, or the chosen value never reaches the other computer. |
 | 5. Restart | Quit both apps. Start them again with the same environment variables. | Both are still the synthetic user, `syncprobe` is present, attempt count is unchanged, and the status returns to Synced without a new attempt. | A guest vocabulary list appears, the RC data folder changes, or a duplicate attempt is uploaded. |
 | 6. Account isolation | On B, sign out and sign in as a second synthetic user created on the same lab server. | B does not list `syncprobe`. A, still the first user, still lists it. Signing B back into the first user shows `syncprobe` again. | The second user sees the first user's word, or A's list changes because B switched accounts. |
 
-Scenario 3 is B, not A. A's localhost client does not go offline when the house network does.
+Scenario 2 records the replay and the new submission as separate results. A second genuine quiz answer is supposed to create one new attempt. Only a repeated `event_id` must stay at one row.
+
+Scenario 3 uses B's tunnel. Unplugging computer A does not make A's localhost client offline, so that is not the offline test.
+
+Scenario 4 sequence, not executed in 18C.4A:
+
+1. Both computers sync the same synthetic item.
+2. Close B's SSH tunnel before B receives later changes.
+3. Change the item on A and let that change reach the lab server.
+4. Change B's stale copy while B is still offline.
+5. Reopen B's tunnel.
+6. The affected client shows a conflict.
+7. Resolve it with the existing Keep local or Keep server control.
+8. Both computers show the chosen value. The other value is not discarded silently.
+
+Failure evidence is a missing conflict, a silent overwrite, a lost pending event, or a duplicate `event_id`. Do not record tokens, passwords, or real learner data.
 
 ## 8. Isolation and rollback
 
@@ -153,8 +169,77 @@ Scenario 3 is B, not A. A's localhost client does not go offline when the house 
 - A failed test does not authorize a VPS staging host, a public port, or a production flag change.
 - Phase 18B.9 stays paused. Phase 18B.10A stays accepted documentation. Do not implement 18B.10B, 18B.10C, 18B.10D, or 18B.10E.
 
-## 9. STOP
+## 9. 18C.4A offline preflight
 
-`APP_18C4_READY_FOR_ARCHITECT_REVIEW`
+Performed on computer A only. The lab server was not started. No account was created. No SSH session was opened. `staging_server.py` was not run.
 
-The next step is Architect review of this plan. The lab server, the SSH forward, and the second computer are not authorized by this document.
+Lab root: `D:\lg-18c4a-lab`. It is outside the repository, both worktrees, `%APPDATA%\langstudyguard`, `%APPDATA%\langstudyguard-rc`, `%APPDATA%\langstudyguard-staging`, and `%LOCALAPPDATA%\LanguageGuard-Recovery`.
+
+| Directory | Role |
+|-----------|------|
+| `D:\lg-18c4a-lab\package` | Copied server modules and the lab `.env`. Future `accounts.db` is not present. |
+| `D:\lg-18c4a-lab\sync` | Future `study_sync.db`. Empty. |
+| `D:\lg-18c4a-lab\backup` | Guard backup root. Empty. |
+| `D:\lg-18c4a-lab\verify` | Guard verify root. Empty. |
+| `D:\lg-18c4a-lab\proof` | Guard proof root. Empty. |
+| `D:\lg-18c4a-lab\client-a` | Future client A `LG_DATA_DIR`. Empty. |
+| Computer B `client-b` | Not created. Owner creates it on computer B after a later authorization. |
+
+Copied allowlist, each SHA-256 matched the source file:
+
+| Module | SHA-256 |
+|--------|---------|
+| `account_server.py` | `4101e111abee9400217334b468901c5e033c6be1fa79be7ba189c72f749685b9` |
+| `account_store.py` | `187345f6b8d8eae46ae9cdf290dbc33f556e7d29518046ed5891b4e9da73a331` |
+| `sync_http.py` | `a3970550cc0cfb58124804135ed49ea0004e14b8a8de51c5d027b200bb3a5222` |
+| `sync_store.py` | `3fc2292cc2a6d78dedd5e8e1f4e7edbb26e722278f34f3b0bfb35999d43e2985` |
+| `config.py` | `d1baad348dcbf6726af97a182c584da2a51e5553d57738b6e094a8d01faee393` |
+| `app_environment.py` | `aaf7b3aad24f3602929ffc68c6179b712eadbe310202de45938bbc3e370bc458` |
+| `languages.py` | `e579fc91a8a625bdce36fde80b73c61b08b00420a264be951db107cf127ff178` |
+| `vocab_identity.py` | `d1c7cbfa0d5007c1f391f8d88621f65f290d70d0c1a0f64c5e5998cc8f05bc3e` |
+| `vocabulary_model.py` | `fe1f814c24d3627cfc62fc70b2c2afb2d7bafd6ca950f47c0d17865e6c99dbc1` |
+| `text_utils.py` | `de95e48b23ef74eb8b06b9b9c186ea5b94e66ce1b0ff9f5e740baea176846880` |
+| `ai_teacher.py` | `91ea4549a232c80bdb7bce1b371f385117edeb3ef337074f7ac73822cb4fdf3f` |
+| `listening.py` | `a7764d849e8086237909dc74f64ddd7b9b3bf083f9ff3c1562d28fab9f589d67` |
+| `listening_content.py` | `8e8e8cf35aaff6ddd1e9f21a4eb4a40f79099c6103d5422d60347e7982e79fb9` |
+| `reading_schema.py` | `5322899c542acd390ba87a4fc6233bc3244065dfa89baa4810578470869c8258` |
+| `srs.py` | `eca45912b04de8747339c3b3e552ab728d8bc53fa5d5beaba2487e36592eb867` |
+| `ai/__init__.py` | `b38551951f24d9919702ecec340691f5cdce12fda581351876038ec7f38c08b4` |
+| `ai/base.py` | `1757801d424661c0dc912ec1ba4b08244d9c62d55d12cfa51071ec0c2e401bb1` |
+| `ai/service.py` | `b3081aedb98676282f03e34101d29a8b0759e6e0ba00b3ba42c0e53e2cafaff2` |
+| `ai/openai_provider.py` | `9655f1b3cb5a33345052af18395fbfb6e707b4cb55f0b90f8700fcea791fceeb` |
+
+`srs.py` is included because progress accept imports it when an attempt is uploaded. It is not imported during this preflight. No SQLite file, cache, or backup was copied. The lab `.env` has only the six guard keys and the documented fake provider values.
+
+Path check, with `sys.path` pointing at the copy and the repository removed from the path:
+
+- `account_store.__file__` = `D:\lg-18c4a-lab\package\account_store.py`
+- `account_store.db_path()` = `D:\lg-18c4a-lab\package\accounts.db`
+- `sync_http.sync_db_path()` = `D:\lg-18c4a-lab\sync\study_sync.db`
+- Neither file existed before or after the check.
+
+Guard command: `python -I D:\lg-18c4a-lab\check_guard.py`, which calls `staging_guard.validate(layout, require_env_file=True)` and does not import `staging_server`. Result: **PASS**. Bind `127.0.0.1`, port `18765`, fake key accepted, account token empty, account and sync paths separated. Port check used a non-binding connect probe. Proof directory stayed empty. Both databases stayed absent.
+
+`client-a` is empty and does not overlap production AppData, RC AppData, recovery, or either EnglishApp tree. A staging identity accepts that path.
+
+Reparse safety: **UNVERIFIED**. Creating a file symlink returned Windows error 1314. A directory junction was not reported by `os.path.islink`, and the guard accepted that junction path. The junction was removed. The real lab directories are ordinary directories, not junctions.
+
+## 10. SSH prerequisites
+
+Not started.
+
+Computer A will bind only `127.0.0.1:18765`. Computer B will use an SSH local forward over a path the Owner already trusts, then open `http://127.0.0.1:18765` on B. Both apps use a staging identity and their own `LG_DATA_DIR`.
+
+Still required from the Owner, after 18C.4B authorization:
+
+- Computer B on the same trusted LAN or VPN path.
+- An SSH login to computer A. The credential stays with the Owner and is not written here.
+- The forward `127.0.0.1:18765` on B to `127.0.0.1:18765` on A.
+- Confirmation that the forward dies when the SSH session ends, and that no public HTTP port was opened.
+- `client-b` created on computer B, outside production, RC, and recovery data.
+
+## 11. STOP
+
+`APP_18C4A_OFFLINE_PREFLIGHT_READY_FOR_ARCHITECT_REVIEW`
+
+18C.4B is a separate authorization. It is required before the lab server starts, before any synthetic account is created, and before the SSH tunnel or the two-computer test.
