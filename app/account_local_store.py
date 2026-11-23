@@ -6,6 +6,7 @@ vocabulary or progress into an account database.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import sqlite3
@@ -22,6 +23,14 @@ from vocab_identity import is_vocab_id
 DB_FILE = "account_study.db"
 SCHEMA_VERSION = 1
 ALGORITHM_LADDER_V2 = "ladder-v2"
+
+LEGACY_DISP_IMPORTED = "imported"
+LEGACY_DISP_SKIPPED = "skipped_no_vocab_id"
+LEGACY_DISP_UNREADABLE = "unreadable"
+LEGACY_DISP_CONFLICT = "source_conflict"
+LEGACY_DISP_OVERLAP = "overlap_pending"
+LEGACY_DISP_SKIPPED_OVERLAP = "skipped_overlap"
+LEGACY_CONFLICT_KIND = "legacy_attempt"
 
 STATUS_SYNCED = "Synced"
 STATUS_PENDING = "Pending"
@@ -231,6 +240,42 @@ def init_schema(connection: sqlite3.Connection) -> None:
                 consented_at TEXT NOT NULL,
                 note TEXT NOT NULL DEFAULT '',
                 PRIMARY KEY (language_code, source_kind)
+            )
+            """
+        )
+        connection.execute(
+            """
+            CREATE TABLE IF NOT EXISTS legacy_attempt_consent (
+                language_code TEXT NOT NULL,
+                file_identity TEXT NOT NULL,
+                consented_at TEXT NOT NULL,
+                revoked INTEGER NOT NULL DEFAULT 0,
+                note TEXT NOT NULL DEFAULT '',
+                PRIMARY KEY (language_code, file_identity)
+            )
+            """
+        )
+        connection.execute(
+            """
+            CREATE TABLE IF NOT EXISTS legacy_import_source (
+                language_code TEXT NOT NULL,
+                file_identity TEXT NOT NULL,
+                canonical_path TEXT NOT NULL,
+                high_water INTEGER NOT NULL DEFAULT 0,
+                PRIMARY KEY (language_code, file_identity)
+            )
+            """
+        )
+        connection.execute(
+            """
+            CREATE TABLE IF NOT EXISTS legacy_import_ledger (
+                file_identity TEXT NOT NULL,
+                offset INTEGER NOT NULL,
+                line_sha256 TEXT NOT NULL,
+                disposition TEXT NOT NULL,
+                event_id TEXT,
+                created_at TEXT NOT NULL,
+                PRIMARY KEY (file_identity, offset)
             )
             """
         )
@@ -1339,6 +1384,418 @@ class AccountLocalStore:
             imported += 1
         return {"imported": imported, "skipped": skipped}
 
+    def grant_attempt_import_consent(
+        self, language_code: str, file_identity: str, note: str = ""
+    ) -> None:
+        """Consent binds one account to one attempt-file identity.
+
+        Vocabulary consent does not satisfy this. Granting consent does not
+        enqueue attempts.
+        """
+        language_code = language_code.strip().lower()
+        identity = str(file_identity or "").strip()
+        if not language_code or not identity:
+            raise AccountLocalError("Attempt import consent needs a file identity.")
+        with self._lock:
+            self._conn.execute(
+                """
+                INSERT INTO legacy_attempt_consent (
+                    language_code, file_identity, consented_at, revoked, note
+                ) VALUES (?, ?, ?, 0, ?)
+                ON CONFLICT(language_code, file_identity) DO UPDATE SET
+                    consented_at = excluded.consented_at,
+                    revoked = 0,
+                    note = excluded.note
+                """,
+                (language_code, identity, to_utc_iso(utc_now()), note or ""),
+            )
+            self._resolve_legacy_conflict_unlocked(
+                f"replacement {language_code}"
+            )
+            self._conn.commit()
+
+    def revoke_attempt_import_consent(
+        self, language_code: str, file_identity: str
+    ) -> None:
+        language_code = language_code.strip().lower()
+        identity = str(file_identity or "").strip()
+        with self._lock:
+            self._conn.execute(
+                """
+                UPDATE legacy_attempt_consent
+                SET revoked = 1
+                WHERE language_code = ? AND file_identity = ?
+                """,
+                (language_code, identity),
+            )
+            self._conn.commit()
+
+    def has_attempt_import_consent(
+        self, language_code: str, file_identity: str
+    ) -> bool:
+        language_code = language_code.strip().lower()
+        identity = str(file_identity or "").strip()
+        with self._lock:
+            row = self._conn.execute(
+                """
+                SELECT revoked FROM legacy_attempt_consent
+                WHERE language_code = ? AND file_identity = ?
+                """,
+                (language_code, identity),
+            ).fetchone()
+        return bool(row) and int(row["revoked"] or 0) == 0
+
+    def legacy_attempt_sources(self, language_code: str) -> List[dict]:
+        language_code = language_code.strip().lower()
+        with self._lock:
+            rows = self._conn.execute(
+                """
+                SELECT language_code, file_identity, canonical_path, high_water
+                FROM legacy_import_source
+                WHERE language_code = ?
+                ORDER BY file_identity
+                """,
+                (language_code,),
+            ).fetchall()
+        return [dict(row) for row in rows]
+
+    def legacy_attempt_ledger(self, file_identity: Optional[str] = None) -> List[dict]:
+        with self._lock:
+            if file_identity:
+                rows = self._conn.execute(
+                    """
+                    SELECT file_identity, offset, line_sha256, disposition,
+                           event_id, created_at
+                    FROM legacy_import_ledger
+                    WHERE file_identity = ?
+                    ORDER BY offset
+                    """,
+                    (str(file_identity),),
+                ).fetchall()
+            else:
+                rows = self._conn.execute(
+                    """
+                    SELECT file_identity, offset, line_sha256, disposition,
+                           event_id, created_at
+                    FROM legacy_import_ledger
+                    ORDER BY file_identity, offset
+                    """
+                ).fetchall()
+        return [dict(row) for row in rows]
+
+    def note_legacy_attempt_conflict(self, detail: str) -> None:
+        """Record one open attempt-import conflict. Detail is a short code."""
+        text = " ".join(str(detail or "").split())[:180]
+        if not text:
+            return
+        with self._lock:
+            self._note_legacy_conflict_unlocked(text)
+            self._conn.commit()
+
+    def resolve_legacy_attempt_conflict(self, detail: str) -> None:
+        text = " ".join(str(detail or "").split())[:180]
+        with self._lock:
+            self._resolve_legacy_conflict_unlocked(text)
+            self._conn.commit()
+
+    def commit_legacy_attempt_line(
+        self,
+        *,
+        language_code: str,
+        canonical_path: str,
+        file_identity: str,
+        offset: int,
+        line_sha256: str,
+        next_high_water: int,
+        disposition: str,
+        event: Optional[dict] = None,
+        move_high_water: bool = True,
+    ) -> Optional[str]:
+        """Commit one ledger decision with its event and outbox row, or neither.
+
+        Returns the event id when a new attempt is stored. A same-offset hash
+        mismatch becomes source_conflict and does not move the high-water mark.
+        """
+        language_code = language_code.strip().lower()
+        identity = str(file_identity)
+        offset = int(offset)
+        digest = str(line_sha256)
+        with self._lock:
+            self._conn.execute("BEGIN IMMEDIATE")
+            try:
+                existing = self._conn.execute(
+                    """
+                    SELECT line_sha256, disposition, event_id
+                    FROM legacy_import_ledger
+                    WHERE file_identity = ? AND offset = ?
+                    """,
+                    (identity, offset),
+                ).fetchone()
+                event_id: Optional[str] = None
+                if existing is not None and str(existing["line_sha256"]) != digest:
+                    self._conn.execute(
+                        """
+                        UPDATE legacy_import_ledger
+                        SET disposition = ?
+                        WHERE file_identity = ? AND offset = ?
+                        """,
+                        (LEGACY_DISP_CONFLICT, identity, offset),
+                    )
+                    self._note_legacy_conflict_unlocked(
+                        f"source_conflict {language_code}"
+                    )
+                    if getattr(self, "_legacy_import_fail_before_commit", False):
+                        raise AccountLocalError("legacy import failpoint")
+                    self._conn.execute("COMMIT")
+                    return None
+                if existing is not None:
+                    event_id = existing["event_id"]
+                    if getattr(self, "_legacy_import_fail_before_commit", False):
+                        raise AccountLocalError("legacy import failpoint")
+                    self._conn.execute("COMMIT")
+                    return event_id
+                if disposition == LEGACY_DISP_IMPORTED:
+                    if not isinstance(event, dict):
+                        raise AccountLocalError("Imported attempt is missing its event.")
+                    event_id = str(event.get("event_id") or uuid.uuid4())
+                    event = dict(event)
+                    event["event_id"] = event_id
+                    self._insert_legacy_attempt_unlocked(event)
+                self._conn.execute(
+                    """
+                    INSERT INTO legacy_import_ledger (
+                        file_identity, offset, line_sha256, disposition,
+                        event_id, created_at
+                    ) VALUES (?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        identity,
+                        offset,
+                        digest,
+                        disposition,
+                        event_id,
+                        to_utc_iso(utc_now()),
+                    ),
+                )
+                self._conn.execute(
+                    """
+                    INSERT INTO legacy_import_source (
+                        language_code, file_identity, canonical_path, high_water
+                    ) VALUES (?, ?, ?, ?)
+                    ON CONFLICT(language_code, file_identity) DO UPDATE SET
+                        canonical_path = excluded.canonical_path,
+                        high_water = CASE
+                            WHEN ? THEN excluded.high_water
+                            ELSE legacy_import_source.high_water
+                        END
+                    """,
+                    (
+                        language_code,
+                        identity,
+                        canonical_path,
+                        int(next_high_water) if move_high_water else 0,
+                        1 if move_high_water else 0,
+                    ),
+                )
+                if getattr(self, "_legacy_import_fail_before_commit", False):
+                    raise AccountLocalError("legacy import failpoint")
+                self._conn.execute("COMMIT")
+                return event_id
+            except Exception:
+                self._conn.execute("ROLLBACK")
+                raise
+
+    def reconcile_legacy_overlap_line(
+        self,
+        *,
+        language_code: str,
+        file_identity: str,
+        offset: int,
+        line_sha256: str,
+        choice: str,
+        event: Optional[dict] = None,
+        next_high_water: Optional[int] = None,
+    ) -> Optional[str]:
+        """Apply an explicit overlap choice. Skip writes no outbox event."""
+        if choice not in {"skip", "distinct"}:
+            raise AccountLocalError("Overlap choice must be skip or distinct.")
+        language_code = language_code.strip().lower()
+        identity = str(file_identity)
+        with self._lock:
+            self._conn.execute("BEGIN IMMEDIATE")
+            try:
+                existing = self._conn.execute(
+                    """
+                    SELECT line_sha256, disposition, event_id
+                    FROM legacy_import_ledger
+                    WHERE file_identity = ? AND offset = ?
+                    """,
+                    (identity, int(offset)),
+                ).fetchone()
+                if existing is None:
+                    raise AccountLocalError("Overlap line is not in the ledger.")
+                if str(existing["line_sha256"]) != str(line_sha256):
+                    self._conn.execute(
+                        """
+                        UPDATE legacy_import_ledger
+                        SET disposition = ?
+                        WHERE file_identity = ? AND offset = ?
+                        """,
+                        (LEGACY_DISP_CONFLICT, identity, int(offset)),
+                    )
+                    self._note_legacy_conflict_unlocked(
+                        f"source_conflict {language_code}"
+                    )
+                    self._conn.execute("COMMIT")
+                    return None
+                if str(existing["disposition"]) != LEGACY_DISP_OVERLAP:
+                    if getattr(self, "_legacy_import_fail_before_commit", False):
+                        raise AccountLocalError("legacy import failpoint")
+                    self._conn.execute("COMMIT")
+                    return existing["event_id"]
+                event_id = None
+                if choice == "distinct" and isinstance(event, dict):
+                    event_id = str(event.get("event_id") or uuid.uuid4())
+                    event = dict(event)
+                    event["event_id"] = event_id
+                    self._insert_legacy_attempt_unlocked(event)
+                    disposition = LEGACY_DISP_IMPORTED
+                else:
+                    disposition = LEGACY_DISP_SKIPPED_OVERLAP
+                self._conn.execute(
+                    """
+                    UPDATE legacy_import_ledger
+                    SET disposition = ?, event_id = ?
+                    WHERE file_identity = ? AND offset = ?
+                    """,
+                    (disposition, event_id, identity, int(offset)),
+                )
+                if next_high_water is not None:
+                    self._conn.execute(
+                        """
+                        UPDATE legacy_import_source
+                        SET high_water = ?
+                        WHERE language_code = ? AND file_identity = ?
+                          AND high_water < ?
+                        """,
+                        (
+                            int(next_high_water),
+                            language_code,
+                            identity,
+                            int(next_high_water),
+                        ),
+                    )
+                if getattr(self, "_legacy_import_fail_before_commit", False):
+                    raise AccountLocalError("legacy import failpoint")
+                self._conn.execute("COMMIT")
+                return event_id
+            except Exception:
+                self._conn.execute("ROLLBACK")
+                raise
+
+    def legacy_attempt_high_water(
+        self, language_code: str, file_identity: str
+    ) -> int:
+        with self._lock:
+            row = self._conn.execute(
+                """
+                SELECT high_water FROM legacy_import_source
+                WHERE language_code = ? AND file_identity = ?
+                """,
+                (language_code.strip().lower(), str(file_identity)),
+            ).fetchone()
+        return int(row["high_water"]) if row else 0
+
+    def legacy_hash_on_other_identity(self, line_sha256: str, file_identity: str) -> bool:
+        with self._lock:
+            row = self._conn.execute(
+                """
+                SELECT 1 FROM legacy_import_ledger
+                WHERE line_sha256 = ? AND file_identity != ?
+                LIMIT 1
+                """,
+                (str(line_sha256), str(file_identity)),
+            ).fetchone()
+        return row is not None
+
+    def _insert_legacy_attempt_unlocked(self, event: dict) -> None:
+        hint_used = bool(event.get("hint_used"))
+        verdict = str(event["verdict"])
+        mastered = verdict == "exact" and not hint_used
+        stamp = to_utc_iso(utc_now())
+        self._conn.execute(
+            """
+            INSERT INTO learning_attempts (
+                event_id, device_id, language_code, vocab_id, verdict,
+                mastered, hint_used, occurred_at, algorithm_id,
+                word_snapshot, user_answer, expected_answer, prompt, source
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'legacy_import')
+            """,
+            (
+                event["event_id"],
+                event.get("device_id") or self.device_id(),
+                event["language_code"],
+                event["vocab_id"],
+                verdict,
+                1 if mastered else 0,
+                1 if hint_used else 0,
+                event["occurred_at"],
+                ALGORITHM_LADDER_V2,
+                event.get("word_snapshot") or "",
+                event.get("user_answer") or "",
+                event.get("expected_answer") or "",
+                event.get("prompt") or "",
+            ),
+        )
+        payload = {
+            "event_id": event["event_id"],
+            "device_id": event.get("device_id") or self.device_id(),
+            "language_code": event["language_code"],
+            "vocab_id": event["vocab_id"],
+            "verdict": verdict,
+            "mastered": 1 if mastered else 0,
+            "hint_used": 1 if hint_used else 0,
+            "occurred_at": event["occurred_at"],
+            "algorithm_id": ALGORITHM_LADDER_V2,
+            "word_snapshot": event.get("word_snapshot") or "",
+            "user_answer": event.get("user_answer") or "",
+            "expected_answer": event.get("expected_answer") or "",
+            "prompt": event.get("prompt") or "",
+        }
+        self._enqueue_outbox(
+            kind=OUTBOX_KIND_PROGRESS,
+            operation_id=event["event_id"],
+            event_id=event["event_id"],
+            language_code=event["language_code"],
+            vocab_id=event["vocab_id"],
+            payload=payload,
+            stamp=stamp,
+        )
+        self._rebuild_provisional_unlocked(event["language_code"], event["vocab_id"])
+        _meta_set(self._conn, "progress_caught_up", "0")
+
+    def _note_legacy_conflict_unlocked(self, detail: str) -> None:
+        row = self._conn.execute(
+            """
+            SELECT id FROM sync_conflicts
+            WHERE kind = ? AND detail = ? AND resolved = 0
+            LIMIT 1
+            """,
+            (LEGACY_CONFLICT_KIND, detail),
+        ).fetchone()
+        if row is None:
+            self._record_conflict_unlocked(LEGACY_CONFLICT_KIND, detail)
+
+    def _resolve_legacy_conflict_unlocked(self, detail: str) -> None:
+        self._conn.execute(
+            """
+            UPDATE sync_conflicts
+            SET resolved = 1
+            WHERE kind = ? AND detail = ? AND resolved = 0
+            """,
+            (LEGACY_CONFLICT_KIND, detail),
+        )
+
     def acknowledge_progress_upload(self, event_id: str, body: dict) -> None:
         """Mark outbox acked and apply progress_after without moving the download cursor."""
         progress_after = body.get("progress_after") or {}
@@ -1951,27 +2408,56 @@ class AccountLocalStore:
             }
             confirmed_version = int(confirmed["state_version"])
 
-        uncovered = self._conn.execute(
-            """
-            SELECT a.*
-            FROM learning_attempts a
-            JOIN outbox o ON o.event_id = a.event_id AND o.kind = ?
-            WHERE a.language_code = ? AND a.vocab_id = ?
-              AND (
-                    o.state = ?
-                 OR o.ack_state_version IS NULL
-                 OR o.ack_state_version < ?
-              )
-            ORDER BY a.occurred_at ASC, a.event_id ASC
-            """,
-            (
-                OUTBOX_KIND_PROGRESS,
-                language_code,
-                vocab_id,
-                OUTBOX_PENDING,
-                confirmed_version,
-            ),
-        ).fetchall()
+        uncovered = list(
+            self._conn.execute(
+                """
+                SELECT a.*, o.id AS outbox_id, o.created_at AS outbox_created_at
+                FROM learning_attempts a
+                JOIN outbox o ON o.event_id = a.event_id AND o.kind = ?
+                WHERE a.language_code = ? AND a.vocab_id = ?
+                  AND (
+                        o.state = ?
+                     OR o.ack_state_version IS NULL
+                     OR o.ack_state_version < ?
+                  )
+                ORDER BY a.occurred_at ASC, a.event_id ASC
+                """,
+                (
+                    OUTBOX_KIND_PROGRESS,
+                    language_code,
+                    vocab_id,
+                    OUTBOX_PENDING,
+                    confirmed_version,
+                ),
+            ).fetchall()
+        )
+        legacy_ids = {
+            str(row["event_id"])
+            for row in self._conn.execute(
+                """
+                SELECT event_id FROM legacy_import_ledger
+                WHERE event_id IS NOT NULL
+                """
+            )
+            if row["event_id"]
+        }
+        def _legacy_pending(row) -> bool:
+            # The ledger row is inserted after this rebuild on the import
+            # path, so the attempt source is the signal during that
+            # transaction. After acknowledgement the source becomes server
+            # and the ledger id keeps the same scheduling rule.
+            return (
+                str(row["source"] or "") == "legacy_import"
+                or str(row["event_id"]) in legacy_ids
+            )
+
+        # Live study stays ordered by occurred_at and uses that device clock
+        # as the stand-in for received_at. A guest import keeps occurred_at as
+        # evidence, but the pending fold follows outbox order and the enqueue
+        # clock. Upload uses that same outbox order, and the server anchors
+        # due_at to received_at rather than the guest timestamp.
+        if any(_legacy_pending(row) for row in uncovered):
+            uncovered.sort(key=lambda row: int(row["outbox_id"]))
         for attempt in uncovered:
             mastered = bool(int(attempt["mastered"]))
             stats["seen"] += 1
@@ -1981,7 +2467,10 @@ class AccountLocalStore:
             else:
                 stats["wrong"] += 1
                 stats["streak"] = 0
-            reviewed_at = parse_utc(attempt["occurred_at"]) or utc_now()
+            if _legacy_pending(attempt):
+                reviewed_at = parse_utc(attempt["outbox_created_at"]) or utc_now()
+            else:
+                reviewed_at = parse_utc(attempt["occurred_at"]) or utc_now()
             apply_review_to_stats(stats, mastered=mastered, reviewed_at=reviewed_at)
 
         self._conn.execute(
