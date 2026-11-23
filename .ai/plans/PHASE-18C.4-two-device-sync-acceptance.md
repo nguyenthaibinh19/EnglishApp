@@ -1,12 +1,12 @@
 # Phase 18C.4 — Two-device sync acceptance
 
-Status: **18C.4P-R4B verifier and permissions passed** (`APP_18C4P_R4B_VERIFIER_AND_PERMISSIONS_PASS`)  
+Status: **vocabulary A → VPS → B PASS — Owner confirmed** (`APP_18C4P_VOCAB_SYNC_MILESTONE_RECORDED`)  
 Owner priority: working Account Sync between two real Windows computers, before production hardening and Google Drive backup.  
 Date: 2026-11-23  
-Cloud Sync production: **OFF** · 18B.9: **PAUSED, NOT CLOSED** · Staging: **RESERVED, not deployed** · Sync pilot: **NO-GO** until explicitly authorized  
+Cloud Sync production: **ON**, supervised pilot · 18B.9: **PAUSED, NOT CLOSED** · Staging: **RESERVED, not deployed** · Vocabulary A → VPS → B: **PASS — Owner confirmed** · Remaining scenarios: **open**  
 18B.10A: **AUDIT ACCEPTED, IMPLEMENTATION DEFERRED.** Do not implement 18B.10B, 18B.10C, 18B.10D, or 18B.10E.
 
-This document is the readiness and test plan. It does not start a server, build an EXE, change application source, or run the two-computer test.
+This document records the acceptance plan and the production vocabulary result. The production flag stays on. Do not rebuild the Sync Engine or enable the recurring sync backup timer.
 
 ## 1. Baseline
 
@@ -163,6 +163,8 @@ Failure evidence is a missing conflict, a silent overwrite, a lost pending event
 
 ## 8. Isolation and rollback
 
+The bullets below describe the original lab plan. The production pilot is now on. Do not unset `STUDY_SYNC_ENABLED` as part of recording this vocabulary result.
+
 - Production `.env`, systemd, and the public host stay untouched. `STUDY_SYNC_ENABLED` on production stays unset.
 - The lab flag lives only in the one server shell on computer A.
 - Rollback of the lab: stop that process, close the SSH forward, and delete the new `lab` directories. Do not delete `%APPDATA%\langstudyguard`, `%APPDATA%\langstudyguard-rc`, or the recovery folder.
@@ -246,6 +248,29 @@ Still required from the Owner, after 18C.4B authorization:
 
 ## 11. STOP
 
-`APP_18C4P_R4B_VERIFIER_AND_PERMISSIONS_PASS`
+`APP_18C4P_VOCAB_SYNC_MILESTONE_RECORDED`
 
-The verifier service completes `VERIFIED` as `guard` without exposing account backups. The live sync database is mode `0600`. Machine B is not claimed. Evidence: [PHASE-18C.4P-R4-sync-activation.md](PHASE-18C.4P-R4-sync-activation.md). The original junction **FAIL** stays in the evidence above.
+The Owner confirmed that two real Windows computers synchronized Dutch `syncprobe` / `lab-marker` for `syncpilot_18c4p` through the production backend. This record does not include separate Machine B logs or screenshots. Production Sync stays **ON**. The additional backup `study-sync-20261123-171338-651159.db` is mode `0600`, schema 3, integrity `ok`, and the verifier service returned `VERIFIED`. Scenarios 2a, 2b, 3, 4, 5, and 6 remain open. Evidence: [PHASE-18C.4P-R4-sync-activation.md](PHASE-18C.4P-R4-sync-activation.md). The original junction **FAIL** stays in the evidence above.
+
+## Production vocabulary result
+
+| Item | Result |
+|------|--------|
+| 1. Vocabulary A → VPS → B | **PASS — Owner confirmed**, 2026-11-23. Synthetic account only. |
+| 2a. Same event replay | Open |
+| 2b. Second quiz submission | Open |
+| 3. Offline recovery | Open |
+| 4. Deterministic conflict | Open |
+| 5. Restart persistence | Open |
+| 6. Account isolation | Open |
+
+## Next checks
+
+Use the same synthetic account and the isolated production clients. Do not use the real learner account. Disconnect a computer's network for the offline check; this pilot has no SSH tunnel.
+
+1. Bidirectional vocabulary: change `syncprobe` on B and confirm A receives it, then change it on A and confirm B receives it.
+2. Attempts, Progress, and SRS: submit one new answer on B and confirm A shows that attempt once, with the updated progress. Repeat the same event and confirm the server does not add a second row.
+3. Offline and reconnect: disconnect B, make one local change, reconnect, and confirm the change arrives once.
+4. Conflict: let both computers change the same item while one is offline, then reconnect and choose Keep local or Keep server explicitly.
+5. Account isolation: sign B into a second synthetic account and confirm it does not show the first account's word.
+6. Restart: quit and reopen both apps and confirm the same user, the same word, and Synced, with no new attempt.

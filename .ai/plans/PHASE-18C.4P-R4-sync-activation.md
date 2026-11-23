@@ -1,6 +1,6 @@
 # Phase 18C.4P-R4 — Production sync activation
 
-Status: **SYNC ON, verifier and permissions passed** (`APP_18C4P_R4B_VERIFIER_AND_PERMISSIONS_PASS`)  
+Status: **SYNC ON, vocabulary A → VPS → B PASS — Owner confirmed** (`APP_18C4P_VOCAB_SYNC_MILESTONE_RECORDED`)  
 Date: 2026-11-23  
 Baseline: `59f0b4bfe218da895b3fbf218d1728a0ad28889f`
 
@@ -30,7 +30,9 @@ The isolated client was open as `Language Guard — PRODUCTION`. The Owner compl
 
 ## Machine B
 
-**UNVERIFIED.** On the second computer, use the R3 source client at `ed4e49ea8b977468d10869adec8d2ec3b494fe91`, an isolated data directory, production identity, and `https://langstudyguard.com`. Sign in as `syncpilot_18c4p` and wait at least 90 seconds. `syncprobe` / `lab-marker` should appear without copying a database.
+**PASS — Owner confirmed.** Both real Windows computers showed `syncprobe` / `lab-marker` for `syncpilot_18c4p`. No separate Machine B log or screenshot is stored.
+
+The later backup `study-sync-20261123-171338-651159.db` is mode `0600`, schema 3, integrity `ok`. The verifier service returned `VERIFIED` for that file. The earlier backup remains in place. Production Sync stays on.
 
 ## Rollback
 
