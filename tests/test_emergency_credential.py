@@ -227,6 +227,56 @@ def test_dpapi_flags_are_current_user_only():
             emergency_credential.active_protection()
 
 
+def test_chosen_code_enrolls_and_is_not_stored_in_plaintext():
+    chosen = "harbor-lamp-42"
+    secret = emergency_credential.begin_or_resume(chosen=chosen)
+    assert secret == chosen
+    stored = Path(emergency_credential.credential_path()).read_text(encoding="utf-8")
+    assert chosen not in stored
+    assert emergency_credential.acknowledge_current(chosen) is True
+    assert emergency_credential.validate_offline(chosen) is True
+    assert emergency_credential.lock_allowed() is True
+
+
+def test_empty_and_weak_codes_are_rejected_before_any_file_is_written():
+    for candidate in ("", "   ", "short", "password", "12345678", "aaaaaaaa", "abcdefgh"):
+        with pytest.raises(emergency_credential.WeakEmergencyCode):
+            emergency_credential.begin_or_resume(chosen=candidate)
+        assert emergency_credential.status() == "missing"
+        assert not Path(emergency_credential.credential_path()).exists()
+
+
+def test_chosen_replacement_keeps_the_current_code_until_confirmation():
+    current = _enroll()
+    before = Path(emergency_credential.credential_path()).read_bytes()
+    with pytest.raises(emergency_credential.WeakEmergencyCode):
+        emergency_credential.start_reenrollment(
+            lock_active=False, replace_existing=True, chosen="password"
+        )
+    assert Path(emergency_credential.credential_path()).read_bytes() == before
+    pending_path = Path(emergency_credential.credential_path()).with_name(
+        emergency_credential.PENDING_NAME
+    )
+    assert not pending_path.exists()
+    pending = emergency_credential.start_reenrollment(
+        lock_active=False, replace_existing=True, chosen="harbor-lamp-42"
+    )
+    assert pending == "harbor-lamp-42"
+    assert emergency_credential.validate_offline(current) is True
+    assert emergency_credential.commit_reenrollment("not-the-new-code") is False
+    assert emergency_credential.validate_offline(current) is True
+    assert emergency_credential.commit_reenrollment(pending) is True
+    assert emergency_credential.validate_offline(pending) is True
+    assert emergency_credential.validate_offline(current) is False
+
+
+def test_unacknowledged_enrollment_is_resumed_instead_of_replaced():
+    secret = emergency_credential.begin_or_resume()
+    resumed = emergency_credential.begin_or_resume(chosen="harbor-lamp-42")
+    assert resumed == secret
+    assert emergency_credential.status() == "unacknowledged"
+
+
 def test_release_configuration_has_no_emergency_password(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     (tmp_path / ".env").write_text(

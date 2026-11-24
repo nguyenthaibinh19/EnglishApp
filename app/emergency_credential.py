@@ -45,6 +45,32 @@ class RecoveryRefused(EmergencyCredentialError):
     """Recovery was requested while screen lock is active."""
 
 
+class WeakEmergencyCode(EmergencyCredentialError):
+    """A chosen code is empty or trivially weak. Nothing was written."""
+
+
+MIN_CHOSEN_LENGTH = 8
+_TRIVIAL_CODES = frozenset(
+    {
+        "password",
+        "password1",
+        "passw0rd",
+        "12345678",
+        "123456789",
+        "1234567890",
+        "qwertyui",
+        "qwertyuiop",
+        "emergency",
+        "langstudy",
+        "letmein1",
+        "iloveyou",
+        "abc12345",
+        "admin123",
+        "welcome1",
+    }
+)
+
+
 @dataclass(frozen=True)
 class _Record:
     protection: str
@@ -169,8 +195,37 @@ def screen_lock_enabled(argv=None) -> bool:
     return "--lock" in args and lock_allowed()
 
 
-def begin_or_resume() -> str:
-    """Return the secret to show. Create one only when no credential file exists."""
+def normalize_chosen_code(secret: str) -> str:
+    """Return a trimmed chosen code, or reject it before any file is written."""
+    if not isinstance(secret, str):
+        raise WeakEmergencyCode(
+            config.ui("Hãy nhập mã thoát khẩn cấp.", "Enter an emergency code.")
+        )
+    text = secret.strip()
+    if not text:
+        raise WeakEmergencyCode(
+            config.ui("Hãy nhập mã thoát khẩn cấp.", "Enter an emergency code.")
+        )
+    if len(text) < MIN_CHOSEN_LENGTH:
+        raise WeakEmergencyCode(
+            config.ui(
+                "Mã cần ít nhất 8 ký tự.",
+                "Use at least 8 characters.",
+            )
+        )
+    if _trivially_weak(text):
+        raise WeakEmergencyCode(
+            config.ui("Mã này quá dễ đoán.", "That code is too easy to guess.")
+        )
+    return text
+
+
+def begin_or_resume(*, chosen: str | None = None) -> str:
+    """Return the secret to show. Create one only when no credential file exists.
+
+    A chosen code is stored only when it passes the strength check. An
+    unacknowledged file is resumed and is not replaced.
+    """
     state = status()
     if state == "acknowledged":
         raise CredentialEstablished("An emergency credential is already enrolled.")
@@ -178,7 +233,8 @@ def begin_or_resume() -> str:
         return _secret_from(_load(credential_path()))
     if state == "unreadable":
         raise CredentialUnreadable("The stored emergency credential cannot be read.")
-    return _create(credential_path(), acknowledged=False)
+    secret = None if chosen is None else normalize_chosen_code(chosen)
+    return _create(credential_path(), acknowledged=False, secret=secret)
 
 
 def acknowledge_current(typed: str) -> bool:
@@ -221,13 +277,19 @@ def reveal_outside_lock(*, lock_active: bool) -> str:
     return _secret_from(_load(credential_path()))
 
 
-def start_reenrollment(*, lock_active: bool, replace_existing: bool) -> str:
-    """Write a pending credential. The current file stays until it is committed."""
+def start_reenrollment(
+    *, lock_active: bool, replace_existing: bool, chosen: str | None = None
+) -> str:
+    """Write a pending credential. The current file stays until it is committed.
+
+    A weak chosen code raises before the pending file is written.
+    """
     if lock_active:
         raise RecoveryRefused("Re-enrollment is unavailable while screen lock is active.")
     if lock_allowed() and not replace_existing:
         raise CredentialEstablished("An emergency credential is already enrolled.")
-    return _create(_pending_path(), acknowledged=False)
+    secret = None if chosen is None else normalize_chosen_code(chosen)
+    return _create(_pending_path(), acknowledged=False, secret=secret)
 
 
 def commit_reenrollment(typed: str) -> bool:
@@ -251,11 +313,24 @@ def cancel_reenrollment() -> None:
     _remove(_pending_path())
 
 
-def _create(path: str, *, acknowledged: bool) -> str:
+def _trivially_weak(text: str) -> bool:
+    folded = text.casefold()
+    if folded in _TRIVIAL_CODES:
+        return True
+    if len(set(folded)) <= 1:
+        return True
+    diffs = [ord(right) - ord(left) for left, right in zip(folded, folded[1:])]
+    return bool(diffs) and (all(diff == 1 for diff in diffs) or all(diff == -1 for diff in diffs))
+
+
+def _create(path: str, *, acknowledged: bool, secret: str | None = None) -> str:
     import secrets
 
     protector = active_protection()
-    secret = secrets.token_urlsafe(18)
+    if secret is None:
+        secret = secrets.token_urlsafe(18)
+    else:
+        secret = normalize_chosen_code(secret)
     blob = protector.protect(secret.encode("utf-8"))
     if not _matches(protector.unprotect(blob).decode("utf-8"), secret):
         raise CredentialUnreadable("The emergency credential could not be verified.")
