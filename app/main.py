@@ -1499,6 +1499,17 @@ def main():
 
     from home_app import FreeHome
 
+    problem = config.data_root_error()
+    if problem:
+        root = tk.Tk()
+        root.withdraw()
+        messagebox.showerror(
+            config.APP_NAME,
+            "RC smoke stopped before opening data.\n" + problem,
+        )
+        root.destroy()
+        return
+
     if "--check" in sys.argv:
         run_diagnostics()
         return

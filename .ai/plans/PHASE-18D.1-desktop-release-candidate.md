@@ -1,6 +1,6 @@
 # Phase 18D.1 — Desktop release candidate
 
-Status: **isolated smoke accepted. Account id 1 incident reconciled and preserved.** Public release remains blocked. Baseline for this reconciliation: `e9457e3418579d44f51a7ca261a0f89fbf747c82`.  
+Status: **incident reconciled and contained. Release-security review is ready.** Public release remains blocked. Containment baseline: `5bd5791c364f283e163d87e175f9ee5abe525c23`.  
 Date: 2026-11-24  
 Proposed release: v1.5.0 — Account Cloud Sync Update  
 Packaged source: `29292749da54b0035833321a80e2776007b6ee8e`  
@@ -78,7 +78,7 @@ The executable is unsigned. Windows SmartScreen can warn. No public release was 
 These remain explicit gates. None is cleared by this smoke.
 
 - The synthetic emergency password `18d1-rc-placeholder-not-for-publication` is unsuitable for publication.
-- The bundled emergency-password architecture still needs review. `bundle_secrets.py` reads `EMERGENCY_PASSWORD` from a developer `.env`.
+- The bundled emergency-password review is recorded below. The replacement is not implemented. `bundle_secrets.py` still reads `EMERGENCY_PASSWORD` from a developer `.env`.
 - The repository `sync_http.py` correction remains undeployed. Source SHA-256 `3de5c413064240ff8036df9c314006201c302be32003cbeb76db502b2612ca6d`. Production remains `aa88f693764912f589a5945d7b3f154b587363311130b01295127cb600ddd5d1`.
 - The recurring Sync backup timer remains disabled.
 - The final public ZIP must be named `langstudyguard.zip` and must contain `langstudyguard.exe`. This private ZIP contains `langstudyguard-rc.exe`.
@@ -109,10 +109,34 @@ All original learner vocabulary is preserved locally, and the uploaded subset ma
 
 Confirmed facts: the acknowledgements were written into this computer's protected database from `13:04:21Z` through `13:04:32Z`, and the server entities were updated at `13:04:40Z`. Windows records a shell launch of `D:\EnglishApp\.local\builds\18d1-v1.5.0-rc\langstudyguard-rc.exe` at `13:04:16.766Z`. The older `dist-rc` executable's last recorded launch is `2026-11-22T10:40:20Z`. The installed production executable's last recorded launch is `2026-11-08T17:08:23Z`. The same-machine lab databases were last written at `11:29Z`. The protected `settings.json` was not rewritten, so the uploading client used the account id 1 session already stored on `2026-11-22`. No retained command line identifies the parent of the `13:04:16Z` launch.
 
-Hypothesis, not a confirmed command: that launch used the default RC data root because `LG_DATA_DIR` was not set. An RC-named executable does that by design, and the stored session would start sync without a new login. A separate window of the same executable was signed in as user 3 at `13:06Z`, so the upload and the isolated smoke were not the same visible session.
+Hypothesis, not a confirmed command: that launch used the default RC data root because `LG_DATA_DIR` was not set. An RC-named executable did that by design, and the stored session would start sync without a new login. A separate window of the same executable was signed in as user 3 at `13:06Z`, so the upload and the isolated smoke were not the same visible session.
 
 This upload was not produced by another computer. Another computer cannot write this local outbox file. There is no evidence for a different local executable.
 
-At `14:07:35Z` the still-running candidate, using the isolated data root, logged in as account id 1 and issued one preferences put. It then polled. It was not closed: it does not have the protected directory open. It has written a second local database at `.local\data\18d1-v1.5.0-rc\accounts\1\account_study.db`, `147,456` bytes, containing the 92 downloaded entities, no attempts, and no outbox rows. Do not treat that file as the learner database.
+At `14:07:35Z` the still-running candidate, using the isolated data root, logged in as account id 1 and issued one preferences put. It then polled. That preferences put is a separate server write from the vocabulary upload. It was not reversed. Account id 1 vocabulary on the server was not changed by it.
 
-The smallest prevention for the next smoke is a launcher that refuses to start unless `LG_DATA_DIR` is the intended isolated directory and is not `%APPDATA%\langstudyguard-rc`. That guard was not implemented here. Public release remains blocked by the gates above.
+## Containment
+
+On 2026-11-24 the isolated v1.5.0 candidate was no longer running. Its last writes to the isolated settings file and to `.local\data\18d1-v1.5.0-rc\accounts\1\account_study.db` were `2026-11-24T14:50:43Z`. No `langstudyguard` process was present, so nothing was closed and the candidate was not launched again.
+
+The isolated account id 1 database remains incident evidence: `147,456` bytes, 92 vocabulary entities, 0 deleted, 0 attempts, and an empty outbox. It was not copied or merged into the protected database. The isolated settings file still holds the account id 1 session. That session was not cleared and must not be used to resume synchronization.
+
+The protected database is unchanged: `221,184` bytes, mtime `2026-11-24T13:04:32.935533Z`, 115 vocabulary entities, 0 deleted, 92 acknowledged vocabulary operations, 23 pending vocabulary operations, 6 pending progress events, 6 learning attempts, 0 confirmed progress rows, and 0 conflicts. The installed production EXE and Startup shortcut were not changed.
+
+Future RC smoke now fails closed in source. `config.data_dir()` requires `LG_DATA_DIR` when RC smoke is active and refuses the protected RC AppData directory, production AppData, the production install directory, and `LanguageGuard-Recovery`, including overlapping or redirected paths. The check runs before settings are read and `main()` returns before install and before Sync Engine start. A genuine production EXE still resolves `%APPDATA%\langstudyguard` without `LG_DATA_DIR`.
+
+`tests/test_rc_smoke_isolation.py` and `tests/test_app_environment_isolation.py`: 31 passed. The tests use temporary directories only. The guarded launcher `.local\labs\18d1\launch_rc_smoke.py` refused the four protected directories, the incident root, and a path outside the workspace, and accepted an unused workspace path without creating it or starting the EXE. The v1.5.0 candidate was not rebuilt, so that binary gets the check only through the launcher until a later build.
+
+## Emergency-exit security decision
+
+This is a recommendation. It is not implemented.
+
+The bundled password is read in two places. A source run takes `EMERGENCY_PASSWORD` from the developer environment in `config.reload()`. A frozen run reads `bundled_secrets.json` through `config.bundled_password()`. `bundle_secrets.py` copies that environment value into the JSON file, and the build packs the file into the executable. `config.is_ready()` returns false when the password is empty, so a frozen build without one cannot finish setup.
+
+Emergency Exit is offline. `LockScreen.confirm_emergency_exit` pauses screen-lock enforcement and calls `confirm_developer_exit`, which compares the typed value with `config.EMERGENCY_PASSWORD` using `hmac.compare_digest`. No network call is involved. Account save and clear remove `emergency_password` from settings, so the secret is not stored in AppData.
+
+An upgrade replaces the installed EXE and leaves the AppData session and databases in place. The Startup shortcut still launches with `--lock`. The password that opens Emergency Exit is the one inside the EXE that is running. Replacing that EXE with a build that embeds a different shared password changes the password without a local acknowledgement.
+
+The developer password can be extracted from a distributed executable. It is stored as plaintext JSON inside the package, so every copy of that build shares the same secret.
+
+Recommended replacement, one step, compatible with the current release: keep accepting the bundled secret on an existing installation until that installation has acknowledged a local secret. On first run of a new public build, generate a per-user secret, protect it with Windows DPAPI for the current Windows user, and show it once. Do not create the Startup `--lock` shortcut until that acknowledgement. Emergency Exit stays a local comparison against the acknowledged secret, so it still works offline. The same Windows user can reveal the DPAPI-protected secret again without a server. Until acknowledgement, the previous bundled password remains valid, so an upgrade cannot lock the owner out. A new public build should stop embedding a shared password once that local path exists. Do not implement this in the current candidate.

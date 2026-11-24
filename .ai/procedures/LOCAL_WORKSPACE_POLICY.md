@@ -12,12 +12,16 @@ The EnglishApp Git root is the main worktree, `D:\EnglishApp`. Disposable pilots
 |------|---------|
 | `.local/clients/` | Isolated source clients. The active one is `clients/18c4p-r3`. |
 | `.local/data/` | Disposable data roots. Client A is `data/18c4p-r3`. Client B is `data/18c4p-r3-b`. |
-| `.local/labs/` | Experiment scripts and synthetic labs. `labs/18c4p-r3` is the active launcher. `labs/18c4a` and `labs/18c4p-r1` are archival. |
-| `.local/builds/` | Local build output. `builds/18c4p-r1-candidate` is archival and must not be installed. |
+| `.local/labs/` | Experiment scripts and synthetic labs. `labs/18c4p-r3` is the active sync launcher. `labs/18d1/launch_rc_smoke.py` is the guarded RC smoke launcher. `labs/18c4a` and `labs/18c4p-r1` are archival. |
+| `.local/data/18d1-v1.5.0-rc` | 18D.1 incident evidence, including the account id 1 download. Do not launch against it and do not merge it into the protected account. |
+| `.local/backups/18d1-data-incident` | Local incident backup of the protected account database. Not a smoke data root. |
+| `.local/builds/` | Local build output. `builds/18d1-v1.5.0-rc` is the private candidate and must be started through the guarded launcher. `builds/18c4p-r1-candidate` is archival and must not be installed. |
 | `.local/payloads/` | Local deployment payloads. `payloads/18c4p-r2` is archival. |
 | `.local/tools/restic/` | Local restic 0.19.1 for automated recovery tests. `restic.exe` reports `restic 0.19.1 compiled with go1.26.4 on windows/amd64`. The archive SHA-256 is `da948ad707ed690426473aaba2046cd61f8f90f6f0e7dab6be0d5796531de67d`. It is not on `PATH` and is not committed. |
 
 `.local/INVENTORY.md` records the move and the retention of each artifact.
+
+`launch_rc_smoke.py` is the operational guard for the already-built v1.5.0 candidate. It requires `--data-root`, sets `LG_DATA_DIR` and `LG_RC_SMOKE=1`, and exits without starting the EXE when the root is missing, outside `.local\data`, the 18D.1 incident root, or a protected AppData, install, or recovery directory. `--check` validates and does not launch. The script is not committed.
 
 ## What stays out of Git
 

@@ -64,6 +64,12 @@ def data_dir() -> str:
     """
     identity = environment_identity()
     explicit = (os.environ.get("LG_DATA_DIR") or "").strip()
+    if identity.rc_smoke:
+        if not explicit:
+            raise app_environment.EnvironmentIdentityError(
+                "RC smoke requires LG_DATA_DIR to point at an isolated test data root."
+            )
+        return app_environment.assert_data_root_allowed(explicit, identity=identity)
     if explicit:
         return app_environment.assert_data_root_allowed(explicit, identity=identity)
     if is_frozen():
@@ -130,7 +136,10 @@ UPDATE_REPO = "nguyenthaibinh19/EnglishApp"
 
 # ---------- Đường dẫn dữ liệu ----------
 
-SETTINGS_FILE = os.path.join(data_dir(), "settings.json")
+try:
+    SETTINGS_FILE = os.path.join(data_dir(), "settings.json")
+except app_environment.EnvironmentIdentityError:
+    SETTINGS_FILE = ""
 READING_DIR = os.path.join(resource_dir(), "Reading")
 STARTER_VOCAB_FILE = os.path.join(resource_dir(), "vocab.json")
 
@@ -206,6 +215,7 @@ OPENAI_BASE_URL = None
 ACCOUNT_SERVER_URL = "http://127.0.0.1:8765"
 ACCOUNT_TOKEN = ""
 EMERGENCY_PASSWORD = ""
+_DATA_ROOT_ERROR = ""
 
 
 # Các giá trị mẫu trong .env.example, coi như chưa cấu hình.
@@ -547,6 +557,11 @@ def bundled_account_server() -> str:
     return str(data.get("account_server_url") or "").strip()
 
 
+def data_root_error() -> str:
+    """Why RC smoke refused its data root, or empty when the root is usable."""
+    return _DATA_ROOT_ERROR
+
+
 def reload():
     """Đọc API key từ settings.json (bản .exe) hoặc .env (lúc dev).
 
@@ -555,6 +570,7 @@ def reload():
     """
     global OPENAI_API_KEY, OPENAI_MODEL, OPENAI_BASE_URL, EMERGENCY_PASSWORD
     global ACCOUNT_SERVER_URL, ACCOUNT_TOKEN, APP_VERSION, SETTINGS_FILE
+    global _DATA_ROOT_ERROR
 
     app_environment.reset_identity_cache()
     identity = environment_identity()
@@ -565,6 +581,18 @@ def reload():
 
     if not is_frozen():
         load_dotenv()
+
+    if identity.rc_smoke:
+        try:
+            data_dir()
+        except app_environment.EnvironmentIdentityError as error:
+            _DATA_ROOT_ERROR = str(error)
+            ACCOUNT_TOKEN = ""
+            EMERGENCY_PASSWORD = bundled_password() if is_frozen() else str(
+                os.getenv("EMERGENCY_PASSWORD") or ""
+            )
+            return
+    _DATA_ROOT_ERROR = ""
 
     settings = _read_settings()
     if is_frozen():

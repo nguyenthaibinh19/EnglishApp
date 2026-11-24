@@ -89,13 +89,19 @@ def test_rc_data_dir_isolated_from_existing_production(tmp_path, monkeypatch):
     monkeypatch.setenv("LOCALAPPDATA", str(local))
     monkeypatch.delenv("LG_DATA_DIR", raising=False)
     app_environment.reset_identity_cache()
+    previous_token = config.ACCOUNT_TOKEN
 
-    resolved = config.data_dir()
-    assert Path(resolved).name == app_environment.RC_DATA_FOLDER
-    assert Path(resolved) == (roaming / app_environment.RC_DATA_FOLDER).resolve()
+    with pytest.raises(app_environment.EnvironmentIdentityError) as caught:
+        config.data_dir()
+    assert "LG_DATA_DIR" in str(caught.value)
+    config.reload()
+    assert config.ACCOUNT_TOKEN == ""
+    assert "LG_DATA_DIR" in config.data_root_error()
+    assert not (roaming / app_environment.RC_DATA_FOLDER).exists()
     assert (prod / "settings.json").read_text(encoding="utf-8") == before
     assert installed.read_bytes() == b"MZ-prod"
-    assert not paths_share(resolved, prod)
+    config.ACCOUNT_TOKEN = previous_token
+    config._DATA_ROOT_ERROR = ""
 
 
 def paths_share(a, b) -> bool:
@@ -239,6 +245,104 @@ def test_rc_install_prepare_does_not_touch_production(tmp_path, monkeypatch):
     assert install.prepare() is True
     assert installed.read_bytes() == b"production-installed"
     assert seeds["n"] == 1
+
+
+def _rc_identity(tmp_path):
+    return app_environment.resolve_identity(
+        manifest=_manifest("production", tmp_path),
+        frozen=True,
+        rc_smoke=True,
+    )
+
+
+def test_rc_refuses_protected_rc_appdata_and_recovery(tmp_path, monkeypatch):
+    roaming = tmp_path / "Roaming"
+    local = tmp_path / "Local"
+    protected = roaming / "langstudyguard-rc"
+    recovery = local / "LanguageGuard-Recovery"
+    protected.mkdir(parents=True)
+    recovery.mkdir(parents=True)
+    (protected / "settings.json").write_text(
+        json.dumps({"account_token": "synthetic-rc-token", "environment": "production-rc"}),
+        encoding="utf-8",
+    )
+    before = (protected / "settings.json").read_bytes()
+    identity = _rc_identity(tmp_path)
+    monkeypatch.setattr(config, "environment_identity", lambda: identity)
+    monkeypatch.setenv("APPDATA", str(roaming))
+    monkeypatch.setenv("LOCALAPPDATA", str(local))
+    previous_token = config.ACCOUNT_TOKEN
+
+    for unsafe in (protected, recovery, roaming, local / "langstudyguard"):
+        monkeypatch.setenv("LG_DATA_DIR", str(unsafe))
+        with pytest.raises(app_environment.EnvironmentIdentityError):
+            config.data_dir()
+        config.reload()
+        assert config.ACCOUNT_TOKEN == ""
+
+    assert (protected / "settings.json").read_bytes() == before
+    config.ACCOUNT_TOKEN = previous_token
+    config._DATA_ROOT_ERROR = ""
+
+
+def test_rc_refuses_redirected_path_to_protected_folder(tmp_path, monkeypatch):
+    roaming = tmp_path / "Roaming"
+    protected = roaming / "langstudyguard-rc"
+    protected.mkdir(parents=True)
+    link = tmp_path / "redirected-rc"
+    import subprocess
+
+    created = subprocess.run(
+        ["cmd", "/c", "mklink", "/J", str(link), str(protected)],
+        capture_output=True,
+        text=True,
+    )
+    if created.returncode != 0:
+        pytest.skip("directory junction is not available in this test environment")
+    identity = _rc_identity(tmp_path)
+    monkeypatch.setattr(config, "environment_identity", lambda: identity)
+    monkeypatch.setenv("APPDATA", str(roaming))
+    monkeypatch.setenv("LOCALAPPDATA", str(tmp_path / "Local"))
+    monkeypatch.setenv("LG_DATA_DIR", str(link))
+
+    with pytest.raises(app_environment.EnvironmentIdentityError) as caught:
+        config.data_dir()
+    assert "protected RC" in str(caught.value)
+
+
+def test_rc_accepts_explicit_isolated_root(tmp_path, monkeypatch):
+    roaming = tmp_path / "Roaming"
+    isolated = tmp_path / "synthetic-rc-data"
+    isolated.mkdir()
+    identity = _rc_identity(tmp_path)
+    monkeypatch.setattr(config, "environment_identity", lambda: identity)
+    monkeypatch.setenv("APPDATA", str(roaming))
+    monkeypatch.setenv("LOCALAPPDATA", str(tmp_path / "Local"))
+    monkeypatch.setenv("LG_DATA_DIR", str(isolated))
+    previous_token = config.ACCOUNT_TOKEN
+
+    resolved = config.data_dir()
+    assert Path(resolved) == isolated.resolve()
+    config.reload()
+    assert config.data_root_error() == ""
+    assert not (roaming / "langstudyguard-rc").exists()
+    config.ACCOUNT_TOKEN = previous_token
+
+
+def test_production_exe_still_uses_its_appdata_without_lg_data_dir(tmp_path, monkeypatch):
+    roaming = tmp_path / "Roaming"
+    identity = app_environment.resolve_identity(
+        manifest=_manifest("production", tmp_path),
+        frozen=True,
+        rc_smoke=False,
+    )
+    monkeypatch.setattr(config, "environment_identity", lambda: identity)
+    monkeypatch.setattr(config, "is_frozen", lambda: True)
+    monkeypatch.setenv("APPDATA", str(roaming))
+    monkeypatch.delenv("LG_DATA_DIR", raising=False)
+
+    resolved = config.data_dir()
+    assert Path(resolved) == (roaming / "langstudyguard").resolve()
 
 
 def test_rc_allows_production_backend_host_for_login(tmp_path):

@@ -30,6 +30,7 @@ DATA_FOLDER = {
 # Isolated Product Owner RC smoke folder — never shares production AppData.
 RC_DATA_FOLDER = "langstudyguard-rc"
 RC_SETTINGS_MARKER = "production-rc"
+RECOVERY_FOLDER = "LanguageGuard-Recovery"
 RC_EXE_BASENAME = "langstudyguard-rc.exe"
 RC_STARTUP_LINK = "langstudyguard-rc.lnk"
 
@@ -523,6 +524,32 @@ def validate_data_root_for_identity(
         return f"{label} data root overlaps production AppData: {prod_data}"
     if paths_overlap(candidate, prod_install):
         return f"{label} data root overlaps production install dir: {prod_install}"
+    if identity.rc_smoke:
+        app_root = (
+            appdata
+            if appdata is not None
+            else (os.environ.get("APPDATA") or os.path.expanduser("~"))
+        )
+        local_root = (
+            localappdata
+            if localappdata is not None
+            else (
+                os.environ.get("LOCALAPPDATA")
+                or os.environ.get("APPDATA")
+                or os.path.expanduser("~")
+            )
+        )
+        rc_root = os.path.join(app_root, RC_DATA_FOLDER)
+        recovery_root = os.path.join(local_root, RECOVERY_FOLDER)
+        if paths_overlap(candidate, rc_root):
+            return "RC smoke refused the protected RC AppData directory"
+        if paths_overlap(candidate, recovery_root):
+            return "RC smoke refused the recovery directory"
+        rc_base = os.path.basename(candidate.rstrip("\\/"))
+        if os.path.normcase(rc_base) == os.path.normcase(RC_DATA_FOLDER):
+            return "RC smoke refused the protected RC folder name"
+        if os.path.normcase(rc_base) == os.path.normcase(RECOVERY_FOLDER):
+            return "RC smoke refused the recovery folder name"
     # Exact production folder name under AppData/LocalAppData even if env roots differ.
     base = os.path.basename(candidate.rstrip("\\/"))
     if os.path.normcase(base) == os.path.normcase(DATA_FOLDER[ENV_PRODUCTION]):

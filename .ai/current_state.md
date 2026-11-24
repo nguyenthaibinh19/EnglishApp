@@ -4,7 +4,7 @@
 
 ## Latest verified coordination checkpoint — 2026-11-24
 
-**Current priority:** **Phase 18D.1 account id 1 incident is reconciled and ready for review.** All 114 original vocabulary entities remain in the protected database. 92 match production exactly. 22 original vocabulary operations and 6 progress events are still pending and recoverable. Public release stays blocked. The candidate process is signed in as account id 1 on the isolated data root; that copy is not the continuation source. Production `sync_http.py` remains undeployed. 18C.4P stays closed. **18B.9 PAUSED.** See [PHASE-18D.1-desktop-release-candidate.md](plans/PHASE-18D.1-desktop-release-candidate.md).
+**Current priority:** **Phase 18D.1 incident is reconciled and contained. Release-security review is ready.** The isolated account id 1 session is stopped and was not relaunched. All 114 original vocabulary entities remain in the protected database. 92 match production. 23 vocabulary operations and 6 progress events remain pending and recoverable. The preferences put at `2026-11-24T14:07:35Z` was recorded and not reversed. Public release stays blocked. Production `sync_http.py` remains undeployed. 18C.4P stays closed. **18B.9 PAUSED.** See [PHASE-18D.1-desktop-release-candidate.md](plans/PHASE-18D.1-desktop-release-candidate.md).
 
 **Phase 18B.10A: AUDIT ACCEPTED, IMPLEMENTATION DEFERRED** (`APP_18B10A_ARCHITECT_AUDIT_ACCEPTED_DEFERRED`). The audit and its proposed, unapproved numerical limits stay in [PHASE-18B.10A-api-abuse-resistance-audit.md](plans/PHASE-18B.10A-api-abuse-resistance-audit.md). Do not implement 18B.10B, 18B.10C, 18B.10D, or 18B.10E.
 
