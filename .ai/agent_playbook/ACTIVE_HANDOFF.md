@@ -5,9 +5,9 @@ Rolling coordination checkpoint. See [current_state.md](../current_state.md) and
 ## 1. Checkpoint metadata
 
 - Written: 2026-11-24.
-- Tag: `APP_18D3_V150_RELEASED_OWNER_UPGRADE_COMPLETE`. Release: https://github.com/nguyenthaibinh19/EnglishApp/releases/tag/v1.5.0.
-- Source baseline: `154bf03c6856667cf1322cfe4e6f31996e05e09f`. Installed EXE SHA-256 `6954dbdadec226140ac35e55395ffda0c20a31b1ebaffde643c7edcd6d6ee1e9`. ZIP SHA-256 `b6e73009b832b26d5119fec40d402b78335b628e7759d97d67b54ef1da15d3d0`.
-- Active priority: **v1.5.0 is installed and open in normal unlocked mode. Do not start real-account migration and do not upload the pending account id 1 operations.** The home shows the account panel, Study Settings, and Cloud Sync Synced. No production emergency credential is saved. Production `sync_http.py` remains `d173ad179ca9039a13489df0ce8ca81473ddfd711897fd803af96f60920f0dd2`. `language-guard-sync-backup.timer` is enabled. Next elapse: `2026-11-25 04:47:46 UTC`. The timer has not run a backup. The manual backup `study-sync-20261124-174104-409289.db` is still `VERIFIED`. The protected database still preserves all 114 original vocabulary entities. 92 match the server. 23 vocabulary operations and 6 progress events remain pending.
+- Tag: `APP_18E_REAL_ACCOUNT_MIGRATION_COMPLETE`. Release v1.5.0 remains https://github.com/nguyenthaibinh19/EnglishApp/releases/tag/v1.5.0.
+- Source baseline: `88239b61e4255e24446bea076486c4411bebdced`. Installed EXE SHA-256 `6954dbdadec226140ac35e55395ffda0c20a31b1ebaffde643c7edcd6d6ee1e9`.
+- Active priority: **Account ID 1 migration is complete. Do not launch the protected RC database again.** Server and installed app: 115 vocabulary entities, 6 attempts, 6 progress rows, empty pending outbox, no conflicts. The 114 recovery IDs match. The extra entity `242e5e4c-4345-447c-a777-44df6132b2da` is present once. Accepted event IDs: `1ac28d33-316d-40e4-b68e-d90be119e734`, `72deb6e9-a3a0-4eb3-835a-40249bf2204d`, `7d67dc07-ac1f-4e6b-b911-0529826c7fd9`, `8f7c5f0a-2665-49fc-9350-6ecaefc6770e`, `ac4d0208-9992-408a-a1dd-19f7dc9d6552`, `cc1a1d73-1e53-44c2-845a-e2413f20519b`. Post-migration backup `study-sync-20261124-204803-765136.db`, SHA-256 `7ed7ad81fa39d8eb6596c8b8b74b64b3ae23dc041da5e4db8fafdb6f2071def6`, checked `2026-11-24T20:48:12Z`, status `VERIFIED`. Preferences were not changed. Account ID 3 is still 2 vocabulary entities and 2 attempts. The installed home is unlocked: 3 due, 109 new, Cloud Sync Synced. Production `sync_http.py` remains `d173ad179ca9039a13489df0ce8ca81473ddfd711897fd803af96f60920f0dd2`. The backup timer is enabled. Next elapse: `2026-11-25 04:47:46 UTC`. It has not fired.
 - Application source baseline: `d6578c0f579d7ee9bd02aec855193339a7d8c124`.
 - Remote main at start: `2ef0552d6cda58ff94dc02c680b2dd391b77aaef`.
 - 18C.1, 18C.2, and 18C.3B remain CLOSED. The Sync Engine was not rebuilt.
@@ -29,7 +29,7 @@ Rolling coordination checkpoint. See [current_state.md](../current_state.md) and
 ## 3. Next
 
 1. Leave the installed v1.5.0 window unlocked. The Owner sets an emergency code privately from Study Settings. Do not turn on screen lock.
-2. Real-account migration stays a separate operation. Do not upload the pending account id 1 operations. The first natural Sync backup has not occurred.
+2. Do not launch the protected RC database or upload anything further for account ID 1. The first natural Sync backup has not occurred.
 3. Do not point RC smoke at `.local\data\18d1-v1.5.0-rc`. Rollback of the EXE is the copy at `.local\builds\18d3-v1.5.0-final\rollback-1.4.0\langstudyguard.exe`.
 
 ## 4. STOP
