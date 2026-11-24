@@ -1,9 +1,9 @@
 # Phase 18C.4 — Two-device sync acceptance
 
-Status: **18C.4P-R5 blocked on Owner GUI** (`APP_18C4P_R5_BLOCKED_OWNER_GUI`)  
+Status: **18C.4P-R5 ready for review** (`APP_18C4P_R5_PROGRESS_SYNC_READY_FOR_ARCHITECT_REVIEW`)  
 Owner priority: working Account Sync between two real Windows computers, before production hardening and Google Drive backup.  
-Date: 2026-11-23  
-Cloud Sync production: **ON**, supervised pilot · 18B.9: **PAUSED, NOT CLOSED** · Staging: **RESERVED, not deployed** · Vocabulary A → VPS → B: **PASS — Owner confirmed** · Remaining scenarios: **open**  
+Date: 2026-11-24  
+Cloud Sync production: **ON**, supervised pilot · 18B.9: **PAUSED, NOT CLOSED** · Staging: **RESERVED, not deployed** · Vocabulary A → VPS → B: **PASS — Owner confirmed** · Same-machine bidirectional vocabulary and one attempt: **ready for review** · Conflict, offline, and production replay: **open**  
 18B.10A: **AUDIT ACCEPTED, IMPLEMENTATION DEFERRED.** Do not implement 18B.10B, 18B.10C, 18B.10D, or 18B.10E.
 
 This document records the acceptance plan and the production vocabulary result. The production flag stays on. Do not rebuild the Sync Engine or enable the recurring sync backup timer.
@@ -262,7 +262,9 @@ The Owner confirmed that two real Windows computers synchronized Dutch `syncprob
 
 | Item | Result |
 |------|--------|
-| 1. Vocabulary A → VPS → B | **PASS — Owner confirmed**, 2026-11-23. Synthetic account only. |
+| 1. Vocabulary A → VPS → B | **PASS — Owner confirmed**, 2026-11-23. Physical two computers. Synthetic account only. |
+| 1b. Bidirectional vocabulary, same machine | Ready for review, 2026-11-24. `lab-marker-b` then `lab-marker-a`, server revision 4. |
+| 2. One attempt, Progress, and SRS, same machine | Ready for review, 2026-11-24. One exact acked attempt. SRS seen 1, correct 1, interval 1. |
 | 2a. Same event replay | Open |
 | 2b. Second quiz submission | Open |
 | 3. Offline recovery | Open |
@@ -272,7 +274,7 @@ The Owner confirmed that two real Windows computers synchronized Dutch `syncprob
 
 ## Next checks
 
-Use the same synthetic account and the isolated production clients. Do not use the real learner account. Disconnect a computer's network for the offline check; this pilot has no SSH tunnel.
+Items 1 and the first half of item 2 are recorded above as same-machine production results. Do not disable the whole Windows network to simulate one offline client. The remaining checks are still open.
 
 1. Bidirectional vocabulary: change `syncprobe` on B and confirm A receives it, then change it on A and confirm B receives it.
 2. Attempts, Progress, and SRS: submit one new answer on B and confirm A shows that attempt once, with the updated progress. Repeat the same event and confirm the server does not add a second row.

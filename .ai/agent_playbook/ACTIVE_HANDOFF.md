@@ -5,9 +5,9 @@ Rolling coordination checkpoint. See [current_state.md](../current_state.md) and
 ## 1. Checkpoint metadata
 
 - Written: 2026-11-24.
-- Tag: `APP_LOCAL_MULTI_CLIENT_READY`.
-- Source baseline: `f42bdd5`.
-- Active priority: **Same-machine production clients are ready.** Client B still needs one private sign-in before the R5 GUI scenarios.
+- Tag: `APP_18C4P_R5_PROGRESS_SYNC_READY_FOR_ARCHITECT_REVIEW`.
+- Source baseline: `60b967d98917edfa7014aba2f5a72f8855385394`.
+- Active priority: **Same-machine R5 is ready for review.** Bidirectional vocabulary and one learning attempt passed on this computer. Conflict, offline, and production replay remain open.
 - Application source baseline: `d6578c0f579d7ee9bd02aec855193339a7d8c124`.
 - Remote main at start: `2ef0552d6cda58ff94dc02c680b2dd391b77aaef`.
 - 18C.1, 18C.2, and 18C.3B remain CLOSED. The Sync Engine was not rebuilt.
@@ -22,14 +22,13 @@ Rolling coordination checkpoint. See [current_state.md](../current_state.md) and
 ## 2. Evidence
 
 - Shared source: `D:\EnglishApp\.local\clients\18c4p-r3`. Client A data: `.local\data\18c4p-r3`. Client B data: `.local\data\18c4p-r3-b`. Launcher: `.local\labs\18c4p-r3\launch_client.py`.
-- Client B has no settings and no account database. A throwaway pair of stores produced two different `device_id` values. Client B's real id is created on first open after sign-in.
-- `tests/test_account_ux_two_device.py` and the idempotent progress retry passed against localhost. That is not a production result. Details: [LOCAL_WORKSPACE_POLICY.md](../procedures/LOCAL_WORKSPACE_POLICY.md).
+- Both clients are `syncpilot_18c4p`, user id 3, with distinct device ids and separate data roots. `syncprobe` is revision 4, meaning `lab-marker-a`, on both clients and the server. One exact attempt is acked on both, with matching SRS. Details: [PHASE-18C.4P-R5-progress-sync.md](../plans/PHASE-18C.4P-R5-progress-sync.md).
+- Localhost idempotent replay passed again and stays a separate category from the production result.
 
 ## 3. Next
 
-1. On the right-hand Client B window, add Dutch as a study language and continue.
-2. Sign in there as `syncpilot_18c4p`. Type the password only in that window.
-3. Then edit `syncprobe` on B, then on A, and submit one quiz answer on B.
+1. Architect reviews the same-machine vocabulary and progress result.
+2. Leave the open Client B quiz unanswered. A second submission would be a new event.
 
 ## 4. STOP
 

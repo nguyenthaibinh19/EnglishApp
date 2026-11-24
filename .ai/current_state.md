@@ -4,7 +4,7 @@
 
 ## Latest verified coordination checkpoint — 2026-11-23
 
-**Current priority:** **Same-machine production clients** (`APP_LOCAL_MULTI_CLIENT_READY`). Client A and Client B share `.local\clients\18c4p-r3` and use separate data directories. Client B has not signed in. Sync stays **ON**. **18B.9 PAUSED.** 18B.10B–E are **NOT AUTHORIZED.** See [LOCAL_WORKSPACE_POLICY.md](procedures/LOCAL_WORKSPACE_POLICY.md).
+**Current priority:** **Phase 18C.4P-R5** (`APP_18C4P_R5_PROGRESS_SYNC_READY_FOR_ARCHITECT_REVIEW`). Same-machine bidirectional vocabulary and one learning attempt passed against production. The physical two-computer vocabulary result stays a separate **PASS — Owner confirmed**. Conflict, offline, and production replay remain open. Sync stays **ON**. **18B.9 PAUSED.** 18B.10B–E are **NOT AUTHORIZED.** See [PHASE-18C.4P-R5-progress-sync.md](plans/PHASE-18C.4P-R5-progress-sync.md).
 
 **Phase 18B.10A: AUDIT ACCEPTED, IMPLEMENTATION DEFERRED** (`APP_18B10A_ARCHITECT_AUDIT_ACCEPTED_DEFERRED`). The audit and its proposed, unapproved numerical limits stay in [PHASE-18B.10A-api-abuse-resistance-audit.md](plans/PHASE-18B.10A-api-abuse-resistance-audit.md). Do not implement 18B.10B, 18B.10C, 18B.10D, or 18B.10E.
 

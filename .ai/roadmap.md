@@ -4,7 +4,7 @@ Directional plan — **not** a rigid release commitment. Update when phases comp
 
 ## Latest operational checkpoint — 2026-11-23
 
-- **Active priority: Phase 18C.4 direct production Cloud Sync.** Same-machine Client A and Client B are ready. Client B has not signed in. Vocabulary A → VPS → B on two physical computers remains **PASS — Owner confirmed**. 18B.9 remains **PAUSED**. 18B.10B–E remain **NOT AUTHORIZED**.
+- **Active priority: Phase 18C.4 direct production Cloud Sync.** Same-machine R5 vocabulary and one learning attempt are ready for review. Vocabulary A → VPS → B on two physical computers remains **PASS — Owner confirmed**. 18B.9 remains **PAUSED**. 18B.10B–E remain **NOT AUTHORIZED**.
 - 18C.1, 18C.2, and 18C.3B are **CLOSED**. 18B.10A is **AUDIT ACCEPTED, IMPLEMENTATION DEFERRED**. 18B.10B–E are **NOT AUTHORIZED**.
 - **18B.9 PAUSED, NOT CLOSED.** Production Cloud Sync **OFF**. Staging deployment **NOT STARTED**. Sync pilot **NO-GO**.
 

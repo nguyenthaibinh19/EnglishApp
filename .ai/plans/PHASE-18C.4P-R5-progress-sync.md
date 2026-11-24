@@ -1,10 +1,10 @@
 # Phase 18C.4P-R5 — Two-way vocabulary and learning progress
 
-Status: **same-machine clients ready, GUI scenarios not started** (`APP_LOCAL_MULTI_CLIENT_READY`)  
+Status: **ready for architect review** (`APP_18C4P_R5_PROGRESS_SYNC_READY_FOR_ARCHITECT_REVIEW`)  
 Date: 2026-11-24  
-Baseline: `39fc564ea8867fb7a76bb474d8abcce5eb6bcbe9`
+Baseline: `60b967d98917edfa7014aba2f5a72f8855385394`
 
-Production Sync stays **ON**. No server source, account, or timer was changed. The recurring sync backup was not run, because these scenarios did not finish.
+Production Sync stays **ON**. No server source, account, service, or timer was changed. One verified one-shot sync backup was taken after the tests. The recurring sync backup timer stays disabled.
 
 ## Workspace
 
@@ -16,11 +16,11 @@ Production Sync stays **ON**. No server source, account, or timer was changed. T
 | Backend | `https://langstudyguard.com` |
 | Account | `syncpilot_18c4p` |
 
-Machine A is the left window. Machine B for these scenarios is the right window on the same computer, data `.local\data\18c4p-r3-b`, not the physical second PC. Client B is on the language screen and has no saved session. The physical two-computer vocabulary result remains a separate record.
+Client A is the left window. Client B is the right window on the same computer, data `.local\data\18c4p-r3-b`. This is a same-machine production test. It does not replace the earlier physical two-computer vocabulary result.
 
 ## Baseline
 
-Machine A and the server agree before any new edit:
+This table is the earlier blocked measurement. The same-machine result below is the current state. At the start of this run both clients already showed revision 2, meaning `lab-marker-2`.
 
 | Fact | Machine A | Server |
 |------|-----------|--------|
@@ -32,25 +32,34 @@ Machine A and the server agree before any new edit:
 
 The synthetic account has one additional vocabulary row. Its text was not recorded.
 
-## Scenario results
+## Evidence categories
 
-| Scenario | Result |
-|----------|--------|
-| 1. Bidirectional vocabulary | **BLOCKED**. Server and Machine A still show revision 1. Machine B was not observed. No edit was made. |
-| 2. Attempts, Progress, and SRS | **BLOCKED**. Attempt count is still 0. No quiz answer was submitted. |
-| 3. Idempotent replay | **UNVERIFIED**. There is no accepted learning event to replay, and there is no production harness that can retransmit one without reading the saved session token. |
+| Category | This run |
+|----------|----------|
+| Automated localhost integration | `test_idempotent_progress_retry_and_outbox_durability` passed again. It does not contact production. |
+| Same-machine production | The two processes below, against `https://langstudyguard.com`. |
+| Physical two-computer production | Unchanged: vocabulary A → VPS → B is **PASS — Owner confirmed**. This run did not use the second computer. |
 
-No Conflict label was observed because no edit was made.
+## Same-machine production result
 
-## Owner actions
+Launcher verification: paths distinct, tokens present and not copies, databases present and not byte-identical, device ids present and distinct.
 
-Wait until Cloud Sync says **Synced** after each save. Do not copy a database between the computers.
+Both processes were signed in as `syncpilot_18c4p`, user id 3, production, Dutch. Before the new edits both already showed `syncprobe` revision 2, meaning `lab-marker-2`, Synced.
 
-1. On B, confirm `syncprobe` / `lab-marker`. Open **Vocabulary**, edit that item, change the meaning to `lab-marker-b`, and save.
-2. After B says Synced, confirm A shows `lab-marker-b` and neither client says Conflict.
-3. On the open Machine A window, edit the same item to `lab-marker-a` and save.
-4. Confirm B shows `lab-marker-a` and both say Synced.
-5. On B, choose **Start today's study**. Answer exactly one card for `syncprobe`, then stop. If that card is not offered, add one synthetic Dutch word through **Add word**, then answer that one card only.
-6. After both clients say Synced, report the meaning each computer shows, whether either said Conflict, and the attempt count each computer shows.
+| Step | Result |
+|------|--------|
+| Client B changed the meaning to `lab-marker-b` | Both clients reached revision 3 and Synced. |
+| Client A changed the meaning to `lab-marker-a` | Both clients and the server reached revision 4, meaning `lab-marker-a`, not deleted. |
+| One quiz answer on Client B | The card showed `lab-marker-a`. The answer `syncprobe` was exact. Each client has 1 acked attempt and confirmed SRS seen 1, correct 1, wrong 0, streak 1, interval 1, state version 1. |
+| Server, user 3 only | Schema 3, integrity ok, 2 vocabulary rows, 1 attempt, 1 progress row with the same SRS numbers. Other accounts: 0 vocabulary rows and 0 attempts. |
+| Conflicts | 0 open on both clients. Explicit conflict UI was not exercised. |
 
-Do not send the password or a screenshot of the session.
+Production replay of that event was not performed. The localhost idempotent test remains the replay evidence.
+
+## Backup
+
+`study-sync-20261124-111255-200807.db`, 86016 bytes, mode 0600, owner guard, integrity ok, schema 3. The verifier service returned `VERIFIED` for that file. The accounts backup timer stays enabled. The sync backup timer stays disabled. The Sync flag stays on.
+
+## Still open
+
+Explicit conflict, offline reconnect, a production replay of the same event, a second quiz submission, and a quit/reopen persistence check were not part of this run. Client B is still on the quiz after the one correct answer. Do not submit another answer unless a later test asks for a second event.
