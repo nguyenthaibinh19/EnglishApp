@@ -4,7 +4,7 @@ Directional plan — **not** a rigid release commitment. Update when phases comp
 
 ## Latest operational checkpoint — 2026-11-24
 
-- **Active priority: Phase 18D.3 final v1.5.0 release.** The rebuilt production EXE and `langstudyguard.zip` include the own-or-random emergency code and are not published. Frozen sign-in is open for the synthetic account and is waiting for the password. The installed application has not been upgraded. 18C.4P remains closed. 18B.9 remains **PAUSED**. 18B.10B–E remain **NOT AUTHORIZED**.
+- **Active priority: Phase 18D.3 v1.5.0 is published and the installed application is upgraded.** The release is https://github.com/nguyenthaibinh19/EnglishApp/releases/tag/v1.5.0. Real-account migration is still a separate operation. 18C.4P remains closed. 18B.9 remains **PAUSED**. 18B.10B–E remain **NOT AUTHORIZED**.
 - 18C.1, 18C.2, and 18C.3B are **CLOSED**. 18B.10A is **AUDIT ACCEPTED, IMPLEMENTATION DEFERRED**. 18B.10B–E are **NOT AUTHORIZED**.
 - **18B.9 PAUSED, NOT CLOSED.** Production Cloud Sync is **ON**. Google Drive stays **NOT CONFIGURED**. Staging deployment **NOT STARTED**. The supervised Sync pilot remains closed inside its approved scope.
 

@@ -1,6 +1,6 @@
 # Phase 18D.3 — Final v1.5.0 release preparation
 
-Status: the emergency-code choice is in the rebuilt v1.5.0 artifact. Frozen sign-in is open and waiting for the synthetic account password. Publication and the installed-app upgrade are held at that sign-in. Baseline `154bf03c6856667cf1322cfe4e6f31996e05e09f`. No public release was created and no release tag was pushed.
+Status: v1.5.0 is published and the installed application was upgraded through the existing updater. Baseline `154bf03c6856667cf1322cfe4e6f31996e05e09f`. Release: https://github.com/nguyenthaibinh19/EnglishApp/releases/tag/v1.5.0. Real-account migration was not started.
 
 ## Final artifacts
 
@@ -25,24 +25,32 @@ Preserved without replacement:
 
 | File | Bytes | SHA-256 |
 |---|---:|---|
-| Installed EXE | 36,050,859 | `bbcd5e9a8bb22c72acdf863c94b68f6dbb7cc76717b737c6b93b0e50b28d58c3` |
-| Startup shortcut | 1,273 | `6e8100b7a9b1e4faa151c0ac9cfc8c4eff41f453cffe1311a1a243acb2b8a93e` |
+| Installed EXE before upgrade, now the rollback copy | 36,050,859 | `bbcd5e9a8bb22c72acdf863c94b68f6dbb7cc76717b737c6b93b0e50b28d58c3` |
+| Startup shortcut, unchanged | 1,273 | `6e8100b7a9b1e4faa151c0ac9cfc8c4eff41f453cffe1311a1a243acb2b8a93e` |
 | `D:\EnglishApp\dist\langstudyguard.exe` | 36,168,317 | `4a9a5ef52972f9560ee9db40374bcef6f54ccdebc20002cea480041e91327695` |
 | v1.5.0 RC candidate | 36,228,757 | `284f96460279e5812cac74fcefe2c2f407ea98d73502e255a02cf5ce28ffd3f5` |
 
-## Frozen smoke so far
+## Frozen smoke
 
-The rebuilt EXE was started only through `D:\EnglishApp\.local\labs\18d1\launch_rc_smoke.py`, with a fresh data root `D:\EnglishApp\.local\data\18d3-release-smoke`. The window title is `Language Guard — PRODUCTION BACKEND · RC TEST DATA`. The sign-in form shows that banner. It is a small window, not a screen lock. No updater dialog appeared. The username `syncpilot_18c4p` is filled. The password field is empty.
+The rebuilt EXE was started only through `D:\EnglishApp\.local\labs\18d1\launch_rc_smoke.py`, with data root `D:\EnglishApp\.local\data\18d3-release-smoke`. The window title was `Language Guard — PRODUCTION BACKEND · RC TEST DATA`. It stayed a normal window. No updater dialog appeared. Screen lock was not activated.
 
-The same EXE, with `LG_RC_SMOKE=1`, stopped before opening data for a missing root, production AppData, the protected RC AppData folder, the production install directory, and the recovery directory. The guarded launcher also refuses the 18D.1 incident root and production AppData. A direct launch at the incident root is not part of the guarded procedure. One such launch wrote `emergency_credential.json` there. That new file was removed. The incident account databases were not rewritten.
+Synthetic account id 3 signed in and signed out. The isolated account database then held 2 vocabulary entities, 2 attempts at sequences 1 and 2, and an empty outbox. Logout removed the session token. The earlier refusal checks still stand: a missing root, production AppData, the protected RC AppData folder, the install directory, and the recovery directory stop before opening data. The guarded launcher also refuses the 18D.1 incident root.
 
-Not yet done on this binary: emergency-code enrollment, cancelled enrollment, credential persistence across restart, password login, logout, and the account id 3 vocabulary, attempt, and SRS download. Screen lock was not activated.
+Emergency-code checks on that isolated root:
+
+- Cancel left the existing acknowledged credential in place and did not lock the screen.
+- A chosen code replaced it only after both fields matched. The file stayed DPAPI current-user, acknowledged, and did not contain the code in plaintext.
+- That credential was still valid after the smoke process was restarted.
+- A mismatched confirmation of a generated code left the chosen code in place.
+- A matching confirmation replaced the chosen code. The generated value validated offline, the chosen value did not, and the file still had no plaintext secret.
+
+During this smoke the installed EXE and the Startup shortcut hashes stayed at the pre-upgrade values below.
 
 ## Compatibility
 
 The installed v1.4.0 updater and this build have the same bytecode for `parse_version`, `is_newer`, `_pick_asset`, and `_extract_exe_from_zip`. `is_newer("v1.5.0", "1.4.0")` is true. `_pick_asset` selects `langstudyguard.zip`. Extracting this ZIP in a temporary directory produced an EXE larger than 8 MB and left a sibling data file unchanged.
 
-The updater replaces the installed executable path and does not call `install.prepare`. Learner data stays in the roaming data directory, so an upgrade or a rollback of the EXE does not replace that data. This task did not replace the installed EXE.
+The updater replaces the installed executable path and does not call `install.prepare`. Learner data stays in the roaming data directory, so an upgrade or a rollback of the EXE does not replace that data.
 
 Clean full suite after the emergency-code choice, and before the production manifest was written: **978 passed, 24 skipped, 0 failed**.
 
@@ -64,12 +72,16 @@ Remaining limitations:
 - The deployed Sync body timeout is an inactivity timeout, not an absolute total-body deadline.
 - The 23 pending vocabulary operations and 6 pending progress events are still local.
 
-## Publish after Owner approval
+## Published release and installed upgrade
 
-Do not run these steps until the frozen smoke is finished and the Owner approves publication.
+The Owner's earlier authorization was used after the smoke passed. GitHub Release `v1.5.0`, title `v1.5.0 — Account Cloud Sync Update`, target `154bf03c6856667cf1322cfe4e6f31996e05e09f`: https://github.com/nguyenthaibinh19/EnglishApp/releases/tag/v1.5.0
 
-1. Confirm the ZIP SHA-256 is still `b6e73009b832b26d5119fec40d402b78335b628e7759d97d67b54ef1da15d3d0`.
-2. From the accepted commit, create a GitHub Release titled `v1.5.0`. The tag is created only with that approval.
-3. Upload `langstudyguard.zip` as an asset with that exact name. The updater selects that name and extracts `langstudyguard.exe`.
-4. Paste the release notes above. Do not attach learner databases, `.env`, or the private RC candidate.
-5. Leave the installed EXE in place until the Owner installs through the updater or a separate replacement approval. Rollback is restoring the previous EXE bytes `bbcd5e9a8bb22c72acdf863c94b68f6dbb7cc76717b737c6b93b0e50b28d58c3`. Do not restore a database over live learner data as part of that EXE rollback.
+The published asset `langstudyguard.zip` is 35,779,585 bytes, SHA-256 `b6e73009b832b26d5119fec40d402b78335b628e7759d97d67b54ef1da15d3d0`, and its only entry is `langstudyguard.exe` at 36,250,260 bytes. A downloaded copy matched that size and hash.
+
+The installed v1.4.0 application was launched without `--lock`. Its updater offered v1.5.0, and accepting that offer replaced `%LOCALAPPDATA%\langstudyguard\langstudyguard.exe`. The installed file is now 36,250,260 bytes, SHA-256 `6954dbdadec226140ac35e55395ffda0c20a31b1ebaffde643c7edcd6d6ee1e9`. The previous EXE is kept at `D:\EnglishApp\.local\builds\18d3-v1.5.0-final\rollback-1.4.0\langstudyguard.exe`. The Startup shortcut was not rewritten.
+
+The updater's first restart showed a PyInstaller bootloader dialog, `Failed to load Python DLL`, and did not open the home. The same installed file opened on the next launch. The binary was not rebuilt.
+
+The open window is a normal unlocked `Language Guard — PRODUCTION` home. It shows the account panel, Study Settings, and Cloud Sync Synced. The study line shows 92 new words. Enrollment was cancelled, so no production emergency credential was saved and screen lock stayed off. The Owner can set a code from Study Settings.
+
+Guest learner files were not resized. `settings.json` grew from 306 bytes to 385 bytes when the new version wrote its identity fields. A new production account database, 147,456 bytes, holds the 92 already accepted vocabulary entities, 0 attempts, an empty outbox, and no legacy-import rows. The server account still has 92 vocabulary entities, 0 attempts, max `updated_at` `2026-11-24 13:04:40`, and the database is still 151,552 bytes. The protected RC database is still 221,184 bytes with mtime `2026-11-24T13:04:32.9355334Z`. The 23 pending vocabulary operations and 6 pending progress events were not uploaded. Real-account migration was not started.
