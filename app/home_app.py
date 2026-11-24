@@ -24,6 +24,8 @@ class FreeHome:
         self.bank_window = None
         self.mistake_window = None
         self.progress_window = None
+        self._owned_callbacks = True
+        self._refresh_after_id = None
         self._plan = None
         self._view: HomeViewModel | None = None
 
@@ -202,8 +204,46 @@ class FreeHome:
 
     # ---------- plan / view ----------
 
+    def _cancel_owned_refresh(self) -> None:
+        job = self._refresh_after_id
+        self._refresh_after_id = None
+        if job is None:
+            return
+        try:
+            self.root.after_cancel(job)
+        except (tk.TclError, ValueError):
+            pass
+
+    def _schedule_owned_refresh(self) -> None:
+        """Refresh after a child closes, unless this home is already leaving."""
+        if not self._owned_callbacks:
+            return
+        self._cancel_owned_refresh()
+        try:
+            self._refresh_after_id = self.root.after(80, self._run_owned_refresh)
+        except tk.TclError:
+            self._refresh_after_id = None
+
+    def _run_owned_refresh(self) -> None:
+        self._refresh_after_id = None
+        if not self._owned_callbacks:
+            return
+        self.refresh()
+
+    def _invalidate_owned_callbacks(self) -> None:
+        self._owned_callbacks = False
+        self._cancel_owned_refresh()
+
     def refresh(self):
         """Recompute DailyStudyPlan for the active language and redraw."""
+        if not self._owned_callbacks:
+            return
+        label = getattr(self, "greeting_label", None)
+        try:
+            if label is None or not label.winfo_exists():
+                return
+        except tk.TclError:
+            return
         code = config.active_code()
         try:
             self._plan = plan_for_language(code)
@@ -293,6 +333,7 @@ class FreeHome:
 
     def _start_study(self):
         self.refresh()  # avoid stale plan before launch
+        self._invalidate_owned_callbacks()
         self._stop_sync_status_polling()
         self._close_bank()
         self._close_mistake_book()
@@ -481,7 +522,9 @@ class FreeHome:
         self.mistake_window = tk.Toplevel(self.root)
         ui_common.own_toplevel(self.mistake_window, self.root)
         MistakeBookApp(self.mistake_window, language_code=code)
-        self.mistake_window.bind("<Destroy>", lambda _e: self.root.after(80, self.refresh), add="+")
+        self.mistake_window.bind(
+            "<Destroy>", lambda _e: self._schedule_owned_refresh(), add="+"
+        )
 
     def _show_progress(self, code):
         from progress_app import ProgressApp
@@ -494,7 +537,7 @@ class FreeHome:
         ui_common.own_toplevel(self.progress_window, self.root)
         ProgressApp(self.progress_window, language_code=code)
         self.progress_window.bind(
-            "<Destroy>", lambda _e: self.root.after(80, self.refresh), add="+"
+            "<Destroy>", lambda _e: self._schedule_owned_refresh(), add="+"
         )
 
     def _open_bank(self, code, focus_add: bool = False):
@@ -519,7 +562,9 @@ class FreeHome:
             focus_add=focus_add,
             on_saved=self.refresh,
         )
-        self.bank_window.bind("<Destroy>", lambda _e: self.root.after(80, self.refresh), add="+")
+        self.bank_window.bind(
+            "<Destroy>", lambda _e: self._schedule_owned_refresh(), add="+"
+        )
 
     def _close_bank(self):
         if self.bank_window is not None and self.bank_window.winfo_exists():

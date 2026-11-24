@@ -4,7 +4,7 @@ Directional plan — **not** a rigid release commitment. Update when phases comp
 
 ## Latest operational checkpoint — 2026-11-23
 
-- **Active priority: Phase 18C.4 direct production Cloud Sync.** R6 is ready for review. Same-machine restart persistence passed. Production conflict, production offline, and production replay are not claimed. Vocabulary A → VPS → B on two physical computers remains **PASS — Owner confirmed**. 18B.9 remains **PAUSED**. 18B.10B–E remain **NOT AUTHORIZED**.
+- **Active priority: Phase 18C.4 direct production Cloud Sync.** Core sync is accepted. The Tk lifecycle fix and vocabulary Keep local coverage passed, and the phase is not closed because the full application suite was 3 failed, 930 passed, 24 skipped, 8 errors. Production conflict, production offline, and production replay are not claimed. Vocabulary A → VPS → B on two physical computers remains **PASS — Owner confirmed**. 18B.9 remains **PAUSED**. 18B.10B–E remain **NOT AUTHORIZED**.
 - 18C.1, 18C.2, and 18C.3B are **CLOSED**. 18B.10A is **AUDIT ACCEPTED, IMPLEMENTATION DEFERRED**. 18B.10B–E are **NOT AUTHORIZED**.
 - **18B.9 PAUSED, NOT CLOSED.** Production Cloud Sync **OFF**. Staging deployment **NOT STARTED**. Sync pilot **NO-GO**.
 

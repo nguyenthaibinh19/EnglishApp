@@ -461,6 +461,58 @@ def test_f2_divergent_remote_edit_blocks_with_conflict(staging):
     e2.stop()
 
 
+def test_f2_keep_local_converges_both_clients(staging):
+    """Divergent live edits resolve through Keep local and both clients converge."""
+    root_a = staging["tmp"] / "keep_a"
+    root_b = staging["tmp"] / "keep_b"
+    s1 = AccountLocalStore(staging["user_a"], data_root=str(root_a))
+    s2 = AccountLocalStore(staging["user_a"], data_root=str(root_b))
+    e1 = _engine(s1, staging["base"], staging["token_a"])
+    e2 = _engine(s2, staging["base"], staging["token_a"])
+    s1.upsert_vocabulary(language_code="nl", vocab_id=VOCAB, payload=_payload(meaning="base"))
+    assert e1.sync_once().status == STATUS_SYNCED
+    assert e2.sync_once().status == STATUS_SYNCED
+    base_revision = s1.list_vocabulary("nl")[0]["_revision"]
+    assert s2.list_vocabulary("nl")[0]["_revision"] == base_revision
+
+    s2.upsert_vocabulary(
+        language_code="nl", vocab_id=VOCAB, payload=_payload(meaning="server-value")
+    )
+    assert e2.sync_once().status == STATUS_SYNCED
+    s1.upsert_vocabulary(
+        language_code="nl", vocab_id=VOCAB, payload=_payload(meaning="local-value")
+    )
+    status = e1.sync_once()
+    assert status.status == STATUS_CONFLICT
+    frozen = s1.conflicted_vocab_outbox("nl", VOCAB)
+    assert len(frozen) == 1
+    assert frozen[0]["payload"]["payload"]["meaning"] == "local-value"
+    assert s1.list_vocabulary("nl")[0]["meaning"] == "server-value"
+
+    s1.resolve_vocab_conflict("nl", VOCAB, keep="local")
+    assert s1.conflicted_vocab_outbox("nl", VOCAB) == []
+    assert e1.sync_once().status == STATUS_SYNCED
+    assert e2.sync_once().status == STATUS_SYNCED
+    assert s1.list_vocabulary("nl")[0]["meaning"] == "local-value"
+    assert s2.list_vocabulary("nl")[0]["meaning"] == "local-value"
+    assert s1.pending_outbox("vocab_put") == []
+    assert s2.pending_outbox("vocab_put") == []
+    assert s1.conflicted_vocab_outbox("nl", VOCAB) == []
+    assert s2.conflicted_vocab_outbox("nl", VOCAB) == []
+
+    conn = sqlite3.connect(str(staging["server_dir"] / "study_sync.db"))
+    rows = conn.execute(
+        "SELECT payload_json FROM vocabulary_entities WHERE vocab_id = ?",
+        (VOCAB,),
+    ).fetchall()
+    conn.close()
+    assert len(rows) == 1
+    assert "local-value" in rows[0][0]
+    assert "server-value" not in rows[0][0]
+    e1.stop()
+    e2.stop()
+
+
 def test_f2_same_semantic_change_lost_ack_is_idempotent(staging):
     store = AccountLocalStore(staging["user_a"], data_root=str(staging["tmp"] / "lostack"))
     eng = _engine(store, staging["base"], staging["token_a"])

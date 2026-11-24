@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import tkinter as tk
+from tkinter import ttk
 
 import pytest
 
@@ -202,6 +203,9 @@ def test_study_master_refresh_helper_still_reschedules(monkeypatch):
         def __init__(self):
             self.text = ""
 
+        def winfo_exists(self):
+            return True
+
         def config(self, **kwargs):
             self.text = kwargs.get("text", self.text)
 
@@ -313,3 +317,84 @@ def test_freehome_study_master_roundtrip_no_stale_root_destroy_or_poller(
         assert not prior._sync_status_poller.active
     final._stop_sync_status_polling()
     assert not final._sync_status_poller.active
+
+
+def test_start_study_drops_vocab_destroy_refresh(tk_root, monkeypatch):
+    """Closing Vocabulary while entering study must not refresh destroyed home widgets."""
+    from home_app import FreeHome
+
+    monkeypatch.setattr("home_app.plan_for_language", lambda _code: None)
+    monkeypatch.setattr(
+        "home_app.config.environment_identity",
+        lambda: type(
+            "I",
+            (),
+            {
+                "display_title": lambda self, name: name,
+                "runtime_environment": "production-rc",
+                "rc_smoke": True,
+            },
+        )(),
+    )
+
+    class _DummyStudyMaster:
+        def __init__(self, root, on_finished=None):
+            self.root = root
+
+    monkeypatch.setattr(
+        FreeHome, "_study_master_class", staticmethod(lambda: _DummyStudyMaster)
+    )
+    home = FreeHome(tk_root)
+    calls = []
+    monkeypatch.setattr(home, "refresh", lambda: calls.append("refresh"))
+    child = tk.Toplevel(tk_root)
+    child.bind("<Destroy>", lambda _e: home._schedule_owned_refresh(), add="+")
+    home._start_study()
+    assert calls == ["refresh"]
+    _pump(tk_root, 150)
+    assert calls == ["refresh"]
+
+
+def test_vocab_close_still_refreshes_live_home(tk_root, monkeypatch):
+    from home_app import FreeHome
+
+    monkeypatch.setattr("home_app.plan_for_language", lambda _code: None)
+    monkeypatch.setattr(
+        "home_app.config.environment_identity",
+        lambda: type(
+            "I",
+            (),
+            {
+                "display_title": lambda self, name: name,
+                "runtime_environment": "production-rc",
+                "rc_smoke": True,
+            },
+        )(),
+    )
+    home = FreeHome(tk_root)
+    calls = []
+    monkeypatch.setattr(home, "refresh", lambda: calls.append("refresh"))
+    child = tk.Toplevel(tk_root)
+    child.bind("<Destroy>", lambda _e: home._schedule_owned_refresh(), add="+")
+    child.destroy()
+    _pump(tk_root, 150)
+    assert calls == ["refresh"]
+    home._invalidate_owned_callbacks()
+    home._stop_sync_status_polling()
+
+
+def test_study_sync_refresh_ignores_destroyed_label(tk_root):
+    """The observed Client B traceback: a queued refresh touches a destroyed label."""
+    from main import StudyMasterApp
+
+    host = StudyMasterApp.__new__(StudyMasterApp)
+    host.root = tk_root
+    host.sync_status_label = ttk.Label(tk_root, text="Cloud Sync")
+    host.sync_status_label.pack()
+    host.account_panel = None
+    host._sync_refresh_job = None
+    host.sync_status_label.bind("<Destroy>", host._cancel_sync_refresh, add="+")
+    host._schedule_sync_refresh(30)
+    host.sync_status_label.destroy()
+    _pump(tk_root, 80)
+    host._refresh_sync_status()

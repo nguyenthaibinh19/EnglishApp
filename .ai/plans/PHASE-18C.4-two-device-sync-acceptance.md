@@ -1,6 +1,6 @@
 # Phase 18C.4 — Two-device sync acceptance
 
-Status: **18C.4P-R6 ready for review** (`APP_18C4P_R6_FINAL_ACCEPTANCE_READY_FOR_ARCHITECT_REVIEW`)  
+Status: **18C.4P not closed.** Core sync stays `APP_18C4P_R6_CORE_SYNC_ACCEPTED`. The Tk lifecycle fix and the vocabulary Keep local test passed. The full application suite did not, so `APP_18C4P_CLOSED_READY_FOR_DESKTOP_RELEASE` was not returned.  
 Owner priority: working Account Sync between two real Windows computers, before production hardening and Google Drive backup.  
 Date: 2026-11-24  
 Cloud Sync production: **ON**, supervised pilot · 18B.9: **PAUSED, NOT CLOSED** · Staging: **RESERVED, not deployed** · Vocabulary A → VPS → B: **PASS — Owner confirmed** · Same-machine restart persistence: **PASS** · Production conflict, production offline, and production replay: **not claimed**  
@@ -295,12 +295,25 @@ Recorded 2026-11-24 after `0729338`. R5 remains accepted. This round did not rew
 | Offline recovery | **PASS**. Pending work is kept and retries without a duplicate event | Not run. No per-client network isolation was used | Not claimed |
 | Conflict detection | **PASS**. A divergent edit is frozen. The remote tip is not overwritten and the local intent stays in the conflict outbox | Not run | Not claimed |
 | Keep server | **PASS** for a remote tombstone. Both sides stay deleted | Not run | Not claimed |
-| Keep local | **PASS** for a preferences conflict. Vocabulary Keep local against a tombstone is rejected. A non-tombstone vocabulary Keep local convergence is **not covered** by the current tests | Not run | Not claimed |
+| Keep local | **PASS** for a preferences conflict. **PASS** for one live vocabulary entity in `test_f2_keep_local_converges_both_clients`: the chosen local meaning reaches the server, both clients converge, the conflict clears, and no second entity is created. Vocabulary Keep local against a tombstone is still rejected | Not run | Not claimed |
 | Idempotent replay | **PASS**. A repeated event does not add a second attempt or a second SRS step | Not retransmitted | Not claimed |
 | Account isolation and account switch | **PASS**. Separate accounts do not leak, and a failed switch keeps the current session | Not run. No additional production account was created | Not claimed |
 
-The focused suite `test_account_learning_sync.py`, `test_account_ux_two_device.py`, `test_18c2_r1_corrections.py`, `test_sync_api.py`, `test_sync_store.py`, and `test_sync_unavailable_status.py` passed, 87 tests.
+The focused suite `test_account_learning_sync.py`, `test_account_ux_two_device.py`, `test_18c2_r1_corrections.py`, `test_sync_api.py`, `test_sync_store.py`, and `test_sync_unavailable_status.py` passed, 88 tests. That is the previous 87 plus `test_f2_keep_local_converges_both_clients`.
+
+## Pre-release stabilization
+
+Recorded after `de9969a`. No production database, timer, EXE, or quiz attempt was changed.
+
+The Client B traceback was `StudyMasterApp._refresh_sync_status` calling `label.config` after the Cloud Sync label had been destroyed. The home screen had the same shape: Vocabulary, Progress, and Mistake Book scheduled `refresh()` on destroy, and starting study then destroyed the home widgets. Delayed callbacks are now cancelled when that screen is destroyed. `test_start_study_drops_vocab_destroy_refresh`, `test_vocab_close_still_refreshes_live_home`, and `test_study_sync_refresh_ignores_destroyed_label` passed. `test_freehome_sync_label_refresh.py` is 9 tests: 8 passed and 1 skipped in the combined run with the Account Sync files (96 passed, 1 skipped, 0 failed).
+
+The full application suite, 965 collected, finished **3 failed, 930 passed, 24 skipped, 8 errors**. These failures also happen on `de9969a` and are outside the two stabilization items:
+
+- `test_sqlite_online_backup_preserves_synthetic_records` expects sync schema 2. The database is schema 3.
+- `test_languages_isolated_via_loader` raises `FileNotFoundError` in `config.ensure_language_data` while copying a starter.
+- Eight `test_offbox_recovery_poc.py` setup errors: restic is not installed, and the tests refuse to download it.
+- `test_existing_account_routes_still_work_while_sync_is_off` failed once in the full run with WinError 10053 and passed when run again by itself.
 
 Production health stayed 200. Schema 3, integrity ok. The synthetic account still has revision 4, meaning `lab-marker-a`, 2 attempts, and 2 progress rows. Other accounts still have 0 vocabulary rows and 0 attempts. Because the second attempt arrived after the previous backup, one new backup was taken: `study-sync-20261124-112040-941473.db`, 86016 bytes, mode 0600, integrity ok, schema 3. The verifier returned `VERIFIED`. The sync backup timer stays disabled.
 
-Client B's log contains a Tk callback error after the study screen replaced the home label. The databases stayed consistent and both clients reached Synced after relaunch.
+Client B's log contained a Tk callback error after the study screen replaced the home label. The databases stayed consistent and both clients reached Synced after relaunch. The callback is cancelled in the source tree. The running same-machine clients were not relaunched, and no EXE was built.

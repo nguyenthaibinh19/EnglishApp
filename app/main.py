@@ -250,6 +250,7 @@ class StudyMasterApp:
             self.sync_row, text="", style="Muted.TLabel", wraplength=520
         )
         self.sync_status_label.pack(side=tk.LEFT, anchor="w")
+        self.sync_status_label.bind("<Destroy>", self._cancel_sync_refresh, add="+")
         ttk.Button(
             self.sync_row,
             text=config.ui("Xung đột đồng bộ", "Sync conflicts"),
@@ -274,7 +275,7 @@ class StudyMasterApp:
             style="Small.TButton", command=self.emergency_exit_all,
         )
         self.emergency_button.place(relx=1.0, rely=1.0, x=-24, y=-24, anchor="se")
-        self.root.after(1500, self._refresh_sync_status)
+        self._schedule_sync_refresh(1500)
 
     def _code_for_label(self, label: str):
         return next(
@@ -647,10 +648,41 @@ class StudyMasterApp:
         except Exception:
             pass
 
-    def _refresh_sync_status(self):
-        label = getattr(self, "sync_status_label", None)
-        if label is None:
+    def _cancel_sync_refresh(self, _event=None) -> None:
+        job = getattr(self, "_sync_refresh_job", None)
+        self._sync_refresh_job = None
+        if job is None:
             return
+        try:
+            self.root.after_cancel(job)
+        except (tk.TclError, ValueError):
+            pass
+
+    def _schedule_sync_refresh(self, delay_ms: int) -> None:
+        self._cancel_sync_refresh()
+        try:
+            self._sync_refresh_job = self.root.after(delay_ms, self._refresh_sync_status)
+        except tk.TclError:
+            self._sync_refresh_job = None
+
+    def _sync_label_alive(self) -> bool:
+        label = getattr(self, "sync_status_label", None)
+        try:
+            return label is not None and bool(label.winfo_exists())
+        except tk.TclError:
+            return False
+
+    def _refresh_sync_status(self):
+        pending = getattr(self, "_sync_refresh_job", None)
+        self._sync_refresh_job = None
+        if pending is not None:
+            try:
+                self.root.after_cancel(pending)
+            except (tk.TclError, ValueError):
+                pass
+        if not self._sync_label_alive():
+            return
+        label = self.sync_status_label
         status, detail = self._cloud_sync_state()
         extra = ""
         try:
@@ -667,16 +699,17 @@ class StudyMasterApp:
                     )
         except Exception:
             extra = ""
-        label.config(text=f"Cloud Sync: {status}{extra} — {detail}")
+        try:
+            label.config(text=f"Cloud Sync: {status}{extra} — {detail}")
+        except tk.TclError:
+            return
         try:
             if getattr(self, "account_panel", None) is not None:
                 self.account_panel.refresh()
         except Exception:
             pass
-        try:
-            self.root.after(5000, self._refresh_sync_status)
-        except Exception:
-            pass
+        if self._sync_label_alive():
+            self._schedule_sync_refresh(5000)
 
     def _open_environment_details(self):
         import app_environment
