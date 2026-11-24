@@ -4,7 +4,7 @@
 
 ## Latest verified coordination checkpoint — 2026-11-24
 
-**Current priority:** **Phase 18D.1 desktop candidate is built and waiting for private sign-in.** v1.5.0 source `29292749da54b0035833321a80e2776007b6ee8e`. The frozen EXE shows `PRODUCTION BACKEND · RC TEST DATA` from `D:\EnglishApp\.local\data\18d1-v1.5.0-rc`. Login, sync, and signed-in reopen are not done. The ready tag was not returned. Production `sync_http.py` remains `aa88f693764912f589a5945d7b3f154b587363311130b01295127cb600ddd5d1` and was not deployed. 18C.4P stays closed. **18B.9 PAUSED.** See [PHASE-18D.1-desktop-release-candidate.md](plans/PHASE-18D.1-desktop-release-candidate.md).
+**Current priority:** **Phase 18D.1 isolated smoke passed, and the ready tag was not returned.** The frozen v1.5.0 candidate was not rebuilt. Signed-in checks for `syncpilot_18c4p` (user id 3), Dutch Home, Cloud Sync Synced, close/reopen, and logout all passed under `D:\EnglishApp\.local\data\18d1-v1.5.0-rc`. The protected account id 1 database was rewritten at `2026-11-24T13:04:32Z` (92 vocabulary outbox rows acknowledged), and production `study_sync.db` was rewritten at `13:04:40Z`. Service configuration and the sync backup timer were not changed. Production `sync_http.py` remains undeployed. 18C.4P stays closed. **18B.9 PAUSED.** See [PHASE-18D.1-desktop-release-candidate.md](plans/PHASE-18D.1-desktop-release-candidate.md).
 
 **Phase 18B.10A: AUDIT ACCEPTED, IMPLEMENTATION DEFERRED** (`APP_18B10A_ARCHITECT_AUDIT_ACCEPTED_DEFERRED`). The audit and its proposed, unapproved numerical limits stay in [PHASE-18B.10A-api-abuse-resistance-audit.md](plans/PHASE-18B.10A-api-abuse-resistance-audit.md). Do not implement 18B.10B, 18B.10C, 18B.10D, or 18B.10E.
 

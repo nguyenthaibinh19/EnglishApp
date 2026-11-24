@@ -1,6 +1,6 @@
 # Phase 18D.1 — Desktop release candidate
 
-Status: **built, frozen smoke waiting for private sign-in.** The ready tag was not returned.  
+Status: **isolated smoke completed. The ready tag was not returned** because the protected learner database and the production sync database changed during the smoke window.  
 Date: 2026-11-24  
 Proposed release: v1.5.0 — Account Cloud Sync Update  
 Packaged source: `29292749da54b0035833321a80e2776007b6ee8e`  
@@ -27,14 +27,31 @@ Launched with `LG_DATA_DIR=D:\EnglishApp\.local\data\18d1-v1.5.0-rc` and `LG_RC_
 |-------|--------|
 | Starts without Python source | Pass |
 | Production HTTPS identity, RC data banner | Pass |
-| No production auto-update prompt | Pass. RC smoke does not call the updater |
-| Installed EXE and Startup shortcut unchanged | Pass. EXE `36,050,859` bytes, SHA-256 `bbcd5e9a8bb22c72acdf863c94b68f6dbb7cc76717b737c6b93b0e50b28d58c3`, shortcut `1,273` bytes, `2026-11-08T17:16:53Z` |
-| Real RC account database untouched | Pass. `196,608` bytes, `2026-11-22T11:06:28Z` |
-| Home Dashboard after sign-in | Not run |
-| Language selection | Not run |
-| Login, logout, vocabulary sync, Progress and SRS download | Not run. The password stays with the Owner |
-| Signed-in close and reopen | Not run |
-| Tk callback error after sign-in | Not run |
+| No production auto-update prompt | Pass. No updater dialog. RC smoke does not call the updater. No production updater process was running |
+| Installed EXE and Startup shortcut unchanged | Pass, rechecked after logout. EXE `36,050,859` bytes, `2026-11-08T16:18:07Z`, SHA-256 `bbcd5e9a8bb22c72acdf863c94b68f6dbb7cc76717b737c6b93b0e50b28d58c3`. Shortcut `1,273` bytes, `2026-11-08T17:16:53Z` |
+| Candidate EXE and ZIP unchanged | Pass. The hashes in the table above match the files after the smoke |
+| Signed-in identity | Pass. Home showed `syncpilot_18c4p`, user id 3 |
+| Effective data root | Pass for this process. Settings and `accounts\3\account_study.db` are under `.local\data\18d1-v1.5.0-rc`. This process started at `2026-11-24T13:09:26Z` |
+| Home Dashboard and Dutch | Pass. Header `Language Guard — PRODUCTION BACKEND`, language `Tiếng Hà Lan`, vocabulary count `2 mục` while signed in |
+| Vocabulary download | Pass in the isolated account database. `syncprobe` / `lab-marker-a` revision 4, and the existing `groot` / `big` revision 1. The vocabulary list window was not opened |
+| Two attempts and SRS | Pass. Sequences 1 and 2, both exact. Both SRS rows are seen 1, correct 1, wrong 0, streak 1, interval 1 day, state version 1. Outbox 0, conflicts 0, caught up |
+| Cloud Sync reaches Synced | Pass. Home label `Cloud Sync: Synced — Máy chủ đã nhận và client đã bắt kịp.` |
+| Close and reopen | Pass. The same EXE was closed with `WM_CLOSE` and opened again with the same isolated environment. No rebuild |
+| Persistence | Pass. After reopen, the same account, the same device-id SHA-256 prefix `4a6b88fefe82e9c1`, the same two vocabulary rows, the same two attempts, and the same SRS rows |
+| Tk callback error | No error dialog on the signed-in home, the reopen, or the logout screen. The windowed EXE has no console log |
+| Logout keeps the local database | Pass. The confirmation dialog title was `Đăng xuất`. After the affirmative answer, settings have no token, username, or user id. The home shows `Khách / Chưa đăng nhập` and `Đăng nhập`. `accounts\3\account_study.db` remains, `118,784` bytes, with the same two vocabulary rows, two attempts, and two SRS rows. Logged-out Home then shows the local Dutch library, not the account store |
+| Real RC account database untouched | **Fail.** See below |
+| Recovery files untouched | Pass. `LanguageGuard-Recovery\vocab-114-20261119-232144` is still `2026-11-19T23:21:44Z` |
+
+The candidate was not rebuilt. No new quiz answer was submitted. The session token was not copied.
+
+## Protected learner database
+
+`%APPDATA%\langstudyguard-rc\accounts\1\account_study.db` is no longer the untouched snapshot. It is now `221,184` bytes, last write `2026-11-24T13:04:32Z`. Integrity is ok. It contains 115 vocabulary rows (114 learner rows plus the existing `groot` row), 6 local attempts from `2026-11-22`, 92 acknowledged `vocab_put` rows, 23 still-pending `vocab_put` rows, and 6 pending progress rows. The acknowledgements were written from `2026-11-24T13:04:21Z` through `13:04:32Z`.
+
+That write is earlier than this isolated process, which started at `2026-11-24T13:09:26Z`. The isolated directory has no file written at `13:04`. The real RC `settings.json` is still the `2026-11-22` account id 1 session. Recovery files were not opened.
+
+Production `study_sync.db` was also rewritten at `2026-11-24T13:04:40Z` and is now `151,552` bytes. `sync_http.py` is still `aa88f693764912f589a5945d7b3f154b587363311130b01295127cb600ddd5d1`. `language-guard.service` is active and its start time is still `2026-11-23T16:43:33Z`. `language-guard-sync-backup.timer` is still disabled and inactive. This check did not restart the service, enable the timer, or edit server files. The sync database change itself is a server-record change and was not reversed.
 
 ## Backend
 
@@ -56,4 +73,14 @@ Upgrade replaces `%LOCALAPPDATA%\langstudyguard\langstudyguard.exe` only after a
 
 The executable is unsigned. Windows SmartScreen can warn. No public release was created.
 
-Remaining blockers: Owner sign-in on the open candidate, the emergency-password publication decision, the optional server body-drain deploy, and the sync backup timer approval before real-account migration.
+## Public-release gates
+
+These remain explicit gates. None is cleared by this smoke.
+
+- The synthetic emergency password `18d1-rc-placeholder-not-for-publication` is unsuitable for publication.
+- The bundled emergency-password architecture still needs review. `bundle_secrets.py` reads `EMERGENCY_PASSWORD` from a developer `.env`.
+- The repository `sync_http.py` correction remains undeployed. Source SHA-256 `3de5c413064240ff8036df9c314006201c302be32003cbeb76db502b2612ca6d`. Production remains `aa88f693764912f589a5945d7b3f154b587363311130b01295127cb600ddd5d1`.
+- The recurring Sync backup timer remains disabled.
+- The final public ZIP must be named `langstudyguard.zip` and must contain `langstudyguard.exe`. This private ZIP contains `langstudyguard-rc.exe`.
+
+`APP_18D1_DESKTOP_RELEASE_CANDIDATE_READY_FOR_REVIEW` was not returned. The isolated signed-in smoke passed, and the protected account id 1 database did not stay untouched.
