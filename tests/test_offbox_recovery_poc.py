@@ -120,14 +120,33 @@ def _fingerprints(paths: list[Path]) -> dict[str, str]:
     return {str(path): file_sha256(str(path)) for path in paths}
 
 
+def _project_restic() -> Path | None:
+    """A previously approved binary may live under the main checkout's .local tree."""
+    names = ("restic.exe", "restic")
+    roots = [ROOT / ".local" / "tools" / "restic"]
+    git_pointer = ROOT / ".git"
+    if git_pointer.is_file():
+        text = git_pointer.read_text(encoding="utf-8").strip()
+        if text.lower().startswith("gitdir:"):
+            gitdir = Path(text.split(":", 1)[1].strip())
+            roots.append(gitdir.parents[2] / ".local" / "tools" / "restic")
+    for folder in roots:
+        for name in names:
+            candidate = folder / name
+            if candidate.is_file():
+                return candidate
+    return None
+
+
 @pytest.fixture
 def restic_binary() -> str:
-    binary = shutil.which("restic")
+    binary = shutil.which("restic") or _project_restic()
     if not binary:
         pytest.fail(
-            "restic is not installed. Refusing to download or install an executable."
+            "restic is not installed. Refusing to download or install an executable. "
+            "Place an Owner-approved restic 0.19.x binary at .local/tools/restic/restic.exe."
         )
-    return binary
+    return str(binary)
 
 
 def test_missing_accounts_snapshot_is_refused(tmp_path: Path) -> None:
@@ -511,7 +530,7 @@ def test_local_restic_round_trip(tmp_path: Path, restic_binary: str) -> None:
     assert report.status == STATUS_RESTORED
     assert report.sync_status == "RESTORED"
     assert report.sync_restore_completed is True
-    assert report.schema_version == 2
+    assert report.schema_version == sync_store.SCHEMA_VERSION
     assert report.accounts_integrity == "ok"
     assert report.sync_integrity == "ok"
     assert report.vocabulary_present is True
@@ -684,7 +703,7 @@ def _assert_sync_record(path: Path) -> None:
         version = connection.execute(
             "SELECT value FROM sync_meta WHERE key = 'schema_version'"
         ).fetchone()
-        assert version is not None and int(version[0]) == 2
+        assert version is not None and int(version[0]) == sync_store.SCHEMA_VERSION
         tables = {
             row[0]
             for row in connection.execute(

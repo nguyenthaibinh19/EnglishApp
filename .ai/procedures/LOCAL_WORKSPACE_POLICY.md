@@ -15,6 +15,7 @@ The EnglishApp Git root is the main worktree, `D:\EnglishApp`. Disposable pilots
 | `.local/labs/` | Experiment scripts and synthetic labs. `labs/18c4p-r3` is the active launcher. `labs/18c4a` and `labs/18c4p-r1` are archival. |
 | `.local/builds/` | Local build output. `builds/18c4p-r1-candidate` is archival and must not be installed. |
 | `.local/payloads/` | Local deployment payloads. `payloads/18c4p-r2` is archival. |
+| `.local/tools/restic/` | Optional local restic binary. The recovery proof looks here for `restic.exe` and does not download it. The accepted local proof version is restic 0.19.1. |
 
 `.local/INVENTORY.md` records the move and the retention of each artifact.
 

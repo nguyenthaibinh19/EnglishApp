@@ -89,12 +89,27 @@ def sync_db_path() -> str:
     return sync_store.db_path()
 
 
+def _discard_bounded_body(headers, rfile) -> None:
+    """Consume a normal-sized body before an early answer.
+
+    Leaving those bytes unread lets Windows abort the accepted connection
+    while the client is still reading the response.
+    """
+    try:
+        length = int(headers.get("Content-Length") or 0)
+    except (TypeError, ValueError):
+        return
+    if 0 < length <= SYNC_MAX_BODY:
+        rfile.read(length)
+
+
 def handle_request(path: str, headers, rfile) -> Tuple[int, Dict[str, Any]]:
     """Serve one sync POST. Never includes exception text in the body."""
     route = path or ""
     if route not in SYNC_PATHS:
         return 404, dict(_DISABLED)
     if not sync_enabled():
+        _discard_bounded_body(headers, rfile)
         return 404, dict(_DISABLED)
 
     try:
@@ -111,13 +126,16 @@ def handle_request(path: str, headers, rfile) -> Tuple[int, Dict[str, Any]]:
         user = account_store.user_for_token(token)
     except Exception as error:
         _log_failure(error)
+        _discard_bounded_body(headers, rfile)
         return 500, dict(_UNAVAILABLE)
     if not user or "id" not in user:
+        _discard_bounded_body(headers, rfile)
         return 401, dict(_UNAUTHORIZED)
     try:
         user_id = user["id"]
     except Exception as error:
         _log_failure(error)
+        _discard_bounded_body(headers, rfile)
         return 500, dict(_UNAVAILABLE)
 
     try:

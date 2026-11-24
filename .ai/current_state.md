@@ -4,7 +4,7 @@
 
 ## Latest verified coordination checkpoint — 2026-11-23
 
-**Current priority:** **Phase 18C.4P is not closed.** Core sync remains `APP_18C4P_R6_CORE_SYNC_ACCEPTED`. The Tk callback lifecycle fix and the non-tombstone vocabulary Keep local test passed. The full application suite was **3 failed, 930 passed, 24 skipped, 8 errors**. Those failures also fail on `de9969a` and are recorded in the acceptance plan. Production conflict, production offline, and production replay are not claimed. The physical two-computer vocabulary result stays **PASS — Owner confirmed**. Sync stays **ON**. **18B.9 PAUSED.** 18B.10B–E are **NOT AUTHORIZED.** See [PHASE-18C.4-two-device-sync-acceptance.md](plans/PHASE-18C.4-two-device-sync-acceptance.md).
+**Current priority:** **Phase 18C.4P is not closed** (`APP_RELEASE_TESTS_BLOCKED_RESTIC_DEPENDENCY`). Core sync remains `APP_18C4P_R6_CORE_SYNC_ACCEPTED`. The full suite is **965 collected, 933 passed, 0 failed, 24 skipped, 8 errors**. The eight errors are a missing restic 0.19.1 binary, not a product failure. Production conflict, production offline, and production replay are not claimed. The physical two-computer vocabulary result stays **PASS — Owner confirmed**. Sync stays **ON**. **18B.9 PAUSED.** 18B.10B–E are **NOT AUTHORIZED.** See [PHASE-18C.4-two-device-sync-acceptance.md](plans/PHASE-18C.4-two-device-sync-acceptance.md).
 
 **Phase 18B.10A: AUDIT ACCEPTED, IMPLEMENTATION DEFERRED** (`APP_18B10A_ARCHITECT_AUDIT_ACCEPTED_DEFERRED`). The audit and its proposed, unapproved numerical limits stay in [PHASE-18B.10A-api-abuse-resistance-audit.md](plans/PHASE-18B.10A-api-abuse-resistance-audit.md). Do not implement 18B.10B, 18B.10C, 18B.10D, or 18B.10E.
 

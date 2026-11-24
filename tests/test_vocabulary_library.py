@@ -5,6 +5,7 @@ from __future__ import annotations
 import copy
 import json
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 
 import config
 from attempt_history import LearningAttempt
@@ -252,28 +253,16 @@ def test_recent_attempts_newest_first_and_limit():
 
 
 def test_languages_isolated_via_loader(tmp_path, monkeypatch):
-    nl_dir = tmp_path / "nl"
-    en_dir = tmp_path / "en"
-    nl_dir.mkdir()
-    en_dir.mkdir()
-    (nl_dir / "vocab.json").write_text(
-        json.dumps([{"word": "fiets", "vi": "xe đạp"}]), encoding="utf-8"
-    )
-    (en_dir / "vocab.json").write_text(
-        json.dumps([{"word": "bike", "vi": "xe đạp"}]), encoding="utf-8"
-    )
-    (nl_dir / "progress.json").write_text("{}", encoding="utf-8")
-    (en_dir / "progress.json").write_text("{}", encoding="utf-8")
-    (nl_dir / "attempts.jsonl").write_text("", encoding="utf-8")
-    (en_dir / "attempts.jsonl").write_text("", encoding="utf-8")
-
-    monkeypatch.setattr(config, "vocab_path", lambda code=None: str((tmp_path / (code or "nl")) / "vocab.json"))
-    monkeypatch.setattr(
-        config, "progress_path", lambda code=None: str((tmp_path / (code or "nl")) / "progress.json")
-    )
-    monkeypatch.setattr(
-        config, "attempts_path", lambda code=None: str((tmp_path / (code or "nl")) / "attempts.jsonl")
-    )
+    monkeypatch.setenv("LG_DATA_DIR", str(tmp_path))
+    samples = {"nl": "fiets", "en": "bike"}
+    for code, word in samples.items():
+        folder = Path(config.language_dir(code))
+        folder.mkdir(parents=True)
+        (folder / "vocab.json").write_text(
+            json.dumps([{"word": word, "vi": "xe đạp"}]), encoding="utf-8"
+        )
+        (folder / "progress.json").write_text("{}", encoding="utf-8")
+        (folder / "attempts.jsonl").write_text("", encoding="utf-8")
 
     nl_items, *_ = load_vocabulary_library("nl", now=NOW)
     en_items, *_ = load_vocabulary_library("en", now=NOW)

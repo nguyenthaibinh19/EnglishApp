@@ -571,7 +571,9 @@ def _verify_sync_record(path: str, *, vocab_id: str, meaning: str) -> tuple[int,
         version = int(version_row[0])
     except (TypeError, ValueError) as error:
         raise OffboxPocError("Restored sync snapshot schema version is unreadable.") from error
-    if version != 2:
+    from sync_store import SCHEMA_VERSION
+
+    if version != SCHEMA_VERSION:
         raise OffboxPocError("Restored sync snapshot schema version is not supported.")
     missing = [name for name in _REQUIRED_SYNC_TABLES if name not in tables]
     if missing:
