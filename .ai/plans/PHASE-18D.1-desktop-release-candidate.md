@@ -1,6 +1,6 @@
 # Phase 18D.1 — Desktop release candidate
 
-Status: **isolated smoke completed. The ready tag was not returned** because the protected learner database and the production sync database changed during the smoke window.  
+Status: **isolated smoke accepted. Account id 1 incident reconciled and preserved.** Public release remains blocked. Baseline for this reconciliation: `e9457e3418579d44f51a7ca261a0f89fbf747c82`.  
 Date: 2026-11-24  
 Proposed release: v1.5.0 — Account Cloud Sync Update  
 Packaged source: `29292749da54b0035833321a80e2776007b6ee8e`  
@@ -84,3 +84,35 @@ These remain explicit gates. None is cleared by this smoke.
 - The final public ZIP must be named `langstudyguard.zip` and must contain `langstudyguard.exe`. This private ZIP contains `langstudyguard-rc.exe`.
 
 `APP_18D1_DESKTOP_RELEASE_CANDIDATE_READY_FOR_REVIEW` was not returned. The isolated signed-in smoke passed, and the protected account id 1 database did not stay untouched.
+
+## Data incident reconciliation
+
+No running process had `%APPDATA%\langstudyguard-rc\accounts\1\account_study.db` open, so no process was closed. The installed Startup shortcut was not changed. The candidate was not launched again and was not rebuilt.
+
+The protected database did not change during preservation. Its size stayed `221,184` bytes and its mtime stayed `2026-11-24T13:04:32.935533Z`. A consistent SQLite backup is `D:\EnglishApp\.local\backups\18d1-data-incident\account-1-20261124T141119Z.db`, `221,184` bytes, SHA-256 `75fff1bfd23cc7c6a7e95c87ba848fade76ea1c555fa6b1f4fb91e1878e6a7cb`, integrity `ok`. The 2026-11-19 recovery copy was not overwritten. Its guest vocabulary SHA-256 is still `ca387ab1bf13a95dd39dd033b0034dfc498fd4fc0e7450ea260161a75d805946`, and the pre-import database SHA-256 is still `9efe5eb7cab7b5f2347a6dda13112809e6cd6493268ada32b421349c8aecb72c`.
+
+One production backup was published with the existing online backup procedure and then verified: `study-sync-20261124-141131-698592.db`, `151,552` bytes, mode `0600`, SHA-256 `fc76ffe479424deb77150e96d461bfa7710220c4ced3e244a6bd2416f32bf2d9`, integrity `ok`, schema 3. The verifier returned `study_sync restore verification verified`. `language-guard.service` still started at `2026-11-23T16:43:33Z`. The sync backup timer remains disabled and inactive.
+
+### Counts
+
+The recovery source has 114 vocabulary ids. The pre-import account database had 0 vocabulary entities. The current protected database has all 114, with no lexical mismatch and no deleted row. It also has one extra entity, id `242e5e4c-4345-447c-a777-44df6132b2da`, revision 0, last updated `2026-11-22T10:40:48Z`. That entity is not in the recovery source and was not uploaded. There are no duplicate logical entities and no sync conflicts.
+
+The 92 acknowledged vocabulary operations are 92 distinct ids. All 92 are among the original 114. Each one is present on the production server for account id 1 at the same revision and the same lexical hash, and none is deleted. The server has 92 vocabulary entities, 92 vocabulary change rows, 0 learning attempts, and 0 SRS rows for account id 1. No acknowledged id is missing, and the server has no account id 1 vocabulary outside those 92.
+
+Twenty-two of the original 114 are still pending locally. All 22 have their vocabulary bodies in the outbox, still exist locally, and are absent from the server. The extra Nov 22 entity is the 23rd pending vocabulary operation and is also absent from the server. Those 23 operations remain recoverable. They were not marked acknowledged.
+
+Six local learning attempts from `2026-11-22` match six pending progress events by event id. None of those attempts is for the extra entity. Local SRS for those six is provisional only. The server has accepted none of them. They remain recoverable. No new stored learning attempt was created by this incident. Three `/api/grade` requests were logged between `13:04:29Z` and `13:09:42Z`; account id 1 still has no server attempt rows.
+
+All original learner vocabulary is preserved locally, and the uploaded subset matches the server. The partial synchronization can be continued later from the protected database. It must not be continued from the isolated copy described below, because that copy has the 92 downloaded entities and does not have the pending operations.
+
+### Origin
+
+Confirmed facts: the acknowledgements were written into this computer's protected database from `13:04:21Z` through `13:04:32Z`, and the server entities were updated at `13:04:40Z`. Windows records a shell launch of `D:\EnglishApp\.local\builds\18d1-v1.5.0-rc\langstudyguard-rc.exe` at `13:04:16.766Z`. The older `dist-rc` executable's last recorded launch is `2026-11-22T10:40:20Z`. The installed production executable's last recorded launch is `2026-11-08T17:08:23Z`. The same-machine lab databases were last written at `11:29Z`. The protected `settings.json` was not rewritten, so the uploading client used the account id 1 session already stored on `2026-11-22`. No retained command line identifies the parent of the `13:04:16Z` launch.
+
+Hypothesis, not a confirmed command: that launch used the default RC data root because `LG_DATA_DIR` was not set. An RC-named executable does that by design, and the stored session would start sync without a new login. A separate window of the same executable was signed in as user 3 at `13:06Z`, so the upload and the isolated smoke were not the same visible session.
+
+This upload was not produced by another computer. Another computer cannot write this local outbox file. There is no evidence for a different local executable.
+
+At `14:07:35Z` the still-running candidate, using the isolated data root, logged in as account id 1 and issued one preferences put. It then polled. It was not closed: it does not have the protected directory open. It has written a second local database at `.local\data\18d1-v1.5.0-rc\accounts\1\account_study.db`, `147,456` bytes, containing the 92 downloaded entities, no attempts, and no outbox rows. Do not treat that file as the learner database.
+
+The smallest prevention for the next smoke is a launcher that refuses to start unless `LG_DATA_DIR` is the intended isolated directory and is not `%APPDATA%\langstudyguard-rc`. That guard was not implemented here. Public release remains blocked by the gates above.
