@@ -1,6 +1,6 @@
 # Phase 18C.4 — Two-device sync acceptance
 
-Status: **18C.4P not closed.** Core sync stays `APP_18C4P_R6_CORE_SYNC_ACCEPTED`. Schema, language-loader, and the intermittent localhost abort are corrected. The only full-suite blocker is a missing restic binary (`APP_RELEASE_TESTS_BLOCKED_RESTIC_DEPENDENCY`).  
+Status: **18C.4P closed within the approved pilot scope** (`APP_18C4P_CLOSED_READY_FOR_DESKTOP_RELEASE`). Core sync stays `APP_18C4P_R6_CORE_SYNC_ACCEPTED`. The full suite is 965 collected, 941 passed, 0 failed, 24 skipped, 0 errors. Production conflict, production offline, production replay, and an EXE build are not claimed.  
 Owner priority: working Account Sync between two real Windows computers, before production hardening and Google Drive backup.  
 Date: 2026-11-24  
 Cloud Sync production: **ON**, supervised pilot · 18B.9: **PAUSED, NOT CLOSED** · Staging: **RESERVED, not deployed** · Vocabulary A → VPS → B: **PASS — Owner confirmed** · Same-machine restart persistence: **PASS** · Production conflict, production offline, and production replay: **not claimed**  
@@ -307,7 +307,7 @@ Recorded after `de9969a`. No production database, timer, EXE, or quiz attempt wa
 
 The Client B traceback was `StudyMasterApp._refresh_sync_status` calling `label.config` after the Cloud Sync label had been destroyed. The home screen had the same shape: Vocabulary, Progress, and Mistake Book scheduled `refresh()` on destroy, and starting study then destroyed the home widgets. Delayed callbacks are now cancelled when that screen is destroyed. `test_start_study_drops_vocab_destroy_refresh`, `test_vocab_close_still_refreshes_live_home`, and `test_study_sync_refresh_ignores_destroyed_label` passed. `test_freehome_sync_label_refresh.py` is 9 tests: 8 passed and 1 skipped in the combined run with the Account Sync files (96 passed, 1 skipped, 0 failed).
 
-The full application suite, 965 collected, now finishes **933 passed, 0 failed, 24 skipped, 8 errors**. The 24 skips are the suite's existing skips. The 8 errors are the restic fixture and were not converted into skips.
+The full application suite, 965 collected, finishes **941 passed, 0 failed, 24 skipped, 0 errors**. The 24 skips are the suite's existing skips. The eight restic tests passed against a temporary local repository.
 
 Current sync fixtures expect `sync_store.SCHEMA_VERSION` (3). The read-only recovery check uses that same version and still checks integrity, the required tables, and the synthetic vocabulary record. Schema 2 remains the historical migration case in `test_sync_store.py`.
 
@@ -317,9 +317,9 @@ Current sync fixtures expect `sync_store.SCHEMA_VERSION` (3). The read-only reco
 
 ## Restic dependency
 
-No restic binary is on `PATH` or at `D:\EnglishApp\.local\tools\restic\restic.exe`. The eight setup errors stay errors. Phase 18B.9 is not resumed, and no executable was downloaded.
+Owner approval covered local automated recovery tests only. The official archive `restic_0.19.1_windows_amd64.zip` from `https://github.com/restic/restic/releases/tag/v0.19.1` matched SHA-256 `da948ad707ed690426473aaba2046cd61f8f90f6f0e7dab6be0d5796531de67d` before it was extracted. `D:\EnglishApp\.local\tools\restic\restic.exe` reports `restic 0.19.1 compiled with go1.26.4 on windows/amd64`. It is not on `PATH`, not committed, and not pointed at a remote repository. Phase 18B.9 stays paused. The sync backup timer stays disabled.
 
-Owner approval requested: obtain restic 0.19.1 for Windows from the official release at `https://github.com/restic/restic/releases/tag/v0.19.1` and place `restic.exe` at `D:\EnglishApp\.local\tools\restic\restic.exe`. That is the version already named for the local recovery proof. A third-party repackage is not requested.
+`sync_http.py` now consumes a bounded request body before an early sync answer. That change is in the repository and has not been deployed to the production VPS. The production service is not running this corrected source. The lifecycle and recovery-schema edits are also repository-only.
 
 Production health stayed 200. Schema 3, integrity ok. The synthetic account still has revision 4, meaning `lab-marker-a`, 2 attempts, and 2 progress rows. Other accounts still have 0 vocabulary rows and 0 attempts. Because the second attempt arrived after the previous backup, one new backup was taken: `study-sync-20261124-112040-941473.db`, 86016 bytes, mode 0600, integrity ok, schema 3. The verifier returned `VERIFIED`. The sync backup timer stays disabled.
 

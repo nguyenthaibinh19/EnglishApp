@@ -2,9 +2,9 @@
 
 > First file a new agent should read. Keep this concise and update when phases complete.
 
-## Latest verified coordination checkpoint — 2026-11-23
+## Latest verified coordination checkpoint — 2026-11-24
 
-**Current priority:** **Phase 18C.4P is not closed** (`APP_RELEASE_TESTS_BLOCKED_RESTIC_DEPENDENCY`). Core sync remains `APP_18C4P_R6_CORE_SYNC_ACCEPTED`. The full suite is **965 collected, 933 passed, 0 failed, 24 skipped, 8 errors**. The eight errors are a missing restic 0.19.1 binary, not a product failure. Production conflict, production offline, and production replay are not claimed. The physical two-computer vocabulary result stays **PASS — Owner confirmed**. Sync stays **ON**. **18B.9 PAUSED.** 18B.10B–E are **NOT AUTHORIZED.** See [PHASE-18C.4-two-device-sync-acceptance.md](plans/PHASE-18C.4-two-device-sync-acceptance.md).
+**Current priority:** **Phase 18C.4P is closed within the approved pilot scope** (`APP_18C4P_CLOSED_READY_FOR_DESKTOP_RELEASE`). The full suite is **965 collected, 941 passed, 0 failed, 24 skipped, 0 errors**. Local restic is 0.19.1, checksum verified, and not a production backup. `sync_http.py` is corrected in the repository and is not deployed on the production VPS. Production conflict, production offline, production replay, and an EXE build are not claimed. The physical two-computer vocabulary result stays **PASS — Owner confirmed**. Sync stays **ON**. **18B.9 PAUSED.** 18B.10B–E are **NOT AUTHORIZED.** See [PHASE-18C.4-two-device-sync-acceptance.md](plans/PHASE-18C.4-two-device-sync-acceptance.md).
 
 **Phase 18B.10A: AUDIT ACCEPTED, IMPLEMENTATION DEFERRED** (`APP_18B10A_ARCHITECT_AUDIT_ACCEPTED_DEFERRED`). The audit and its proposed, unapproved numerical limits stay in [PHASE-18B.10A-api-abuse-resistance-audit.md](plans/PHASE-18B.10A-api-abuse-resistance-audit.md). Do not implement 18B.10B, 18B.10C, 18B.10D, or 18B.10E.
 

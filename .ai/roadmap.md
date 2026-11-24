@@ -2,9 +2,9 @@
 
 Directional plan — **not** a rigid release commitment. Update when phases complete or priorities shift.
 
-## Latest operational checkpoint — 2026-11-23
+## Latest operational checkpoint — 2026-11-24
 
-- **Active priority: Phase 18C.4 direct production Cloud Sync.** Core sync is accepted. The full suite is 933 passed, 0 failed, 24 skipped, and 8 errors. Those errors are a missing restic 0.19.1 binary. Production conflict, production offline, and production replay are not claimed. Vocabulary A → VPS → B on two physical computers remains **PASS — Owner confirmed**. 18B.9 remains **PAUSED**. 18B.10B–E remain **NOT AUTHORIZED**.
+- **Active priority: Phase 18C.4P is closed within the approved pilot scope.** The full suite is 965 collected, 941 passed, 0 failed, 24 skipped, 0 errors. Desktop release preparation is next. No EXE has been built. `sync_http.py` is corrected in the repository and is not deployed on the production VPS. Production conflict, production offline, and production replay are not claimed. Vocabulary A → VPS → B on two physical computers remains **PASS — Owner confirmed**. 18B.9 remains **PAUSED**. 18B.10B–E remain **NOT AUTHORIZED**.
 - 18C.1, 18C.2, and 18C.3B are **CLOSED**. 18B.10A is **AUDIT ACCEPTED, IMPLEMENTATION DEFERRED**. 18B.10B–E are **NOT AUTHORIZED**.
 - **18B.9 PAUSED, NOT CLOSED.** Production Cloud Sync **OFF**. Staging deployment **NOT STARTED**. Sync pilot **NO-GO**.
 
