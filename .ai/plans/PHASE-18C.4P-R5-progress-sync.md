@@ -1,6 +1,6 @@
 # Phase 18C.4P-R5 — Two-way vocabulary and learning progress
 
-Status: **BLOCKED on Owner GUI** (`APP_18C4P_R5_BLOCKED_OWNER_GUI`)  
+Status: **same-machine clients ready, GUI scenarios not started** (`APP_LOCAL_MULTI_CLIENT_READY`)  
 Date: 2026-11-24  
 Baseline: `39fc564ea8867fb7a76bb474d8abcce5eb6bcbe9`
 
@@ -16,7 +16,7 @@ Production Sync stays **ON**. No server source, account, or timer was changed. T
 | Backend | `https://langstudyguard.com` |
 | Account | `syncpilot_18c4p` |
 
-Machine A is open, PID 4708, title `langstudyguard`. Its identity is production and its stored Cloud Sync state is Synced. Machine B keeps the Owner's existing isolated client. No new `D:\lg-*` directory was created.
+Machine A is the left window. Machine B for these scenarios is the right window on the same computer, data `.local\data\18c4p-r3-b`, not the physical second PC. Client B is on the language screen and has no saved session. The physical two-computer vocabulary result remains a separate record.
 
 ## Baseline
 

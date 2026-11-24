@@ -5,9 +5,9 @@ Rolling coordination checkpoint. See [current_state.md](../current_state.md) and
 ## 1. Checkpoint metadata
 
 - Written: 2026-11-24.
-- Tag: `APP_18C4P_R5_BLOCKED_OWNER_GUI`.
-- Source baseline: `39fc564ea8867fb7a76bb474d8abcce5eb6bcbe9`.
-- Active priority: **Phase 18C.4P-R5.** Vocabulary A → VPS → B remains **PASS — Owner confirmed**. Bidirectional edits, attempts, and replay are waiting on the Owner.
+- Tag: `APP_LOCAL_MULTI_CLIENT_READY`.
+- Source baseline: `f42bdd5`.
+- Active priority: **Same-machine production clients are ready.** Client B still needs one private sign-in before the R5 GUI scenarios.
 - Application source baseline: `d6578c0f579d7ee9bd02aec855193339a7d8c124`.
 - Remote main at start: `2ef0552d6cda58ff94dc02c680b2dd391b77aaef`.
 - 18C.1, 18C.2, and 18C.3B remain CLOSED. The Sync Engine was not rebuilt.
@@ -21,14 +21,15 @@ Rolling coordination checkpoint. See [current_state.md](../current_state.md) and
 
 ## 2. Evidence
 
-- Machine A client: `D:\EnglishApp\.local\clients\18c4p-r3`. Data: `D:\EnglishApp\.local\data\18c4p-r3`. The old lab is archival at `D:\EnglishApp\.local\labs\18c4a`.
-- Baseline: `syncprobe` revision 1, meaning `lab-marker`, 0 attempts, 0 progress rows, 0 conflicts. Details: [PHASE-18C.4P-R5-progress-sync.md](../plans/PHASE-18C.4P-R5-progress-sync.md).
-- The sync backup timer stays disabled. Production Sync stays on. The post-test backup waits until the Owner finishes the GUI scenarios.
+- Shared source: `D:\EnglishApp\.local\clients\18c4p-r3`. Client A data: `.local\data\18c4p-r3`. Client B data: `.local\data\18c4p-r3-b`. Launcher: `.local\labs\18c4p-r3\launch_client.py`.
+- Client B has no settings and no account database. A throwaway pair of stores produced two different `device_id` values. Client B's real id is created on first open after sign-in.
+- `tests/test_account_ux_two_device.py` and the idempotent progress retry passed against localhost. That is not a production result. Details: [LOCAL_WORKSPACE_POLICY.md](../procedures/LOCAL_WORKSPACE_POLICY.md).
 
 ## 3. Next
 
-1. Owner edits `syncprobe` on B to `lab-marker-b`, then on A to `lab-marker-a`, and reports both Synced states.
-2. Owner submits exactly one quiz answer on B. Replay stays unverified until that accepted event exists.
+1. On the right-hand Client B window, add Dutch as a study language and continue.
+2. Sign in there as `syncpilot_18c4p`. Type the password only in that window.
+3. Then edit `syncprobe` on B, then on A, and submit one quiz answer on B.
 
 ## 4. STOP
 
