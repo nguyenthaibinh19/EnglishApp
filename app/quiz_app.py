@@ -91,6 +91,7 @@ class VocabQuizApp:
             window,
             enabled=config.LOCK_SCREEN if locked else False,
             on_close_attempt=self._on_close_attempt,
+            on_unlocked_close=self._leave_unlocked,
         )
 
         if self.store.count() == 0 and not self.manage_only:
@@ -886,7 +887,16 @@ class VocabQuizApp:
             except Exception:
                 pass
 
+    def _leave_unlocked(self):
+        try:
+            self.window.destroy()
+        except tk.TclError:
+            pass
+
     def _on_close_attempt(self):
+        if self.guard.allows_unlocked_leave():
+            self._leave_unlocked()
+            return
         if self.completed or not self.required:
             self.window.destroy()
             return

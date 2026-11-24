@@ -204,10 +204,30 @@ class ScreenGuard:
     # Lúc máy vừa đăng nhập, Windows và app khác tranh focus rất nhiều.
     _STARTUP_QUIET_MS = 2500
 
-    def __init__(self, window: tk.Misc, enabled: bool = None, on_close_attempt=None):
+    def __init__(
+        self,
+        window: tk.Misc,
+        enabled: bool = None,
+        on_close_attempt=None,
+        on_unlocked_close=None,
+    ):
+        import emergency_credential
+
+        requested = config.LOCK_SCREEN if enabled is None else bool(enabled)
+        usable = False
+        if requested:
+            try:
+                usable = emergency_credential.lock_allowed()
+            except Exception:
+                usable = False
+        # An explicit enabled=True cannot bypass a missing emergency credential.
         self.window = window
-        self.enabled = config.LOCK_SCREEN if enabled is None else enabled
+        self._lock_requested = bool(requested)
+        self._credential_blocked = bool(requested and not usable)
+        self._credential_lost = False
+        self.enabled = bool(requested and usable)
         self.on_close_attempt = on_close_attempt
+        self.on_unlocked_close = on_unlocked_close
         self._suspend_depth = 0
         self._combos = []
         self._refocus_after_ids = set()
@@ -238,9 +258,62 @@ class ScreenGuard:
 
     # ---------- Chặn đóng cửa sổ ----------
 
+    def locks_the_user(self) -> bool:
+        """True only while enforcement and a usable emergency credential both hold."""
+        if not self.enabled:
+            return False
+        import emergency_credential
+
+        try:
+            usable = emergency_credential.lock_allowed()
+        except Exception:
+            usable = False
+        if usable:
+            return True
+        self.disarm_lost_credential()
+        return False
+
+    def allows_unlocked_leave(self) -> bool:
+        """Close without the lock gate when the credential is missing or was lost."""
+        if self.enabled:
+            self.locks_the_user()
+        return bool(self._credential_blocked or self._credential_lost)
+
+    def disarm_lost_credential(self) -> None:
+        """Drop enforcement so a lost credential cannot trap the session."""
+        self.enabled = False
+        self._credential_lost = True
+        self._credential_blocked = True
+        self._cancel_refocus()
+        try:
+            self.window.attributes("-fullscreen", False)
+            self.window.attributes("-topmost", False)
+        except tk.TclError:
+            pass
+        try:
+            self.window.unbind("<Alt-F4>")
+        except tk.TclError:
+            pass
+
     def _handle_close_request(self):
+        if self.locks_the_user():
+            if self.on_close_attempt:
+                self.on_close_attempt()
+            return
+        if self.allows_unlocked_leave():
+            self._leave_without_completion()
+            return
         if self.on_close_attempt:
             self.on_close_attempt()
+
+    def _leave_without_completion(self):
+        if callable(self.on_unlocked_close):
+            self.on_unlocked_close()
+            return
+        try:
+            self.window.destroy()
+        except tk.TclError:
+            pass
 
     # ---------- Giữ focus ----------
 
@@ -260,7 +333,7 @@ class ScreenGuard:
         self._mark_quiet(self._CLICK_GRACE_MS)
 
     def _on_focus_out(self, _event=None):
-        if not self.enabled or self._suspend_depth:
+        if not self.locks_the_user() or self._suspend_depth:
             return
         # Hủy lịch cũ rồi hẹn lại — tránh xếp chồng hàng chục lần force_focus.
         self._cancel_refocus()
@@ -275,7 +348,7 @@ class ScreenGuard:
 
     def _maybe_refocus(self):
         self._refocus_after_ids.clear()
-        if not self.enabled or self._suspend_depth:
+        if not self.locks_the_user() or self._suspend_depth:
             return
         if self._pointer_down or self._in_quiet_period():
             # Người dùng đang tương tác — thử lại sau, đừng cướp click.
@@ -328,7 +401,7 @@ class ScreenGuard:
             pass
 
     def force_focus(self):
-        if not self.enabled or self._suspend_depth:
+        if not self.locks_the_user() or self._suspend_depth:
             return
         if self._pointer_down or self._in_quiet_period():
             return
@@ -511,6 +584,10 @@ class ScreenGuard:
                 pass
 
     def confirm_emergency_exit(self) -> bool:
+        if self.allows_unlocked_leave():
+            # No usable code remains. Leaving must not wait for one.
+            self.disarm_lost_credential()
+            return True
         with self.enforcement_paused():
             return confirm_developer_exit(self.window)
 

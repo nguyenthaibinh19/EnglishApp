@@ -67,7 +67,11 @@ class StudyMasterApp:
 
         ui_common.apply_theme(root)
         self.root.resizable(True, True)
-        self.guard = ui_common.ScreenGuard(root, on_close_attempt=self._on_close_root)
+        self.guard = ui_common.ScreenGuard(
+            root,
+            on_close_attempt=self._on_close_root,
+            on_unlocked_close=self._leave_unlocked,
+        )
 
         self._build_ui()
         self._refresh_status()
@@ -1341,6 +1345,9 @@ class StudyMasterApp:
     # ============================================================
 
     def _on_close_root(self):
+        if self.guard.allows_unlocked_leave():
+            self._leave_unlocked()
+            return
         if self._all_done():
             self.quit_all()
             return
@@ -1367,6 +1374,10 @@ class StudyMasterApp:
                 ),
                 parent=self.root,
             )
+
+    def _leave_unlocked(self):
+        """Return home or exit without marking an unfinished session complete."""
+        self.quit_all()
 
     def emergency_exit_all(self):
         if self.guard.confirm_emergency_exit():

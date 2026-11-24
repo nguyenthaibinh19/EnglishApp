@@ -63,6 +63,7 @@ class ReadingApp:
             window,
             enabled=config.LOCK_SCREEN if locked else False,
             on_close_attempt=self._on_close_attempt,
+            on_unlocked_close=self._leave_unlocked,
         )
 
         self.container = ttk.Frame(window, padding=16)
@@ -973,7 +974,16 @@ class ReadingApp:
         else:
             self.window.destroy()
 
+    def _leave_unlocked(self):
+        try:
+            self.window.destroy()
+        except tk.TclError:
+            pass
+
     def _on_close_attempt(self):
+        if self.guard.allows_unlocked_leave():
+            self._leave_unlocked()
+            return
         if self.completed:
             self.window.destroy()
             return
