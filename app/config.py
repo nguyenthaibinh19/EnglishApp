@@ -125,7 +125,7 @@ def _env_bool(name: str, default: bool) -> bool:
 # ---------- Nhận diện ứng dụng ----------
 
 APP_NAME = "langstudyguard"
-APP_VERSION = "1.4.0"
+APP_VERSION = "1.5.0"
 UPDATE_REPO = "nguyenthaibinh19/EnglishApp"
 
 # ---------- Đường dẫn dữ liệu ----------
