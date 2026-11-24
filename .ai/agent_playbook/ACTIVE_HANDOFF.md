@@ -5,9 +5,9 @@ Rolling coordination checkpoint. See [current_state.md](../current_state.md) and
 ## 1. Checkpoint metadata
 
 - Written: 2026-11-24.
-- Tag: `APP_18D2B_BACKEND_BACKUP_READY_FOR_ARCHITECT_REVIEW`. Public release remains blocked. The v1.5.0 candidate was not rebuilt.
-- Source baseline: `ee2ae7a67da5536f62bcdd94e7a0846fbf909c27`. Packaged commit of the existing candidate: `29292749da54b0035833321a80e2776007b6ee8e`.
-- Active priority: **Review the deployed Sync HTTP correction and the enabled backup timer before any public build. Do not publish the v1.5.0 candidate and do not upload the pending account id 1 operations.** Production `sync_http.py` is `d173ad179ca9039a13489df0ce8ca81473ddfd711897fd803af96f60920f0dd2`. Production `account_server.py` is `dde08a9d2be6039947390437a05579325f20cfb93689f2a45506ebed77163e35`. The service restarted once at `2026-11-24T17:39:58Z`. `language-guard-sync-backup.timer` is enabled and active. Next elapse: `2026-11-25 04:47:46 UTC`. The timer has not run a backup. The manual snapshot `study-sync-20261124-174104-409289.db` was verified at `2026-11-24T17:41:14Z`. The protected database still preserves all 114 original vocabulary entities. 92 match the server. 23 vocabulary operations and 6 progress events remain pending. The preferences put at `2026-11-24T14:07:35Z` stays as recorded.
+- Tag: withheld. `APP_18D3_FINAL_V150_READY_FOR_PUBLICATION_REVIEW` is not returned. The final EXE is built. Frozen sign-in is waiting for the synthetic account password.
+- Source baseline: `2d014462759b2c98fe7beb246c9654800e26898a`. Final EXE SHA-256 `9d4e6ae49d4545e195fc12a7e9b7e4face9bb5165293d16f70781d475f1ae199`. ZIP SHA-256 `e4d0d687ff08b9f4a2ce61cfa5f18b3011432fac5322799d1ab09bda55038e59`.
+- Active priority: **Finish the guarded smoke on the open sign-in window, then review publication. Do not publish yet and do not upload the pending account id 1 operations.** The window title is `Language Guard — PRODUCTION BACKEND · RC TEST DATA`. Username `syncpilot_18c4p` is filled. Data root `D:\EnglishApp\.local\data\18d3-final-smoke`. Production `sync_http.py` remains `d173ad179ca9039a13489df0ce8ca81473ddfd711897fd803af96f60920f0dd2`. `language-guard-sync-backup.timer` is enabled. Next elapse: `2026-11-25 04:47:46 UTC`. The timer has not run a backup. The protected database still preserves all 114 original vocabulary entities. 92 match the server. 23 vocabulary operations and 6 progress events remain pending.
 - Application source baseline: `d6578c0f579d7ee9bd02aec855193339a7d8c124`.
 - Remote main at start: `2ef0552d6cda58ff94dc02c680b2dd391b77aaef`.
 - 18C.1, 18C.2, and 18C.3B remain CLOSED. The Sync Engine was not rebuilt.
@@ -28,9 +28,9 @@ Rolling coordination checkpoint. See [current_state.md](../current_state.md) and
 
 ## 3. Next
 
-1. Review [PHASE-18D.2B-production-backend-sync-backup.md](../plans/PHASE-18D.2B-production-backend-sync-backup.md). Do not rebuild or publish an EXE from this result.
-2. Keep the remaining public-release gates closed: the already-built candidate still contains the old placeholder, and a public ZIP must be named `langstudyguard.zip` and contain `langstudyguard.exe`. The Sync HTTP correction is deployed. The Sync backup timer is enabled, and its first natural run has not occurred.
-3. Do not upload the pending account id 1 operations. Start any further RC smoke through `.local\labs\18d1\launch_rc_smoke.py` with a new data root under `.local\data`.
+1. Type the synthetic account password into the open sign-in window and continue the guarded smoke in [PHASE-18D.3-final-v1.5.0-release.md](../plans/PHASE-18D.3-final-v1.5.0-release.md). Do not publish from this partial smoke.
+2. Keep publication closed until that smoke finishes and the Owner approves. The public ZIP name is `langstudyguard.zip` and it must contain `langstudyguard.exe`. The Sync backup timer is enabled, and its first natural run has not occurred.
+3. Do not upload the pending account id 1 operations. Do not point RC smoke at `.local\data\18d1-v1.5.0-rc`.
 
 ## 4. STOP
 

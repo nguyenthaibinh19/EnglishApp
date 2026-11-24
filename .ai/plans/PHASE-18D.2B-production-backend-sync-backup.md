@@ -57,3 +57,5 @@ The checksum matches the 14:11 pre-deployment backup because the live database b
 - Phase 18B.10B–E were not implemented.
 - The other account routes were not given this read deadline. Only the Sync body read was bounded.
 - The first natural 04:45 UTC timer execution has not occurred.
+
+The 15-second Sync body limit is a socket inactivity timeout. Time starts again after each chunk that arrives. A client that keeps sending slowly can hold the worker for longer than 15 seconds. It is not an absolute deadline for the whole declared body. The deployed backend was not changed when this limitation was recorded.
