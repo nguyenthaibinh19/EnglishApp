@@ -5,9 +5,9 @@ Rolling coordination checkpoint. See [current_state.md](../current_state.md) and
 ## 1. Checkpoint metadata
 
 - Written: 2026-11-24.
-- Tag: `APP_18C4P_CLOSED_READY_FOR_DESKTOP_RELEASE`.
-- Source baseline: `ab9a78c2d15dc94739f16e26cc392b6af75f94a2`.
-- Active priority: **18C.4P is closed within the approved pilot scope.** The full suite is 965 collected, 941 passed, 0 failed, 24 skipped, 0 errors. Local restic 0.19.1 is checksum-verified and is not a production backup. `sync_http.py` is corrected in the repository and has not been deployed to the production VPS. Production conflict, production offline, and production replay were not run. No EXE has been built.
+- Tag: 18D.1 candidate built. `APP_18D1_DESKTOP_RELEASE_CANDIDATE_READY_FOR_REVIEW` was not returned.
+- Source baseline: `54f452da36211e419ef51a105009c1428b2525a9`. Packaged commit: `29292749da54b0035833321a80e2776007b6ee8e`.
+- Active priority: **v1.5.0 RC is built and waiting for the Owner to sign in on the open window.** Data root is `D:\EnglishApp\.local\data\18d1-v1.5.0-rc`. Do not paste the password into chat. Production `sync_http.py` is still `aa88f693764912f589a5945d7b3f154b587363311130b01295127cb600ddd5d1`.
 - Application source baseline: `d6578c0f579d7ee9bd02aec855193339a7d8c124`.
 - Remote main at start: `2ef0552d6cda58ff94dc02c680b2dd391b77aaef`.
 - 18C.1, 18C.2, and 18C.3B remain CLOSED. The Sync Engine was not rebuilt.
@@ -27,9 +27,9 @@ Rolling coordination checkpoint. See [current_state.md](../current_state.md) and
 
 ## 3. Next
 
-1. Desktop release preparation is next. Do not build or publish an EXE until that step is separately approved.
-2. Do not deploy the repository copy of `sync_http.py` by assuming the production VPS already has it.
-3. Do not submit another quiz answer on the relaunched clients.
+1. Sign in on the open `langstudyguard-rc` window as the existing synthetic account. Type the password only in that window.
+2. After sign-in, finish language selection, vocabulary sync, Progress and SRS download, then close and reopen. Do not submit another quiz answer.
+3. Do not publish the RC ZIP. The public asset must be `langstudyguard.zip` containing `langstudyguard.exe`.
 
 ## 4. STOP
 

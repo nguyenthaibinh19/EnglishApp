@@ -4,7 +4,7 @@ Directional plan — **not** a rigid release commitment. Update when phases comp
 
 ## Latest operational checkpoint — 2026-11-24
 
-- **Active priority: Phase 18C.4P is closed within the approved pilot scope.** The full suite is 965 collected, 941 passed, 0 failed, 24 skipped, 0 errors. Desktop release preparation is next. No EXE has been built. `sync_http.py` is corrected in the repository and is not deployed on the production VPS. Production conflict, production offline, and production replay are not claimed. Vocabulary A → VPS → B on two physical computers remains **PASS — Owner confirmed**. 18B.9 remains **PAUSED**. 18B.10B–E remain **NOT AUTHORIZED**.
+- **Active priority: Phase 18D.1 desktop candidate.** v1.5.0 is built under `.local/builds/18d1-v1.5.0-rc` and is not published. Frozen startup reached the production-backend login screen. Sign-in, sync, and signed-in reopen are still open. The production `sync_http.py` correction is not deployed. 18C.4P remains closed. 18B.9 remains **PAUSED**. 18B.10B–E remain **NOT AUTHORIZED**.
 - 18C.1, 18C.2, and 18C.3B are **CLOSED**. 18B.10A is **AUDIT ACCEPTED, IMPLEMENTATION DEFERRED**. 18B.10B–E are **NOT AUTHORIZED**.
 - **18B.9 PAUSED, NOT CLOSED.** Production Cloud Sync **OFF**. Staging deployment **NOT STARTED**. Sync pilot **NO-GO**.
 

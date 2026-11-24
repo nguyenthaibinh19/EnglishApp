@@ -4,7 +4,7 @@
 
 ## Latest verified coordination checkpoint — 2026-11-24
 
-**Current priority:** **Phase 18C.4P is closed within the approved pilot scope** (`APP_18C4P_CLOSED_READY_FOR_DESKTOP_RELEASE`). The full suite is **965 collected, 941 passed, 0 failed, 24 skipped, 0 errors**. Local restic is 0.19.1, checksum verified, and not a production backup. `sync_http.py` is corrected in the repository and is not deployed on the production VPS. Production conflict, production offline, production replay, and an EXE build are not claimed. The physical two-computer vocabulary result stays **PASS — Owner confirmed**. Sync stays **ON**. **18B.9 PAUSED.** 18B.10B–E are **NOT AUTHORIZED.** See [PHASE-18C.4-two-device-sync-acceptance.md](plans/PHASE-18C.4-two-device-sync-acceptance.md).
+**Current priority:** **Phase 18D.1 desktop candidate is built and waiting for private sign-in.** v1.5.0 source `29292749da54b0035833321a80e2776007b6ee8e`. The frozen EXE shows `PRODUCTION BACKEND · RC TEST DATA` from `D:\EnglishApp\.local\data\18d1-v1.5.0-rc`. Login, sync, and signed-in reopen are not done. The ready tag was not returned. Production `sync_http.py` remains `aa88f693764912f589a5945d7b3f154b587363311130b01295127cb600ddd5d1` and was not deployed. 18C.4P stays closed. **18B.9 PAUSED.** See [PHASE-18D.1-desktop-release-candidate.md](plans/PHASE-18D.1-desktop-release-candidate.md).
 
 **Phase 18B.10A: AUDIT ACCEPTED, IMPLEMENTATION DEFERRED** (`APP_18B10A_ARCHITECT_AUDIT_ACCEPTED_DEFERRED`). The audit and its proposed, unapproved numerical limits stay in [PHASE-18B.10A-api-abuse-resistance-audit.md](plans/PHASE-18B.10A-api-abuse-resistance-audit.md). Do not implement 18B.10B, 18B.10C, 18B.10D, or 18B.10E.
 
