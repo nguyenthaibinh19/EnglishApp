@@ -1,6 +1,6 @@
 # Phase 18D.3 — Final v1.5.0 release preparation
 
-Status: build and compatibility checks are complete. Frozen sign-in smoke is open and waiting for the synthetic account password. The publication-ready tag is not returned. Baseline `2d014462759b2c98fe7beb246c9654800e26898a`. No public release was created and no release tag was pushed.
+Status: the emergency-code choice is in the rebuilt v1.5.0 artifact. Frozen sign-in is open and waiting for the synthetic account password. Publication and the installed-app upgrade are held at that sign-in. Baseline `154bf03c6856667cf1322cfe4e6f31996e05e09f`. No public release was created and no release tag was pushed.
 
 ## Final artifacts
 
@@ -8,12 +8,14 @@ Built with `build_exe.bat` from the accepted main source. A leftover gitignored 
 
 | File | Bytes | SHA-256 |
 |---|---:|---|
-| `D:\EnglishApp\.local\builds\18d3-v1.5.0-final\langstudyguard.exe` | 36,247,427 | `9d4e6ae49d4545e195fc12a7e9b7e4face9bb5165293d16f70781d475f1ae199` |
-| `D:\EnglishApp\.local\builds\18d3-v1.5.0-final\langstudyguard.zip` | 35,776,293 | `e4d0d687ff08b9f4a2ce61cfa5f18b3011432fac5322799d1ab09bda55038e59` |
+| `D:\EnglishApp\.local\builds\18d3-v1.5.0-final\langstudyguard.exe` | 36,250,260 | `6954dbdadec226140ac35e55395ffda0c20a31b1ebaffde643c7edcd6d6ee1e9` |
+| `D:\EnglishApp\.local\builds\18d3-v1.5.0-final\langstudyguard.zip` | 35,779,585 | `b6e73009b832b26d5119fec40d402b78335b628e7759d97d67b54ef1da15d3d0` |
 
 The ZIP contains one entry, `langstudyguard.exe`, and that entry is the same size as the executable.
 
-Embedded `build_manifest.json`: channel `production`, version `1.5.0`, commit `2d014462759b2c98fe7beb246c9654800e26898a`, built `2026-11-24T18:22:53Z`.
+The previous candidate is archived at `D:\EnglishApp\.local\builds\18d3-v1.5.0-final\archive-2d01446\`. Its EXE SHA-256 remains `9d4e6ae49d4545e195fc12a7e9b7e4face9bb5165293d16f70781d475f1ae199`.
+
+Embedded `build_manifest.json`: channel `production`, version `1.5.0`, commit `154bf03c6856667cf1322cfe4e6f31996e05e09f`, built `2026-11-24T19:03:08Z`. The packaged enrollment dialog offers "Set my own emergency code" and "Generate a secure random emergency code". A weak or empty chosen code is rejected before the current credential is replaced.
 
 Embedded `bundled_secrets.json`: `account_server_url` is `https://langstudyguard.com`. It has no other key. The executable does not contain the old placeholder emergency password, `EMERGENCY_PASSWORD`, an `sk-` key, an SSH private key, or a SQLite database. The packaged bytecode includes `CryptProtectData`, `lock_allowed`, `disarm_lost_credential`, `allows_unlocked_leave`, `langstudyguard-rc`, and `LanguageGuard-Recovery`.
 
@@ -30,7 +32,7 @@ Preserved without replacement:
 
 ## Frozen smoke so far
 
-The final EXE was started only through `D:\EnglishApp\.local\labs\18d1\launch_rc_smoke.py` for the signed-in path, with data root `D:\EnglishApp\.local\data\18d3-final-smoke`. The window title is `Language Guard — PRODUCTION BACKEND · RC TEST DATA`. The sign-in form shows that banner. It is a small window, not a screen lock. No updater dialog appeared. The username `syncpilot_18c4p` is filled. The password field is empty.
+The rebuilt EXE was started only through `D:\EnglishApp\.local\labs\18d1\launch_rc_smoke.py`, with a fresh data root `D:\EnglishApp\.local\data\18d3-release-smoke`. The window title is `Language Guard — PRODUCTION BACKEND · RC TEST DATA`. The sign-in form shows that banner. It is a small window, not a screen lock. No updater dialog appeared. The username `syncpilot_18c4p` is filled. The password field is empty.
 
 The same EXE, with `LG_RC_SMOKE=1`, stopped before opening data for a missing root, production AppData, the protected RC AppData folder, the production install directory, and the recovery directory. The guarded launcher also refuses the 18D.1 incident root and production AppData. A direct launch at the incident root is not part of the guarded procedure. One such launch wrote `emergency_credential.json` there. That new file was removed. The incident account databases were not rewritten.
 
@@ -42,7 +44,7 @@ The installed v1.4.0 updater and this build have the same bytecode for `parse_ve
 
 The updater replaces the installed executable path and does not call `install.prepare`. Learner data stays in the roaming data directory, so an upgrade or a rollback of the EXE does not replace that data. This task did not replace the installed EXE.
 
-Clean full suite, after the gitignored production manifest was removed from the source tree: **974 passed, 24 skipped, 0 failed**.
+Clean full suite after the emergency-code choice, and before the production manifest was written: **978 passed, 24 skipped, 0 failed**.
 
 ## Backup observation
 
@@ -50,7 +52,7 @@ Clean full suite, after the gitignored production manifest was removed from the 
 
 ## Release notes
 
-Language Guard 1.5.0 is a production-channel desktop build from `2d014462759b2c98fe7beb246c9654800e26898a`. It talks to `https://langstudyguard.com`. Screen lock stays off until the learner saves a local emergency code on that computer. Release packaging does not embed a shared emergency password. RC smoke refuses a missing or protected data root. Cloud Sync for the supervised pilot stays available. The recurring on-server Sync backup timer is enabled. Its first natural run is still pending.
+Language Guard 1.5.0 is a production-channel desktop build from `154bf03c6856667cf1322cfe4e6f31996e05e09f`. It talks to `https://langstudyguard.com`. Enrollment and Study Settings let the learner set their own emergency code or generate a random one. Screen lock stays off until that code is confirmed on that computer. Release packaging does not embed a shared emergency password. RC smoke refuses a missing or protected data root. Cloud Sync for the supervised pilot stays available. The recurring on-server Sync backup timer is enabled. Its first natural run is still pending.
 
 Remaining limitations:
 
@@ -66,7 +68,7 @@ Remaining limitations:
 
 Do not run these steps until the frozen smoke is finished and the Owner approves publication.
 
-1. Confirm the ZIP SHA-256 is still `e4d0d687ff08b9f4a2ce61cfa5f18b3011432fac5322799d1ab09bda55038e59`.
+1. Confirm the ZIP SHA-256 is still `b6e73009b832b26d5119fec40d402b78335b628e7759d97d67b54ef1da15d3d0`.
 2. From the accepted commit, create a GitHub Release titled `v1.5.0`. The tag is created only with that approval.
 3. Upload `langstudyguard.zip` as an asset with that exact name. The updater selects that name and extracts `langstudyguard.exe`.
 4. Paste the release notes above. Do not attach learner databases, `.env`, or the private RC candidate.
