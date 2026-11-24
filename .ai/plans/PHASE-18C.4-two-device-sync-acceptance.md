@@ -1,6 +1,6 @@
 # Phase 18C.4 — Two-device sync acceptance
 
-Status: **vocabulary A → VPS → B PASS — Owner confirmed** (`APP_18C4P_VOCAB_SYNC_MILESTONE_RECORDED`)  
+Status: **18C.4P-R5 blocked on Owner GUI** (`APP_18C4P_R5_BLOCKED_OWNER_GUI`)  
 Owner priority: working Account Sync between two real Windows computers, before production hardening and Google Drive backup.  
 Date: 2026-11-23  
 Cloud Sync production: **ON**, supervised pilot · 18B.9: **PAUSED, NOT CLOSED** · Staging: **RESERVED, not deployed** · Vocabulary A → VPS → B: **PASS — Owner confirmed** · Remaining scenarios: **open**  
@@ -41,7 +41,9 @@ The in-process two-device tests are not this acceptance. They do show that the s
 
 The 60-second poll is the receiving computer's wait. Saving on one computer wakes only that computer's worker.
 
-## 3. How both computers reach one backend
+## 3. Historical lab path — do not use
+
+The steps in this section are the superseded LAN/SSH lab plan. The active test uses the production backend `https://langstudyguard.com`, the synthetic account `syncpilot_18c4p`, and the isolated clients already prepared. Do not start `staging_server.py`, do not open an SSH tunnel, and do not create another `D:\lg-*` directory.
 
 The production VPS is not the backend for this test. `deploy/hetzner/staging_guard.py` allows `ACCOUNT_BIND=127.0.0.1` only and refuses port `8765`. A development or staging client may call loopback without extra host trust. Any other host requires `LG_TRUSTED_STAGING_HOSTS`, which is a separate trust decision.
 
@@ -75,7 +77,9 @@ Unplugging computer A's Ethernet does not make A's own client offline, because A
 | Second computer, SSH session, and the synthetic password | **Requires Owner action** | Cursor cannot see or operate that computer. The password is not written into the repo. |
 | Decision to start the lab process | **Requires Owner action** | 18C.4A prepared the files only. Starting the process, the tunnel, and accounts still needs 18C.4B. |
 
-## 5. Minimum execution steps
+## 5. Historical lab execution — do not use
+
+These steps prepared the old isolated lab. They are not the active production test. The active Machine A client is `D:\EnglishApp\.local\clients\18c4p-r3` with data `D:\EnglishApp\.local\data\18c4p-r3`. The old lab files now live at `D:\EnglishApp\.local\labs\18c4a`.
 
 18C.4A completed the offline part of steps 1–3 at `D:\lg-18c4a-lab` and validated the guard without starting a process. Steps 4–8 stay unauthorized. Do not point them at the VPS. Do not fall back to `python account_server.py` from the live source tree.
 
@@ -108,7 +112,9 @@ Before the first login, confirm all of the following. Any failure stops the test
 - The lab account database file size starts at a new file, not a copy of the RC database.
 - The 114 Dutch words and 114 pending outbox rows are not imported.
 
-## 6. Who does what
+## 6. Historical lab roles — do not use
+
+This section describes the superseded staging lab. Machine B does not use an SSH tunnel. The Owner uses the isolated production source client and `https://langstudyguard.com`.
 
 Cursor, on the development machine, after a later authorization and still without the second computer:
 

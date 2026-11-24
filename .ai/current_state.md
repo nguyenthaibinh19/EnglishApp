@@ -4,7 +4,7 @@
 
 ## Latest verified coordination checkpoint — 2026-11-23
 
-**Current priority:** **Phase 18C.4 — direct production Cloud Sync.** **18C.4P vocabulary A → VPS → B is PASS — Owner confirmed** (`APP_18C4P_VOCAB_SYNC_MILESTONE_RECORDED`). Sync stays **ON**. The other acceptance scenarios remain open. **18B.9 PAUSED.** 18B.10B–E are **NOT AUTHORIZED.** See [PHASE-18C.4-two-device-sync-acceptance.md](plans/PHASE-18C.4-two-device-sync-acceptance.md).
+**Current priority:** **Phase 18C.4P-R5** (`APP_18C4P_R5_BLOCKED_OWNER_GUI`). Vocabulary A → VPS → B stays **PASS — Owner confirmed**. Bidirectional edits and the quiz attempt are waiting on the Owner. Replay is **UNVERIFIED**. Sync stays **ON**. **18B.9 PAUSED.** 18B.10B–E are **NOT AUTHORIZED.** See [PHASE-18C.4P-R5-progress-sync.md](plans/PHASE-18C.4P-R5-progress-sync.md).
 
 **Phase 18B.10A: AUDIT ACCEPTED, IMPLEMENTATION DEFERRED** (`APP_18B10A_ARCHITECT_AUDIT_ACCEPTED_DEFERRED`). The audit and its proposed, unapproved numerical limits stay in [PHASE-18B.10A-api-abuse-resistance-audit.md](plans/PHASE-18B.10A-api-abuse-resistance-audit.md). Do not implement 18B.10B, 18B.10C, 18B.10D, or 18B.10E.
 
