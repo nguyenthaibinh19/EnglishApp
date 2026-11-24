@@ -77,8 +77,8 @@ The executable is unsigned. Windows SmartScreen can warn. No public release was 
 
 These remain explicit gates. None is cleared by this smoke.
 
-- The synthetic emergency password `18d1-rc-placeholder-not-for-publication` is unsuitable for publication.
-- The bundled emergency-password review is recorded below. The replacement is not implemented. `bundle_secrets.py` still reads `EMERGENCY_PASSWORD` from a developer `.env`.
+- The already-built v1.5.0 candidate was not rebuilt. It still contains the synthetic emergency password and must not be published.
+- Source packaging no longer writes an emergency password. The local credential is Phase 18D.2A. `bundle_secrets.py` keeps the account-server URL only.
 - The repository `sync_http.py` correction remains undeployed. Source SHA-256 `3de5c413064240ff8036df9c314006201c302be32003cbeb76db502b2612ca6d`. Production remains `aa88f693764912f589a5945d7b3f154b587363311130b01295127cb600ddd5d1`.
 - The recurring Sync backup timer remains disabled.
 - The final public ZIP must be named `langstudyguard.zip` and must contain `langstudyguard.exe`. This private ZIP contains `langstudyguard-rc.exe`.

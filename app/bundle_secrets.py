@@ -1,9 +1,11 @@
-"""Đọc EMERGENCY_PASSWORD từ .env và ghi bundled_secrets.json để đóng vào file .exe.
+"""Write bundled_secrets.json for an EXE build.
 
-File kết quả không được commit. Mật khẩu chỉ nằm trong máy dev và trong bản build.
-
-Staging builds refuse production account-server URLs (ADR-025).
+The file may contain the account-server URL. It must not contain an emergency
+password, an API key, a session token, or any other value from the developer
+environment. The result is not committed.
 """
+
+from __future__ import annotations
 
 import argparse
 import json
@@ -19,6 +21,8 @@ KNOWN_PRODUCTION_HOSTS = {
     "account.langstudyguard.com",
 }
 
+ALLOWED_KEYS = frozenset({"account_server_url"})
+
 
 def _host(url: str) -> str:
     parsed = urlparse(url if "://" in url else "http://" + url)
@@ -32,38 +36,18 @@ def _is_production_host(host: str) -> bool:
     return host.endswith(".langstudyguard.com")
 
 
-def main():
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument(
-        "--channel",
-        default="production",
-        choices=("development", "staging", "production"),
-    )
-    args = parser.parse_args()
-
-    values = dotenv_values(".env")
-    password = (values.get("EMERGENCY_PASSWORD") or "").strip()
-    if not password:
-        print("Thieu EMERGENCY_PASSWORD trong .env")
-        return 1
-    payload = {"emergency_password": password}
-    server = (values.get("ACCOUNT_SERVER_URL") or "").strip()
-    if args.channel in ("staging", "development"):
-        # Never embed a production URL into a non-production EXE. If .env points
-        # at production (common on the owner machine), force localhost instead.
+def release_payload(values: dict, channel: str) -> dict:
+    """Build the non-secret release document from environment values."""
+    payload = {}
+    server = str((values or {}).get("ACCOUNT_SERVER_URL") or "").strip()
+    if channel in ("staging", "development"):
         forced = "http://127.0.0.1:8765"
         if server:
             host = _host(server)
-            if _is_production_host(host):
+            if _is_production_host(host) or host not in {"127.0.0.1", "localhost", "::1"}:
                 print(
-                    f"CANH BAO: bo qua ACCOUNT_SERVER_URL production ({host}); "
-                    f"channel={args.channel} dung {forced}"
-                )
-                payload["account_server_url"] = forced
-            elif host not in {"127.0.0.1", "localhost", "::1"}:
-                print(
-                    f"CANH BAO: bo qua ACCOUNT_SERVER_URL khong tin cay ({host}); "
-                    f"channel={args.channel} dung {forced}"
+                    f"CANH BAO: bo qua ACCOUNT_SERVER_URL ({host}); "
+                    f"channel={channel} dung {forced}"
                 )
                 payload["account_server_url"] = forced
             else:
@@ -72,9 +56,42 @@ def main():
             payload["account_server_url"] = forced
     elif server:
         payload["account_server_url"] = server
-    with open("bundled_secrets.json", "w", encoding="utf-8") as handle:
+    assert_release_config(payload)
+    return payload
+
+
+def assert_release_config(payload: dict) -> None:
+    """Reject any key other than the account-server URL."""
+    if not isinstance(payload, dict):
+        raise ValueError("release configuration must be an object")
+    extra = set(payload) - ALLOWED_KEYS
+    if extra:
+        raise ValueError("release configuration contains a forbidden key")
+    url = payload.get("account_server_url", "")
+    if url and not isinstance(url, str):
+        raise ValueError("account server URL must be text")
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--channel",
+        default="production",
+        choices=("development", "staging", "production"),
+    )
+    parser.add_argument("--output", default="bundled_secrets.json")
+    args = parser.parse_args(argv)
+
+    values = dotenv_values(".env")
+    try:
+        payload = release_payload(values, args.channel)
+    except ValueError as error:
+        print(str(error))
+        return 1
+    with open(args.output, "w", encoding="utf-8") as handle:
         json.dump(payload, handle)
-    print(f"Da gan mat khau dev vao ban build (channel={args.channel}).")
+        handle.write("\n")
+    print(f"Da ghi cau hinh phat hanh, khong co mat khau khan cap (channel={args.channel}).")
     return 0
 
 

@@ -3,7 +3,8 @@
 Chạy từ source (`python main.py`) thì prepare() không làm gì.
 Bản đã cài mở bình thường và không tạo lại shortcut Startup.
 Một file .exe khác không được ghi đè bản đã cài, không mở bản đó
-và không tạo Startup. Shortcut Startup chỉ được ghi khi cài lần đầu.
+và không tạo Startup. Shortcut Startup chỉ được tạo sau khi mã thoát
+khẩn cấp cục bộ đã được xác nhận, và không sửa shortcut đã có.
 """
 
 import os
@@ -212,6 +213,27 @@ def _discard_incomplete_install(dest: str, *, remove_startup_link: bool) -> None
         pass
 
 
+def register_startup_after_enrollment() -> bool:
+    """Create a new Startup shortcut only after the emergency code is acknowledged.
+
+    An existing shortcut is left unchanged. Source runs, RC smoke, and
+    non-production builds do not register one.
+    """
+    import emergency_credential
+
+    if not emergency_credential.lock_allowed():
+        return False
+    if not config.is_frozen() or is_release_candidate_smoke():
+        return False
+    identity = config.environment_identity()
+    if identity.runtime_environment != "production":
+        return False
+    if _startup_link_exists():
+        return False
+    register_startup(config.installed_exe())
+    return True
+
+
 def is_release_candidate_smoke() -> bool:
     """True for isolated RC smoke — no install/Startup; isolated AppData.
 
@@ -287,16 +309,9 @@ def prepare() -> bool:
         return False
 
     try:
-        register_startup(dest)
-    except Exception:
-        # register_startup removes only a shortcut it reserved. A pre-existing one stays.
-        _discard_incomplete_install(dest, remove_startup_link=False)
-        raise
-
-    try:
         subprocess.Popen([dest], cwd=os.path.dirname(dest), close_fds=True)
     except OSError as error:
-        _discard_incomplete_install(dest, remove_startup_link=not shortcut_existed)
+        _discard_incomplete_install(dest, remove_startup_link=False)
         raise OSError(
             config.ui(
                 "Chưa cài xong vì ứng dụng không mở được.",

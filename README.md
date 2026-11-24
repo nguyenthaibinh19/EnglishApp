@@ -90,7 +90,8 @@ Mọi thứ chỉnh trong `.env`, xem `.env.example`. Đáng chú ý:
 | `READING_WORD_COUNT` | 12 | Số từ đưa vào bài đọc |
 | `READING_PASS_RATIO` | 0.8 | Tỉ lệ đúng tối thiểu để qua phần đọc |
 | `LOCK_SCREEN` | 1 | Đặt `0` khi sửa code để cửa sổ không chiếm màn hình |
-| `EMERGENCY_PASSWORD` | (trong `.env`) | Mật khẩu để dùng nút thoát khẩn cấp |
+
+Bản cài đặt không dùng `EMERGENCY_PASSWORD`. Mã thoát khẩn cấp được tạo trên máy người dùng và bảo vệ bằng DPAPI của người dùng Windows hiện tại. Xem [PHASE-18D.2A-emergency-exit-security.md](.ai/plans/PHASE-18D.2A-emergency-exit-security.md).
 
 ## Cấu trúc
 

@@ -444,9 +444,19 @@ class FreeHome:
             wraplength=360,
         ).pack(anchor="w", pady=(12, 0))
         ttk.Button(
+            frame,
+            text=config.ui("Mã thoát khẩn cấp", "Emergency code"),
+            command=lambda: self._emergency_code(dialog),
+        ).pack(anchor="w", pady=(12, 0))
+        ttk.Button(
             frame, text=config.ui("Đóng", "Close"), command=dialog.destroy
         ).pack(anchor="e", pady=(14, 0))
         dialog.geometry("+%d+%d" % (self.root.winfo_rootx() + 40, self.root.winfo_rooty() + 40))
+
+    def _emergency_code(self, parent):
+        import emergency_enroll
+
+        emergency_enroll.recover(parent, lock_active=False)
 
     def _choose_language(self, codes, mode: str):
         dialog = tk.Toplevel(self.root)

@@ -10,7 +10,7 @@
 
 Production RC must not overwrite an existing Owner `dist/langstudyguard.exe`. Do not publish a public GitHub Release until separate approval. Upgrade: replace installed EXE after Owner acceptance; rollback: restore `.bak` / previous ZIP. **RC smoke** uses isolated `%APPDATA%\langstudyguard-rc` (not production AppData), keeps the production HTTPS backend, blocks the production auto-updater, and shows **PRODUCTION BACKEND · RC TEST DATA** — see [RC_SMOKE_PRODUCT_OWNER.md](RC_SMOKE_PRODUCT_OWNER.md). Genuine `langstudyguard.exe` install/update/AppData semantics stay unchanged when RC markers are absent.
 
-Each build writes `build_manifest.json` (`channel`, `version`, `commit_sha`) and embeds it in the EXE. Staging bundling **never** embeds a production `ACCOUNT_SERVER_URL` from `.env` — it forces `http://127.0.0.1:8765`.
+Each build writes `build_manifest.json` (`channel`, `version`, `commit_sha`) and embeds it in the EXE. `bundle_secrets.py` writes `bundled_secrets.json` with the account-server URL only. It does not copy `EMERGENCY_PASSWORD`, an API key, a session token, or the developer `.env`. Staging bundling never embeds a production `ACCOUNT_SERVER_URL` from `.env`; it forces `http://127.0.0.1:8765`.
 
 ## Rules
 

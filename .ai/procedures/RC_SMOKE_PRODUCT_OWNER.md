@@ -47,7 +47,7 @@ The already-built v1.5.0 candidate does not contain this check. Start that binar
 |---------------|---------|--------------|
 | Any PC | RC smoke without an approved `LG_DATA_DIR` | Stops before settings, databases, install, or sync. |
 | PC with Language Guard installed | RC smoke with an approved isolated root | Uses only that root. Does **not** read, copy, or overwrite production settings, Guest data, account SQLite, the protected RC account, installed EXE, Startup, or updater state. |
-| Clean PC | genuine `langstudyguard.exe` | Unchanged first-install: copy + Startup `--lock` when no prior install; production AppData. |
+| Clean PC | genuine `langstudyguard.exe` | Copies into the production install directory and does not create Startup `--lock` until the local emergency code is acknowledged. An existing shortcut is left unchanged. `--lock` does not engage until that acknowledgement. |
 
 ## Safe Owner smoke checklist (second PC)
 

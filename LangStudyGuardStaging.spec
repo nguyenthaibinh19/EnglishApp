@@ -36,7 +36,7 @@ a = Analysis(
         ("data/vocab.json", "."),
         ("data/starters", "starters"),
         ("data/Reading", "Reading"),
-        ("bundled_secrets.json", "."),
+        ("bundled_secrets.json", "."),  # account URL only; never an emergency password
         ("build_manifest.json", "."),
     ],
     hiddenimports=["dotenv"],

@@ -1540,6 +1540,11 @@ def main():
             root.destroy()
             return
 
+    if config.is_frozen():
+        import emergency_enroll
+
+        emergency_enroll.offer(root)
+
     # Account learning sync worker (ADR-022). Guest stays on local files only.
     try:
         import atexit
@@ -1552,7 +1557,9 @@ def main():
     except Exception:
         pass
 
-    if "--lock" in sys.argv:
+    import emergency_credential
+
+    if emergency_credential.screen_lock_enabled():
         StudyMasterApp(root)
     else:
         FreeHome(root)
@@ -1562,7 +1569,7 @@ def main():
         # RC smoke never schedules the production auto-updater.
         if updater.updates_allowed():
             # Chờ desktop ổn định rồi mới hỏi cập nhật — tránh tranh focus lúc login.
-            delay = 3500 if "--lock" in sys.argv else 800
+            delay = 3500 if emergency_credential.screen_lock_enabled() else 800
             root.after(delay, lambda: updater.prompt_if_needed(root))
     root.mainloop()
 

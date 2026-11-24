@@ -136,17 +136,18 @@ def test_first_installation_copies_registers_startup_and_launches(tmp_path, monk
     assert install.prepare() is False
 
     assert installed.read_bytes() == payload
-    assert record.startup == [str(installed)]
+    assert record.startup == []
     assert record.launches == [([str(installed)], str(installed.parent))]
     assert record.notices == 0
     assert record.seeds == 0
 
 
-def test_startup_shortcut_is_part_of_first_install_only():
+def test_startup_shortcut_is_created_only_after_enrollment():
     import inspect
 
     startup = inspect.getsource(install.register_startup)
     prepare_source = inspect.getsource(install.prepare)
+    after = inspect.getsource(install.register_startup_after_enrollment)
     installed_body, remainder = prepare_source.split("if _same_path(current, dest):", 1)[1].split(
         "if os.path.lexists(dest):", 1
     )
@@ -154,7 +155,9 @@ def test_startup_shortcut_is_part_of_first_install_only():
     assert "Dutch Guard.lnk" not in startup
     assert "seed_vocab()" in installed_body
     assert "register_startup" not in installed_body
-    assert "register_startup(dest)" in remainder
+    assert "register_startup(" not in remainder
+    assert "lock_allowed" in after
+    assert "register_startup(" in after
 
 
 def test_incomplete_copy_leaves_no_installed_file(tmp_path, monkeypatch):
@@ -183,17 +186,17 @@ def _startup_folder(tmp_path: Path) -> Path:
     return folder
 
 
-def test_failed_startup_registration_rolls_back_new_install(tmp_path, monkeypatch):
+def test_startup_registration_failure_does_not_remove_the_installed_app(tmp_path, monkeypatch):
     installed = tmp_path / "Local" / "langstudyguard" / "langstudyguard.exe"
-    external = tmp_path / "first.exe"
-    _write(external, b"first")
+    _write(installed, b"already-installed")
     real_register = install.register_startup
-    record = _bind(monkeypatch, tmp_path, frozen=True, executable=external, installed=installed)
     monkeypatch.setattr(install, "register_startup", real_register)
     legacy = _startup_folder(tmp_path) / "Dutch Guard.lnk"
     unrelated = legacy.with_name("unrelated.lnk")
     legacy.write_bytes(b"legacy-bytes")
     unrelated.write_bytes(b"unrelated-bytes")
+    monkeypatch.setenv("APPDATA", str(tmp_path / "AppData"))
+    monkeypatch.setattr(install.config, "environment_identity", _production_identity)
 
     def fail_run(args, check=False, creationflags=0):
         raise OSError("startup failed")
@@ -201,13 +204,12 @@ def test_failed_startup_registration_rolls_back_new_install(tmp_path, monkeypatc
     monkeypatch.setattr(install.subprocess, "run", fail_run)
 
     with pytest.raises(OSError, match="startup failed"):
-        install.prepare()
+        install.register_startup(str(installed))
 
-    assert not installed.exists()
+    assert installed.read_bytes() == b"already-installed"
     assert not (legacy.parent / "langstudyguard.lnk").exists()
     assert legacy.read_bytes() == b"legacy-bytes"
     assert unrelated.read_bytes() == b"unrelated-bytes"
-    assert record.launches == []
 
 
 def test_existing_startup_shortcut_stops_before_install(tmp_path, monkeypatch):
@@ -288,7 +290,7 @@ def test_successful_first_install_preserves_preexisting_shortcuts(tmp_path, monk
     assert installed.read_bytes() == b"first-install-bytes"
     assert legacy.read_bytes() == b"legacy-bytes"
     assert unrelated.read_bytes() == b"unrelated-bytes"
-    assert (folder / "langstudyguard.lnk").is_file()
+    assert not (folder / "langstudyguard.lnk").exists()
     assert record.launches == [([str(installed)], str(installed.parent))]
 
 
@@ -418,7 +420,7 @@ def test_rc_smoke_flag_and_env_skip_install(tmp_path, monkeypatch):
 
 
 def test_production_exe_without_rc_markers_still_installs(tmp_path, monkeypatch):
-    """Genuine langstudyguard.exe first-install semantics stay unchanged."""
+    """Genuine langstudyguard.exe still copies itself and launches the installed copy."""
     installed = tmp_path / "Local" / "langstudyguard" / "langstudyguard.exe"
     external = tmp_path / "first" / "langstudyguard.exe"
     payload = b"first-install-bytes"
@@ -429,7 +431,8 @@ def test_production_exe_without_rc_markers_still_installs(tmp_path, monkeypatch)
     assert install.is_release_candidate_smoke() is False
     assert install.prepare() is False
     assert installed.read_bytes() == payload
-    assert record.startup == [str(installed)]
+    assert record.startup == []
+    assert record.launches == [([str(installed)], str(installed.parent))]
 
 
 def test_updater_still_replaces_installed_executable_directly(tmp_path, monkeypatch):

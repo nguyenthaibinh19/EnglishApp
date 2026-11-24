@@ -529,18 +529,8 @@ def ensure_language_data():
 
 
 def bundled_password() -> str:
-    """Mật khẩu dev đóng kèm trong file .exe. Không nằm trong AppData."""
-    path = os.path.join(resource_dir(), "bundled_secrets.json")
-    if not os.path.isfile(path):
-        return ""
-    try:
-        with open(path, "r", encoding="utf-8") as f:
-            data = json.load(f)
-    except (json.JSONDecodeError, OSError):
-        return ""
-    if not isinstance(data, dict):
-        return ""
-    return str(data.get("emergency_password") or "")
+    """Release builds do not embed an emergency password."""
+    return ""
 
 
 def bundled_account_server() -> str:
@@ -568,7 +558,7 @@ def reload():
     Mật khẩu thoát khẩn cấp luôn là mật khẩu của dev: trong .env khi sửa code,
     hoặc đóng sẵn trong .exe. Người dùng không được chọn mật khẩu này.
     """
-    global OPENAI_API_KEY, OPENAI_MODEL, OPENAI_BASE_URL, EMERGENCY_PASSWORD
+    global OPENAI_API_KEY, OPENAI_MODEL, OPENAI_BASE_URL
     global ACCOUNT_SERVER_URL, ACCOUNT_TOKEN, APP_VERSION, SETTINGS_FILE
     global _DATA_ROOT_ERROR
 
@@ -588,9 +578,6 @@ def reload():
         except app_environment.EnvironmentIdentityError as error:
             _DATA_ROOT_ERROR = str(error)
             ACCOUNT_TOKEN = ""
-            EMERGENCY_PASSWORD = bundled_password() if is_frozen() else str(
-                os.getenv("EMERGENCY_PASSWORD") or ""
-            )
             return
     _DATA_ROOT_ERROR = ""
 
@@ -608,10 +595,6 @@ def reload():
     ).strip()
     base_url = str(settings.get("openai_base_url") or os.getenv("OPENAI_BASE_URL") or "").strip()
     OPENAI_BASE_URL = base_url or None
-    if is_frozen():
-        EMERGENCY_PASSWORD = bundled_password()
-    else:
-        EMERGENCY_PASSWORD = str(os.getenv("EMERGENCY_PASSWORD") or "")
     ACCOUNT_SERVER_URL = (
         bundled_account_server()
         or str(os.getenv("ACCOUNT_SERVER_URL") or "").strip()
@@ -632,9 +615,12 @@ def ai_is_configured() -> bool:
 
 
 def is_ready() -> bool:
-    """Bản cài đặt cần đã đăng nhập. Máy dev cần key trong .env."""
-    if not EMERGENCY_PASSWORD:
-        return False
+    """Bản cài đặt cần đã đăng nhập. Máy dev cần key trong .env.
+
+    Emergency-credential enrollment is separate. A missing local emergency
+    code must not block account setup, and it must not count as ready for
+    screen lock.
+    """
     if is_frozen():
         return bool(ACCOUNT_TOKEN)
     return looks_like_api_key(OPENAI_API_KEY) or bool(ACCOUNT_TOKEN)

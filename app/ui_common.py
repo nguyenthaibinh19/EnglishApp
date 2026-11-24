@@ -1,6 +1,5 @@
 """Tiện ích dùng chung cho các cửa sổ: khóa màn hình và gọi AI ở luồng nền."""
 
-import hmac
 import threading
 import time
 import tkinter as tk
@@ -565,15 +564,16 @@ def prompt_password(parent: tk.Misc, title: str, prompt: str):
 
 
 def confirm_developer_exit(parent: tk.Misc) -> bool:
-    """Chỉ thoát khi nhập đúng EMERGENCY_PASSWORD trong .env."""
-    expected = config.EMERGENCY_PASSWORD
-    if not expected:
+    """Thoát khi nhập đúng mã khẩn cấp cục bộ. Không cần mạng."""
+    import emergency_credential
+
+    if not emergency_credential.lock_allowed():
         try:
             messagebox.showerror(
-                config.ui("Chưa cấu hình", "Not configured"),
+                config.ui("Chưa có mã", "No emergency code"),
                 config.ui(
-                    "Chưa đặt EMERGENCY_PASSWORD trong file .env nên không thoát khẩn cấp được.",
-                    "EMERGENCY_PASSWORD is not set, so emergency exit cannot run.",
+                    "Chưa có mã thoát khẩn cấp trên máy này nên không thoát khẩn cấp được.",
+                    "No emergency code is enrolled on this computer, so emergency exit cannot run.",
                 ),
                 parent=parent,
             )
@@ -585,21 +585,19 @@ def confirm_developer_exit(parent: tk.Misc) -> bool:
         parent,
         config.ui("Thoát khẩn cấp", "Emergency exit"),
         config.ui(
-            "Nhập mật khẩu developer để đóng ứng dụng.\n"
+            "Nhập mã thoát khẩn cấp để đóng ứng dụng.\n"
             "Lần mở máy này sẽ không được tính là hoàn thành.",
-            "Enter the developer password to close the app.\n"
+            "Enter the emergency code to close the app.\n"
             "This launch will not count as complete.",
         ),
     )
     if entered is None:
         return False
-    left = entered.encode("utf-8")
-    right = expected.encode("utf-8")
-    if len(left) != len(right) or not hmac.compare_digest(left, right):
+    if not emergency_credential.validate_offline(entered):
         try:
             messagebox.showerror(
-                config.ui("Sai mật khẩu", "Wrong password"),
-                config.ui("Không đúng mật khẩu developer.", "That is not the developer password."),
+                config.ui("Sai mã", "Wrong code"),
+                config.ui("Không đúng mã thoát khẩn cấp.", "That is not the emergency code."),
                 parent=parent,
             )
         except tk.TclError:
