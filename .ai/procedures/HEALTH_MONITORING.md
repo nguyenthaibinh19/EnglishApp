@@ -1,5 +1,9 @@
 # Health monitoring
 
+## Current production, 2026-11-24
+
+`language-guard-sync-backup.timer` is enabled and active. Its calendar remains `04:45:00 UTC` with `Persistent=true` and `RandomizedDelaySec=10m`. The next elapse recorded after enablement was `2026-11-25 04:47:46 UTC`. The timer had not fired. `language-guard-sync-verify.timer` remains `08:00:00 Europe/Amsterdam` and runs after that backup. The accounts timer was not changed. Production Sync is on. The 2026-11-10 notes below describe the day the timer was installed and left disabled. They are not the current timer state. The current backup and verifier evidence is in [PHASE-18D.2B-production-backend-sync-backup.md](../plans/PHASE-18D.2B-production-backend-sync-backup.md).
+
 Phase 18B.8 is **CLOSED — Leader Accepted, 2026-11-10**. This closure is monitoring infrastructure and does not activate vocabulary Cloud Sync. The source is committed at `24e600b` and merged at `65b045a`. On 2026-11-09 the health socket and the health check and report timers were enabled on the VPS from `5f0c3c3`. The sync-backup timer was installed and left disabled. The sync-verify timer is enabled and operational. `setup.sh` was not used. The accounts backup timer was not changed. `STUDY_SYNC_ENABLED` stays unset. Cloud Sync stays OFF. `study_sync.db` is absent. Production deployment and the 2026-11-10 natural runs passed. The user received the scheduled Telegram and email. Healthchecks accepted the 2026-11-10 heartbeat. Commit `f57bcc6` contains the one-line `ReadOnlyPaths` hotfix: `/opt/language-guard/venv -/opt/language-guard/app /opt/language-guard/deploy/hetzner -/var/backups/language-guard/study-sync`. The natural verifier fired at `2026-11-10 07:00:00 UTC`, exited 0 at `07:00:01 UTC`, and recorded `SKIPPED` at `2026-11-10T07:00:01Z`. That result is not a successful sync backup or restore. The natural report fired at `2026-11-10 08:00:00 UTC` and finished at `08:00:07 UTC`. The latest observed 30-minute check was `2026-11-10 11:30:20 UTC`. UptimeRobot external uptime monitor: UNVERIFIED / DEFERRED. It is not configured or verified. Healthchecks is the missed-report signal and does not give immediate detection of every VPS outage. Telegram and email do not replace that external monitor.
 
 `PROVIDER_ACCEPTED` means the provider API returned success. The 2026-11-10 report was also confirmed by the user. A finished collector process does not by itself mean every future report was delivered. If the VPS is down, neither Telegram nor email can be sent. Healthchecks.io is the operational missed-report signal. UptimeRobot external uptime monitor: UNVERIFIED / DEFERRED.
@@ -10,7 +14,7 @@ Phase 18B.8 is **CLOSED — Leader Accepted, 2026-11-10**. This closure is monit
 |---|---|---|
 | `language-guard-health-check.timer` | `*-*-* *:0/30:00 Europe/Amsterdam` | state-change alerts and retries of a rejected channel |
 | `language-guard-health-report.timer` | `*-*-* 09:00:00 Europe/Amsterdam` | one daily report per Amsterdam civil date |
-| `language-guard-sync-backup.timer` | `*-*-* 04:45:00 UTC` plus `RandomizedDelaySec=10m` | installed on the VPS; timer disabled and inactive |
+| `language-guard-sync-backup.timer` | `*-*-* 04:45:00 UTC` plus `RandomizedDelaySec=10m` | enabled and active since 2026-11-24; first natural run not yet recorded |
 | `language-guard-sync-verify.timer` | `*-*-* 08:00:00 Europe/Amsterdam` | enabled; first natural run `2026-11-10 07:00:00 UTC`, result `SKIPPED` |
 | `language-guard-backup.timer` | unchanged `03:15` plus up to 20 minutes | accounts backups only |
 

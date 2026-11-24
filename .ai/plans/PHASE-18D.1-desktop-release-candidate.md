@@ -79,8 +79,8 @@ These remain explicit gates. None is cleared by this smoke.
 
 - The already-built v1.5.0 candidate was not rebuilt. It still contains the synthetic emergency password and must not be published.
 - Source packaging no longer writes an emergency password. The local credential is Phase 18D.2A. `bundle_secrets.py` keeps the account-server URL only.
-- The repository `sync_http.py` correction remains undeployed. Source SHA-256 `3de5c413064240ff8036df9c314006201c302be32003cbeb76db502b2612ca6d`. Production remains `aa88f693764912f589a5945d7b3f154b587363311130b01295127cb600ddd5d1`.
-- The recurring Sync backup timer remains disabled.
+- The Sync HTTP correction is deployed. Production `sync_http.py` is `d173ad179ca9039a13489df0ce8ca81473ddfd711897fd803af96f60920f0dd2`. Production `account_server.py` is `dde08a9d2be6039947390437a05579325f20cfb93689f2a45506ebed77163e35`. Details: [PHASE-18D.2B-production-backend-sync-backup.md](PHASE-18D.2B-production-backend-sync-backup.md).
+- `language-guard-sync-backup.timer` is enabled. Its next elapse is `2026-11-25 04:47:46 UTC`. The first natural run has not occurred. One manual backup was verified.
 - The final public ZIP must be named `langstudyguard.zip` and must contain `langstudyguard.exe`. This private ZIP contains `langstudyguard-rc.exe`.
 
 `APP_18D1_DESKTOP_RELEASE_CANDIDATE_READY_FOR_REVIEW` was not returned. The isolated signed-in smoke passed, and the protected account id 1 database did not stay untouched.

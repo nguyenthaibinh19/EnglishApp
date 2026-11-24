@@ -46,6 +46,8 @@ class Handler(BaseHTTPRequestHandler):
             except Exception as error:
                 sys.stderr.write("[sync] request failed: %s\n" % type(error).__name__)
                 status, body = 500, {"error": "Sync store unavailable."}
+            if status == 408:
+                self.close_connection = True
             self._send(status, body)
             return
         length = int(self.headers.get("Content-Length") or 0)

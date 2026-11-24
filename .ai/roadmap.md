@@ -4,9 +4,9 @@ Directional plan — **not** a rigid release commitment. Update when phases comp
 
 ## Latest operational checkpoint — 2026-11-24
 
-- **Active priority: Phase 18D.2A screen-lock guard, corrected and ready for review.** Screen lock cannot start without an acknowledged local emergency credential, including from a study session. Future production builds no longer embed a shared emergency password. The private v1.5.0 candidate was not rebuilt and is not published. Account id 1 retains all 114 original vocabulary entities; 92 match the server and the pending operations remain local. Public release stays blocked. The production `sync_http.py` correction is not deployed. The sync backup timer stays disabled. 18C.4P remains closed. 18B.9 remains **PAUSED**. 18B.10B–E remain **NOT AUTHORIZED**.
+- **Active priority: Phase 18D.2B production backend and automatic Sync backup, ready for architect review.** The reviewed HTTP correction is deployed. `language-guard-sync-backup.timer` is enabled for 04:45 UTC with up to 10 minutes of random delay, and the verifier remains at 08:00 Europe/Amsterdam. The first natural backup run has not occurred. One manual backup was verified. Account id 1 still has 92 server vocabulary entities, and the pending local operations were not uploaded. The private v1.5.0 candidate was not rebuilt and is not published. 18C.4P remains closed. 18B.9 remains **PAUSED**. 18B.10B–E remain **NOT AUTHORIZED**.
 - 18C.1, 18C.2, and 18C.3B are **CLOSED**. 18B.10A is **AUDIT ACCEPTED, IMPLEMENTATION DEFERRED**. 18B.10B–E are **NOT AUTHORIZED**.
-- **18B.9 PAUSED, NOT CLOSED.** Production Cloud Sync **OFF**. Staging deployment **NOT STARTED**. Sync pilot **NO-GO**.
+- **18B.9 PAUSED, NOT CLOSED.** Production Cloud Sync is **ON**. Google Drive stays **NOT CONFIGURED**. Staging deployment **NOT STARTED**. The supervised Sync pilot remains closed inside its approved scope.
 
 The 2026-11-19 checkpoint below is historical and is not the current priority.
 

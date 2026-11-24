@@ -1,6 +1,6 @@
 # ADR-021 Sync Backup Alert Contract
 
-Status: Accepted (source alert contract). The decision below is the original contract. The 2026-11-10 production note records what was later installed.
+Status: Accepted (source alert contract). The decision below is the original contract. The 2026-11-10 production note records what was later installed. On 2026-11-24 the installed timer was enabled under a separate owner authorization. It is active at `04:45:00 UTC` with `Persistent=true` and `RandomizedDelaySec=10m`. `setup.sh` still must not enable it on its own. The first natural run had not occurred at enablement. See [PHASE-18D.2B-production-backend-sync-backup.md](../plans/PHASE-18D.2B-production-backend-sync-backup.md).
 
 ## Production status, 2026-11-10
 

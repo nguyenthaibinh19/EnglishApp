@@ -108,6 +108,8 @@ Near answers and hint-assisted exact answers are **non-mastered**. Do not casual
 
 ## Account Cloud Sync (foundation)
 
+Current production, 2026-11-24: `STUDY_SYNC_ENABLED` is exactly `1`, the seven Sync routes are deployed, and `language-guard-sync-backup.timer` is enabled. Sentences below that say the flag is unset or the timer is disabled record the phase in which they were written. Do not turn the flag off or disable the timer to match those older sentences. The live record is [PHASE-18D.2B-production-backend-sync-backup.md](plans/PHASE-18D.2B-production-backend-sync-backup.md).
+
 - Sync persistence (when present) lives in **`study_sync.db`**, not production `accounts.db` ([ADR-018](decisions/ADR-018-account-cloud-sync.md)).
 - Vocabulary sync identity is the immutable `vocab_id`; never regenerate IDs on sync write.
 - Stale entity `expected_revision` must **conflict without mutation** (no silent overwrite).

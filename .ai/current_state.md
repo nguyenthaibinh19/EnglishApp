@@ -4,7 +4,7 @@
 
 ## Latest verified coordination checkpoint — 2026-11-24
 
-**Current priority:** **Phase 18D.2A screen-lock guard is corrected and ready for review.** Every ScreenGuard activation requires an acknowledged local emergency credential. Future release packaging does not embed a shared emergency password. The v1.5.0 candidate was not rebuilt. The account id 1 incident stays contained: 92 vocabulary entities match production, and 23 vocabulary operations plus 6 progress events remain pending. Do not upload them. Public release stays blocked. Production `sync_http.py` remains undeployed. 18C.4P stays closed. **18B.9 PAUSED.** See [PHASE-18D.2A-emergency-exit-security.md](plans/PHASE-18D.2A-emergency-exit-security.md).
+**Current priority:** **Phase 18D.2B production backend and Sync backup are ready for architect review.** Production `sync_http.py` is `d173ad179ca9039a13489df0ce8ca81473ddfd711897fd803af96f60920f0dd2` and `account_server.py` is `dde08a9d2be6039947390437a05579325f20cfb93689f2a45506ebed77163e35`. The account service restarted once at `2026-11-24T17:39:58Z`. Sync stays on. Account id 1 still has 92 vocabulary entities and 0 accepted attempts. The pending 23 vocabulary operations and 6 progress events were not uploaded. `language-guard-sync-backup.timer` is enabled. Its next elapse is `2026-11-25 04:47:46 UTC`. That natural run has not happened. One manual backup, `study-sync-20261124-174104-409289.db`, was verified. Public release stays blocked. **18B.9 PAUSED.** See [PHASE-18D.2B-production-backend-sync-backup.md](plans/PHASE-18D.2B-production-backend-sync-backup.md).
 
 **Phase 18B.10A: AUDIT ACCEPTED, IMPLEMENTATION DEFERRED** (`APP_18B10A_ARCHITECT_AUDIT_ACCEPTED_DEFERRED`). The audit and its proposed, unapproved numerical limits stay in [PHASE-18B.10A-api-abuse-resistance-audit.md](plans/PHASE-18B.10A-api-abuse-resistance-audit.md). Do not implement 18B.10B, 18B.10C, 18B.10D, or 18B.10E.
 
@@ -22,7 +22,7 @@
 
 Historical pre-fix executable-path audit **ACCEPTED UNSAFE** preserved ([#7009010670](https://github.com/nguyenthaibinh19/EnglishApp/issues/8#issuecomment-7009010670)). D5A2D2/D5A2D3 **FAIL** preserved. Owner actions still required for age/OAuth/folder/credential install, isolation execution, restore drill, monitoring, and activation.
 
-**Existing operational facts (Cursor-reported):** VPS Python `3.14.4`; journal `delete`; `guard` 995/982; `lg-backup` 994/977. Drive **NOT CONFIGURED**; Cloud Sync **OFF**.
+**Existing operational facts (Cursor-reported):** VPS Python `3.14.4`; journal `delete`; `guard` 995/982; `lg-backup` 994/977. Drive **NOT CONFIGURED**. Production Cloud Sync is **ON**. The 2026-11-24 Sync backup timer and deployed HTTP hashes are in [PHASE-18D.2B-production-backend-sync-backup.md](plans/PHASE-18D.2B-production-backend-sync-backup.md).
 
 **AI separate workstream:** `C-APP-AI-001 v0.2.0` ACCEPTED; PR #14 MERGED. **AI-M4 / LocalAIProvider NOT AUTHORIZED.**
 

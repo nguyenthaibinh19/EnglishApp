@@ -4,8 +4,10 @@ from __future__ import annotations
 
 import json
 import os
+import socket
 import sqlite3
 import threading
+import time
 from http.server import ThreadingHTTPServer
 from pathlib import Path
 
@@ -520,3 +522,91 @@ def test_existing_account_routes_still_work_while_sync_is_off(api, monkeypatch):
     sync_status, _sync_body = api.post("/api/sync/vocabulary/changes", {"after_cursor": 0})
     assert sync_status == 404
     assert not api.sync_db().exists()
+
+
+def _post_stalled(port: int, path: str, *, token: str = "") -> bytes:
+    """Send headers and a short prefix, then wait for the server deadline."""
+    sock = socket.create_connection(("127.0.0.1", port), timeout=3)
+    try:
+        headers = (
+            f"POST {path} HTTP/1.1\r\n"
+            "Host: 127.0.0.1\r\n"
+            "Content-Length: 64\r\n"
+            "Content-Type: application/json\r\n"
+            "Connection: close\r\n"
+        )
+        if token:
+            headers += f"Authorization: Bearer {token}\r\n"
+        sock.sendall((headers + "\r\n" + "partial").encode("ascii"))
+        sock.settimeout(3)
+        data = b""
+        while True:
+            try:
+                chunk = sock.recv(4096)
+            except socket.timeout:
+                break
+            if not chunk:
+                break
+            data += chunk
+        return data
+    finally:
+        sock.close()
+
+
+def test_stalled_body_returns_before_the_declared_length(api, monkeypatch):
+    """A byte cap must not leave the worker blocked on a quiet client."""
+    _enable(monkeypatch)
+    monkeypatch.setattr(sync_http, "SYNC_BODY_READ_TIMEOUT_SECONDS", 0.4)
+    opened = []
+
+    def forbid(path):
+        opened.append(path)
+        raise AssertionError("sync db should stay closed")
+
+    monkeypatch.setattr(sync_store, "connect", forbid)
+    started = time.monotonic()
+    data = _post_stalled(api.port, "/api/sync/vocabulary/put", token="not-a-session")
+    elapsed = time.monotonic() - started
+    status_line = data.split(b"\r\n", 1)[0]
+    assert status_line.startswith(b"HTTP/1.0 408") or status_line.startswith(b"HTTP/1.1 408")
+    assert b"Sync request timed out." in data
+    assert elapsed < 2.0
+    assert opened == []
+    assert not api.sync_db().exists()
+
+
+def test_disabled_sync_stalled_body_does_not_wait_for_declared_length(api, monkeypatch):
+    monkeypatch.setattr(sync_http, "SYNC_BODY_READ_TIMEOUT_SECONDS", 0.4)
+    started = time.monotonic()
+    data = _post_stalled(api.port, "/api/sync/vocabulary/put")
+    elapsed = time.monotonic() - started
+    status_line = data.split(b"\r\n", 1)[0]
+    assert status_line.startswith(b"HTTP/1.0 408") or status_line.startswith(b"HTTP/1.1 408")
+    assert b"Sync request timed out." in data
+    assert elapsed < 2.0
+    assert not api.sync_db().exists()
+
+
+def test_read_bounded_uses_the_socket_deadline(monkeypatch):
+    monkeypatch.setattr(sync_http, "SYNC_BODY_READ_TIMEOUT_SECONDS", 0.3)
+    listener = socket.socket()
+    listener.bind(("127.0.0.1", 0))
+    listener.listen(1)
+    client = socket.create_connection(("127.0.0.1", listener.getsockname()[1]))
+    accepted, _address = listener.accept()
+    try:
+        client.sendall(b"abc")
+        reader = accepted.makefile("rb")
+        started = time.monotonic()
+        try:
+            sync_http._read_bounded(reader, 100)
+        except sync_http._BodyTimeout:
+            elapsed = time.monotonic() - started
+        else:
+            raise AssertionError("stalled read returned")
+        assert elapsed < 2.0
+        assert accepted.gettimeout() is None
+    finally:
+        client.close()
+        accepted.close()
+        listener.close()

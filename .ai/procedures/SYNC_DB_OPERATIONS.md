@@ -1,6 +1,12 @@
 # Sync database operations
 
-Source procedure for the backup/restore behavior accepted in Phase 18B.2 (`5f4251a`). **Do not run the production steps.** The sync flag stays unset and the sync backup is not scheduled. The Accepted Phase 18B.3 plan is [PHASE-18B.3-production-readiness.md](../plans/PHASE-18B.3-production-readiness.md). That plan is not an authorization to execute this procedure.
+## Current production, 2026-11-24
+
+Production Cloud Sync is on. `STUDY_SYNC_ENABLED` is exactly `1`. `language-guard-sync-backup.timer` is enabled and active: `04:45:00 UTC`, `Persistent=true`, `RandomizedDelaySec=10m`. The verifier timer stays at `08:00:00 Europe/Amsterdam`, after that backup window. The accounts backup timer is separate and was not changed. Backup files are mode `0600` in `/var/backups/language-guard/study-sync`, and that directory is mode `0700`. The verifier reads them through its read-only bind, not by widening those modes. The first natural timer run had not occurred when this note was written. The manual snapshot and the deployed HTTP hashes are in [PHASE-18D.2B-production-backend-sync-backup.md](../plans/PHASE-18D.2B-production-backend-sync-backup.md).
+
+The sections below are the original source procedure. They describe the repository behavior and the earlier inactive production state. They are not an instruction to turn Sync off or to disable the timer.
+
+Source procedure for the backup/restore behavior accepted in Phase 18B.2 (`5f4251a`). The Accepted Phase 18B.3 plan is [PHASE-18B.3-production-readiness.md](../plans/PHASE-18B.3-production-readiness.md).
 
 ## What is already true
 
