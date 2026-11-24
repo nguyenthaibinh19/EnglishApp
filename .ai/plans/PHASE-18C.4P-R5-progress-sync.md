@@ -1,6 +1,6 @@
 # Phase 18C.4P-R5 — Two-way vocabulary and learning progress
 
-Status: **ready for architect review** (`APP_18C4P_R5_PROGRESS_SYNC_READY_FOR_ARCHITECT_REVIEW`)  
+Status: **accepted in R5; R6 restart confirmed** (`APP_18C4P_R6_FINAL_ACCEPTANCE_READY_FOR_ARCHITECT_REVIEW`)  
 Date: 2026-11-24  
 Baseline: `60b967d98917edfa7014aba2f5a72f8855385394`
 

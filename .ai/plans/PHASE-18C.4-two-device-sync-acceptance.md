@@ -1,9 +1,9 @@
 # Phase 18C.4 — Two-device sync acceptance
 
-Status: **18C.4P-R5 ready for review** (`APP_18C4P_R5_PROGRESS_SYNC_READY_FOR_ARCHITECT_REVIEW`)  
+Status: **18C.4P-R6 ready for review** (`APP_18C4P_R6_FINAL_ACCEPTANCE_READY_FOR_ARCHITECT_REVIEW`)  
 Owner priority: working Account Sync between two real Windows computers, before production hardening and Google Drive backup.  
 Date: 2026-11-24  
-Cloud Sync production: **ON**, supervised pilot · 18B.9: **PAUSED, NOT CLOSED** · Staging: **RESERVED, not deployed** · Vocabulary A → VPS → B: **PASS — Owner confirmed** · Same-machine bidirectional vocabulary and one attempt: **ready for review** · Conflict, offline, and production replay: **open**  
+Cloud Sync production: **ON**, supervised pilot · 18B.9: **PAUSED, NOT CLOSED** · Staging: **RESERVED, not deployed** · Vocabulary A → VPS → B: **PASS — Owner confirmed** · Same-machine restart persistence: **PASS** · Production conflict, production offline, and production replay: **not claimed**  
 18B.10A: **AUDIT ACCEPTED, IMPLEMENTATION DEFERRED.** Do not implement 18B.10B, 18B.10C, 18B.10D, or 18B.10E.
 
 This document records the acceptance plan and the production vocabulary result. The production flag stays on. Do not rebuild the Sync Engine or enable the recurring sync backup timer.
@@ -265,16 +265,16 @@ The Owner confirmed that two real Windows computers synchronized Dutch `syncprob
 | 1. Vocabulary A → VPS → B | **PASS — Owner confirmed**, 2026-11-23. Physical two computers. Synthetic account only. |
 | 1b. Bidirectional vocabulary, same machine | Ready for review, 2026-11-24. `lab-marker-b` then `lab-marker-a`, server revision 4. |
 | 2. One attempt, Progress, and SRS, same machine | Ready for review, 2026-11-24. One exact acked attempt. SRS seen 1, correct 1, interval 1. |
-| 2a. Same event replay | Open |
-| 2b. Second quiz submission | Open |
-| 3. Offline recovery | Open |
-| 4. Deterministic conflict | Open |
-| 5. Restart persistence | Open |
-| 6. Account isolation | Open |
+| 2a. Same event replay | Localhost **PASS**. Production retransmission not run |
+| 2b. Second quiz submission | A different item already has server sequence 2. It is not a replay of the marker |
+| 3. Offline recovery | Localhost **PASS**. Production not run |
+| 4. Deterministic conflict | Localhost detection **PASS**. Production resolution not run |
+| 5. Restart persistence | Same-machine **PASS**, 2026-11-24 |
+| 6. Account isolation | Localhost **PASS**. No second production account was created |
 
 ## Next checks
 
-Items 1 and the first half of item 2 are recorded above as same-machine production results. Do not disable the whole Windows network to simulate one offline client. The remaining checks are still open.
+The active result is the final matrix below. Do not disable the whole Windows network, and do not treat a localhost result as a production result. Historical steps under this heading are not the current procedure.
 
 1. Bidirectional vocabulary: change `syncprobe` on B and confirm A receives it, then change it on A and confirm B receives it.
 2. Attempts, Progress, and SRS: submit one new answer on B and confirm A shows that attempt once, with the updated progress. Repeat the same event and confirm the server does not add a second row.
@@ -282,3 +282,25 @@ Items 1 and the first half of item 2 are recorded above as same-machine producti
 4. Conflict: let both computers change the same item while one is offline, then reconnect and choose Keep local or Keep server explicitly.
 5. Account isolation: sign B into a second synthetic account and confirm it does not show the first account's word.
 6. Restart: quit and reopen both apps and confirm the same user, the same word, and Synced, with no new attempt.
+
+## Final acceptance matrix
+
+Recorded 2026-11-24 after `0729338`. R5 remains accepted. This round did not rewrite the Sync Engine, deploy source, build an EXE, or change either backup timer.
+
+| Scenario | Automated localhost | Same-machine production | Physical two computers |
+|----------|---------------------|-------------------------|------------------------|
+| Bidirectional vocabulary | Covered by the sync suite | **PASS** in R5. Meaning is `lab-marker-a`, revision 4 | **PASS — Owner confirmed** for the first vocabulary direction |
+| One learning attempt, Progress, SRS | Covered by the sync suite | **PASS** in R5 for `syncprobe`. A second exact attempt, server sequence 2, for the other vocabulary item was already stored before this restart. It is not a duplicate of the marker event | Not claimed |
+| Restart persistence | Cursor reopen is covered in `test_two_device_vocab_and_progress_convergence` | **PASS**. Both clients relaunched from `launch_client.py`. Account, distinct device ids, revision 4, both attempt sequences, and SRS counts were unchanged. Both returned to Synced. No third attempt appeared | Not claimed |
+| Offline recovery | **PASS**. Pending work is kept and retries without a duplicate event | Not run. No per-client network isolation was used | Not claimed |
+| Conflict detection | **PASS**. A divergent edit is frozen. The remote tip is not overwritten and the local intent stays in the conflict outbox | Not run | Not claimed |
+| Keep server | **PASS** for a remote tombstone. Both sides stay deleted | Not run | Not claimed |
+| Keep local | **PASS** for a preferences conflict. Vocabulary Keep local against a tombstone is rejected. A non-tombstone vocabulary Keep local convergence is **not covered** by the current tests | Not run | Not claimed |
+| Idempotent replay | **PASS**. A repeated event does not add a second attempt or a second SRS step | Not retransmitted | Not claimed |
+| Account isolation and account switch | **PASS**. Separate accounts do not leak, and a failed switch keeps the current session | Not run. No additional production account was created | Not claimed |
+
+The focused suite `test_account_learning_sync.py`, `test_account_ux_two_device.py`, `test_18c2_r1_corrections.py`, `test_sync_api.py`, `test_sync_store.py`, and `test_sync_unavailable_status.py` passed, 87 tests.
+
+Production health stayed 200. Schema 3, integrity ok. The synthetic account still has revision 4, meaning `lab-marker-a`, 2 attempts, and 2 progress rows. Other accounts still have 0 vocabulary rows and 0 attempts. Because the second attempt arrived after the previous backup, one new backup was taken: `study-sync-20261124-112040-941473.db`, 86016 bytes, mode 0600, integrity ok, schema 3. The verifier returned `VERIFIED`. The sync backup timer stays disabled.
+
+Client B's log contains a Tk callback error after the study screen replaced the home label. The databases stayed consistent and both clients reached Synced after relaunch.
