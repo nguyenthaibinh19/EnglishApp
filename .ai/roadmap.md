@@ -4,7 +4,7 @@ Directional plan — **not** a rigid release commitment. Update when phases comp
 
 ## Latest operational checkpoint — 2026-11-24
 
-- **Active priority: Phase 19.2A CustomTkinter Home trial is on `phase19.2a/customtkinter-visual-trial`.** Not merged. Tkinter fallback `phase19.2a/ui-foundation-today` stays at `7c56602`. V3–V7 and E1–E4 are not started. 18B.9 remains **PAUSED**. 18B.10B–E remain **NOT AUTHORIZED**.
+- **Active priority: Phase 19.2B study card is on `phase19.2b/study-session-ui`.** Not merged. Tkinter fallback `phase19.2a/ui-foundation-today` stays at `7c56602`. V4–V7 and E1–E4 are not started. 18B.9 remains **PAUSED**. 18B.10B–E remain **NOT AUTHORIZED**.
 - 18C.1, 18C.2, and 18C.3B are **CLOSED**. 18B.10A is **AUDIT ACCEPTED, IMPLEMENTATION DEFERRED**. 18B.10B–E are **NOT AUTHORIZED**.
 - **18B.9 PAUSED, NOT CLOSED.** Production Cloud Sync is **ON**. Google Drive stays **NOT CONFIGURED**. Staging deployment **NOT STARTED**. The supervised Sync pilot remains closed inside its approved scope.
 

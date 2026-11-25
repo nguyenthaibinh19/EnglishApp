@@ -13,6 +13,7 @@ import customtkinter as ctk
 import config
 import ui_common
 import ui_foundation
+from ctk_keyboard import bind_activation
 
 # Home-only. CTk's DPI path expects a CTk root (it calls
 # block_update_dimensions_event). This window stays tk.Tk, so automatic
@@ -21,18 +22,6 @@ ctk.deactivate_automatic_dpi_awareness()
 ctk.set_appearance_mode("light")
 from daily_study import plan_for_language
 from home_viewmodel import HomeViewModel, build_home_view_model
-
-
-def _bind_activate(widget) -> None:
-    """CTk focus lands on an inner label, so Return and Space must be bound there."""
-
-    def fire(_event=None):
-        invoke = getattr(widget, "invoke", None)
-        if callable(invoke):
-            invoke()
-
-    widget.bind("<Return>", fire, add="+")
-    widget.bind("<space>", fire, add="+")
 
 
 class _ShortcutCard(ctk.CTkFrame):
@@ -66,8 +55,15 @@ class _ShortcutCard(ctk.CTkFrame):
         self._subtitle.pack(anchor="w", padx=14, pady=(0, 12))
         for widget in (self, self._title, self._subtitle):
             widget.bind("<Button-1>", self._on_click, add="+")
-            widget.bind("<Return>", self._on_click, add="+")
-            widget.bind("<space>", self._on_click, add="+")
+
+        def fire(_event=None):
+            self.invoke()
+            return "break"
+
+        for widget in (self._title, self._subtitle):
+            widget.bind("<Return>", fire, add="+")
+            widget.bind("<space>", fire, add="+")
+        bind_activation(self)
 
     def _on_click(self, _event=None):
         if self._command is not None:
@@ -217,7 +213,7 @@ class FreeHome:
             font=ctk.CTkFont(family="Segoe UI", size=12),
         )
         self.change_lang_button.pack(side=tk.RIGHT)
-        _bind_activate(self.change_lang_button)
+        bind_activation(self.change_lang_button)
 
         self.plan_card = ctk.CTkFrame(
             content,
@@ -267,7 +263,7 @@ class FreeHome:
             font=ctk.CTkFont(family="Segoe UI", size=16, weight="bold"),
         )
         self.start_button.pack(fill=tk.X, padx=16, pady=(0, 16))
-        _bind_activate(self.start_button)
+        bind_activation(self.start_button)
 
         shortcuts = ctk.CTkFrame(content, fg_color=ui_foundation.COLOR_BG, corner_radius=0)
         shortcuts.pack(fill=tk.X, pady=(12, 0))
@@ -318,7 +314,7 @@ class FreeHome:
             font=ctk.CTkFont(family="Segoe UI", size=12),
         )
         self.sync_chip.pack(side=tk.RIGHT)
-        _bind_activate(self.sync_chip)
+        bind_activation(self.sync_chip)
 
         from account_panel import AccountPanel, AccountSyncStatusPoller
 
@@ -356,7 +352,7 @@ class FreeHome:
             text_color=ui_foundation.COLOR_TEXT,
             font=ctk.CTkFont(family="Segoe UI", size=13, weight="bold" if selected else "normal"),
         )
-        _bind_activate(button)
+        bind_activation(button)
         return button
 
     def _quiet_button(self, parent, text: str, command):
@@ -372,7 +368,7 @@ class FreeHome:
             text_color=ui_foundation.COLOR_TEXT,
             font=ctk.CTkFont(family="Segoe UI", size=13),
         )
-        _bind_activate(button)
+        bind_activation(button)
         return button
 
     def _on_account_panel_destroy_stop_sync_poller(self, event) -> None:
