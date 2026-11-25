@@ -100,4 +100,8 @@ def test_multi_language_change_flag():
 def test_primary_action_localized():
     vm = build_home_view_model(_plan(), "Dutch", hour=10)
     assert vm.primary_action_label
-    assert "study" in vm.primary_action_label.lower() or "học" in vm.primary_action_label.lower()
+    low = vm.primary_action_label.lower()
+    assert "study" in low or "learn" in low or "học" in low
+    assert "minute" not in vm.plan_headline.lower()
+    assert "streak" not in vm.plan_support.lower()
+    assert str(vm.planned_vocab_count) in vm.plan_headline

@@ -105,6 +105,7 @@ class AccountPanel:
         self.parent = parent
         self.on_session_changed = on_session_changed
         self.allow_logout = allow_logout
+        self.on_refreshed = None
         self.frame = ttk.LabelFrame(
             parent,
             text=config.ui("Tài khoản", "Account"),
@@ -191,6 +192,12 @@ class AccountPanel:
             self.switch_button.pack_forget()
             self.login_button.pack(side=tk.LEFT)
         self.sync_label.config(text=f"Cloud Sync: {sync_label} — {sync_detail}")
+        hook = getattr(self, "on_refreshed", None)
+        if callable(hook):
+            try:
+                hook(sync_label, sync_detail)
+            except Exception:
+                pass
 
     def _notify(self) -> None:
         self.refresh()
