@@ -26,3 +26,11 @@ Easier: frozen exe uses OS speech without Python TTS packages. Harder: learners 
 ## Do not
 
 Do not silently fall back to online Edge TTS. Do not auto-install language packs. Do not persist generated audio files. Do not treat Listening answers as vocabulary mastery.
+
+## Amendment — 2026-11-25 — Phase 19.3
+
+- The speech rate is an integer from -10 to 10, passed only as the `STUDYGUARD_TTS_RATE` environment value. The UI uses 0 for normal and -4 for slow. A boolean is rejected.
+- Gender is kept only when System.Speech reports Male, Female, or Neutral.
+- The selected voice is stored on this PC under `device_voices`, one name per study language. It is not an account preference and it is not synced.
+- An explicit voice is used only when that voice belongs to the requested language. A missing name falls back to another voice of the same language. A voice from another language is never selected, and there is no online fallback.
+- On this PC, `Windows.Media.SpeechSynthesis` returned no voices. That WinRT catalog is the smallest local alternative to review later if System.Speech stays empty after a supported language install. It is not integrated. No paid speech service is added.

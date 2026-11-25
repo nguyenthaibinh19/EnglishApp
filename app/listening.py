@@ -48,7 +48,14 @@ class ListeningAudioProvider(ABC):
     """Audio seam for Listening. Implementations must not touch Tkinter."""
 
     @abstractmethod
-    def play(self, text: str, language_code: str) -> None:
+    def play(
+        self,
+        text: str,
+        language_code: str,
+        *,
+        rate: int = 0,
+        voice_name: Optional[str] = None,
+    ) -> None:
         """Play ``text`` in the given study language. May raise ListeningAudioError."""
         raise NotImplementedError
 
@@ -67,6 +74,8 @@ class FakeListeningAudioProvider(ListeningAudioProvider):
     def __init__(self, *, fail: bool = False, supported: Optional[Sequence[str]] = None):
         self.fail = fail
         self.calls: List[Tuple[str, str]] = []
+        self.rates: List[int] = []
+        self.voice_names: List[Optional[str]] = []
         self._supported = (
             None if supported is None else {str(code).lower() for code in supported}
         )
@@ -76,10 +85,19 @@ class FakeListeningAudioProvider(ListeningAudioProvider):
             return True
         return str(language_code or "").lower() in self._supported
 
-    def play(self, text: str, language_code: str) -> None:
+    def play(
+        self,
+        text: str,
+        language_code: str,
+        *,
+        rate: int = 0,
+        voice_name: Optional[str] = None,
+    ) -> None:
         if not self.supports(language_code):
             raise ListeningAudioError(f"No voice for {language_code}.")
         self.calls.append((str(text), str(language_code)))
+        self.rates.append(int(rate))
+        self.voice_names.append(voice_name)
         if self.fail:
             raise ListeningAudioError("Fake listening audio failed.")
 
@@ -93,7 +111,14 @@ class NullListeningAudioProvider(ListeningAudioProvider):
     def supports(self, language_code: str) -> bool:
         return False
 
-    def play(self, text: str, language_code: str) -> None:
+    def play(
+        self,
+        text: str,
+        language_code: str,
+        *,
+        rate: int = 0,
+        voice_name: Optional[str] = None,
+    ) -> None:
         raise ListeningAudioError("Listening audio is not available.")
 
 
@@ -269,7 +294,7 @@ class ListeningSession:
             return session
         return session
 
-    def play(self) -> None:
+    def play(self, *, rate: int = 0, voice_name: Optional[str] = None) -> None:
         if self.unavailable:
             raise ListeningAudioError(
                 self.unavailable_reason_message()
@@ -287,7 +312,12 @@ class ListeningSession:
             raise ListeningAudioError(self.unavailable_reason_message())
         self._playing = True
         try:
-            self.audio_provider.play(self.item.text, self.language_code)
+            self.audio_provider.play(
+                self.item.text,
+                self.language_code,
+                rate=rate,
+                voice_name=voice_name,
+            )
             self.played = True
         except ListeningAudioError:
             # Failure must not mark played=True (state machine invariant).
@@ -321,6 +351,8 @@ class ListeningSession:
 
     def finish(self) -> None:
         """Mark activity completed after the learner continues."""
+        if self.completed:
+            return
         if self.unavailable:
             return
         if not self.answered:

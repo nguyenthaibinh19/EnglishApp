@@ -116,11 +116,13 @@ class StudyCardShell:
         on_continue,
         on_done,
         on_sentence,
+        on_hear,
         on_leave,
         on_emergency,
     ):
         self._on_continue = on_continue
         self._on_done = on_done
+        self._on_hear = on_hear
         self.host = ctk.CTkFrame(parent, fg_color=ui_foundation.COLOR_BG, corner_radius=0)
         header = ctk.CTkFrame(self.host, fg_color=ui_foundation.COLOR_BG, corner_radius=0)
         header.pack(fill=tk.X, padx=8, pady=(4, 8))
@@ -243,10 +245,22 @@ class StudyCardShell:
             text_color="#5C7268",
             font=ctk.CTkFont(family="Segoe UI", size=14),
         )
+        self.hear_button = ctk.CTkButton(
+            actions,
+            text="Hear the word",
+            command=on_hear,
+            height=32,
+            corner_radius=10,
+            fg_color="transparent",
+            hover_color=ui_foundation.COLOR_SOFT_GREEN,
+            text_color="#5C7268",
+            font=ctk.CTkFont(family="Segoe UI", size=14),
+        )
         bind_activation(self.hint_button)
         bind_activation(self.check_button)
         bind_activation(self.continue_button)
         bind_activation(self.sentence_button)
+        bind_activation(self.hear_button)
 
     def pack(self, **kwargs) -> None:
         self.host.pack(**kwargs)
@@ -277,13 +291,14 @@ class StudyCardShell:
         self.hint_button.pack(pady=(0, 8))
         self.continue_button.pack_forget()
         self.sentence_button.pack_forget()
+        self.hear_button.pack_forget()
         self.check_button.configure(state="normal")
         self.check_button.pack(fill=tk.X)
         self.feedback.configure(text="", text_color=ui_foundation.COLOR_TEXT)
         self.exercise.show_support("")
         self.exercise.focus_answer()
 
-    def show_feedback(self, text: str, tone: str, *, offer_sentence: bool = False) -> None:
+    def show_feedback(self, text: str, tone: str, *, offer_sentence: bool = False, offer_hear: bool = False) -> None:
         colors = {
             "ok": ui_foundation.COLOR_PRIMARY,
             "near": "#8A5A12",
@@ -304,6 +319,10 @@ class StudyCardShell:
             self.sentence_button.pack(pady=(8, 0))
         else:
             self.sentence_button.pack_forget()
+        if offer_hear:
+            self.hear_button.pack(pady=(8, 0))
+        else:
+            self.hear_button.pack_forget()
         try:
             self.continue_button.focus_set()
         except tk.TclError:
@@ -314,6 +333,7 @@ class StudyCardShell:
         self.hint_button.pack_forget()
         self.check_button.pack_forget()
         self.sentence_button.pack_forget()
+        self.hear_button.pack_forget()
         self.feedback.configure(
             text=f"{title}\n\n{detail}",
             text_color=ui_foundation.COLOR_TEXT,

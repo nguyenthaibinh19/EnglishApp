@@ -160,6 +160,11 @@ class VocabularyLibraryApp:
             command=self._open_selected_detail,
         ).pack(side=tk.LEFT)
         ttk.Button(
+            footer,
+            text=config.ui("Nghe từ", "Hear the word"),
+            command=self._hear_selected,
+        ).pack(side=tk.LEFT, padx=(8, 0))
+        ttk.Button(
             footer, text=config.ui("Đóng", "Close"), command=self.window.destroy
         ).pack(side=tk.RIGHT)
 
@@ -241,6 +246,23 @@ class VocabularyLibraryApp:
         if not selection:
             return None
         return self.visible[selection[0]]
+
+    def _hear_selected(self):
+        item = self._selected_item()
+        if item is None:
+            return
+        from speech_player import play_async
+        import voice_prefs
+        from listening_windows_tts import NORMAL_RATE
+
+        language = self.language_code
+        play_async(
+            self.window,
+            text=item.word,
+            language_code=language,
+            rate=NORMAL_RATE,
+            voice_name=voice_prefs.selected_voice_name(language) or None,
+        )
 
     def _open_selected_detail(self, _event=None):
         item = self._selected_item()
@@ -402,6 +424,35 @@ class WordDetailApp:
 
         self._build_body()
 
+    def _speak(self, text: str):
+        spoken = str(text or "").strip()
+        if not spoken:
+            return
+        from speech_player import play_async
+        import voice_prefs
+        from listening_windows_tts import NORMAL_RATE
+
+        language = self.language_code
+        started = play_async(
+            self.window,
+            text=spoken,
+            language_code=language,
+            rate=NORMAL_RATE,
+            voice_name=voice_prefs.selected_voice_name(language) or None,
+            on_error=lambda error: self._audio_note(str(error)),
+        )
+        if not started:
+            self._audio_note(config.ui("Đang phát một đoạn khác.", "Another clip is still playing."))
+
+    def _audio_note(self, text: str):
+        label = getattr(self, "_audio_status", None)
+        if label is None:
+            return
+        try:
+            label.config(text=text)
+        except tk.TclError:
+            pass
+
     def _build_body(self):
         for child in list(self.window.winfo_children()):
             try:
@@ -414,6 +465,27 @@ class WordDetailApp:
         root.pack(fill=tk.BOTH, expand=True)
 
         ttk.Label(root, text=detail.word, style="Page.TLabel").pack(anchor="w")
+        audio_row = ttk.Frame(root)
+        audio_row.pack(anchor="w", pady=(6, 0))
+        ttk.Button(
+            audio_row,
+            text=config.ui("Nghe từ", "Hear the word"),
+            command=lambda: self._speak(detail.word),
+        ).pack(side=tk.LEFT)
+        example_text = ""
+        detail_examples = getattr(detail, "examples", ()) or ()
+        if detail_examples:
+            example_text = str(getattr(detail_examples[0], "text", "") or "")
+        elif detail.example:
+            example_text = str(detail.example)
+        if example_text.strip():
+            ttk.Button(
+                audio_row,
+                text=config.ui("Nghe câu ví dụ", "Hear the example"),
+                command=lambda text=example_text: self._speak(text),
+            ).pack(side=tk.LEFT, padx=(8, 0))
+        self._audio_status = ttk.Label(root, text="", style="Muted.TLabel", wraplength=460)
+        self._audio_status.pack(anchor="w", pady=(4, 0))
         ttk.Label(root, text=detail.prompt, style="H2.TLabel").pack(anchor="w", pady=(4, 8))
         if getattr(detail, "part_of_speech", ""):
             ttk.Label(
