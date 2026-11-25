@@ -9,11 +9,83 @@ from __future__ import annotations
 import tkinter as tk
 from tkinter import ttk
 
+import customtkinter as ctk
 import config
 import ui_common
 import ui_foundation
+
+# Home-only. CTk's DPI path expects a CTk root (it calls
+# block_update_dimensions_event). This window stays tk.Tk, so automatic
+# scaling stays off and the 560×600 client is not sized twice.
+ctk.deactivate_automatic_dpi_awareness()
+ctk.set_appearance_mode("light")
 from daily_study import plan_for_language
 from home_viewmodel import HomeViewModel, build_home_view_model
+
+
+def _bind_activate(widget) -> None:
+    """CTk focus lands on an inner label, so Return and Space must be bound there."""
+
+    def fire(_event=None):
+        invoke = getattr(widget, "invoke", None)
+        if callable(invoke):
+            invoke()
+
+    widget.bind("<Return>", fire, add="+")
+    widget.bind("<space>", fire, add="+")
+
+
+class _ShortcutCard(ctk.CTkFrame):
+    """Two-line destination. Title and subtitle use different type sizes."""
+
+    def __init__(self, parent, title: str, subtitle: str, command):
+        super().__init__(
+            parent,
+            fg_color=ui_foundation.COLOR_CARD,
+            corner_radius=16,
+            border_width=0,
+        )
+        self._command = command
+        self._title = ctk.CTkLabel(
+            self,
+            text=title,
+            font=ctk.CTkFont(family="Segoe UI", size=16, weight="bold"),
+            text_color=ui_foundation.COLOR_TEXT,
+            fg_color=ui_foundation.COLOR_CARD,
+            anchor="w",
+        )
+        self._title.pack(anchor="w", padx=14, pady=(12, 0))
+        self._subtitle = ctk.CTkLabel(
+            self,
+            text=subtitle,
+            font=ctk.CTkFont(family="Segoe UI", size=12),
+            text_color="#5C7268",
+            fg_color=ui_foundation.COLOR_CARD,
+            anchor="w",
+        )
+        self._subtitle.pack(anchor="w", padx=14, pady=(0, 12))
+        for widget in (self, self._title, self._subtitle):
+            widget.bind("<Button-1>", self._on_click, add="+")
+            widget.bind("<Return>", self._on_click, add="+")
+            widget.bind("<space>", self._on_click, add="+")
+
+    def _on_click(self, _event=None):
+        if self._command is not None:
+            self._command()
+
+    def invoke(self):
+        self._on_click()
+
+    def cget(self, attribute_name: str):
+        if attribute_name == "text":
+            return self._title.cget("text")
+        return super().cget(attribute_name)
+
+    def configure(self, **kwargs):
+        if "command" in kwargs:
+            self._command = kwargs.pop("command")
+        if kwargs:
+            super().configure(**kwargs)
 
 
 class FreeHome:
@@ -48,11 +120,11 @@ class FreeHome:
         self._sync_detail_text = ""
         self._in_plan_refresh = False
 
-        shell = tk.Frame(root, bg=ui_foundation.COLOR_BG)
+        shell = ctk.CTkFrame(root, fg_color=ui_foundation.COLOR_BG, corner_radius=0)
         shell.pack(fill=tk.BOTH, expand=True)
 
-        nav = tk.Frame(shell, bg=ui_foundation.COLOR_BG)
-        nav.pack(side=tk.BOTTOM, fill=tk.X, padx=8, pady=(4, 6))
+        nav = ctk.CTkFrame(shell, fg_color=ui_foundation.COLOR_BG, corner_radius=0, height=52)
+        nav.pack(side=tk.BOTTOM, fill=tk.X, padx=10, pady=(2, 8))
         self.today_button = self._nav_button(
             nav, "⌂", config.ui("Hôm nay", "Today"), self.refresh, selected=True
         )
@@ -71,86 +143,141 @@ class FreeHome:
             self.you_button,
             self.settings_button,
         ):
-            button.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=2)
+            button.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=3)
 
-        meta = tk.Frame(shell, bg=ui_foundation.COLOR_BG)
-        meta.pack(side=tk.BOTTOM, fill=tk.X, padx=16, pady=(0, 2))
+        meta = ctk.CTkFrame(shell, fg_color=ui_foundation.COLOR_BG, corner_radius=0)
+        meta.pack(side=tk.BOTTOM, fill=tk.X, padx=16, pady=(0, 0))
 
-        content = tk.Frame(shell, bg=ui_foundation.COLOR_BG)
-        content.pack(fill=tk.BOTH, expand=True, padx=16, pady=(10, 0))
+        content = ctk.CTkFrame(shell, fg_color=ui_foundation.COLOR_BG, corner_radius=0)
+        content.pack(fill=tk.BOTH, expand=True, padx=16, pady=(12, 4))
 
-        brand = tk.Frame(content, bg=ui_foundation.COLOR_BG)
+        brand = ctk.CTkFrame(content, fg_color=ui_foundation.COLOR_BG, corner_radius=0)
         brand.pack(fill=tk.X)
-        ui_foundation.label(
+        ctk.CTkLabel(
             brand,
-            "LanguageGuard",
-            font=ui_foundation.FONT_BRAND,
-            fg=ui_foundation.COLOR_PRIMARY,
+            text="LanguageGuard",
+            font=ctk.CTkFont(family="Segoe UI", size=18, weight="bold"),
+            text_color=ui_foundation.COLOR_PRIMARY,
+            fg_color=ui_foundation.COLOR_BG,
         ).pack(side=tk.LEFT)
-        self.environment_label = ui_foundation.environment_chip(brand, "")
+        self.environment_label = ctk.CTkLabel(
+            brand,
+            text="",
+            font=ctk.CTkFont(family="Segoe UI", size=11, weight="bold"),
+            text_color=ui_foundation.COLOR_TEXT,
+            fg_color=ui_foundation.COLOR_WARM,
+            corner_radius=8,
+            width=110,
+            height=24,
+        )
         badge = ui_foundation.environment_badge(config.environment_identity())
         if badge:
-            self.environment_label.config(text=badge)
+            self.environment_label.configure(text=badge)
             self.environment_label.pack(side=tk.RIGHT)
 
-        self.greeting_label = ui_foundation.label(
-            content, "", font=ui_foundation.FONT_GREETING
+        self.greeting_label = ctk.CTkLabel(
+            content,
+            text="",
+            font=ctk.CTkFont(family="Segoe UI", size=26, weight="bold"),
+            text_color=ui_foundation.COLOR_TEXT,
+            fg_color=ui_foundation.COLOR_BG,
+            anchor="w",
         )
-        self.greeting_label.pack(anchor="w", pady=(6, 0))
+        self.greeting_label.pack(anchor="w", pady=(8, 0))
+        ctk.CTkLabel(
+            content,
+            text=config.ui("Một phiên ngắn, vừa sức.", "One session, at your pace."),
+            font=ctk.CTkFont(family="Segoe UI", size=13),
+            text_color="#5C7268",
+            fg_color=ui_foundation.COLOR_BG,
+            anchor="w",
+        ).pack(anchor="w")
 
-        lang_row = tk.Frame(content, bg=ui_foundation.COLOR_BG)
-        lang_row.pack(fill=tk.X, pady=(0, 8))
-        self.language_label = ui_foundation.label(lang_row, "", font=("Segoe UI", 13))
-        self.language_label.pack(side=tk.LEFT)
-        self.change_lang_button = ui_foundation.quiet_button(
+        lang_row = ctk.CTkFrame(content, fg_color=ui_foundation.COLOR_BG, corner_radius=0)
+        lang_row.pack(fill=tk.X, pady=(6, 8))
+        self.language_label = ctk.CTkLabel(
             lang_row,
-            config.ui("Đổi", "Change"),
-            self._change_language,
+            text="",
+            font=ctk.CTkFont(family="Segoe UI", size=15, weight="bold"),
+            text_color=ui_foundation.COLOR_TEXT,
+            fg_color=ui_foundation.COLOR_BG,
+            anchor="w",
+        )
+        self.language_label.pack(side=tk.LEFT)
+        self.change_lang_button = ctk.CTkButton(
+            lang_row,
+            text=config.ui("Đổi", "Change"),
+            command=self._change_language,
+            width=72,
+            height=28,
+            corner_radius=8,
+            fg_color=ui_foundation.COLOR_SOFT_GREEN,
+            hover_color="#CFE3D6",
+            text_color=ui_foundation.COLOR_TEXT,
+            font=ctk.CTkFont(family="Segoe UI", size=12),
         )
         self.change_lang_button.pack(side=tk.RIGHT)
+        _bind_activate(self.change_lang_button)
 
-        self.plan_card = ui_foundation.rounded_panel(
-            content, fill=ui_foundation.COLOR_SOFT_GREEN, radius=14
+        self.plan_card = ctk.CTkFrame(
+            content,
+            fg_color=ui_foundation.COLOR_SOFT_GREEN,
+            corner_radius=18,
         )
         self.plan_card.pack(fill=tk.X)
-        plan_body = self.plan_card.body
-        ui_foundation.label(
-            plan_body,
-            config.ui("Hôm nay", "Today's learning"),
-            font=ui_foundation.FONT_SMALL,
-            bg=ui_foundation.COLOR_SOFT_GREEN,
-        ).pack(anchor="w")
-        self.plan_headline = ui_foundation.label(
-            plan_body,
-            "",
-            font=ui_foundation.FONT_CARD_TITLE,
-            bg=ui_foundation.COLOR_SOFT_GREEN,
+        ctk.CTkLabel(
+            self.plan_card,
+            text=config.ui("Hôm nay", "Today's learning"),
+            font=ctk.CTkFont(family="Segoe UI", size=12),
+            text_color="#5C7268",
+            fg_color=ui_foundation.COLOR_SOFT_GREEN,
+            anchor="w",
+        ).pack(anchor="w", padx=16, pady=(14, 0))
+        self.plan_headline = ctk.CTkLabel(
+            self.plan_card,
+            text="",
+            font=ctk.CTkFont(family="Segoe UI", size=20, weight="bold"),
+            text_color=ui_foundation.COLOR_TEXT,
+            fg_color=ui_foundation.COLOR_SOFT_GREEN,
+            anchor="w",
+            wraplength=460,
+            justify="left",
         )
-        self.plan_headline.pack(anchor="w", pady=(4, 0))
-        self.plan_support = ui_foundation.label(
-            plan_body,
-            "",
-            font=ui_foundation.FONT_BODY,
-            bg=ui_foundation.COLOR_SOFT_GREEN,
+        self.plan_headline.pack(anchor="w", padx=16, pady=(2, 0))
+        self.plan_support = ctk.CTkLabel(
+            self.plan_card,
+            text="",
+            font=ctk.CTkFont(family="Segoe UI", size=13),
+            text_color=ui_foundation.COLOR_TEXT,
+            fg_color=ui_foundation.COLOR_SOFT_GREEN,
+            anchor="w",
+            wraplength=460,
+            justify="left",
         )
-        self.plan_support.configure(wraplength=400, justify="left")
-        self.plan_support.pack(anchor="w", pady=(4, 8))
-        self.start_button = ui_foundation.primary_button(
-            plan_body,
-            config.ui("Bắt đầu học", "Start learning"),
-            self._start_study,
+        self.plan_support.pack(anchor="w", padx=16, pady=(4, 8))
+        self.start_button = ctk.CTkButton(
+            self.plan_card,
+            text=config.ui("Bắt đầu học", "Start learning"),
+            command=self._start_study,
+            height=46,
+            corner_radius=14,
+            fg_color=ui_foundation.COLOR_PRIMARY,
+            hover_color=ui_foundation.COLOR_PRIMARY_ACTIVE,
+            text_color=ui_foundation.COLOR_ON_PRIMARY,
+            font=ctk.CTkFont(family="Segoe UI", size=16, weight="bold"),
         )
-        self.start_button.pack(fill=tk.X)
+        self.start_button.pack(fill=tk.X, padx=16, pady=(0, 16))
+        _bind_activate(self.start_button)
 
-        shortcuts = tk.Frame(content, bg=ui_foundation.COLOR_BG)
-        shortcuts.pack(fill=tk.X, pady=(10, 0))
-        self.words_button = self._shortcut_card(
+        shortcuts = ctk.CTkFrame(content, fg_color=ui_foundation.COLOR_BG, corner_radius=0)
+        shortcuts.pack(fill=tk.X, pady=(12, 0))
+        self.words_button = _ShortcutCard(
             shortcuts,
             config.ui("Từ", "Words"),
             config.ui("Kho từ của bạn", "Your library"),
             self._open_vocabulary,
         )
-        self.progress_button = self._shortcut_card(
+        self.progress_button = _ShortcutCard(
             shortcuts,
             config.ui("Tiến độ", "Progress"),
             config.ui("Xem quá trình học", "See your progress"),
@@ -159,23 +286,39 @@ class FreeHome:
         self.words_button.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 6))
         self.progress_button.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(6, 0))
 
-        quiet = tk.Frame(content, bg=ui_foundation.COLOR_BG)
-        quiet.pack(fill=tk.X, pady=(4, 0))
-        self.add_word_button = ui_foundation.quiet_button(
+        quiet = ctk.CTkFrame(content, fg_color=ui_foundation.COLOR_BG, corner_radius=0)
+        quiet.pack(fill=tk.X, pady=(8, 0))
+        self.add_word_button = self._quiet_button(
             quiet, config.ui("Thêm từ", "Add word"), self._add_words
         )
-        self.add_word_button.pack(side=tk.LEFT)
-        self.mistake_button = ui_foundation.quiet_button(
+        self.add_word_button.pack(side=tk.LEFT, padx=(0, 8))
+        self.mistake_button = self._quiet_button(
             quiet, config.ui("Sổ lỗi", "Mistake Book"), self._open_mistake_book
         )
-        self.mistake_button.pack(side=tk.LEFT, padx=(8, 0))
+        self.mistake_button.pack(side=tk.LEFT)
 
-        self.account_chip = ui_foundation.label(meta, "", font=ui_foundation.FONT_SMALL)
+        self.account_chip = ctk.CTkLabel(
+            meta,
+            text="",
+            font=ctk.CTkFont(family="Segoe UI", size=12),
+            text_color="#5C7268",
+            fg_color=ui_foundation.COLOR_BG,
+            anchor="w",
+        )
         self.account_chip.pack(side=tk.LEFT)
-        self.sync_chip = ui_foundation.status_chip(
-            meta, "Cloud Sync", "guest", command=self._open_settings
+        self.sync_chip = ctk.CTkButton(
+            meta,
+            text="Cloud Sync",
+            command=self._open_settings,
+            height=28,
+            corner_radius=8,
+            fg_color="#EFEAE2",
+            hover_color="#E6DFD4",
+            text_color=ui_foundation.COLOR_TEXT,
+            font=ctk.CTkFont(family="Segoe UI", size=12),
         )
         self.sync_chip.pack(side=tk.RIGHT)
+        _bind_activate(self.sync_chip)
 
         from account_panel import AccountPanel, AccountSyncStatusPoller
 
@@ -201,44 +344,36 @@ class FreeHome:
 
     def _nav_button(self, parent, icon: str, text: str, command, *, selected: bool = False):
         bg = ui_foundation.COLOR_SOFT_GREEN if selected else ui_foundation.COLOR_BG
-        weight = "bold" if selected else "normal"
-        return tk.Button(
+        button = ctk.CTkButton(
             parent,
             text=f"{icon}  {text}",
             command=command,
-            font=(ui_foundation.FONT_NAV[0], ui_foundation.FONT_NAV[1], weight),
-            bg=bg,
-            fg=ui_foundation.COLOR_TEXT,
-            activebackground=ui_foundation.COLOR_SOFT_GREEN,
-            activeforeground=ui_foundation.COLOR_TEXT,
-            relief="flat",
-            bd=0,
-            padx=4,
-            pady=8,
-            cursor="hand2",
-            highlightthickness=0,
+            width=100,
+            height=36,
+            corner_radius=10,
+            fg_color=bg,
+            hover_color=ui_foundation.COLOR_SOFT_GREEN,
+            text_color=ui_foundation.COLOR_TEXT,
+            font=ctk.CTkFont(family="Segoe UI", size=13, weight="bold" if selected else "normal"),
         )
+        _bind_activate(button)
+        return button
 
-    def _shortcut_card(self, parent, title: str, subtitle: str, command):
-        return tk.Button(
+    def _quiet_button(self, parent, text: str, command):
+        button = ctk.CTkButton(
             parent,
-            text=f"{title}\n{subtitle}",
+            text=text,
             command=command,
-            font=ui_foundation.FONT_BODY,
-            bg=ui_foundation.COLOR_CARD,
-            fg=ui_foundation.COLOR_TEXT,
-            activebackground=ui_foundation.COLOR_SOFT_GREEN,
-            activeforeground=ui_foundation.COLOR_TEXT,
-            relief="flat",
-            bd=0,
-            padx=12,
-            pady=10,
-            anchor="w",
-            justify="left",
-            cursor="hand2",
-            highlightbackground=ui_foundation.COLOR_BORDER,
-            highlightthickness=1,
+            width=120,
+            height=30,
+            corner_radius=8,
+            fg_color="transparent",
+            hover_color=ui_foundation.COLOR_SOFT_GREEN,
+            text_color=ui_foundation.COLOR_TEXT,
+            font=ctk.CTkFont(family="Segoe UI", size=13),
         )
+        _bind_activate(button)
+        return button
 
     def _on_account_panel_destroy_stop_sync_poller(self, event) -> None:
         panel = getattr(self, "account_panel", None)
@@ -316,13 +451,13 @@ class FreeHome:
         except Exception:
             self._plan = None
         if self._plan is None:
-            self.greeting_label.config(text=config.ui("Học hôm nay", "Today's Study"))
-            self.language_label.config(text=config.language_name(code))
-            self.plan_headline.config(
+            self.greeting_label.configure(text=config.ui("Học hôm nay", "Today's Study"))
+            self.language_label.configure(text=config.language_name(code))
+            self.plan_headline.configure(
                 text=config.ui("Chưa tính được kế hoạch.", "Could not build today's plan.")
             )
-            self.plan_support.config(text="")
-            self.start_button.config(text=config.ui("Bắt đầu học", "Start learning"))
+            self.plan_support.configure(text="")
+            self.start_button.configure(text=config.ui("Bắt đầu học", "Start learning"))
             self._redraw_plan_card()
             self._sync_settings_controls()
             return
@@ -335,15 +470,15 @@ class FreeHome:
         self._apply_view(self._view)
 
     def _apply_view(self, view: HomeViewModel):
-        self.greeting_label.config(text=view.greeting)
-        self.language_label.config(text=view.language_label)
+        self.greeting_label.configure(text=view.greeting)
+        self.language_label.configure(text=view.language_label)
         if view.can_change_language:
-            self.change_lang_button.config(state="normal")
+            self.change_lang_button.configure(state="normal")
         else:
-            self.change_lang_button.config(state="disabled")
-        self.plan_headline.config(text=view.plan_headline)
-        self.plan_support.config(text=view.plan_support)
-        self.start_button.config(text=view.primary_action_label)
+            self.change_lang_button.configure(state="disabled")
+        self.plan_headline.configure(text=view.plan_headline)
+        self.plan_support.configure(text=view.plan_support)
+        self.start_button.configure(text=view.primary_action_label)
         self._refresh_account_chip()
         self._redraw_plan_card()
         self._sync_settings_controls()
@@ -358,7 +493,7 @@ class FreeHome:
             )
         else:
             text = config.ui("Tài khoản · trên máy này", "Account · on this PC")
-        self.account_chip.config(text=text)
+        self.account_chip.configure(text=text)
 
     def _current_sync_text(self) -> tuple[str, str]:
         import account_session
@@ -373,12 +508,11 @@ class FreeHome:
         kind = ui_foundation.sync_status_kind(label)
         bg, fg = ui_foundation.sync_status_colors(kind)
         try:
-            self.sync_chip.config(
+            self.sync_chip.configure(
                 text=f"Cloud Sync · {label}",
-                bg=bg,
-                fg=fg,
-                activebackground=bg,
-                activeforeground=fg,
+                fg_color=bg,
+                hover_color=bg,
+                text_color=fg,
             )
         except tk.TclError:
             return

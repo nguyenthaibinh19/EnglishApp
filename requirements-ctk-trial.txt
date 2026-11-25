@@ -1,0 +1,5 @@
+# Home-only visual trial. Not a production dependency.
+# License: MIT (Tom Schimansky, 2023). The wheel's included LICENSE file is MIT.
+# PyPI metadata also mentions CC0; the LICENSE file shipped in 5.2.2 is the MIT text.
+customtkinter==5.2.2
+darkdetect==0.8.0
