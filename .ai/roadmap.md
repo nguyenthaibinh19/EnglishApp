@@ -4,7 +4,7 @@ Directional plan — **not** a rigid release commitment. Update when phases comp
 
 ## Latest operational checkpoint — 2026-11-24
 
-- **Active priority: Phase 18E account ID 1 migration is complete.** The installed v1.5.0 application has the 115-word library and the original six attempts through Cloud Sync. 18C.4P remains closed. 18B.9 remains **PAUSED**. 18B.10B–E remain **NOT AUTHORIZED**.
+- **Active priority: Phase 19.1 redesign specification R1 is ready for review.** Today / Words / You / Settings is accepted. The first candidate is a visual theme wave, then Today. Learning-engine and schema work stay gated. 18B.9 remains **PAUSED**. 18B.10B–E remain **NOT AUTHORIZED**.
 - 18C.1, 18C.2, and 18C.3B are **CLOSED**. 18B.10A is **AUDIT ACCEPTED, IMPLEMENTATION DEFERRED**. 18B.10B–E are **NOT AUTHORIZED**.
 - **18B.9 PAUSED, NOT CLOSED.** Production Cloud Sync is **ON**. Google Drive stays **NOT CONFIGURED**. Staging deployment **NOT STARTED**. The supervised Sync pilot remains closed inside its approved scope.
 
