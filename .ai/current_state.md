@@ -4,7 +4,7 @@
 
 ## Latest verified coordination checkpoint — 2026-11-24
 
-**Current priority:** **Phase 19.2A UI foundation and Today dashboard are ready for review on `phase19.2a/ui-foundation-today`.** The branch is not merged. SRS, sync, and study completion are unchanged. Spec: [PHASE-19.1-ux-redesign-spec.md](plans/PHASE-19.1-ux-redesign-spec.md) on `main` at `26cd368`. Release: https://github.com/nguyenthaibinh19/EnglishApp/releases/tag/v1.5.0. **18B.9 PAUSED.**
+**Current priority:** **Phase 19.2A visual waves V1 and V2 are ready for review on `phase19.2a/ui-foundation-today`.** The branch is not merged. V3–V7 and engine waves E1–E4 are not started. Spec: [PHASE-19.1-ux-redesign-spec.md](plans/PHASE-19.1-ux-redesign-spec.md). Release: https://github.com/nguyenthaibinh19/EnglishApp/releases/tag/v1.5.0. **18B.9 PAUSED.**
 
 **Phase 18B.10A: AUDIT ACCEPTED, IMPLEMENTATION DEFERRED** (`APP_18B10A_ARCHITECT_AUDIT_ACCEPTED_DEFERRED`). The audit and its proposed, unapproved numerical limits stay in [PHASE-18B.10A-api-abuse-resistance-audit.md](plans/PHASE-18B.10A-api-abuse-resistance-audit.md). Do not implement 18B.10B, 18B.10C, 18B.10D, or 18B.10E.
 

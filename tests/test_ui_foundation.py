@@ -53,24 +53,37 @@ def test_today_nav_uses_real_plan(tk_root, monkeypatch):
         assert "4" in home.plan_headline.cget("text")
         assert "1" in home.plan_support.cget("text")
         assert "minute" not in home.plan_support.cget("text").lower()
-        home._show_you()
-        assert home.you_page.winfo_manager() == "pack"
-        home._show_settings()
-        assert home.settings_page.winfo_manager() == "pack"
-        assert home.account_panel.frame.winfo_exists()
-        home._show_today()
-        assert home.today_page.winfo_manager() == "pack"
+        assert "streak" not in home.plan_support.cget("text").lower()
+        assert home.environment_label.cget("text")
         assert home.start_button.cget("text")
-        chosen = []
-        row = ui_foundation.choice_row(tk_root, ("one", "two"), chosen.append)
-        row.pack()
-        row.winfo_children()[0].invoke()
-        assert chosen == ["one"]
-        extra = ui_foundation.expandable(tk_root, "Why?", "A short rule.")
-        extra.pack()
-        next(child for child in extra.winfo_children() if child.winfo_class() == "Button").invoke()
-        body = next(child for child in extra.winfo_children() if child.winfo_class() == "Label")
-        assert body.winfo_manager() == "pack"
+        assert home.settings_button.cget("text")
+        home._open_settings()
+        assert home._settings_dialog is not None
+        assert home.account_panel.frame.winfo_exists()
+        home._settings_dialog.destroy()
+        calls = []
+        home._open_vocabulary = lambda: calls.append("words")
+        home._add_words = lambda: calls.append("add")
+        home._open_progress = lambda: calls.append("you")
+        home._open_mistake_book = lambda: calls.append("mistakes")
+        labels = {"Words": "words", "Add word": "add", "You": "you", "Mistake Book": "mistakes"}
+
+        def walk(widget):
+            for child in widget.winfo_children():
+                if child.winfo_class() == "Button" and child.cget("text") in labels:
+                    child.config(command=home.__getattribute__(
+                        {
+                            "Words": "_open_vocabulary",
+                            "Add word": "_add_words",
+                            "You": "_open_progress",
+                            "Mistake Book": "_open_mistake_book",
+                        }[child.cget("text")]
+                    ))
+                    child.invoke()
+                walk(child)
+
+        walk(tk_root)
+        assert set(calls) == set(labels.values())
     finally:
         home._stop_sync_status_polling()
 

@@ -7,7 +7,7 @@ They do not score answers, write SRS, or complete a study session.
 from __future__ import annotations
 
 import tkinter as tk
-from typing import Callable, Optional, Sequence
+from typing import Callable, Optional
 
 # Initial palette. Text on the filled primary color is white.
 # Text on the soft fills stays the dark green so contrast holds.
@@ -183,50 +183,3 @@ def feedback_banner(parent: tk.Misc, text: str, kind: str = "info") -> tk.Label:
         justify="left",
         anchor="w",
     )
-
-
-def choice_row(parent: tk.Misc, options: Sequence[str], command: Callable[[str], None]) -> tk.Frame:
-    """Future multiple-choice row. The command receives the chosen text."""
-    row = tk.Frame(parent, bg=COLOR_CARD)
-    for option in options:
-        button = quiet_button(row, option, lambda value=option: command(value))
-        button.configure(bg=COLOR_SOFT_GREEN)
-        button.pack(fill=tk.X, pady=4)
-    return row
-
-
-def letter_slots(parent: tk.Misc, shown: str) -> tk.Label:
-    """Future missing-letter prompt. ``shown`` is display text such as ``_ i _``."""
-    return label(parent, shown, font=("Segoe UI", 22, "bold"), bg=COLOR_CARD)
-
-
-def audio_row(
-    parent: tk.Misc,
-    *,
-    on_normal: Callable[[], None],
-    on_slow: Callable[[], None],
-    normal_text: str = "Listen",
-    slow_text: str = "Listen slowly",
-) -> tk.Frame:
-    """Future playback controls. Both actions are real commands supplied by the caller."""
-    row = tk.Frame(parent, bg=COLOR_CARD)
-    quiet_button(row, normal_text, on_normal).pack(side=tk.LEFT, padx=(0, 8))
-    quiet_button(row, slow_text, on_slow).pack(side=tk.LEFT)
-    return row
-
-
-def expandable(parent: tk.Misc, title: str, body: str) -> tk.Frame:
-    """Future grammar disclosure. Collapsed until the learner opens it."""
-    box = tk.Frame(parent, bg=COLOR_CARD)
-    body_label = label(box, body, font=FONT_SMALL, bg=COLOR_CARD)
-    open_state = {"shown": False}
-
-    def toggle() -> None:
-        open_state["shown"] = not open_state["shown"]
-        if open_state["shown"]:
-            body_label.pack(anchor="w", pady=(6, 0))
-        else:
-            body_label.pack_forget()
-
-    quiet_button(box, title, toggle).pack(anchor="w")
-    return box
