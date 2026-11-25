@@ -46,6 +46,7 @@ class SyncConflictApp:
         self.list_frame = ttk.Frame(self.root)
         self.list_frame.pack(fill=tk.BOTH, expand=True)
         self.empty = ttk.Label(self.root, text="", style="Muted.TLabel")
+        self._shown_account_key = None
         ttk.Button(
             self.root,
             text=config.ui("Đóng", "Close"),
@@ -58,6 +59,7 @@ class SyncConflictApp:
             child.destroy()
         from study_data import active_account_store, is_signed_in
 
+        self._shown_account_key = _account_key()
         if not is_signed_in():
             self.empty.config(
                 text=config.ui("Cần đăng nhập để xem xung đột.", "Sign in to view conflicts.")
@@ -78,9 +80,9 @@ class SyncConflictApp:
             return
         self.empty.pack_forget()
         for item in conflicts:
-            self._add_row(store, item)
+            self._add_row(item)
 
-    def _add_row(self, store, item: dict):
+    def _add_row(self, item: dict):
         frame = ttk.LabelFrame(
             self.list_frame,
             text=f"{item.get('language_code')} · {str(item.get('vocab_id') or '')[:8]}…",
@@ -112,22 +114,41 @@ class SyncConflictApp:
         ttk.Button(
             buttons,
             text=config.ui("Giữ máy chủ", "Keep server"),
-            command=lambda: self._resolve(store, item, "server"),
+            command=lambda current=item: self._resolve(current, "server"),
         ).pack(side=tk.LEFT, padx=(0, 8))
         if item.get("server_deleted") and item.get("local_operation") == "put":
             ttk.Button(
                 buttons,
                 text=config.ui("Lưu cục bộ thành từ mới", "Save local as new word"),
-                command=lambda: self._resolve(store, item, "local_as_new"),
+                command=lambda current=item: self._resolve(current, "local_as_new"),
             ).pack(side=tk.LEFT)
         elif not item.get("server_deleted"):
             ttk.Button(
                 buttons,
                 text=config.ui("Giữ cục bộ", "Keep local"),
-                command=lambda: self._resolve(store, item, "local"),
+                command=lambda current=item: self._resolve(current, "local"),
             ).pack(side=tk.LEFT)
 
-    def _resolve(self, store, item: dict, keep: str):
+    def _resolve(self, item: dict, keep: str):
+        from study_data import active_account_store, is_signed_in
+
+        if _account_key() != self._shown_account_key:
+            self.refresh()
+            return
+        if not is_signed_in():
+            self.refresh()
+            return
+        store = active_account_store()
+        if store is None:
+            self.refresh()
+            return
+        open_keys = {
+            (row.get("language_code"), row.get("vocab_id"))
+            for row in store.list_open_vocab_conflicts()
+        }
+        if (item.get("language_code"), item.get("vocab_id")) not in open_keys:
+            self.refresh()
+            return
         try:
             store.resolve_vocab_conflict(
                 item["language_code"], item["vocab_id"], keep=keep
@@ -144,6 +165,15 @@ class SyncConflictApp:
         if callable(self.on_resolved):
             self.on_resolved()
         self.refresh()
+
+
+def _account_key():
+    """Identity of the store the conflict buttons may act on."""
+    from study_data import is_signed_in
+
+    if not is_signed_in():
+        return None
+    return config.account_user_id()
 
 
 def open_sync_conflicts(parent: tk.Misc, on_resolved=None):

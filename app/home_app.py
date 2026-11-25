@@ -38,10 +38,13 @@ class FreeHome:
         ui_common.apply_theme(root)
         self.root.protocol("WM_DELETE_WINDOW", self.root.destroy)
         self._settings_dialog = None
+        self._settings_account_panel = None
         self._reading_var = None
         self._listening_var = None
-        self._conflict_button = None
         self._settings_sync_label = None
+        self._vocab_conflict_window = None
+        self._prefs_conflict_window = None
+        self._refreshing_visible_account = False
         self._sync_detail_text = ""
         self._in_plan_refresh = False
 
@@ -379,9 +382,31 @@ class FreeHome:
             )
         except tk.TclError:
             return
+        self._refresh_visible_account_panel()
         self._sync_settings_controls()
         if self._owned_callbacks and not self._in_plan_refresh:
             self.refresh()
+
+    def _refresh_visible_account_panel(self) -> None:
+        """Copy the polled account/sync state onto the open Settings panel."""
+        if self._refreshing_visible_account:
+            return
+        panel = getattr(self, "_settings_account_panel", None)
+        if panel is None or panel is getattr(self, "account_panel", None):
+            return
+        frame = getattr(panel, "frame", None)
+        try:
+            if frame is None or not frame.winfo_exists():
+                return
+        except tk.TclError:
+            return
+        self._refreshing_visible_account = True
+        try:
+            panel.refresh(notify=False)
+        except tk.TclError:
+            pass
+        finally:
+            self._refreshing_visible_account = False
 
     def _redraw_plan_card(self) -> None:
         card = getattr(self, "plan_card", None)
@@ -414,21 +439,34 @@ class FreeHome:
                 label.config(text=self._sync_detail_text)
             except tk.TclError:
                 pass
-        button = getattr(self, "_conflict_button", None)
-        if button is not None:
+    def _open_tracked_dialog(self, attr: str, opener):
+        existing = getattr(self, attr, None)
+        if existing is not None:
             try:
-                kind = ui_foundation.sync_status_kind(self.sync_chip.cget("text"))
-                if kind == "conflict":
-                    button.pack(anchor="w", pady=(8, 0))
-                else:
-                    button.pack_forget()
+                if existing.winfo_exists():
+                    existing.lift()
+                    return existing
             except tk.TclError:
                 pass
+        window = opener()
+        setattr(self, attr, window)
+        return window
 
-    def _open_sync_conflict(self) -> None:
+    def _open_vocab_conflicts(self):
         from sync_conflict_app import open_sync_conflicts
 
-        open_sync_conflicts(self.root, on_resolved=self.refresh)
+        return self._open_tracked_dialog(
+            "_vocab_conflict_window",
+            lambda: open_sync_conflicts(self.root, on_resolved=self.refresh),
+        )
+
+    def _open_prefs_conflicts(self):
+        from prefs_conflict_app import open_prefs_conflict
+
+        return self._open_tracked_dialog(
+            "_prefs_conflict_window",
+            lambda: open_prefs_conflict(self.root, on_resolved=self.refresh),
+        )
 
     # ---------- actions ----------
 
@@ -437,11 +475,17 @@ class FreeHome:
         import account_session
 
         account_session.close_account_bound_windows(
-            self.bank_window, self.mistake_window, self.progress_window
+            self.bank_window,
+            self.mistake_window,
+            self.progress_window,
+            self._vocab_conflict_window,
+            self._prefs_conflict_window,
         )
         self.bank_window = None
         self.mistake_window = None
         self.progress_window = None
+        self._vocab_conflict_window = None
+        self._prefs_conflict_window = None
 
     def _on_account_session_changed(self):
         """Rebind dashboard after login/logout/switch — no Guest auto-import."""
@@ -586,25 +630,30 @@ class FreeHome:
             on_session_changed=self._on_account_session_changed,
             allow_logout=True,
         )
-        dialog_panel.on_refreshed = self._apply_sync_status
+        self._settings_account_panel = dialog_panel
         dialog_panel.pack(fill=tk.X, pady=(0, 8))
         ui_foundation.quiet_button(
             frame,
             config.ui("Mã thoát khẩn cấp", "Emergency code"),
             lambda: self._emergency_code(dialog),
         ).pack(anchor="w", pady=(4, 0))
-        self._conflict_button = ui_foundation.quiet_button(
+        ui_foundation.quiet_button(
             frame,
-            config.ui("Xem xung đột", "Review conflict"),
-            self._open_sync_conflict,
-        )
+            config.ui("Xung đột đồng bộ", "Sync conflicts"),
+            self._open_vocab_conflicts,
+        ).pack(anchor="w", pady=(8, 0))
+        ui_foundation.quiet_button(
+            frame,
+            config.ui("Xung đột tùy chọn", "Preference conflict"),
+            self._open_prefs_conflicts,
+        ).pack(anchor="w", pady=(4, 0))
         self._sync_settings_controls()
 
         def close():
             self._settings_dialog = None
+            self._settings_account_panel = None
             self._reading_var = None
             self._listening_var = None
-            self._conflict_button = None
             self._settings_sync_label = None
             dialog.destroy()
 

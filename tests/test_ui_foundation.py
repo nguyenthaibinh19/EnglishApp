@@ -64,14 +64,12 @@ def test_today_nav_uses_real_plan(tk_root, monkeypatch):
         home._open_settings()
         assert home._settings_dialog is not None
         assert home.account_panel.frame.winfo_exists()
-        assert home._conflict_button is not None
+        assert home._settings_account_panel is not home.account_panel
+        assert home._settings_account_panel.on_refreshed is None
         assert home._listening_var.get() is False
         state["listening"] = True
         home._sync_settings_controls()
         assert home._listening_var.get() is True
-        home.sync_chip.config(text="Cloud Sync · Conflict / Action required")
-        home._sync_settings_controls()
-        assert home._conflict_button.winfo_manager() == "pack"
         seen = {"n": 0}
 
         def counting(_code):
