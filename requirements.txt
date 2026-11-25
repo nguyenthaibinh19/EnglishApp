@@ -1,3 +1,8 @@
 openai>=1.40
 python-dotenv>=1.0
 PyPDF2>=3.0
+# Home and the study card. MIT, Copyright 2023 Tom Schimansky.
+# See licenses/customtkinter.MIT.txt. PyPI's short field also says CC0;
+# the LICENSE file shipped in 5.2.2 is the MIT text.
+customtkinter==5.2.2
+darkdetect==0.8.0

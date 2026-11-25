@@ -8,6 +8,18 @@ Chạy: python -m PyInstaller LangStudyGuardStaging.spec --noconfirm --distpath 
 
 import os
 
+from PyInstaller.utils.hooks import collect_data_files
+
+_ctk_datas = collect_data_files("customtkinter")
+_ctk_dist = os.path.join(
+    os.path.dirname(os.path.dirname(__import__("customtkinter").__file__)),
+    "customtkinter-5.2.2.dist-info",
+    "LICENSE",
+)
+if os.path.isfile(_ctk_dist):
+    _ctk_datas.append((_ctk_dist, "customtkinter"))
+_ctk_datas.append(("licenses/customtkinter.MIT.txt", "customtkinter"))
+
 _conda_bin = os.path.join(os.path.expanduser("~"), "miniconda3", "Library", "bin")
 _dll_names = (
     "tcl86t.dll",
@@ -38,8 +50,8 @@ a = Analysis(
         ("data/Reading", "Reading"),
         ("bundled_secrets.json", "."),  # account URL only; never an emergency password
         ("build_manifest.json", "."),
-    ],
-    hiddenimports=["dotenv"],
+    ] + _ctk_datas,
+    hiddenimports=["dotenv", "customtkinter", "darkdetect"],
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],

@@ -11,8 +11,10 @@ import ai_teacher
 import config
 import dictionary
 import ui_common
+import ui_foundation
 from progress import Progress
 from quiz_engine import QuizEngine
+from study_presentation import StudyCardShell
 from text_utils import entry_word, fold_accents, normalize, strip_tags, without_article
 from vocab_store import ReadOnlyVocabView, VocabStore
 from vocabulary_model import entry_meaning
@@ -85,6 +87,11 @@ class VocabQuizApp:
         self.practice_mode = None      # None | "free" | "forced"
         self._pending_action = None    # hành động đang chờ trước khi sang câu mới
         self._pending_after_id = None
+        self._phase = "answer"
+        self._submitting = False
+        self._continuing = False
+        self._result_finished = False
+        self._last_verdict = ""
 
         ui_common.apply_theme(window)
         self.guard = ui_common.ScreenGuard(
@@ -93,6 +100,13 @@ class VocabQuizApp:
             on_close_attempt=self._on_close_attempt,
             on_unlocked_close=self._leave_unlocked,
         )
+        if not self.guard.enabled:
+            try:
+                window.geometry("560x520")
+                window.minsize(480, 480)
+                window.configure(bg=ui_foundation.COLOR_BG)
+            except tk.TclError:
+                pass
 
         if self.store.count() == 0 and not self.manage_only:
             self.guard.show_error(
@@ -122,7 +136,7 @@ class VocabQuizApp:
     # ============================================================
 
     def _build_ui(self):
-        self.container = ttk.Frame(self.window, padding=20)
+        self.container = ttk.Frame(self.window, padding=12)
         self.container.pack(fill=tk.BOTH, expand=True)
 
         if self.manage_only:
@@ -149,96 +163,43 @@ class VocabQuizApp:
 
     def _build_quiz_view(self) -> ttk.Frame:
         view = ttk.Frame(self.container)
-
-        header = ttk.Frame(view)
-        header.pack(fill=tk.X)
-        ttk.Label(
-            header,
-            text=config.ui(
-                f"Luyện từ vựng {config.current_language()['name_vi']}",
-                f"{config.language_name(config.active_code())} vocabulary",
-            ),
-            style="Title.TLabel",
-        ).pack(side=tk.LEFT)
-        self.stats_label = ttk.Label(header, text="", style="Muted.TLabel")
-        self.stats_label.pack(side=tk.RIGHT)
-
-        self.progress_bar = ttk.Progressbar(
-            view, maximum=self.engine.target, value=0, length=400
+        language = config.language_name(self.language_code or config.active_code())
+        self.shell = StudyCardShell(
+            view,
+            locked=bool(self.guard.enabled),
+            on_check=self._submit,
+            on_hint=self._show_hint,
+            on_continue=self._continue,
+            on_done=self._close_complete,
+            on_sentence=self._practice_voluntary,
+            on_leave=self._leave_unlocked,
+            on_emergency=self._emergency_exit,
         )
-        self.progress_bar.pack(fill=tk.X, pady=(12, 4))
-
-        self.progress_label = ttk.Label(view, text="", style="Muted.TLabel")
-        self.progress_label.pack(anchor="w")
-
-        body = ttk.Frame(view)
-        body.pack(fill=tk.BOTH, expand=True)
-
-        ttk.Label(
-            body,
-            text=config.ui(
-                f"Từ {config.current_language()['name_vi']} nào có nghĩa là:",
-                f"Which {config.language_name(config.active_code())} word means:",
-            ),
-            style="H2.TLabel",
-        ).pack(pady=(40, 8))
-
-        self.question_label = ttk.Label(
-            body, text="", font=ui_common.FONT_QUESTION, wraplength=900, justify="center"
+        self.shell.set_copy(
+            check=config.ui("Kiểm tra", "Check answer"),
+            hint=config.ui("Gợi ý", "Hint"),
+            continue_text=config.ui("Tiếp tục", "Continue"),
+            leave=config.ui("Để lúc khác", "Leave for now"),
+            emergency=config.ui("Thoát khẩn cấp", "Emergency exit"),
         )
-        self.question_label.pack(pady=6)
-
-        self.hint_label = ttk.Label(body, text="", style="Muted.TLabel")
-        self.hint_label.pack(pady=4)
-
-        self.answer_var = tk.StringVar()
-        self.answer_entry = ttk.Entry(
-            body, textvariable=self.answer_var, font=ui_common.FONT_ANSWER,
-            width=32, justify="center",
+        self.shell.sentence_button.configure(
+            text=config.ui("Đặt câu ví dụ", "Write a sentence"),
         )
-        self.answer_entry.pack(pady=14, ipady=6)
-        self.answer_entry.bind("<Return>", self._on_enter)
-
-        self.feedback_label = ttk.Label(
-            body, text="", font=ui_common.FONT_BODY, wraplength=900, justify="center"
+        self._question_kicker = config.ui(
+            f"Từ {language} nào có nghĩa là",
+            f"Which {language} word means",
         )
-        self.feedback_label.pack(pady=10)
-
-        buttons = ttk.Frame(view)
-        buttons.pack(fill=tk.X, pady=(10, 0))
-
-        self.submit_button = ttk.Button(
-            buttons, text=config.ui("Trả lời", "Submit"), command=self._submit
-        )
-        self.submit_button.pack(side=tk.LEFT)
-
-        self.hint_button = ttk.Button(
-            buttons, text=config.ui("Gợi ý", "Hint"), command=self._show_hint, style="Small.TButton"
-        )
-        self.hint_button.pack(side=tk.LEFT, padx=6)
-
-        ttk.Button(
-            buttons, text=config.ui("Đặt câu ví dụ", "Write a sentence"), style="Small.TButton",
-            command=lambda: self._open_practice("free"),
-        ).pack(side=tk.LEFT, padx=6)
-
-        if self.allow_manage:
-            ttk.Button(
-                buttons, text=config.ui("Quản lý từ vựng", "Manage vocabulary"), style="Small.TButton",
-                command=self._open_manager,
-            ).pack(side=tk.LEFT, padx=6)
-
-        if self.on_request_switch is not None:
-            ttk.Button(
-                buttons, text=config.ui("Sang phần đọc", "Go to reading"), style="Small.TButton",
-                command=self.on_request_switch,
-            ).pack(side=tk.LEFT, padx=6)
-
-        ttk.Button(
-            buttons, text=config.ui("Thoát khẩn cấp", "Emergency exit"), style="Small.TButton",
-            command=self._emergency_exit,
-        ).pack(side=tk.RIGHT)
-
+        self.shell.pack(fill=tk.BOTH, expand=True)
+        self.answer_entry = self.shell.exercise.entry
+        answer_inner = getattr(self.answer_entry, "_entry", self.answer_entry)
+        answer_inner.bind("<Return>", self._on_window_return, add="+")
+        answer_inner.bind("<KP_Enter>", self._on_window_return, add="+")
+        self.check_button = self.shell.check_button
+        self.hint_button = self.shell.hint_button
+        self.continue_button = self.shell.continue_button
+        self.leave_button = self.shell.leave_button
+        self.emergency_button = self.shell.emergency_button
+        self.feedback_label = self.shell.feedback
         return view
 
     # ============================================================
@@ -247,137 +208,129 @@ class VocabQuizApp:
 
     def _next_question(self):
         self._cancel_pending()
+        self._result_finished = False
+        self._last_verdict = ""
         entry = self.engine.pick_next()
         if entry is None:
-            self.question_label.config(text=config.ui("Kho từ vựng đang trống.", "The word list is empty."))
+            self.shell.exercise.set_prompt("", config.ui("Kho từ vựng đang trống.", "The word list is empty."))
             return
-
-        self.question_label.config(text=f"“{self._learner_meaning(entry)}”")
-        from vocabulary_model import entry_example
-
-        self.hint_label.config(text=entry_example(entry))
-        self.feedback_label.config(text="", foreground="black")
-        self.answer_var.set("")
-        self.answer_entry.state(["!disabled"])
-        self.submit_button.state(["!disabled"])
-        self.hint_button.state(["!disabled"])
-        self.answer_entry.focus_set()
+        self._phase = "answer"
+        self.shell.exercise.set_prompt(self._question_kicker, self._learner_meaning(entry))
+        self.shell.show_answering()
         self._update_progress()
 
     def _update_progress(self):
         stats = self.engine.session_stats()
-        self.progress_bar.config(value=stats["correct"])
-        self.progress_label.config(
-            text=config.ui(
-                f"Đúng {stats['correct']}/{stats['target']} • "
-                f"chuỗi đúng liên tiếp: {stats['streak']} • "
-                f"độ chính xác: {stats['accuracy'] * 100:.0f}%",
-                f"{stats['correct']}/{stats['target']} correct • "
-                f"streak: {stats['streak']} • "
-                f"accuracy: {stats['accuracy'] * 100:.0f}%",
-            )
-        )
-        today = self.progress.summary()
-        self.stats_label.config(
-            text=config.ui(
-                f"Hôm nay đã ôn {today['asked_today']} từ • đã thuộc {today['known_words']} từ",
-                f"Reviewed {today['asked_today']} today • {today['known_words']} known",
-            )
-        )
+        correct = int(stats["correct"])
+        target = int(stats["target"])
+        # Session score, not a question index and not a mastery count.
+        # Near misses and hinted exact answers increase this score.
+        # Only an exact answer without a hint is mastery, and that stays in the attempt record.
+        label = config.ui(f"Đúng {correct}/{target}", f"{correct}/{target} correct")
+        self.shell.set_progress(correct, target, label)
 
-    def _on_enter(self, _event=None):
-        # Đang chờ xem đáp án thì Enter nghĩa là "đi tiếp luôn".
-        if self._pending_action is not None:
-            self._run_pending_now()
-        else:
+    def _on_window_return(self, _event=None):
+        """Enter submits, then continues once. It does not record the same answer twice."""
+        if self.quiz_view is None or not self.quiz_view.winfo_ismapped():
+            return None
+        if self._phase == "feedback":
+            self._continue()
+        elif self._phase == "complete":
+            self._close_complete()
+        elif self._phase == "answer":
             self._submit()
         return "break"
 
-    def _on_window_return(self, _event=None):
-        """Enter khi ô nhập đang bị khóa: bỏ qua thời gian chờ, sang câu mới."""
-        if not self.quiz_view.winfo_ismapped() or self._pending_action is None:
-            return None
-        self._run_pending_now()
-        return "break"
-
     def _show_hint(self):
+        if self._phase != "answer":
+            return
         hint = self.engine.use_hint()
         if hint:
-            self.hint_label.config(text=config.ui(f"Gợi ý: {hint}", f"Hint: {hint}"))
-            self.answer_entry.focus_set()
+            self.shell.exercise.show_support(config.ui(f"Gợi ý: {hint}", f"Hint: {hint}"))
+            self.shell.exercise.focus_answer()
 
     def _submit(self):
-        if self._pending_action is not None:
+        if self._phase != "answer" or self._submitting:
             return
-        answer = self.answer_var.get().strip()
+        answer = self.shell.exercise.answer_text()
         if not answer:
-            self.feedback_label.config(
-                text=config.ui("Bạn chưa nhập gì cả.", "Type an answer first."),
-                foreground=ui_common.COLOR_WARN,
+            self.shell.show_feedback(
+                config.ui("Hãy nhập câu trả lời trước.", "Type an answer first."),
+                "empty",
             )
             return
 
-        result = self.engine.submit(answer)
+        self._submitting = True
+        self._phase = "feedback"
+        try:
+            result = self.engine.submit(answer)
+        except Exception:
+            self._phase = "answer"
+            raise
+        finally:
+            self._submitting = False
+        self._result_finished = bool(result.finished)
+        self._last_verdict = result.verdict
         self._update_progress()
+        self.shell.show_feedback(
+            self._feedback_text(result),
+            self._feedback_tone(result.verdict),
+            offer_sentence=not result.finished,
+        )
 
+    def _feedback_tone(self, verdict: str) -> str:
+        if verdict == "exact":
+            return "ok"
+        if verdict == "near":
+            return "near"
+        return "bad"
+
+    def _feedback_text(self, result) -> str:
         if result.verdict == "exact":
-            self.feedback_label.config(
-                text=config.ui(
-                    f"Chính xác! {result.correct_display}",
-                    f"Correct! {result.correct_display}",
-                ),
-                foreground=ui_common.COLOR_OK,
+            return config.ui(
+                f"Đúng rồi. {result.correct_display}",
+                f"That's it. {result.correct_display}",
             )
-            if result.finished:
-                self._finish()
-                return
-            self._schedule(self._next_question, 600)
+        if result.verdict == "near":
+            return config.ui(
+                f"Rất gần. Viết đúng là {result.correct_display}",
+                f"Very close. {result.correct_display}",
+            )
+        meaning = self._learner_meaning(result.entry or {})
+        return config.ui(
+            f"Từ đúng là {result.correct_display}. {meaning}",
+            f"The word is {result.correct_display}. {meaning}",
+        )
 
-        elif result.verdict == "near":
-            self.feedback_label.config(
-                text=config.ui(
-                    f"Gần đúng — chú ý chính tả.\nViết đúng là: {result.correct_display}",
-                    f"Almost — check the spelling.\nCorrect form: {result.correct_display}",
-                ),
-                foreground=ui_common.COLOR_WARN,
-            )
-            if result.finished:
-                self._finish()
-                return
-            self._schedule(self._next_question, 1600)
-
-        else:
-            entry = result.entry
-            self.feedback_label.config(
-                text=config.ui(
-                    f"Chưa đúng. Bạn trả lời: {answer}\n"
-                    f"Đáp án: {result.correct_display}  —  {self._learner_meaning(entry)}",
-                    f"Not quite. You wrote: {answer}\n"
-                    f"Answer: {result.correct_display}  —  {self._learner_meaning(entry)}",
-                ),
-                foreground=ui_common.COLOR_BAD,
-            )
-            self._lock_input()
-            if config.FORCE_SENTENCE_ON_WRONG and ai_teacher.is_configured():
-                self._schedule(lambda: self._open_practice("forced"), 3000)
+    def _continue(self):
+        if self._phase != "feedback" or self._continuing:
+            return
+        self._continuing = True
+        try:
+            if self._result_finished:
+                self._show_complete()
+            elif self._wants_forced_sentence():
+                self._phase = "practice"
+                self._open_practice("forced")
             else:
-                self._schedule(self._next_question, 2500)
+                self._next_question()
+        finally:
+            self._continuing = False
 
-    def _lock_input(self):
-        self.answer_entry.state(["disabled"])
-        self.submit_button.state(["disabled"])
-        self.hint_button.state(["disabled"])
+    def _wants_forced_sentence(self) -> bool:
+        """Wrong answers only. Exact and near misses keep the existing next-step path."""
+        if self._last_verdict in ("exact", "near", ""):
+            return False
+        return bool(config.FORCE_SENTENCE_ON_WRONG and ai_teacher.is_configured())
 
-    def _schedule(self, action, delay_ms: int):
-        self._cancel_pending()
-        self._pending_action = action
-        self._pending_after_id = self.window.after(delay_ms, self._run_pending_now)
-
-    def _run_pending_now(self):
-        action = self._pending_action
-        self._cancel_pending()
-        if action is not None:
-            action()
+    def _practice_voluntary(self):
+        """Open the existing sentence screen without sitting beside Check."""
+        if self._phase != "feedback" or self._continuing or self._result_finished:
+            return
+        if self.engine.current_entry is None:
+            return
+        self._phase = "practice"
+        self._open_practice("free")
 
     def _cancel_pending(self):
         if self._pending_after_id is not None:
@@ -388,27 +341,33 @@ class VocabQuizApp:
         self._pending_after_id = None
         self._pending_action = None
 
-    def _finish(self):
+    def _show_complete(self):
+        self._phase = "complete"
         self.completed = True
         stats = self.engine.session_stats()
-        message = config.ui(
-            f"Hoàn thành phần từ vựng!\n\n"
-            f"Số câu đã trả lời: {stats['answered']}\n"
-            f"Độ chính xác: {stats['accuracy'] * 100:.0f}%\n"
-            f"Chuỗi đúng dài nhất: {stats['best_streak']}",
-            f"Vocabulary complete!\n\n"
-            f"Answers: {stats['answered']}\n"
-            f"Accuracy: {stats['accuracy'] * 100:.0f}%\n"
-            f"Best streak: {stats['best_streak']}",
+        more = self.on_request_switch is not None
+        title = config.ui("Xong phần từ vựng.", "Vocabulary done.") if more else config.ui("Hôm nay xong rồi.", "Done for today.")
+        detail = config.ui(
+            f"{stats['answered']} câu · {stats['accuracy'] * 100:.0f}%",
+            f"{stats['answered']} practiced · {stats['accuracy'] * 100:.0f}%",
         )
-        if stats["wrong_words"]:
-            extra = ", ".join(stats["wrong_words"][:8])
-            message += config.ui(f"\n\nCần ôn thêm: {extra}", f"\n\nReview again: {extra}")
+        button = config.ui("Tiếp tục", "Continue") if more else config.ui("Về hôm nay", "Back to today")
+        self._update_progress()
+        self.shell.show_complete(title, detail, button)
 
-        self.guard.show_info(config.ui("Xong phần từ vựng", "Vocabulary complete"), message)
-        if callable(self.on_completed):
-            self.on_completed()
-        self.window.destroy()
+    def _close_complete(self):
+        if self._phase != "complete" or self._continuing:
+            return
+        self._continuing = True
+        self._phase = "closed"
+        try:
+            if callable(self.on_completed):
+                self.on_completed()
+        finally:
+            try:
+                self.window.destroy()
+            except tk.TclError:
+                pass
 
     # ============================================================
     # Khung đặt câu ví dụ (AI chấm)
@@ -888,17 +847,28 @@ class VocabQuizApp:
                 pass
 
     def _leave_unlocked(self):
+        if getattr(self, "_phase", "") == "complete":
+            self._close_complete()
+            return
         try:
             self.window.destroy()
         except tk.TclError:
             pass
 
     def _on_close_attempt(self):
+        if getattr(self, "_phase", "") == "complete" or self.completed:
+            if getattr(self, "_phase", "") != "complete":
+                self._phase = "complete"
+            self._close_complete()
+            return
         if self.guard.allows_unlocked_leave():
             self._leave_unlocked()
             return
-        if self.completed or not self.required:
-            self.window.destroy()
+        if not self.required:
+            try:
+                self.window.destroy()
+            except tk.TclError:
+                pass
             return
         self.guard.show_info(
             config.ui("Chưa xong", "Not finished"),

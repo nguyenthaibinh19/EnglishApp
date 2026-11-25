@@ -1,0 +1,4 @@
+# The Home trial pin now lives in requirements.txt.
+# This file remains so the earlier trial command still installs the same versions.
+customtkinter==5.2.2
+darkdetect==0.8.0

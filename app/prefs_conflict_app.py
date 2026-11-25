@@ -35,6 +35,7 @@ class PrefsConflictApp:
         self.local_label.pack(anchor="w")
         self.remote_label = ttk.Label(root, text="", wraplength=480)
         self.remote_label.pack(anchor="w", pady=(4, 12))
+        self._shown_account_key = None
         buttons = ttk.Frame(root)
         buttons.pack(anchor="e")
         ttk.Button(
@@ -52,6 +53,7 @@ class PrefsConflictApp:
     def refresh(self):
         from study_data import active_account_store, is_signed_in
 
+        self._shown_account_key = _account_key()
         if not is_signed_in():
             self.local_label.config(text=config.ui("Cần đăng nhập.", "Sign in required."))
             return
@@ -79,6 +81,9 @@ class PrefsConflictApp:
         from account_sync_engine import active_engine, notify_local_change
         from study_data import active_account_store
 
+        if _account_key() != self._shown_account_key:
+            self.refresh()
+            return
         store = active_account_store()
         engine = active_engine()
         if store is None or engine is None:
@@ -93,6 +98,14 @@ class PrefsConflictApp:
         if callable(self.on_resolved):
             self.on_resolved()
         self.window.destroy()
+
+
+def _account_key():
+    from study_data import is_signed_in
+
+    if not is_signed_in():
+        return None
+    return config.account_user_id()
 
 
 def open_prefs_conflict(parent: tk.Misc, on_resolved=None):

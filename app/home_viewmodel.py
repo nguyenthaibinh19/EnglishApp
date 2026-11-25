@@ -24,6 +24,8 @@ class HomeViewModel:
     reading_label: str
     listening_label: str
     primary_action_label: str
+    plan_headline: str
+    plan_support: str
     empty_vocab: bool
     due_is_zero: bool
     attention_is_zero: bool
@@ -100,6 +102,33 @@ def build_home_view_model(
         f"Nghe · {'bật' if listening_enabled else 'tắt'}",
         f"Listening · {'Enabled' if listening_enabled else 'Disabled'}",
     )
+    planned = int(plan.planned_vocab_count or 0)
+    if empty:
+        plan_headline = config.ui("Chưa có từ", "No words yet")
+        plan_support = config.ui(
+            "Hãy thêm một từ để bắt đầu.",
+            "Add a word to start.",
+        )
+    else:
+        plan_headline = config.ui(
+            f"{planned} từ trong phiên hôm nay",
+            f"{planned} words in today's session",
+        )
+        support_parts = [
+            config.ui(
+                f"{int(plan.due_review_count or 0)} từ sẵn sàng để ôn",
+                f"{int(plan.due_review_count or 0)} ready to review",
+            ),
+            config.ui(
+                f"{int(plan.new_word_count or 0)} từ mới",
+                f"{int(plan.new_word_count or 0)} new",
+            ),
+        ]
+        if plan.reading_enabled:
+            support_parts.append(config.ui("Có phần đọc", "Reading included"))
+        if listening_enabled:
+            support_parts.append(config.ui("Có phần nghe", "Listening included"))
+        plan_support = " · ".join(support_parts)
 
     return HomeViewModel(
         language_code=plan.language_code,
@@ -111,7 +140,9 @@ def build_home_view_model(
         vocab_plan_label=vocab_plan_label,
         reading_label=reading_label,
         listening_label=listening_label,
-        primary_action_label=config.ui("Bắt đầu học hôm nay", "Start today's study"),
+        primary_action_label=config.ui("Bắt đầu học hôm nay", "Start learning"),
+        plan_headline=plan_headline,
+        plan_support=plan_support,
         empty_vocab=empty,
         due_is_zero=due_zero,
         attention_is_zero=attention_zero,

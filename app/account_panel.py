@@ -105,6 +105,7 @@ class AccountPanel:
         self.parent = parent
         self.on_session_changed = on_session_changed
         self.allow_logout = allow_logout
+        self.on_refreshed = None
         self.frame = ttk.LabelFrame(
             parent,
             text=config.ui("Tài khoản", "Account"),
@@ -149,48 +150,65 @@ class AccountPanel:
         self.frame.pack(**kwargs)
         return self
 
-    def refresh(self) -> None:
+    def refresh(self, *, notify: bool = True) -> None:
+        """Redraw account and sync labels.
+
+        ``notify=False`` updates this panel only. The poller uses that for the
+        visible Settings panel so its hook cannot call back into the poller.
+        """
         identity = config.environment_identity()
         host = app_environment.backend_host(str(config.ACCOUNT_SERVER_URL or "")) or "(none)"
         sync_label, sync_detail = account_session.describe_cloud_sync()
-        if account_session.is_signed_in():
-            self.status_label.config(
-                text=config.ui(
-                    f"Đã đăng nhập: {account_session.account_display_name()}",
-                    f"Signed in: {account_session.account_display_name()}",
-                )
+        signed_in = account_session.is_signed_in()
+        if signed_in:
+            status_text = config.ui(
+                f"Đã đăng nhập: {account_session.account_display_name()}",
+                f"Signed in: {account_session.account_display_name()}",
             )
             if identity.rc_smoke:
-                env_detail = config.ui(
+                detail_text = config.ui(
                     f"PRODUCTION BACKEND · RC TEST DATA · máy chủ {host}",
                     f"PRODUCTION BACKEND · RC TEST DATA · backend {host}",
                 )
             else:
-                env_detail = config.ui(
+                detail_text = config.ui(
                     f"Môi trường {identity.runtime_environment} · máy chủ {host}",
                     f"Environment {identity.runtime_environment} · backend {host}",
                 )
-            self.detail_label.config(text=env_detail)
+        else:
+            status_text = config.ui("Khách / Chưa đăng nhập", "Guest / Not signed in")
+            detail_text = config.ui(
+                "Dữ liệu đang lưu local trên máy này. Đồng bộ tài khoản tắt.",
+                "Data stays local on this PC. Account sync is inactive.",
+            )
+        sync_text = f"Cloud Sync: {sync_label} — {sync_detail}"
+        signature = (signed_in, status_text, detail_text, sync_text, self.allow_logout)
+        if signature != getattr(self, "_display_signature", None):
+            self._display_signature = signature
+            self.status_label.config(text=status_text)
+            self.detail_label.config(text=detail_text)
+            self.sync_label.config(text=sync_text)
+            self._pack_account_actions(signed_in)
+        if notify:
+            hook = getattr(self, "on_refreshed", None)
+            if callable(hook):
+                try:
+                    hook(sync_label, sync_detail)
+                except Exception:
+                    pass
+
+    def _pack_account_actions(self, signed_in: bool) -> None:
+        if signed_in:
             self.login_button.pack_forget()
             if self.allow_logout:
                 self.logout_button.pack(side=tk.LEFT)
             else:
                 self.logout_button.pack_forget()
             self.switch_button.pack(side=tk.LEFT, padx=(8, 0))
-        else:
-            self.status_label.config(
-                text=config.ui("Khách / Chưa đăng nhập", "Guest / Not signed in")
-            )
-            self.detail_label.config(
-                text=config.ui(
-                    "Dữ liệu đang lưu local trên máy này. Đồng bộ tài khoản tắt.",
-                    "Data stays local on this PC. Account sync is inactive.",
-                )
-            )
-            self.logout_button.pack_forget()
-            self.switch_button.pack_forget()
-            self.login_button.pack(side=tk.LEFT)
-        self.sync_label.config(text=f"Cloud Sync: {sync_label} — {sync_detail}")
+            return
+        self.logout_button.pack_forget()
+        self.switch_button.pack_forget()
+        self.login_button.pack(side=tk.LEFT)
 
     def _notify(self) -> None:
         self.refresh()
