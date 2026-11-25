@@ -1,7 +1,7 @@
 """Shared presentation tokens for the Phase 19.2A desktop shell.
 
-Tkinter stays the toolkit. These helpers paint Today and later exercise chrome.
-They do not score answers, write SRS, or complete a study session.
+Tkinter stays the toolkit. These helpers paint Today. They do not score
+answers, write SRS, or complete a study session.
 """
 
 from __future__ import annotations
@@ -24,11 +24,13 @@ COLOR_ON_PRIMARY = "#FFFFFF"
 COLOR_ERROR_BG = "#F8E4E0"
 COLOR_ERROR_TEXT = "#7A2E24"
 
-FONT_GREETING = ("Segoe UI", 20, "bold")
+FONT_BRAND = ("Segoe UI", 16, "bold")
+FONT_GREETING = ("Segoe UI", 22, "bold")
 FONT_CARD_TITLE = ("Segoe UI", 18, "bold")
 FONT_BODY = ("Segoe UI", 12)
 FONT_SMALL = ("Segoe UI", 10)
-FONT_BUTTON = ("Segoe UI", 12, "bold")
+FONT_BUTTON = ("Segoe UI", 13, "bold")
+FONT_NAV = ("Segoe UI", 10)
 
 PAD_PAGE = 28
 PAD_CARD = 20
@@ -160,6 +162,91 @@ def status_chip(parent: tk.Misc, text: str, kind: str, command: Optional[Callabl
         cursor="hand2" if command else "",
         highlightthickness=0,
     )
+
+
+def environment_badge(identity) -> str:
+    """Compact non-production marker. Production stays blank."""
+    if bool(getattr(identity, "rc_smoke", False)):
+        return "RC TEST"
+    env = str(getattr(identity, "runtime_environment", "production") or "production")
+    if env == "production":
+        return ""
+    if env == "staging":
+        return "STAGING"
+    if env == "development":
+        return "DEVELOPMENT"
+    return env.replace("_", " ").upper()
+
+
+def environment_chip(parent: tk.Misc, text: str) -> tk.Label:
+    return tk.Label(
+        parent,
+        text=text,
+        font=("Segoe UI", 9, "bold"),
+        bg=COLOR_WARM,
+        fg=COLOR_TEXT,
+        padx=8,
+        pady=3,
+    )
+
+
+def _round_rect(canvas: tk.Canvas, x1: int, y1: int, x2: int, y2: int, radius: int, **kwargs):
+    radius = max(0, min(radius, (x2 - x1) // 2, (y2 - y1) // 2))
+    points = [
+        x1 + radius, y1,
+        x2 - radius, y1,
+        x2, y1,
+        x2, y1 + radius,
+        x2, y2 - radius,
+        x2, y2,
+        x2 - radius, y2,
+        x1 + radius, y2,
+        x1, y2,
+        x1, y2 - radius,
+        x1, y1 + radius,
+        x1, y1,
+    ]
+    return canvas.create_polygon(points, smooth=True, splinesteps=16, **kwargs)
+
+
+def rounded_panel(parent: tk.Misc, *, fill: str, radius: int = 18) -> tk.Frame:
+    """Canvas plate with content inset past the corner radius.
+
+    Windows Tk does not clip a child widget to a rounded mask. The inner frame
+    stays square and is inset so the painted corners remain visible.
+    """
+    try:
+        outer_bg = parent.cget("bg")
+    except tk.TclError:
+        outer_bg = COLOR_BG
+    holder = tk.Frame(parent, bg=outer_bg)
+    canvas = tk.Canvas(holder, bg=outer_bg, highlightthickness=0, bd=0, height=1)
+    canvas.pack(fill=tk.BOTH, expand=True)
+    body = tk.Frame(canvas, bg=fill)
+    window_id = canvas.create_window(radius, radius, window=body, anchor="nw")
+    state = {"drawing": False}
+
+    def redraw(_event=None):
+        if state["drawing"]:
+            return
+        state["drawing"] = True
+        try:
+            width = max(body.winfo_reqwidth() + radius * 2, 40)
+            height = max(body.winfo_reqheight() + radius * 2, 40)
+            canvas.configure(width=width, height=height)
+            canvas.delete("plate")
+            _round_rect(
+                canvas, 1, 1, width - 2, height - 2, radius, fill=fill, outline=fill, tags="plate"
+            )
+            canvas.coords(window_id, radius, radius)
+            canvas.tag_raise(window_id)
+        finally:
+            state["drawing"] = False
+
+    body.bind("<Configure>", redraw, add="+")
+    holder.body = body
+    holder.redraw = redraw
+    return holder
 
 
 def feedback_banner(parent: tk.Misc, text: str, kind: str = "info") -> tk.Label:

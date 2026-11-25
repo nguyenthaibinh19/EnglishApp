@@ -30,48 +30,74 @@ class FreeHome:
         self._plan = None
         self._view: HomeViewModel | None = None
 
-        self.root.title(config.APP_NAME)
+        self.root.title("LanguageGuard")
         self.root.geometry("560x600")
-        self.root.minsize(480, 500)
+        self.root.minsize(480, 560)
         self.root.resizable(True, True)
         ui_foundation.paint_root(root)
         ui_common.apply_theme(root)
         self.root.protocol("WM_DELETE_WINDOW", self.root.destroy)
         self._settings_dialog = None
+        self._reading_var = None
+        self._listening_var = None
+        self._conflict_button = None
+        self._settings_sync_label = None
         self._sync_detail_text = ""
         self._in_plan_refresh = False
 
         shell = tk.Frame(root, bg=ui_foundation.COLOR_BG)
-        shell.pack(fill=tk.BOTH, expand=True, padx=20, pady=16)
+        shell.pack(fill=tk.BOTH, expand=True)
 
-        self.environment_label = ui_foundation.label(
-            shell, "", font=ui_foundation.FONT_SMALL, fg=ui_foundation.COLOR_TEXT
+        nav = tk.Frame(shell, bg=ui_foundation.COLOR_BG)
+        nav.pack(side=tk.BOTTOM, fill=tk.X, padx=8, pady=(4, 6))
+        self.today_button = self._nav_button(
+            nav, "⌂", config.ui("Hôm nay", "Today"), self.refresh, selected=True
         )
-        identity = config.environment_identity()
-        show_env = bool(getattr(identity, "rc_smoke", False)) or (
-            getattr(identity, "runtime_environment", "production") != "production"
+        self.words_nav_button = self._nav_button(
+            nav, "☰", config.ui("Từ", "Words"), self._open_vocabulary
         )
-        if show_env:
-            banner = identity.banner_text() if hasattr(identity, "banner_text") else str(
-                getattr(identity, "runtime_environment", "")
-            )
-            self.environment_label.config(text=banner)
-            self.environment_label.pack(anchor="w", pady=(0, 6))
+        self.you_button = self._nav_button(
+            nav, "☺", config.ui("Bạn", "You"), self._open_progress
+        )
+        self.settings_button = self._nav_button(
+            nav, "⚙", config.ui("Cài đặt", "Settings"), self._open_settings
+        )
+        for button in (
+            self.today_button,
+            self.words_nav_button,
+            self.you_button,
+            self.settings_button,
+        ):
+            button.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=2)
 
-        header = tk.Frame(shell, bg=ui_foundation.COLOR_BG)
-        header.pack(fill=tk.X)
-        self.greeting_label = ui_foundation.label(header, "", font=ui_foundation.FONT_GREETING)
-        self.greeting_label.pack(side=tk.LEFT)
-        self.settings_button = ui_foundation.quiet_button(
-            header,
-            config.ui("Cài đặt", "Settings"),
-            self._open_settings,
-        )
-        self.settings_button.pack(side=tk.RIGHT)
+        meta = tk.Frame(shell, bg=ui_foundation.COLOR_BG)
+        meta.pack(side=tk.BOTTOM, fill=tk.X, padx=16, pady=(0, 2))
 
-        lang_row = tk.Frame(shell, bg=ui_foundation.COLOR_BG)
-        lang_row.pack(fill=tk.X, pady=(4, 12))
-        self.language_label = ui_foundation.label(lang_row, "", font=ui_foundation.FONT_CARD_TITLE)
+        content = tk.Frame(shell, bg=ui_foundation.COLOR_BG)
+        content.pack(fill=tk.BOTH, expand=True, padx=16, pady=(10, 0))
+
+        brand = tk.Frame(content, bg=ui_foundation.COLOR_BG)
+        brand.pack(fill=tk.X)
+        ui_foundation.label(
+            brand,
+            "LanguageGuard",
+            font=ui_foundation.FONT_BRAND,
+            fg=ui_foundation.COLOR_PRIMARY,
+        ).pack(side=tk.LEFT)
+        self.environment_label = ui_foundation.environment_chip(brand, "")
+        badge = ui_foundation.environment_badge(config.environment_identity())
+        if badge:
+            self.environment_label.config(text=badge)
+            self.environment_label.pack(side=tk.RIGHT)
+
+        self.greeting_label = ui_foundation.label(
+            content, "", font=ui_foundation.FONT_GREETING
+        )
+        self.greeting_label.pack(anchor="w", pady=(6, 0))
+
+        lang_row = tk.Frame(content, bg=ui_foundation.COLOR_BG)
+        lang_row.pack(fill=tk.X, pady=(0, 8))
+        self.language_label = ui_foundation.label(lang_row, "", font=("Segoe UI", 13))
         self.language_label.pack(side=tk.LEFT)
         self.change_lang_button = ui_foundation.quiet_button(
             lang_row,
@@ -80,45 +106,73 @@ class FreeHome:
         )
         self.change_lang_button.pack(side=tk.RIGHT)
 
-        self.plan_card = ui_foundation.card(shell)
+        self.plan_card = ui_foundation.rounded_panel(
+            content, fill=ui_foundation.COLOR_SOFT_GREEN, radius=14
+        )
         self.plan_card.pack(fill=tk.X)
+        plan_body = self.plan_card.body
+        ui_foundation.label(
+            plan_body,
+            config.ui("Hôm nay", "Today's learning"),
+            font=ui_foundation.FONT_SMALL,
+            bg=ui_foundation.COLOR_SOFT_GREEN,
+        ).pack(anchor="w")
         self.plan_headline = ui_foundation.label(
-            self.plan_card, "", font=ui_foundation.FONT_CARD_TITLE, bg=ui_foundation.COLOR_CARD
+            plan_body,
+            "",
+            font=ui_foundation.FONT_CARD_TITLE,
+            bg=ui_foundation.COLOR_SOFT_GREEN,
         )
-        self.plan_headline.pack(anchor="w")
+        self.plan_headline.pack(anchor="w", pady=(4, 0))
         self.plan_support = ui_foundation.label(
-            self.plan_card, "", font=ui_foundation.FONT_BODY, bg=ui_foundation.COLOR_CARD
+            plan_body,
+            "",
+            font=ui_foundation.FONT_BODY,
+            bg=ui_foundation.COLOR_SOFT_GREEN,
         )
-        self.plan_support.configure(wraplength=460, justify="left")
-        self.plan_support.pack(anchor="w", pady=(8, 14))
+        self.plan_support.configure(wraplength=400, justify="left")
+        self.plan_support.pack(anchor="w", pady=(4, 8))
         self.start_button = ui_foundation.primary_button(
-            self.plan_card,
+            plan_body,
             config.ui("Bắt đầu học", "Start learning"),
             self._start_study,
         )
         self.start_button.pack(fill=tk.X)
 
-        actions = tk.Frame(shell, bg=ui_foundation.COLOR_BG)
-        actions.pack(fill=tk.X, pady=(12, 0))
-        ui_foundation.quiet_button(
-            actions, config.ui("Từ", "Words"), self._open_vocabulary
-        ).pack(side=tk.LEFT, padx=(0, 8))
-        ui_foundation.quiet_button(
-            actions, config.ui("Thêm từ", "Add word"), self._add_words
-        ).pack(side=tk.LEFT, padx=(0, 8))
-        ui_foundation.quiet_button(
-            actions, config.ui("Bạn", "You"), self._open_progress
-        ).pack(side=tk.LEFT, padx=(0, 8))
-        ui_foundation.quiet_button(
-            actions, config.ui("Sổ lỗi", "Mistake Book"), self._open_mistake_book
-        ).pack(side=tk.LEFT)
-
-        self.account_chip = ui_foundation.label(shell, "", font=ui_foundation.FONT_SMALL)
-        self.account_chip.pack(anchor="w", pady=(14, 0))
-        self.sync_chip = ui_foundation.status_chip(
-            shell, "Cloud Sync", "guest", command=self._open_settings
+        shortcuts = tk.Frame(content, bg=ui_foundation.COLOR_BG)
+        shortcuts.pack(fill=tk.X, pady=(10, 0))
+        self.words_button = self._shortcut_card(
+            shortcuts,
+            config.ui("Từ", "Words"),
+            config.ui("Kho từ của bạn", "Your library"),
+            self._open_vocabulary,
         )
-        self.sync_chip.pack(anchor="w", pady=(8, 0))
+        self.progress_button = self._shortcut_card(
+            shortcuts,
+            config.ui("Tiến độ", "Progress"),
+            config.ui("Xem quá trình học", "See your progress"),
+            self._open_progress,
+        )
+        self.words_button.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 6))
+        self.progress_button.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(6, 0))
+
+        quiet = tk.Frame(content, bg=ui_foundation.COLOR_BG)
+        quiet.pack(fill=tk.X, pady=(4, 0))
+        self.add_word_button = ui_foundation.quiet_button(
+            quiet, config.ui("Thêm từ", "Add word"), self._add_words
+        )
+        self.add_word_button.pack(side=tk.LEFT)
+        self.mistake_button = ui_foundation.quiet_button(
+            quiet, config.ui("Sổ lỗi", "Mistake Book"), self._open_mistake_book
+        )
+        self.mistake_button.pack(side=tk.LEFT, padx=(8, 0))
+
+        self.account_chip = ui_foundation.label(meta, "", font=ui_foundation.FONT_SMALL)
+        self.account_chip.pack(side=tk.LEFT)
+        self.sync_chip = ui_foundation.status_chip(
+            meta, "Cloud Sync", "guest", command=self._open_settings
+        )
+        self.sync_chip.pack(side=tk.RIGHT)
 
         from account_panel import AccountPanel, AccountSyncStatusPoller
 
@@ -140,6 +194,47 @@ class FreeHome:
             "<Destroy>",
             self._on_account_panel_destroy_stop_sync_poller,
             add="+",
+        )
+
+    def _nav_button(self, parent, icon: str, text: str, command, *, selected: bool = False):
+        bg = ui_foundation.COLOR_SOFT_GREEN if selected else ui_foundation.COLOR_BG
+        weight = "bold" if selected else "normal"
+        return tk.Button(
+            parent,
+            text=f"{icon}  {text}",
+            command=command,
+            font=(ui_foundation.FONT_NAV[0], ui_foundation.FONT_NAV[1], weight),
+            bg=bg,
+            fg=ui_foundation.COLOR_TEXT,
+            activebackground=ui_foundation.COLOR_SOFT_GREEN,
+            activeforeground=ui_foundation.COLOR_TEXT,
+            relief="flat",
+            bd=0,
+            padx=4,
+            pady=8,
+            cursor="hand2",
+            highlightthickness=0,
+        )
+
+    def _shortcut_card(self, parent, title: str, subtitle: str, command):
+        return tk.Button(
+            parent,
+            text=f"{title}\n{subtitle}",
+            command=command,
+            font=ui_foundation.FONT_BODY,
+            bg=ui_foundation.COLOR_CARD,
+            fg=ui_foundation.COLOR_TEXT,
+            activebackground=ui_foundation.COLOR_SOFT_GREEN,
+            activeforeground=ui_foundation.COLOR_TEXT,
+            relief="flat",
+            bd=0,
+            padx=12,
+            pady=10,
+            anchor="w",
+            justify="left",
+            cursor="hand2",
+            highlightbackground=ui_foundation.COLOR_BORDER,
+            highlightthickness=1,
         )
 
     def _on_account_panel_destroy_stop_sync_poller(self, event) -> None:
@@ -225,6 +320,8 @@ class FreeHome:
             )
             self.plan_support.config(text="")
             self.start_button.config(text=config.ui("Bắt đầu học", "Start learning"))
+            self._redraw_plan_card()
+            self._sync_settings_controls()
             return
 
         self._view = build_home_view_model(
@@ -245,6 +342,8 @@ class FreeHome:
         self.plan_support.config(text=view.plan_support)
         self.start_button.config(text=view.primary_action_label)
         self._refresh_account_chip()
+        self._redraw_plan_card()
+        self._sync_settings_controls()
 
     def _refresh_account_chip(self) -> None:
         import account_session
@@ -280,8 +379,51 @@ class FreeHome:
             )
         except tk.TclError:
             return
+        self._sync_settings_controls()
         if self._owned_callbacks and not self._in_plan_refresh:
             self.refresh()
+
+    def _redraw_plan_card(self) -> None:
+        card = getattr(self, "plan_card", None)
+        redraw = getattr(card, "redraw", None)
+        if not callable(redraw):
+            return
+        try:
+            redraw()
+        except tk.TclError:
+            pass
+
+    def _sync_settings_controls(self) -> None:
+        dialog = getattr(self, "_settings_dialog", None)
+        if dialog is None:
+            return
+        try:
+            if not dialog.winfo_exists():
+                return
+        except tk.TclError:
+            return
+        reading = getattr(self, "_reading_var", None)
+        listening = getattr(self, "_listening_var", None)
+        if reading is not None:
+            reading.set(bool(config.activity_enabled("reading")))
+        if listening is not None:
+            listening.set(bool(config.activity_enabled("listening")))
+        label = getattr(self, "_settings_sync_label", None)
+        if label is not None:
+            try:
+                label.config(text=self._sync_detail_text)
+            except tk.TclError:
+                pass
+        button = getattr(self, "_conflict_button", None)
+        if button is not None:
+            try:
+                kind = ui_foundation.sync_status_kind(self.sync_chip.cget("text"))
+                if kind == "conflict":
+                    button.pack(anchor="w", pady=(8, 0))
+                else:
+                    button.pack_forget()
+            except tk.TclError:
+                pass
 
     def _open_sync_conflict(self) -> None:
         from sync_conflict_app import open_sync_conflicts
@@ -400,6 +542,8 @@ class FreeHome:
         ).pack(anchor="w", pady=(0, 8))
         reading_var = tk.BooleanVar(value=config.activity_enabled("reading"))
         listening_var = tk.BooleanVar(value=config.activity_enabled("listening"))
+        self._reading_var = reading_var
+        self._listening_var = listening_var
 
         def on_reading_toggle():
             config.set_activity_enabled("reading", bool(reading_var.get()))
@@ -431,9 +575,10 @@ class FreeHome:
             selectcolor=ui_foundation.COLOR_SOFT_GREEN,
             font=ui_foundation.FONT_BODY,
         ).pack(anchor="w", pady=(4, 8))
-        ui_foundation.label(
+        self._settings_sync_label = ui_foundation.label(
             frame, self._sync_detail_text, font=ui_foundation.FONT_SMALL
-        ).pack(anchor="w", pady=(0, 8))
+        )
+        self._settings_sync_label.pack(anchor="w", pady=(0, 8))
         from account_panel import AccountPanel
 
         dialog_panel = AccountPanel(
@@ -448,15 +593,19 @@ class FreeHome:
             config.ui("Mã thoát khẩn cấp", "Emergency code"),
             lambda: self._emergency_code(dialog),
         ).pack(anchor="w", pady=(4, 0))
-        if ui_foundation.sync_status_kind(self.sync_chip.cget("text")) == "conflict":
-            ui_foundation.quiet_button(
-                frame,
-                config.ui("Xem xung đột", "Review conflict"),
-                self._open_sync_conflict,
-            ).pack(anchor="w", pady=(8, 0))
+        self._conflict_button = ui_foundation.quiet_button(
+            frame,
+            config.ui("Xem xung đột", "Review conflict"),
+            self._open_sync_conflict,
+        )
+        self._sync_settings_controls()
 
         def close():
             self._settings_dialog = None
+            self._reading_var = None
+            self._listening_var = None
+            self._conflict_button = None
+            self._settings_sync_label = None
             dialog.destroy()
 
         dialog.protocol("WM_DELETE_WINDOW", close)
