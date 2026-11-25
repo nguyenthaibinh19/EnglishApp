@@ -114,9 +114,13 @@ class StudyCardShell:
         on_check,
         on_hint,
         on_continue,
+        on_done,
+        on_sentence,
         on_leave,
         on_emergency,
     ):
+        self._on_continue = on_continue
+        self._on_done = on_done
         self.host = ctk.CTkFrame(parent, fg_color=ui_foundation.COLOR_BG, corner_radius=0)
         header = ctk.CTkFrame(self.host, fg_color=ui_foundation.COLOR_BG, corner_radius=0)
         header.pack(fill=tk.X, padx=8, pady=(4, 8))
@@ -228,18 +232,29 @@ class StudyCardShell:
             text_color=ui_foundation.COLOR_ON_PRIMARY,
             font=ctk.CTkFont(family="Segoe UI", size=16, weight="bold"),
         )
+        self.sentence_button = ctk.CTkButton(
+            actions,
+            text="Write a sentence",
+            command=on_sentence,
+            height=32,
+            corner_radius=10,
+            fg_color="transparent",
+            hover_color=ui_foundation.COLOR_SOFT_GREEN,
+            text_color="#5C7268",
+            font=ctk.CTkFont(family="Segoe UI", size=14),
+        )
         bind_activation(self.hint_button)
         bind_activation(self.check_button)
         bind_activation(self.continue_button)
+        bind_activation(self.sentence_button)
 
     def pack(self, **kwargs) -> None:
         self.host.pack(**kwargs)
 
-    def set_progress(self, label_current: int, completed: int, total: int) -> None:
+    def set_progress(self, completed: int, total: int, label: str | None = None) -> None:
         total = max(int(total), 1)
-        label_current = max(0, min(int(label_current), total))
         completed = max(0, min(int(completed), total))
-        self.counter.configure(text=f"{label_current}/{total}")
+        self.counter.configure(text=label if label else f"{completed}/{total}")
         if completed <= 0:
             self.progress.configure(progress_color=ui_foundation.COLOR_BORDER)
             self.progress.set(0)
@@ -261,13 +276,14 @@ class StudyCardShell:
         self.hint_button.configure(state="normal")
         self.hint_button.pack(pady=(0, 8))
         self.continue_button.pack_forget()
+        self.sentence_button.pack_forget()
         self.check_button.configure(state="normal")
         self.check_button.pack(fill=tk.X)
         self.feedback.configure(text="", text_color=ui_foundation.COLOR_TEXT)
         self.exercise.show_support("")
         self.exercise.focus_answer()
 
-    def show_feedback(self, text: str, tone: str) -> None:
+    def show_feedback(self, text: str, tone: str, *, offer_sentence: bool = False) -> None:
         colors = {
             "ok": ui_foundation.COLOR_PRIMARY,
             "near": "#8A5A12",
@@ -282,7 +298,12 @@ class StudyCardShell:
         self.hint_button.configure(state="disabled")
         self.hint_button.pack_forget()
         self.check_button.pack_forget()
+        self.continue_button.configure(command=self._on_continue, state="normal")
         self.continue_button.pack(fill=tk.X)
+        if offer_sentence:
+            self.sentence_button.pack(pady=(8, 0))
+        else:
+            self.sentence_button.pack_forget()
         try:
             self.continue_button.focus_set()
         except tk.TclError:
@@ -292,12 +313,13 @@ class StudyCardShell:
         self.exercise.frame.pack_forget()
         self.hint_button.pack_forget()
         self.check_button.pack_forget()
+        self.sentence_button.pack_forget()
         self.feedback.configure(
             text=f"{title}\n\n{detail}",
             text_color=ui_foundation.COLOR_TEXT,
             font=ctk.CTkFont(family="Segoe UI", size=22, weight="bold"),
         )
-        self.continue_button.configure(text=button_text, state="normal")
+        self.continue_button.configure(text=button_text, state="normal", command=self._on_done)
         self.continue_button.pack(fill=tk.X, pady=(12, 0))
         try:
             self.continue_button.focus_set()

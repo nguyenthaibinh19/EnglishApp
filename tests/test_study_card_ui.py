@@ -47,7 +47,12 @@ def _texts(widget) -> str:
         except Exception:
             pass
         for child in node.winfo_children():
-            walk(child)
+            try:
+                managed = bool(child.winfo_manager())
+            except Exception:
+                managed = True
+            if managed:
+                walk(child)
 
     walk(widget)
     return "\n".join(found)
@@ -60,6 +65,7 @@ def test_study_card_waits_and_records_once(tmp_path, monkeypatch):
     monkeypatch.delenv("LG_RC_SMOKE", raising=False)
     monkeypatch.delenv("STUDY_SYNC_ENABLED", raising=False)
     monkeypatch.setattr(config, "LOCK_SCREEN", False)
+    monkeypatch.setattr(config, "FORCE_SENTENCE_ON_WRONG", False)
 
     vocab = tmp_path / "vocab.json"
     vocab.write_text(
@@ -116,7 +122,8 @@ def test_study_card_waits_and_records_once(tmp_path, monkeypatch):
         assert "go to reading" not in visible
         for kind in FUTURE_EXERCISE_KINDS:
             assert kind.replace("_", " ") not in visible
-        assert app.shell.counter.cget("text") == "1/2"
+        assert "0/2" in app.shell.counter.cget("text")
+        assert app.shell.sentence_button.winfo_manager() == ""
 
         app._submit()
         assert attempts.load_attempts() == []
@@ -125,6 +132,7 @@ def test_study_card_waits_and_records_once(tmp_path, monkeypatch):
         app.shell.exercise.entry.insert(0, "nope")
         app._on_window_return()
         assert len(attempts.load_attempts()) == 1
+        assert "0/2" in app.shell.counter.cget("text")
         assert "fiets" in app.feedback_label.cget("text")
         assert app._pending_after_id is None
         app._on_window_return()
@@ -148,6 +156,7 @@ def test_study_card_waits_and_records_once(tmp_path, monkeypatch):
         app.shell.exercise.entry.insert(0, "fiets")
         app._submit()
         assert len(attempts.load_attempts()) == 2
+        assert "1/2" in app.shell.counter.cget("text")
         assert app.hint_button.cget("state") == "disabled"
         app.hint_button.invoke()
         assert len(attempts.load_attempts()) == 2
@@ -165,6 +174,7 @@ def test_study_card_waits_and_records_once(tmp_path, monkeypatch):
         assert hinted.hint_used is True
         assert hinted.correct is False
         assert hinted.verdict == "exact"
+        assert "2/2" in app.shell.counter.cget("text")
         app._on_window_return()
         assert finished == ["done"]
         assert not window.winfo_exists()

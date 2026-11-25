@@ -91,6 +91,7 @@ class VocabQuizApp:
         self._submitting = False
         self._continuing = False
         self._result_finished = False
+        self._last_verdict = ""
 
         ui_common.apply_theme(window)
         self.guard = ui_common.ScreenGuard(
@@ -169,6 +170,8 @@ class VocabQuizApp:
             on_check=self._submit,
             on_hint=self._show_hint,
             on_continue=self._continue,
+            on_done=self._close_complete,
+            on_sentence=self._practice_voluntary,
             on_leave=self._leave_unlocked,
             on_emergency=self._emergency_exit,
         )
@@ -179,12 +182,18 @@ class VocabQuizApp:
             leave=config.ui("Để lúc khác", "Leave for now"),
             emergency=config.ui("Thoát khẩn cấp", "Emergency exit"),
         )
+        self.shell.sentence_button.configure(
+            text=config.ui("Đặt câu ví dụ", "Write a sentence"),
+        )
         self._question_kicker = config.ui(
             f"Từ {language} nào có nghĩa là",
             f"Which {language} word means",
         )
         self.shell.pack(fill=tk.BOTH, expand=True)
         self.answer_entry = self.shell.exercise.entry
+        answer_inner = getattr(self.answer_entry, "_entry", self.answer_entry)
+        answer_inner.bind("<Return>", self._on_window_return, add="+")
+        answer_inner.bind("<KP_Enter>", self._on_window_return, add="+")
         self.check_button = self.shell.check_button
         self.hint_button = self.shell.hint_button
         self.continue_button = self.shell.continue_button
@@ -200,6 +209,7 @@ class VocabQuizApp:
     def _next_question(self):
         self._cancel_pending()
         self._result_finished = False
+        self._last_verdict = ""
         entry = self.engine.pick_next()
         if entry is None:
             self.shell.exercise.set_prompt("", config.ui("Kho từ vựng đang trống.", "The word list is empty."))
@@ -211,8 +221,13 @@ class VocabQuizApp:
 
     def _update_progress(self):
         stats = self.engine.session_stats()
-        shown = stats["correct"] if self._phase == "complete" else min(stats["correct"] + 1, stats["target"])
-        self.shell.set_progress(shown, stats["correct"], stats["target"])
+        correct = int(stats["correct"])
+        target = int(stats["target"])
+        # Session score, not a question index and not a mastery count.
+        # Near misses and hinted exact answers increase this score.
+        # Only an exact answer without a hint is mastery, and that stays in the attempt record.
+        label = config.ui(f"Đúng {correct}/{target}", f"{correct}/{target} correct")
+        self.shell.set_progress(correct, target, label)
 
     def _on_window_return(self, _event=None):
         """Enter submits, then continues once. It does not record the same answer twice."""
@@ -255,8 +270,13 @@ class VocabQuizApp:
         finally:
             self._submitting = False
         self._result_finished = bool(result.finished)
+        self._last_verdict = result.verdict
         self._update_progress()
-        self.shell.show_feedback(self._feedback_text(result), self._feedback_tone(result.verdict))
+        self.shell.show_feedback(
+            self._feedback_text(result),
+            self._feedback_tone(result.verdict),
+            offer_sentence=not result.finished,
+        )
 
     def _feedback_tone(self, verdict: str) -> str:
         if verdict == "exact":
@@ -289,10 +309,28 @@ class VocabQuizApp:
         try:
             if self._result_finished:
                 self._show_complete()
+            elif self._wants_forced_sentence():
+                self._phase = "practice"
+                self._open_practice("forced")
             else:
                 self._next_question()
         finally:
             self._continuing = False
+
+    def _wants_forced_sentence(self) -> bool:
+        """Wrong answers only. Exact and near misses keep the existing next-step path."""
+        if self._last_verdict in ("exact", "near", ""):
+            return False
+        return bool(config.FORCE_SENTENCE_ON_WRONG and ai_teacher.is_configured())
+
+    def _practice_voluntary(self):
+        """Open the existing sentence screen without sitting beside Check."""
+        if self._phase != "feedback" or self._continuing or self._result_finished:
+            return
+        if self.engine.current_entry is None:
+            return
+        self._phase = "practice"
+        self._open_practice("free")
 
     def _cancel_pending(self):
         if self._pending_after_id is not None:
@@ -322,12 +360,14 @@ class VocabQuizApp:
             return
         self._continuing = True
         self._phase = "closed"
-        if callable(self.on_completed):
-            self.on_completed()
         try:
-            self.window.destroy()
-        except tk.TclError:
-            pass
+            if callable(self.on_completed):
+                self.on_completed()
+        finally:
+            try:
+                self.window.destroy()
+            except tk.TclError:
+                pass
 
     # ============================================================
     # Khung đặt câu ví dụ (AI chấm)
@@ -816,11 +856,19 @@ class VocabQuizApp:
             pass
 
     def _on_close_attempt(self):
+        if getattr(self, "_phase", "") == "complete" or self.completed:
+            if getattr(self, "_phase", "") != "complete":
+                self._phase = "complete"
+            self._close_complete()
+            return
         if self.guard.allows_unlocked_leave():
             self._leave_unlocked()
             return
-        if self.completed or not self.required:
-            self.window.destroy()
+        if not self.required:
+            try:
+                self.window.destroy()
+            except tk.TclError:
+                pass
             return
         self.guard.show_info(
             config.ui("Chưa xong", "Not finished"),
