@@ -2,7 +2,7 @@
 
 Branch `phase19.2b/study-session-ui`, based on the accepted Home trial `baf501351dc0b326df1a286ea64b5572bfa2f7bb`.
 
-The Tkinter fallback `phase19.2a/ui-foundation-today` stays at `7c566027d393ae6753592b67a17c83ddb1b08c3d`. Neither branch is merged.
+The Tkinter fallback `phase19.2a/ui-foundation-today` stays at `7c566027d393ae6753592b67a17c83ddb1b08c3d`. This study branch was merged to main at `5f8f3c0ad175a82ad61866e23eac64af1bfe47ed` (PR #31). The fallback branch was not merged.
 
 ## Dependency
 

@@ -693,6 +693,11 @@ class FreeHome:
             return
         self._choose_language(codes, mode="progress")
 
+    def _open_voice_settings(self, parent):
+        from voice_settings_app import open_voice_settings
+
+        open_voice_settings(parent)
+
     def _open_settings(self):
         existing = getattr(self, "_settings_dialog", None)
         if existing is not None:
@@ -762,6 +767,11 @@ class FreeHome:
         )
         self._settings_account_panel = dialog_panel
         dialog_panel.pack(fill=tk.X, pady=(0, 8))
+        ui_foundation.quiet_button(
+            frame,
+            config.ui("Giọng đọc", "Voices"),
+            lambda: self._open_voice_settings(dialog),
+        ).pack(anchor="w", pady=(4, 0))
         ui_foundation.quiet_button(
             frame,
             config.ui("Mã thoát khẩn cấp", "Emergency code"),

@@ -172,6 +172,7 @@ class VocabQuizApp:
             on_continue=self._continue,
             on_done=self._close_complete,
             on_sentence=self._practice_voluntary,
+            on_hear=self._hear_answer,
             on_leave=self._leave_unlocked,
             on_emergency=self._emergency_exit,
         )
@@ -184,6 +185,9 @@ class VocabQuizApp:
         )
         self.shell.sentence_button.configure(
             text=config.ui("Đặt câu ví dụ", "Write a sentence"),
+        )
+        self.shell.hear_button.configure(
+            text=config.ui("Nghe từ", "Hear the word"),
         )
         self._question_kicker = config.ui(
             f"Từ {language} nào có nghĩa là",
@@ -210,6 +214,8 @@ class VocabQuizApp:
         self._cancel_pending()
         self._result_finished = False
         self._last_verdict = ""
+        self._card_token = getattr(self, "_card_token", 0) + 1
+        self._revealed_word = ""
         entry = self.engine.pick_next()
         if entry is None:
             self.shell.exercise.set_prompt("", config.ui("Kho từ vựng đang trống.", "The word list is empty."))
@@ -271,11 +277,13 @@ class VocabQuizApp:
             self._submitting = False
         self._result_finished = bool(result.finished)
         self._last_verdict = result.verdict
+        self._revealed_word = strip_tags(result.correct_display or "")
         self._update_progress()
         self.shell.show_feedback(
             self._feedback_text(result),
             self._feedback_tone(result.verdict),
             offer_sentence=not result.finished,
+            offer_hear=bool(self._revealed_word),
         )
 
     def _feedback_tone(self, verdict: str) -> str:
@@ -331,6 +339,48 @@ class VocabQuizApp:
             return
         self._phase = "practice"
         self._open_practice("free")
+
+    def _hear_answer(self):
+        """Speak the word only after it is already on the feedback card."""
+        if self._phase != "feedback":
+            return
+        word = str(getattr(self, "_revealed_word", "") or "").strip()
+        if not word:
+            return
+        from speech_player import play_async
+        import voice_prefs
+        from listening_windows_tts import NORMAL_RATE
+
+        language = self.language_code or config.active_code()
+        token = getattr(self, "_card_token", 0)
+
+        def scope() -> bool:
+            return (
+                self._phase == "feedback"
+                and getattr(self, "_card_token", None) == token
+                and str(getattr(self, "_revealed_word", "") or "").strip() == word
+                and (self.language_code or config.active_code()) == language
+            )
+
+        started = play_async(
+            self.window,
+            text=word,
+            language_code=language,
+            rate=NORMAL_RATE,
+            voice_name=voice_prefs.selected_voice_name(language) or None,
+            scope=scope,
+            on_error=lambda error: self._hear_status(str(error)),
+        )
+        if not started:
+            self._hear_status(config.ui("Đang phát một đoạn khác.", "Another clip is still playing."))
+
+    def _hear_status(self, text: str):
+        if self._phase != "feedback":
+            return
+        try:
+            self.shell.exercise.show_support(text)
+        except tk.TclError:
+            pass
 
     def _cancel_pending(self):
         if self._pending_after_id is not None:

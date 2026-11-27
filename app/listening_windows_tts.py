@@ -32,15 +32,35 @@ SPEECH_LOCALE_PREFERENCES: Dict[str, Tuple[str, ...]] = {
 
 _ENV_TEXT = "STUDYGUARD_TTS_TEXT"
 _ENV_VOICE = "STUDYGUARD_TTS_VOICE"
+_ENV_RATE = "STUDYGUARD_TTS_RATE"
 
-# Fixed scripts — no placeholders for learner text or voice names.
+# System.Speech rate is an integer from -10 (slow) to 10 (fast).
+RATE_MIN = -10
+RATE_MAX = 10
+NORMAL_RATE = 0
+SLOW_RATE = -4
+
+# Fixed preview lines. These are not learner answers.
+PREVIEW_TEXT = {
+    "nl": "Goedemorgen. Dit is een stemvoorbeeld.",
+    "en": "Good morning. This is a voice preview.",
+    "fr": "Bonjour. Ceci est un exemple de voix.",
+    "de": "Guten Morgen. Dies ist eine Stimmprobe.",
+    "es": "Buenos días. Esta es una muestra de voz.",
+    "it": "Buongiorno. Questo è un esempio di voce.",
+    "pt": "Bom dia. Esta é uma amostra de voz.",
+}
+
+# Fixed scripts — no placeholders for learner text, voice names, or rate.
 _DISCOVER_SCRIPT = r"""
 Add-Type -AssemblyName System.Speech
 $synth = New-Object System.Speech.Synthesis.SpeechSynthesizer
 foreach ($voice in $synth.GetInstalledVoices()) {
     if (-not $voice.Enabled) { continue }
     $info = $voice.VoiceInfo
-    Write-Output ($info.Name + [char]9 + $info.Culture.Name + [char]9 + $info.Culture.TwoLetterISOLanguageName)
+    $gender = ""
+    try { $gender = [string]$info.Gender } catch { $gender = "" }
+    Write-Output ($info.Name + [char]9 + $info.Culture.Name + [char]9 + $info.Culture.TwoLetterISOLanguageName + [char]9 + $gender)
 }
 """
 
@@ -49,13 +69,22 @@ Add-Type -AssemblyName System.Speech
 $synth = New-Object System.Speech.Synthesis.SpeechSynthesizer
 $voice = [Environment]::GetEnvironmentVariable('STUDYGUARD_TTS_VOICE')
 $text = [Environment]::GetEnvironmentVariable('STUDYGUARD_TTS_TEXT')
+$rateRaw = [Environment]::GetEnvironmentVariable('STUDYGUARD_TTS_RATE')
 if ([string]::IsNullOrEmpty($voice) -or $null -eq $text) { exit 2 }
+$rate = 0
+if (-not [string]::IsNullOrEmpty($rateRaw)) {
+    $parsed = 0
+    if (-not [int]::TryParse($rateRaw, [ref]$parsed)) { exit 4 }
+    if ($parsed -lt -10 -or $parsed -gt 10) { exit 4 }
+    $rate = $parsed
+}
 try {
     $synth.SelectVoice($voice)
 } catch {
     Write-Error $_.Exception.Message
     exit 3
 }
+$synth.Rate = $rate
 $synth.Speak($text)
 exit 0
 """
@@ -68,14 +97,39 @@ class WindowsVoiceInfo:
     name: str
     culture: str
     language: str  # TwoLetterISOLanguageName, lowercased
+    gender: str = ""  # Male, Female, Neutral, or empty when the OS does not say
+    provider: str = "sapi"  # sapi | winrt
+    voice_id: str = ""
+
+    def token(self) -> str:
+        """Stable device-local id. System.Speech keeps the saved voice name."""
+        if self.provider == "winrt":
+            return "winrt:" + (self.voice_id or self.name)
+        return self.name
 
 
 def _normalize_culture(value: str) -> str:
     return str(value or "").strip().replace("_", "-")
 
 
+def _normalize_gender(value: str) -> str:
+    key = str(value or "").strip().lower()
+    if key in {"male", "female", "neutral"}:
+        return key.capitalize() if key != "neutral" else "Neutral"
+    return ""
+
+
+def validate_rate(rate: int) -> int:
+    """Accept only a real integer inside the System.Speech range."""
+    if isinstance(rate, bool) or not isinstance(rate, int):
+        raise ListeningAudioError("Speech rate is not valid.")
+    if rate < RATE_MIN or rate > RATE_MAX:
+        raise ListeningAudioError("Speech rate is not valid.")
+    return rate
+
+
 def parse_voice_discovery_output(raw: str) -> Tuple[WindowsVoiceInfo, ...]:
-    """Parse discovery stdout lines: name<TAB>culture<TAB>lang."""
+    """Parse discovery stdout lines: name<TAB>culture<TAB>lang[<TAB>gender]."""
     voices: List[WindowsVoiceInfo] = []
     for line in str(raw or "").splitlines():
         line = line.strip()
@@ -85,6 +139,7 @@ def parse_voice_discovery_output(raw: str) -> Tuple[WindowsVoiceInfo, ...]:
         if len(parts) < 3:
             continue
         name, culture, lang = parts[0].strip(), parts[1].strip(), parts[2].strip()
+        gender = _normalize_gender(parts[3]) if len(parts) > 3 else ""
         if not name or not culture:
             continue
         voices.append(
@@ -93,6 +148,7 @@ def parse_voice_discovery_output(raw: str) -> Tuple[WindowsVoiceInfo, ...]:
                 culture=_normalize_culture(culture),
                 language=str(lang or "").strip().lower()
                 or _normalize_culture(culture).split("-")[0].lower(),
+                gender=gender,
             )
         )
     # Deterministic order for stable selection.
@@ -125,6 +181,23 @@ def select_voice_for_language(
             key=lambda item: (item.culture.lower(), item.name.lower()),
         )[0]
     return None
+
+
+def voices_for_language(
+    language_code: str,
+    voices: Sequence[WindowsVoiceInfo],
+) -> Tuple[WindowsVoiceInfo, ...]:
+    """Voices whose culture or two-letter language matches. Never another language."""
+    code = str(language_code or "").strip().lower()
+    if not code:
+        return ()
+    preferred = {item.lower() for item in SPEECH_LOCALE_PREFERENCES.get(code, ())}
+    matched = [
+        voice
+        for voice in voices
+        if voice.language == code or voice.culture.lower() in preferred
+    ]
+    return tuple(sorted(matched, key=lambda item: (item.culture.lower(), item.name.lower())))
 
 
 def find_powershell_executable() -> Optional[str]:
@@ -219,36 +292,84 @@ class WindowsLocalTTSProvider(ListeningAudioProvider):
             return False
         return self.resolve_voice(language_code) is not None
 
-    def resolve_voice(self, language_code: str) -> Optional[WindowsVoiceInfo]:
+    def resolve_voice(
+        self,
+        language_code: str,
+        voice_name: Optional[str] = None,
+    ) -> Optional[WindowsVoiceInfo]:
         code = str(language_code or "").strip().lower()
         if not code:
             return None
-        if code in self._voice_cache:
-            return self._voice_cache[code]
+        requested = str(voice_name or "").strip()
+        cache_key = code if not requested else f"{code}\n{requested}"
+        if cache_key in self._voice_cache:
+            return self._voice_cache[cache_key]
         try:
             voices = self._ensure_voices()
         except ListeningAudioError:
-            self._voice_cache[code] = None
+            self._voice_cache[cache_key] = None
             return None
-        chosen = select_voice_for_language(code, voices)
-        self._voice_cache[code] = chosen
+        pool = voices_for_language(code, voices)
+        chosen: Optional[WindowsVoiceInfo] = None
+        if requested:
+            for voice in pool:
+                if voice.name == requested:
+                    chosen = voice
+                    break
+            # A saved voice from another language, or a removed voice, never wins.
+            # A remaining same-language voice is the safe default.
+            if chosen is None:
+                chosen = select_voice_for_language(code, pool)
+        else:
+            chosen = select_voice_for_language(code, pool)
+        self._voice_cache[cache_key] = chosen
         return chosen
 
-    def play(self, text: str, language_code: str) -> None:
+    def voices_for(self, language_code: str) -> Tuple[WindowsVoiceInfo, ...]:
+        return voices_for_language(language_code, self._ensure_voices())
+
+    def cached_voices_for(
+        self, language_code: str
+    ) -> Optional[Tuple[WindowsVoiceInfo, ...]]:
+        """Voices already discovered. None means discovery has not finished.
+
+        This never starts PowerShell. Call it from the Tk thread.
+        """
+        if self._voices is None:
+            return None
+        return voices_for_language(language_code, self._voices)
+
+    def refresh(self) -> Tuple[WindowsVoiceInfo, ...]:
+        """Drop the catalog and discover again. Safe after the learner installs a voice."""
+        self._voices = None
+        self._voice_cache.clear()
+        self._init_error = None
+        return self._ensure_voices()
+
+    def play(
+        self,
+        text: str,
+        language_code: str,
+        *,
+        rate: int = NORMAL_RATE,
+        voice_name: Optional[str] = None,
+    ) -> None:
         if self._platform != "win32":
             raise ListeningAudioError("Windows speech is only available on Windows.")
         spoken = str(text or "")
         if not spoken.strip():
             raise ListeningAudioError("Nothing to speak.")
-        voice = self.resolve_voice(language_code)
+        chosen_rate = validate_rate(rate)
+        voice = self.resolve_voice(language_code, voice_name=voice_name)
         if voice is None:
             raise ListeningAudioError(
                 self.missing_voice_message(language_code)
             )
-        # Data channel only — never splice text/voice into PowerShell source.
+        # Data channel only — never splice text, voice, or rate into PowerShell source.
         env = {
             _ENV_VOICE: voice.name,
             _ENV_TEXT: spoken,
+            _ENV_RATE: str(chosen_rate),
         }
         try:
             result = self._runner(
@@ -317,12 +438,18 @@ class WindowsLocalTTSProvider(ListeningAudioProvider):
         return self._voices
 
 
-def try_create_windows_tts_provider() -> Optional[WindowsLocalTTSProvider]:
-    """Return a usable provider, or None when the backend cannot initialize."""
+def try_create_windows_tts_provider():
+    """Return the local Windows provider, or None when speech cannot initialize.
+
+    The shared provider prefers System.Speech and uses WinRT only for a
+    language System.Speech cannot speak.
+    """
     if sys.platform != "win32":
         return None
     try:
-        provider = WindowsLocalTTSProvider()
+        from listening_speech import WindowsSpeechProvider
+
+        provider = WindowsSpeechProvider()
         if not provider.is_available():
             return None
         return provider

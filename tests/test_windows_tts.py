@@ -18,6 +18,7 @@ from listening_windows_tts import (
     WindowsLocalTTSProvider,
     WindowsVoiceInfo,
     _DISCOVER_SCRIPT,
+    _ENV_RATE,
     _ENV_TEXT,
     _ENV_VOICE,
     _SPEAK_SCRIPT,
@@ -267,3 +268,65 @@ def test_fake_provider_supports_filter_still_works():
     assert not fake.supports("nl")
     with pytest.raises(ListeningAudioError):
         fake.play("x", "nl")
+
+
+def test_gender_column_and_missing_gender():
+    voices = parse_voice_discovery_output(
+        "Microsoft Zira Desktop\ten-US\ten\tFemale\n"
+        "Microsoft David Desktop\ten-US\ten\n"
+    )
+    by_name = {voice.name: voice for voice in voices}
+    assert by_name["Microsoft Zira Desktop"].gender == "Female"
+    assert by_name["Microsoft David Desktop"].gender == ""
+
+
+def test_rate_stays_in_the_environment_and_is_bounded():
+    runner = RecordingRunner(discover_stdout="Microsoft David Desktop\ten-US\ten\tMale\n")
+    provider = WindowsLocalTTSProvider(runner=runner, platform="win32")
+    provider.play("Hello", "en", rate=-4)
+    call = [item for item in runner.calls if item["script"] is _SPEAK_SCRIPT][0]
+    assert call["env"][_ENV_RATE] == "-4"
+    assert "-4" not in call["script"]
+    assert "Hello" not in call["script"]
+    with pytest.raises(ListeningAudioError):
+        provider.play("Hello", "en", rate=11)
+    with pytest.raises(ListeningAudioError):
+        provider.play("Hello", "en", rate=True)
+
+
+def test_named_voice_from_another_language_is_rejected():
+    provider = WindowsLocalTTSProvider(
+        platform="win32",
+        voices=_voices(("David", "en-US", "en")),
+    )
+    with pytest.raises(ListeningAudioError):
+        provider.play("Hallo", "nl", voice_name="David")
+
+
+def test_removed_voice_falls_back_inside_the_same_language():
+    provider = WindowsLocalTTSProvider(
+        platform="win32",
+        voices=_voices(("Zira", "en-US", "en"), ("David", "en-US", "en")),
+    )
+    chosen = provider.resolve_voice("en", voice_name="Gone")
+    assert chosen is not None
+    assert chosen.language == "en"
+    assert chosen.name == "David"
+
+
+def test_slow_replay_does_not_complete_the_session():
+    fake = FakeListeningAudioProvider()
+    session = ListeningSession.create(
+        "en",
+        item=ListeningItem(text="Hello", question="?", answer="hi"),
+        audio_provider=fake,
+    )
+    session.play(rate=-4, voice_name="Zira")
+    session.play(rate=0, voice_name="Zira")
+    assert fake.rates == [-4, 0]
+    assert session.played is True
+    assert session.completed is False
+    session.submit("hi")
+    session.finish()
+    session.finish()
+    assert session.completed is True
