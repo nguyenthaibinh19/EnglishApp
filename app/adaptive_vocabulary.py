@@ -26,6 +26,14 @@ POLICY_ID = "adaptive-vocab-session-v1"
 STEP_DOWN_FAILURES = 2
 # Soft cap used only to prefer another planned word. It never removes a word.
 PRESENTATION_CAP = 48
+# Compact study content width. The window minimum is 480; this stays inside it.
+STUDY_CONTENT_WIDTH = 420
+MAX_MASK_ROWS = 4
+# Blank, fixed glyph, and space gap, in pixels, matching the card widgets.
+_MASK_METRICS = {
+    "missing_letters": (40, 22, 12),
+    "guided_typing": (26, 24, 14),
+}
 
 INTRODUCTION = "introduction"
 MULTIPLE_CHOICE = "multiple_choice"
@@ -220,6 +228,57 @@ def reconstruct_mask(mask: str, fills: Sequence[str]) -> str:
     return "".join(pieces)
 
 
+def split_mask_rows(mask: str, kind: str, width: int = STUDY_CONTENT_WIDTH) -> list[str]:
+    """Wrap a mask into rows that stay inside the compact study card."""
+    metrics = _MASK_METRICS.get(kind)
+    if metrics is None:
+        return [mask] if mask else []
+    box, fixed, gap = metrics
+    rows: list[str] = []
+    current: list[str] = []
+    used = 0
+    for char in mask or "":
+        if char == " ":
+            cell = gap
+        elif char == "_":
+            cell = box
+        else:
+            cell = fixed
+        if current and used + cell > width:
+            rows.append("".join(current))
+            current = []
+            used = 0
+            if char == " ":
+                continue
+        current.append(char)
+        used += cell
+    if current:
+        rows.append("".join(current))
+    return rows
+
+
+def mask_usable(mask: str, kind: str) -> bool:
+    """False when wrapping still needs more rows than the compact card can show."""
+    if not mask or kind not in _MASK_METRICS:
+        return False
+    return len(split_mask_rows(mask, kind)) <= MAX_MASK_ROWS
+
+
+def missing_letters_ready(mask: str, answer: str) -> bool:
+    """True when every blank is one letter and every fixed character is still in place."""
+    pattern = mask or ""
+    text = answer or ""
+    if "_" not in pattern or len(text) != len(pattern):
+        return False
+    for pattern_char, typed in zip(pattern, text):
+        if pattern_char == "_":
+            if not typed.isalpha():
+                return False
+        elif typed != pattern_char:
+            return False
+    return True
+
+
 def _forms(entry: dict, language_code: str) -> set[str]:
     return accepted_forms(entry, language_code=language_code)
 
@@ -353,7 +412,7 @@ def _build_exact(entry, pool, rng, language_code, kind, assist_depth, intended) 
         )
     if kind == MISSING_LETTERS:
         masked = mask_target(word, rng)
-        if masked is None:
+        if masked is None or not mask_usable(masked, MISSING_LETTERS):
             return None
         return _card(
             entry,
@@ -368,13 +427,16 @@ def _build_exact(entry, pool, rng, language_code, kind, assist_depth, intended) 
     if kind == GUIDED_TYPING:
         if len(word) < 2:
             return None
+        pattern = guided_pattern(word, assist_depth)
+        if not mask_usable(pattern, GUIDED_TYPING):
+            return None
         return _card(
             entry,
             language_code,
             GUIDED_TYPING,
             intended,
             prompt=meaning,
-            mask=guided_pattern(word, assist_depth),
+            mask=pattern,
             guidance=guided_guidance(word, assist_depth),
             reveal_word=word,
         )
@@ -523,6 +585,15 @@ class AdaptiveVocabularySession:
                 )
             return self._grade_choice(card, choice_index)
         text = str(answer or "").strip()
+        if card.kind == MISSING_LETTERS and not missing_letters_ready(card.mask or "", text):
+            return SubmitResult(
+                "empty",
+                tone="empty",
+                feedback=config.ui(
+                    "Hãy điền hết các chữ còn thiếu.",
+                    "Fill every missing letter.",
+                ),
+            )
         if not text:
             return SubmitResult(
                 "empty",

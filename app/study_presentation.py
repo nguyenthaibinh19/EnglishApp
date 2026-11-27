@@ -429,7 +429,7 @@ def _label(parent, text, size, weight=None):
         font=ctk.CTkFont(family="Segoe UI", size=size, weight=weight) if weight else ctk.CTkFont(family="Segoe UI", size=size),
         text_color=ui_foundation.COLOR_TEXT,
         fg_color=ui_foundation.COLOR_CARD,
-        wraplength=460,
+        wraplength=420,
         justify="center",
     )
 
@@ -625,38 +625,41 @@ class MissingLettersExercise:
         self.inputs = []
         _label(self.frame, card.kicker, 15).pack(pady=(8, 6))
         _label(self.frame, card.prompt, 26, "bold").pack(pady=(0, 8))
-        row = ctk.CTkFrame(self.frame, fg_color=ui_foundation.COLOR_CARD, corner_radius=0)
-        row.pack(pady=(0, 8))
-        for char in self.mask:
-            if char == "_":
-                entry = ctk.CTkEntry(
-                    row,
-                    width=36,
-                    height=44,
-                    justify="center",
-                    font=ctk.CTkFont(family="Segoe UI", size=20),
-                    fg_color="#FFFFFF",
-                    border_color=ui_foundation.COLOR_BORDER,
-                    text_color=ui_foundation.COLOR_TEXT,
-                )
-                entry.pack(side=tk.LEFT, padx=2)
-                index = len(self.inputs)
-                self.inputs.append(entry)
-                inner = getattr(entry, "_entry", entry)
-                inner.bind("<Key>", lambda event, i=index: self._on_key(event, i))
-            elif char == " ":
-                gap = ctk.CTkFrame(row, width=12, height=44, fg_color=ui_foundation.COLOR_CARD)
-                gap.pack(side=tk.LEFT)
-                gap.pack_propagate(False)
-            else:
-                fixed = ctk.CTkLabel(
-                    row,
-                    text=char,
-                    font=ctk.CTkFont(family="Segoe UI", size=22, weight="bold"),
-                    text_color=ui_foundation.COLOR_TEXT,
-                    fg_color=ui_foundation.COLOR_CARD,
-                )
-                fixed.pack(side=tk.LEFT, padx=1)
+        from adaptive_vocabulary import MISSING_LETTERS, split_mask_rows
+
+        for row_text in split_mask_rows(self.mask, MISSING_LETTERS):
+            row = ctk.CTkFrame(self.frame, fg_color=ui_foundation.COLOR_CARD, corner_radius=0)
+            row.pack(pady=(0, 4))
+            for char in row_text:
+                if char == "_":
+                    entry = ctk.CTkEntry(
+                        row,
+                        width=36,
+                        height=44,
+                        justify="center",
+                        font=ctk.CTkFont(family="Segoe UI", size=20),
+                        fg_color="#FFFFFF",
+                        border_color=ui_foundation.COLOR_BORDER,
+                        text_color=ui_foundation.COLOR_TEXT,
+                    )
+                    entry.pack(side=tk.LEFT, padx=2)
+                    index = len(self.inputs)
+                    self.inputs.append(entry)
+                    inner = getattr(entry, "_entry", entry)
+                    inner.bind("<Key>", lambda event, i=index: self._on_key(event, i))
+                elif char == " ":
+                    gap = ctk.CTkFrame(row, width=12, height=44, fg_color=ui_foundation.COLOR_CARD)
+                    gap.pack(side=tk.LEFT)
+                    gap.pack_propagate(False)
+                else:
+                    fixed = ctk.CTkLabel(
+                        row,
+                        text=char,
+                        font=ctk.CTkFont(family="Segoe UI", size=22, weight="bold"),
+                        text_color=ui_foundation.COLOR_TEXT,
+                        fg_color=ui_foundation.COLOR_CARD,
+                    )
+                    fixed.pack(side=tk.LEFT, padx=1)
         self.support = _label(self.frame, card.guidance, 14)
         if card.guidance:
             self.support.pack(pady=(0, 4))
@@ -682,7 +685,18 @@ class MissingLettersExercise:
         if event.keysym == "Left":
             self._focus(index - 1)
             return "break"
-        if event.keysym in ("Right", "Tab"):
+        if event.keysym == "Right":
+            self._focus(index + 1)
+            return "break"
+        if event.keysym in ("Tab", "ISO_Left_Tab"):
+            backward = event.keysym == "ISO_Left_Tab" or bool(getattr(event, "state", 0) & 0x0001)
+            if backward:
+                if index <= 0:
+                    return None
+                self._focus(index - 1)
+                return "break"
+            if index >= len(self.inputs) - 1:
+                return None
             self._focus(index + 1)
             return "break"
         if event.keysym in ("Return", "KP_Enter"):
@@ -698,7 +712,13 @@ class MissingLettersExercise:
     def answer_text(self) -> str:
         from adaptive_vocabulary import reconstruct_mask
 
-        return reconstruct_mask(self.mask, [item.get() for item in self.inputs]).strip()
+        fills = []
+        for item in self.inputs:
+            value = item.get()
+            if len(value) != 1 or not value.isalpha():
+                return ""
+            fills.append(value)
+        return reconstruct_mask(self.mask, fills).strip()
 
     def choice_index(self):
         return None
@@ -754,33 +774,38 @@ class TypingExercise:
         self.voice_note = _label(self.frame, "", 14)
 
     def _paint_pattern(self, pattern: str) -> None:
-        for char in pattern:
-            if char == "_":
-                box = ctk.CTkFrame(
-                    self.pattern,
-                    width=22,
-                    height=36,
-                    corner_radius=6,
-                    fg_color=ui_foundation.COLOR_BG,
-                    border_width=1,
-                    border_color=ui_foundation.COLOR_BORDER,
-                )
-                box.pack(side=tk.LEFT, padx=2)
-                box.pack_propagate(False)
-            elif char == " ":
-                gap = ctk.CTkFrame(self.pattern, width=14, height=36, fg_color=ui_foundation.COLOR_CARD)
-                gap.pack(side=tk.LEFT)
-                gap.pack_propagate(False)
-            else:
-                shown = ctk.CTkLabel(
-                    self.pattern,
-                    text=char,
-                    width=22,
-                    font=ctk.CTkFont(family="Segoe UI", size=26, weight="bold"),
-                    text_color=ui_foundation.COLOR_PRIMARY,
-                    fg_color=ui_foundation.COLOR_CARD,
-                )
-                shown.pack(side=tk.LEFT, padx=1)
+        from adaptive_vocabulary import GUIDED_TYPING, split_mask_rows
+
+        for row_text in split_mask_rows(pattern, GUIDED_TYPING):
+            row = ctk.CTkFrame(self.pattern, fg_color=ui_foundation.COLOR_CARD, corner_radius=0)
+            row.pack()
+            for char in row_text:
+                if char == "_":
+                    box = ctk.CTkFrame(
+                        row,
+                        width=22,
+                        height=36,
+                        corner_radius=6,
+                        fg_color=ui_foundation.COLOR_BG,
+                        border_width=1,
+                        border_color=ui_foundation.COLOR_BORDER,
+                    )
+                    box.pack(side=tk.LEFT, padx=2)
+                    box.pack_propagate(False)
+                elif char == " ":
+                    gap = ctk.CTkFrame(row, width=14, height=36, fg_color=ui_foundation.COLOR_CARD)
+                    gap.pack(side=tk.LEFT)
+                    gap.pack_propagate(False)
+                else:
+                    shown = ctk.CTkLabel(
+                        row,
+                        text=char,
+                        width=22,
+                        font=ctk.CTkFont(family="Segoe UI", size=26, weight="bold"),
+                        text_color=ui_foundation.COLOR_PRIMARY,
+                        fg_color=ui_foundation.COLOR_CARD,
+                    )
+                    shown.pack(side=tk.LEFT, padx=1)
 
     def answer_text(self) -> str:
         return self.entry.get().strip()

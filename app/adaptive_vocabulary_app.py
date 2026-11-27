@@ -392,12 +392,29 @@ def _stage_label(kind: str) -> str:
     return config.ui(*pair)
 
 
+def _voice_unavailable(error: Exception) -> bool:
+    """True when this language has no local voice. Other playback errors stay separate."""
+    text = str(error or "").casefold()
+    markers = (
+        "no voice",
+        "no windows text-to-speech voice",
+        "text-to-speech voice is installed",
+        "chưa có giọng",
+        "chưa cài giọng",
+    )
+    return any(marker in text for marker in markers)
+
+
 def _voice_problem(error: Exception) -> str:
     """Learner-facing voice note. Shown only after a playback attempt."""
-    del error
+    if _voice_unavailable(error):
+        return config.ui(
+            "Chưa có giọng cho ngôn ngữ này trên máy này. Bạn vẫn có thể tiếp tục.",
+            "No voice for this language on this PC. You can continue.",
+        )
     return config.ui(
-        "Chưa có giọng cho ngôn ngữ này trên máy này. Bạn vẫn có thể tiếp tục.",
-        "No voice for this language on this PC. You can continue.",
+        "Không phát được âm thanh. Bạn vẫn có thể tiếp tục.",
+        "Playback did not finish. You can continue.",
     )
 
 

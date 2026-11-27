@@ -12,10 +12,11 @@ import ui_foundation
 import voice_prefs
 from adaptive_vocabulary import (
     INDEPENDENT_RECALL,
+    MISSING_LETTERS,
     AdaptiveSessionBridge,
     AdaptiveVocabularySession,
 )
-from adaptive_vocabulary_app import AdaptiveVocabularyApp
+from adaptive_vocabulary_app import AdaptiveVocabularyApp, _voice_problem
 from attempt_history import AttemptHistory
 from daily_study import DailyStudyPlan
 from progress import Progress
@@ -141,7 +142,7 @@ def test_preview_leave_and_missing_voice_do_not_record(tmp_path, monkeypatch, tk
         assert _during_mainloop(
             window,
             lambda: app.shell.exercise.normal_button.invoke(),
-            lambda: config.ui("Bạn vẫn có thể tiếp tục", "You can continue")
+            lambda: config.ui("Chưa có giọng", "No voice")
             in app.shell.exercise.voice_note.cget("text"),
         )
         assert app.shell.check_button.cget("state") == "normal"
@@ -151,7 +152,7 @@ def test_preview_leave_and_missing_voice_do_not_record(tmp_path, monkeypatch, tk
             window,
             lambda: app.shell.exercise.slow_button.invoke(),
             lambda: len(voice.calls) >= 2
-            and config.ui("Bạn vẫn có thể tiếp tục", "You can continue")
+            and config.ui("Chưa có giọng", "No voice")
             in app.shell.exercise.voice_note.cget("text"),
         )
         assert voice.calls[1][2] == -4
@@ -206,9 +207,14 @@ def test_wrong_independent_answer_records_once_on_the_card(tmp_path, tk_root):
 
 
 class _Key:
-    def __init__(self, keysym, char=""):
+    def __init__(self, keysym, char="", state=0):
         self.keysym = keysym
         self.char = char
+        self.state = state
+
+
+def _inner(entry):
+    return getattr(entry, "_entry", entry)
 
 
 def _answer_whole_word(app, window) -> None:
@@ -446,3 +452,144 @@ def test_stale_and_busy_voice_stay_on_the_current_card(tk_root):
     assert config.ui("Đang phát một đoạn khác", "Another clip is still playing") in seen["busy"]
     assert seen["kind"] == "multiple_choice"
     assert "old card voice" not in seen["note"]
+
+
+def test_playback_failure_is_not_a_missing_voice(tk_root):
+    reset_playback_state()
+    missing = _voice_problem(ListeningAudioError("No voice for nl."))
+    installed = _voice_problem(
+        ListeningAudioError("No Windows text-to-speech voice is installed for Dutch.")
+    )
+    failed = _voice_problem(ListeningAudioError("Speech playback failed."))
+    assert config.ui("Chưa có giọng", "No voice") in missing
+    assert config.ui("Chưa có giọng", "No voice") in installed
+    assert config.ui("Không phát được", "Playback did not finish") in failed
+    assert config.ui("Chưa có giọng", "No voice") not in failed
+
+    class _Broken:
+        def play(self, *_args, **_kwargs):
+            raise ListeningAudioError("Speech playback failed.")
+
+    controller = AdaptiveVocabularySession(
+        [pool()[0]],
+        language_code="nl",
+        pool=pool(),
+        rng=random.Random(4),
+    )
+    window = tk.Toplevel(tk_root)
+    try:
+        app = AdaptiveVocabularyApp(window, controller, provider=_Broken(), locked=False)
+        window.update()
+        assert _during_mainloop(
+            window,
+            lambda: app.shell.exercise.normal_button.invoke(),
+            lambda: config.ui("Không phát được", "Playback did not finish")
+            in app.shell.exercise.voice_note.cget("text")
+            and config.ui("Chưa có giọng", "No voice")
+            not in app.shell.exercise.voice_note.cget("text"),
+        )
+    finally:
+        _close_window(window)
+        reset_playback_state()
+
+
+def test_tab_leaves_the_final_missing_letter_field(tk_root):
+    controller = AdaptiveVocabularySession(
+        [pool()[0]],
+        language_code="nl",
+        pool=pool(),
+        rng=random.Random(4),
+        level_overrides={FIETS: MISSING_LETTERS},
+    )
+    window = tk.Toplevel(tk_root)
+    try:
+        app = AdaptiveVocabularyApp(window, controller, provider=_SilentVoice(), locked=False)
+        window.deiconify()
+        window.focus_force()
+        window.update()
+        exercise = app.shell.exercise
+        inners = [_inner(item) for item in exercise.inputs]
+        assert len(inners) >= 2
+        inners[0].focus_set()
+        window.update()
+        assert exercise._on_key(_Key("Tab"), 0) == "break"
+        window.update()
+        assert window.focus_get() == inners[1]
+        assert exercise._on_key(_Key("Tab", state=1), 1) == "break"
+        window.update()
+        assert window.focus_get() == inners[0]
+        assert exercise._on_key(_Key("ISO_Left_Tab"), 0) is None
+        last = len(inners) - 1
+        inners[last].focus_set()
+        window.update()
+        assert exercise._on_key(_Key("Tab"), last) is None
+        inners[last].event_generate("<Tab>")
+        window.update()
+        assert window.focus_get() not in inners
+        inners[0].focus_set()
+        window.update()
+        inners[0].event_generate("<Shift-Tab>")
+        window.update()
+        assert window.focus_get() not in inners
+    finally:
+        _close_window(window)
+
+
+def test_incomplete_missing_letters_stay_on_the_card(tmp_path, tk_root):
+    controller = AdaptiveVocabularySession(
+        [pool()[0]],
+        language_code="nl",
+        pool=pool(),
+        rng=random.Random(4),
+        level_overrides={FIETS: MISSING_LETTERS},
+    )
+    attempts = AttemptHistory(str(tmp_path / "attempts.jsonl"), language_code="nl")
+    progress = Progress(str(tmp_path / "progress.json"))
+    window = tk.Toplevel(tk_root)
+    try:
+        app = AdaptiveVocabularyApp(
+            window,
+            controller,
+            progress=progress,
+            attempts=attempts,
+            provider=_SilentVoice(),
+            locked=False,
+        )
+        window.update()
+        exercise = app.shell.exercise
+        assert exercise.kind == "missing_letters"
+        for entry in exercise.inputs[:-1]:
+            entry.insert(0, "e")
+        assert exercise.answer_text() == ""
+        app.shell.check_button.invoke()
+        window.update()
+        assert app._phase == "answer"
+        assert config.ui("Hãy điền hết", "Fill every missing") in app.shell.feedback.cget("text")
+        assert controller.level_of(FIETS) == MISSING_LETTERS
+        assert controller.counters.assisted_successes == 0
+        assert attempts.load_attempts() == []
+        assert progress.data["words"] == {}
+    finally:
+        _close_window(window)
+
+
+def test_long_missing_letter_mask_wraps_inside_the_card(tk_root):
+    from study_presentation import MissingLettersExercise
+
+    window = tk.Toplevel(tk_root)
+    window.geometry("480x560")
+    card = type("Card", (), {})()
+    card.mask = "_" * 16
+    card.kicker = "k"
+    card.prompt = "a long meaning that stays on the card"
+    card.guidance = ""
+    try:
+        exercise = MissingLettersExercise(window, card)
+        exercise.frame.pack()
+        window.update()
+        parents = {item.master for item in exercise.inputs}
+        assert len(exercise.inputs) == 16
+        assert len(parents) >= 2
+        assert exercise.frame.winfo_reqwidth() <= 480
+    finally:
+        _close_window(window)

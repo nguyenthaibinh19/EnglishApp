@@ -20,8 +20,11 @@ from adaptive_vocabulary import (
     build_exercise,
     guided_guidance,
     guided_pattern,
+    mask_usable,
+    missing_letters_ready,
     reconstruct_mask,
     mask_target,
+    split_mask_rows,
     speech_for_card,
     starting_level,
 )
@@ -328,7 +331,12 @@ def test_prolonged_failure_keeps_every_word_and_does_not_finish():
     for _ in range(5):
         assert one.current_card() is not None
         assert one.current_card().vocab_id == FIETS
-        one.submit("nope")
+        card = one.current_card()
+        if card.kind == MISSING_LETTERS:
+            answer = reconstruct_mask(card.mask, ["x"] * card.mask.count("_"))
+        else:
+            answer = "nope"
+        one.submit(answer)
         one.continue_card()
     assert one._states[FIETS].presentations == 53
     assert one.counters.words_completed == 0
@@ -386,6 +394,58 @@ def test_empty_or_invalid_plan_is_not_a_completed_session():
     assert bridge.note_finished() is False
     assert study.vocabulary_complete() is False
     assert study.status(KIND_READING) == "pending"
+
+
+def test_incomplete_missing_letters_do_not_fail_or_advance():
+    assert missing_letters_ready("d_ fi_ts", "de fiets") is True
+    assert missing_letters_ready("d_ fi_ts", "de fits") is False
+    assert missing_letters_ready("d_ fi_ts", "d1 fiets") is False
+    controller = session([pool()[0]], level_overrides={FIETS: MISSING_LETTERS})
+    card = controller.current_card()
+    fills = [card.reveal_word[index] for index, char in enumerate(card.mask) if char == "_"]
+    fills[-1] = ""
+    partial = reconstruct_mask(card.mask, fills)
+    presentations = controller._states[FIETS].presentations
+    result = controller.submit(partial)
+    assert result.status == "empty"
+    assert result.write is None
+    assert result.success is None
+    assert controller.current_card() is card
+    assert controller.level_of(FIETS) == MISSING_LETTERS
+    assert controller._states[FIETS].consecutive_failures == 0
+    assert controller._states[FIETS].presentations == presentations
+    assert controller.counters.assisted_successes == 0
+    assert controller.continue_card().status == "ignored"
+    assert controller.current_card() is card
+    wrong = reconstruct_mask(card.mask, ["x"] * len(fills))
+    assert missing_letters_ready(card.mask, wrong) is True
+    graded = controller.submit(wrong)
+    assert graded.status == "feedback"
+    assert graded.success is False
+    assert graded.write is None
+
+
+def test_long_masks_wrap_or_fall_back_to_another_exercise():
+    wrapped = "_" * 16
+    rows = split_mask_rows(wrapped, MISSING_LETTERS)
+    assert len(rows) >= 2
+    assert mask_usable(wrapped, MISSING_LETTERS) is True
+    assert mask_usable("_" * 50, MISSING_LETTERS) is False
+    phrase = " ".join(["fiets"] * 5)
+    entry = word(FIETS, phrase, "bicycles")
+    card = build_exercise(entry, [entry], random.Random(1), "nl", MISSING_LETTERS)
+    assert card.kind == MISSING_LETTERS
+    assert card.intended_kind == MISSING_LETTERS
+    assert len(split_mask_rows(card.mask, MISSING_LETTERS)) >= 2
+    assert mask_usable(card.mask, MISSING_LETTERS) is True
+    long_text = "a" * 90
+    long_entry = word(FIETS, long_text, "long")
+    fallen = build_exercise(long_entry, [long_entry], random.Random(1), "nl", MISSING_LETTERS)
+    assert fallen.kind == INTRODUCTION
+    assert fallen.intended_kind == MISSING_LETTERS
+    guided = build_exercise(long_entry, [long_entry], random.Random(1), "nl", GUIDED_TYPING)
+    assert guided.kind == INTRODUCTION
+    assert guided.intended_kind == GUIDED_TYPING
 
 
 def test_missing_letter_fields_rebuild_the_word_without_a_write():
