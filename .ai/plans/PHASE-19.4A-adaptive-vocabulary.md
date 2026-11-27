@@ -1,6 +1,6 @@
 # Phase 19.4A adaptive vocabulary
 
-Status: Corrected and ready for review. Not merged. Branch `phase19.4a/adaptive-vocabulary`. Foundation parent `5087b33f1b56d5ec47e47f4b1db19b0ed930ee7d`. The branch was created from main `445d62c986b83393a2ba1702c7c108c52aa3f096`. Tag `APP_19D4A_ADAPTIVE_VOCABULARY_CORRECTED_READY_FOR_REVIEW`.
+Status: Corrected and ready for review. Not merged. Branch `phase19.4a/adaptive-vocabulary`. Code correction `c5f17c5020d72d931b8b2f7022ecd1a57db2e96a`. Foundation parent `5087b33f1b56d5ec47e47f4b1db19b0ed930ee7d`. The branch was created from main `445d62c986b83393a2ba1702c7c108c52aa3f096`. Tag `APP_19D4A_ADAPTIVE_VOCABULARY_CORRECTED_READY_FOR_REVIEW`.
 
 Architect decision for this correction: `APP_19D4A_FOUNDATION_ACCEPTED_CORRECTION_REQUIRED`. The five-step ladder and the separation of practice from authoritative SRS writes stay as accepted. This correction does not replace the engine.
 

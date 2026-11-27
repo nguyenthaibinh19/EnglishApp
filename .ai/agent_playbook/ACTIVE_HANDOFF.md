@@ -5,7 +5,7 @@ Rolling coordination checkpoint. Product position is [current_state.md](../curre
 ## 1. Checkpoint metadata
 
 - Written: 2026-11-27.
-- Tag: `APP_19D4A_ADAPTIVE_VOCABULARY_CORRECTED_READY_FOR_REVIEW`. Foundation parent: `5087b33f1b56d5ec47e47f4b1db19b0ed930ee7d`. Branch: `phase19.4a/adaptive-vocabulary`. Not merged. Main baseline for the branch remains `445d62c986b83393a2ba1702c7c108c52aa3f096`.
+- Tag: `APP_19D4A_ADAPTIVE_VOCABULARY_CORRECTED_READY_FOR_REVIEW`. Code correction: `c5f17c5020d72d931b8b2f7022ecd1a57db2e96a`. Foundation parent: `5087b33f1b56d5ec47e47f4b1db19b0ed930ee7d`. Branch: `phase19.4a/adaptive-vocabulary`. Not merged. Main baseline for the branch remains `445d62c986b83393a2ba1702c7c108c52aa3f096`.
 - Previous milestone: `APP_19D3_ARCHITECT_ACCEPTED_CLOSED`. Phase 19.3 remains merged at `7aedf7a423d2ef244ce37b5d3f348c7f75ed0241`.
 - Accepted audio source: `3d983331c5d967c8cbe883f6881547eb4ff6ae72` on `phase19.3/multilingual-audio`.
 - Phase 19.3 merge: PR #32, merge `7aedf7a423d2ef244ce37b5d3f348c7f75ed0241`. Remote main before that merge was `5f8f3c0ad175a82ad61866e23eac64af1bfe47ed` (PR #31, accepted UI `fd18a1d849d3898cdbff4bd517b22cfff1f4bdbc`).
