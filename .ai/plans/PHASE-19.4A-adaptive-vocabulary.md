@@ -1,6 +1,6 @@
 # Phase 19.4A adaptive vocabulary
 
-Status: UX polish ready for review. Not merged. Branch `phase19.4a/adaptive-vocabulary`. UX parent `0f0925616f1baac1109a4839966056732473f266`. Functional correction `c5f17c5020d72d931b8b2f7022ecd1a57db2e96a`. Foundation parent `5087b33f1b56d5ec47e47f4b1db19b0ed930ee7d`. The branch was created from main `445d62c986b83393a2ba1702c7c108c52aa3f096`. Tag `APP_19D4A_UX_POLISHED_READY_FOR_REVIEW`.
+Status: UX polish ready for review. Not merged. Branch `phase19.4a/adaptive-vocabulary`. UX polish `98d7bc09f44cdecaa838caa4721d504107555721`. UX parent `0f0925616f1baac1109a4839966056732473f266`. Functional correction `c5f17c5020d72d931b8b2f7022ecd1a57db2e96a`. Foundation parent `5087b33f1b56d5ec47e47f4b1db19b0ed930ee7d`. The branch was created from main `445d62c986b83393a2ba1702c7c108c52aa3f096`. Tag `APP_19D4A_UX_POLISHED_READY_FOR_REVIEW`.
 
 Functional R1 is accepted. This pass changes the learner-facing cards. The ladder and the SRS write boundary stay as accepted.
 
