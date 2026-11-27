@@ -33,4 +33,11 @@ Do not silently fall back to online Edge TTS. Do not auto-install language packs
 - Gender is kept only when System.Speech reports Male, Female, or Neutral.
 - The selected voice is stored on this PC under `device_voices`, one name per study language. It is not an account preference and it is not synced.
 - An explicit voice is used only when that voice belongs to the requested language. A missing name falls back to another voice of the same language. A voice from another language is never selected, and there is no online fallback.
-- On this PC, `Windows.Media.SpeechSynthesis` returned no voices. That WinRT catalog is the smallest local alternative to review later if System.Speech stays empty after a supported language install. It is not integrated. No paid speech service is added.
+- On 2026-11-25, `Windows.Media.SpeechSynthesis` returned no voices. A later probe on 2026-11-27 found WinRT voices that System.Speech does not list, including Dutch and Portuguese. WinRT remains the smallest local alternative for a separate review. It is not integrated. No paid speech service is added.
+
+## Amendment — 2026-11-27 — Phase 19.3 R1
+
+- Listening, Voice Settings, Vocabulary Library, Word Detail, and Study Feedback share one playback slot.
+- A playback callback is delivered only when the originating window is open and the caller's language and exercise identity still match.
+- Voice discovery and catalog refresh stay off the Tk thread, including the failure path.
+- Missing-voice guidance names the selected language's Windows speech pack.

@@ -214,6 +214,7 @@ class VocabQuizApp:
         self._cancel_pending()
         self._result_finished = False
         self._last_verdict = ""
+        self._card_token = getattr(self, "_card_token", 0) + 1
         self._revealed_word = ""
         entry = self.engine.pick_next()
         if entry is None:
@@ -351,12 +352,23 @@ class VocabQuizApp:
         from listening_windows_tts import NORMAL_RATE
 
         language = self.language_code or config.active_code()
+        token = getattr(self, "_card_token", 0)
+
+        def scope() -> bool:
+            return (
+                self._phase == "feedback"
+                and getattr(self, "_card_token", None) == token
+                and str(getattr(self, "_revealed_word", "") or "").strip() == word
+                and (self.language_code or config.active_code()) == language
+            )
+
         started = play_async(
             self.window,
             text=word,
             language_code=language,
             rate=NORMAL_RATE,
             voice_name=voice_prefs.selected_voice_name(language) or None,
+            scope=scope,
             on_error=lambda error: self._hear_status(str(error)),
         )
         if not started:

@@ -320,6 +320,17 @@ class WindowsLocalTTSProvider(ListeningAudioProvider):
     def voices_for(self, language_code: str) -> Tuple[WindowsVoiceInfo, ...]:
         return voices_for_language(language_code, self._ensure_voices())
 
+    def cached_voices_for(
+        self, language_code: str
+    ) -> Optional[Tuple[WindowsVoiceInfo, ...]]:
+        """Voices already discovered. None means discovery has not finished.
+
+        This never starts PowerShell. Call it from the Tk thread.
+        """
+        if self._voices is None:
+            return None
+        return voices_for_language(language_code, self._voices)
+
     def refresh(self) -> Tuple[WindowsVoiceInfo, ...]:
         """Drop the catalog and discover again. Safe after the learner installs a voice."""
         self._voices = None

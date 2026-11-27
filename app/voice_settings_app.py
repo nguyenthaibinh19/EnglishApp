@@ -18,29 +18,50 @@ from listening_windows_tts import (
     PREVIEW_TEXT,
     SLOW_RATE,
     WindowsVoiceInfo,
+    voices_for_language,
 )
-from speech_player import invalidate_playback, play_async, refresh_voices
+from speech_player import invalidate_playback, play_async, playback_busy, refresh_voices
 
 ctk.deactivate_automatic_dpi_awareness()
 ctk.set_appearance_mode("light")
 
 
-def install_guidance() -> str:
+# Windows Settings language names for the cultures this app can speak.
+# The second name is an extra pack of the same language, never a different language.
+_SPEECH_PACKS = {
+    "nl": ("Dutch (Netherlands)", ""),
+    "en": ("English (United States)", "English (United Kingdom)"),
+    "fr": ("French (France)", "French (Canada)"),
+    "de": ("German (Germany)", ""),
+    "es": ("Spanish (Spain)", "Spanish (Mexico)"),
+    "it": ("Italian (Italy)", ""),
+    "pt": ("Portuguese (Portugal)", "Portuguese (Brazil)"),
+}
+
+
+def install_guidance(language_code: str) -> str:
+    """Tell the learner how to install speech for the language they selected."""
+    code = str(language_code or "").strip().lower()
+    primary, extra = _SPEECH_PACKS.get(code, ("", ""))
+    name = config.language_name(code) if code else code
+    pack = primary or name
+    extra_vi = f" {extra} cũng được." if extra else ""
+    extra_en = f" {extra} works as well." if extra else ""
     return config.ui(
-        "Máy này chưa có giọng System.Speech cho ngôn ngữ đang chọn.\n\n"
+        f"Máy này chưa có giọng System.Speech cho {name}.\n\n"
         "Cách cài, không đổi ngôn ngữ hiển thị của Windows:\n"
         "1. Mở Settings - Time & language - Language & region.\n"
-        "2. Add a language. Chọn Dutch (Netherlands) hoặc Spanish (Spain).\n"
+        f"2. Add a language. Chọn {pack}.{extra_vi}\n"
         "3. Nếu có ô Text-to-speech, hãy chọn nó. Không đặt ngôn ngữ đó làm ngôn ngữ hiển thị.\n"
         "4. Mở dấu ... của ngôn ngữ - Language options - Speech - Download.\n"
         "5. Quay lại đây và bấm Làm mới giọng.\n\n"
         "Gói ngôn ngữ hiển thị không phải lúc nào cũng kèm giọng đọc. "
         "Giọng Natural của Windows 11 có thể không xuất hiện trong System.Speech. "
         "LanguageGuard chỉ dùng giọng mà System.Speech chọn được, và không dùng giọng của ngôn ngữ khác.",
-        "This PC has no System.Speech voice for the selected language.\n\n"
+        f"This PC has no System.Speech voice for {name}.\n\n"
         "Install one without changing the Windows display language:\n"
         "1. Open Settings - Time & language - Language & region.\n"
-        "2. Choose Add a language. Add Dutch (Netherlands) or Spanish (Spain).\n"
+        f"2. Choose Add a language. Add {pack}.{extra_en}\n"
         "3. Include Text-to-speech if Windows offers that checkbox. Do not make it the display language.\n"
         "4. Open the language ... menu - Language options - Speech - Download.\n"
         "5. Come back here and choose Refresh voices.\n\n"
@@ -55,6 +76,8 @@ class VoiceSettingsApp:
         self.window = window
         self._closed = False
         self._generation = 0
+        self._preview_token = 0
+        self._catalog: tuple[WindowsVoiceInfo, ...] | None = None
         self._voices: tuple[WindowsVoiceInfo, ...] = ()
         self._loading = False
         codes = [item.code for item in languages.iter_languages()]
@@ -192,7 +215,14 @@ class VoiceSettingsApp:
             if config.language_name(code) == label:
                 self._language = code
                 break
-        self._apply_catalog()
+        self._preview_token += 1
+        self.status.configure(text="")
+        if self._catalog is None:
+            self._refresh()
+            return
+        self._render_catalog()
+        if playback_busy():
+            self._set_preview_enabled(False)
 
     def _on_voice(self, label: str):
         voice = self._voice_by_label(label)
@@ -216,55 +246,39 @@ class VoiceSettingsApp:
             return
         self._loading = True
         self._generation += 1
+        self._preview_token += 1
         generation = self._generation
-        language = self._language
         self.status.configure(text=config.ui("Đang tìm giọng trên máy…", "Looking up voices on this PC…"))
         self._set_enabled(False)
 
         def work():
-            refresh_voices()
-            from speech_player import shared_provider
-
-            return shared_provider().voices_for(language)
+            return refresh_voices()
 
         def deliver(voices):
             self._loading = False
             if self._closed or generation != self._generation:
                 return
-            self._voices = tuple(voices)
-            self._apply_catalog()
+            self._catalog = tuple(voices)
+            self._render_catalog()
 
         def failed(error):
             self._loading = False
             if self._closed or generation != self._generation:
                 return
+            # Leave the catalog unknown so the next refresh discovers again.
+            # Do not call voices_for() here: that would run PowerShell on the Tk thread.
+            self._catalog = None
             self._voices = ()
-            self._apply_catalog()
+            self._show_missing()
             self.status.configure(text=str(error))
 
         ui_common.run_async(self.window, work, deliver, failed)
 
-    def _apply_catalog(self):
-        from speech_player import shared_provider
-
-        try:
-            self._voices = tuple(shared_provider().voices_for(self._language))
-        except Exception:
-            self._voices = ()
+    def _render_catalog(self):
+        self._voices = tuple(voices_for_language(self._language, self._catalog or ()))
         self._set_enabled(True)
         if not self._voices:
-            missing = config.ui("Chưa có giọng", "No voice installed")
-            self.voice_menu.configure(values=[missing])
-            self.voice_menu.set(missing)
-            self.detail.configure(
-                text=config.ui(
-                    "Chưa có giọng System.Speech cho ngôn ngữ này.",
-                    "No System.Speech voice is available for this language.",
-                )
-            )
-            self._set_guidance(install_guidance())
-            self.normal_button.configure(state="disabled")
-            self.slow_button.configure(state="disabled")
+            self._show_missing()
             self.status.configure(text="")
             return
         labels = [self._voice_label(voice) for voice in self._voices]
@@ -278,7 +292,24 @@ class VoiceSettingsApp:
         self.voice_menu.set(self._voice_label(chosen))
         self._show_voice(chosen)
         self._set_guidance("")
+        self._set_preview_enabled(not playback_busy())
         self.status.configure(text="")
+
+    def _show_missing(self):
+        missing = config.ui("Chưa có giọng", "No voice installed")
+        self.voice_menu.configure(values=[missing])
+        self.voice_menu.set(missing)
+        self.voice_menu.configure(state="disabled")
+        self.detail.configure(
+            text=config.ui(
+                "Chưa có giọng System.Speech cho ngôn ngữ này.",
+                "No System.Speech voice is available for this language.",
+            )
+        )
+        self._set_guidance(install_guidance(self._language))
+        self._set_preview_enabled(False)
+        self.language_menu.configure(state="normal")
+        self.refresh_button.configure(state="normal")
 
     def _show_voice(self, voice: WindowsVoiceInfo):
         gender = voice.gender or config.ui("không ghi", "not reported")
@@ -298,39 +329,71 @@ class VoiceSettingsApp:
 
     def _set_enabled(self, enabled: bool):
         state = "normal" if enabled else "disabled"
-        for button in (self.normal_button, self.slow_button, self.refresh_button, self.language_menu, self.voice_menu):
+        for button in (self.refresh_button, self.language_menu, self.voice_menu):
             button.configure(state=state)
+        if not enabled:
+            self._set_preview_enabled(False)
+
+    def _set_preview_enabled(self, enabled: bool):
+        state = "normal" if enabled and self._voices and not self._loading else "disabled"
+        self.normal_button.configure(state=state)
+        self.slow_button.configure(state=state)
 
     def _preview(self, rate: int):
-        if self._closed or not self._voices:
+        if self._closed or self._loading or not self._voices:
             return
         voice = self._voice_by_label(self.voice_menu.get())
         if voice is None:
             return
-        sample = PREVIEW_TEXT.get(self._language, PREVIEW_TEXT["en"])
+        sample = PREVIEW_TEXT.get(self._language)
+        if not sample:
+            return
         language = self._language
+        self._preview_token += 1
+        token = self._preview_token
+        voice_name = voice.name
+
+        def scope() -> bool:
+            return (
+                not self._closed
+                and token == self._preview_token
+                and language == self._language
+                and not self._loading
+            )
+
         started = play_async(
             self.window,
             text=sample,
             language_code=language,
             rate=rate,
-            voice_name=voice.name,
-            on_done=lambda: self._preview_done(language, ""),
-            on_error=lambda error, code=language: self._preview_done(code, str(error)),
+            voice_name=voice_name,
+            scope=scope,
+            on_done=lambda: self._preview_done(token, language, ""),
+            on_error=lambda error, code=language: self._preview_done(token, code, str(error)),
+            on_settled=self._preview_settled,
         )
         if not started:
             self.status.configure(text=config.ui("Đang phát một đoạn khác.", "Another clip is still playing."))
+            self._set_preview_enabled(False)
             return
         self.status.configure(text=config.ui("Đang phát…", "Playing…"))
-        self.normal_button.configure(state="disabled")
-        self.slow_button.configure(state="disabled")
+        self._set_preview_enabled(False)
 
-    def _preview_done(self, language: str, error: str):
-        if self._closed or language != self._language:
+    def _preview_done(self, token: int, language: str, error: str):
+        if self._closed or token != self._preview_token or language != self._language or self._loading:
             return
-        self.normal_button.configure(state="normal")
-        self.slow_button.configure(state="normal")
         self.status.configure(text=error)
+
+    def _preview_settled(self):
+        if self._closed or self._loading:
+            return
+        if playback_busy():
+            self._set_preview_enabled(False)
+            return
+        playing = config.ui("Đang phát…", "Playing…")
+        if self.status.cget("text") == playing:
+            self.status.configure(text="")
+        self._set_preview_enabled(True)
 
 
 def open_voice_settings(parent: tk.Misc) -> tk.Toplevel:

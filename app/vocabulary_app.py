@@ -167,6 +167,10 @@ class VocabularyLibraryApp:
         ttk.Button(
             footer, text=config.ui("Đóng", "Close"), command=self.window.destroy
         ).pack(side=tk.RIGHT)
+        self.audio_status = ttk.Label(
+            root, text="", style="Muted.TLabel", wraplength=560, justify="left"
+        )
+        self.audio_status.pack(anchor="w", pady=(8, 0))
 
         self.reload()
         if focus_add:
@@ -247,22 +251,65 @@ class VocabularyLibraryApp:
             return None
         return self.visible[selection[0]]
 
+    def _audio_feedback(self, text: str):
+        label = getattr(self, "audio_status", None)
+        if label is None:
+            return
+        try:
+            label.config(text=text)
+        except tk.TclError:
+            pass
+
     def _hear_selected(self):
         item = self._selected_item()
         if item is None:
+            self._audio_feedback(config.ui("Hãy chọn một từ.", "Select a word first."))
             return
-        from speech_player import play_async
+        from speech_player import play_async, playback_busy
         import voice_prefs
         from listening_windows_tts import NORMAL_RATE
 
         language = self.language_code
-        play_async(
+        identity = (item.store_index, item.word)
+        playing = config.ui("Đang phát…", "Playing…")
+
+        def scope() -> bool:
+            current = self._selected_item()
+            return (
+                current is not None
+                and (current.store_index, current.word) == identity
+                and self.language_code == language
+            )
+
+        def show_error(error: Exception):
+            self._audio_feedback(str(error))
+
+        def clear_playing():
+            label = getattr(self, "audio_status", None)
+            if label is None or playback_busy():
+                return
+            try:
+                if label.cget("text") == playing:
+                    label.config(text="")
+            except tk.TclError:
+                pass
+
+        started = play_async(
             self.window,
             text=item.word,
             language_code=language,
             rate=NORMAL_RATE,
             voice_name=voice_prefs.selected_voice_name(language) or None,
+            scope=scope,
+            on_error=show_error,
+            on_settled=clear_playing,
         )
+        if not started:
+            self._audio_feedback(
+                config.ui("Đang phát một đoạn khác.", "Another clip is still playing.")
+            )
+            return
+        self._audio_feedback(playing)
 
     def _open_selected_detail(self, _event=None):
         item = self._selected_item()
@@ -433,12 +480,18 @@ class WordDetailApp:
         from listening_windows_tts import NORMAL_RATE
 
         language = self.language_code
+        detail_word = self.detail.word
+
+        def scope() -> bool:
+            return self.language_code == language and self.detail.word == detail_word
+
         started = play_async(
             self.window,
             text=spoken,
             language_code=language,
             rate=NORMAL_RATE,
             voice_name=voice_prefs.selected_voice_name(language) or None,
+            scope=scope,
             on_error=lambda error: self._audio_note(str(error)),
         )
         if not started:
