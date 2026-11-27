@@ -72,6 +72,13 @@ Near answers and hint-assisted exact answers are **non-mastered**. Do not casual
 - Introduction, multiple choice, and assisted practice do not write an attempt or SRS progress. Only a submitted independent recall uses the existing attempt path.
 - An incomplete missing-letter answer is not a failed exercise and does not move the session ladder. A completed assisted answer still does not write SRS.
 
+## Practice records
+
+- Recognition and assisted vocabulary events belong in `practice_records.db`. They do not belong in `account_study.db` or AttemptHistory.
+- A practice row must not call `Progress.record`, change SRS, clear Mistake Book attention, or enqueue a Cloud Sync progress event.
+- Independent recall remains the only vocabulary path that appends a `LearningAttempt`.
+- Guest practice is not imported into an account. An exact unaided attempt still outranks assisted practice for the next start, and assisted success does not make a non-mastered word mastered.
+
 ## Mistake Book
 
 - Latest **mastered** attempt → item does **not** currently need attention.

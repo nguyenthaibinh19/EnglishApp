@@ -21,6 +21,7 @@ if str(APP_DIR) not in sys.path:
 
 ROOT = Path(r"D:\EnglishApp\.local\19d4a-preview")
 SHOTS = Path(r"D:\EnglishApp\.local\19d4a-screenshots")
+PRACTICE_ROOT = Path(r"D:\EnglishApp\.local\19d4b-preview")
 
 FIETS = "11111111-1111-4111-8111-111111111111"
 HUIS = "22222222-2222-4222-8222-222222222222"
@@ -236,25 +237,198 @@ def capture() -> None:
     root.destroy()
 
 
+def _persist(practice_store, result) -> None:
+    if getattr(result, "practice", None) is not None:
+        practice_store.append(result.practice)
+
+
+def _submit_current(session):
+    from adaptive_vocabulary import reconstruct_mask
+
+    card = session.current_card()
+    if card.kind == "multiple_choice":
+        return session.submit(choice_index=card.correct_index)
+    if card.kind == "missing_letters":
+        fills = [card.reveal_word[index] for index, char in enumerate(card.mask) if char == "_"]
+        return session.submit(reconstruct_mask(card.mask, fills))
+    return session.submit(card.reveal_word)
+
+
+def _public_record(record) -> dict:
+    return {
+        "practice_event_id": record.practice_event_id,
+        "exercise_instance_id": record.exercise_instance_id,
+        "session_id": record.session_id,
+        "vocab_id": record.vocab_id,
+        "language_code": record.language_code,
+        "actual_kind": record.actual_kind,
+        "intended_kind": record.intended_kind,
+        "support_level": record.support_level,
+        "outcome": record.outcome,
+        "error_class": record.error_class,
+        "occurred_at": record.occurred_at,
+        "policy_id": record.policy_id,
+        "format_version": record.format_version,
+    }
+
+
+def run_practice_demo(root: Path) -> dict:
+    """Two synthetic restarts. The folder is wiped and rewritten with fake Dutch words."""
+    import shutil
+
+    from adaptive_vocabulary import (
+        GUIDED_TYPING,
+        MISSING_LETTERS,
+        AdaptiveVocabularySession,
+        apply_independent_write,
+        starting_level,
+    )
+    from attempt_history import AttemptHistory, LearningAttempt
+    from practice_record import practice_start_level
+    from practice_store import open_guest_store
+    from progress import Progress
+
+    root = Path(root)
+    if root.exists():
+        shutil.rmtree(root)
+    root.mkdir(parents=True)
+    guest = open_guest_store(str(root), "nl")
+    session = AdaptiveVocabularySession(
+        ENTRIES[:1],
+        language_code="nl",
+        pool=ENTRIES,
+        rng=random.Random(4),
+    )
+    assert session.current_card().kind == "introduction"
+    _persist(guest, session.continue_card())
+    _persist(guest, _submit_current(session))
+    session.continue_card()
+    assisted_kind = session.current_card().kind
+    assisted = _submit_current(session)
+    assert assisted.write is None and assisted.success is True
+    _persist(guest, assisted)
+    session.abandon()
+    assert session.finished is False
+    guest.close()
+
+    guest = open_guest_store(str(root), "nl")
+    saved = guest.for_vocab(FIETS, "nl")
+    expected = practice_start_level("introduction", saved, allow_promote=True)
+    restarted = AdaptiveVocabularySession(
+        ENTRIES[:1],
+        language_code="nl",
+        pool=ENTRIES,
+        rng=random.Random(4),
+        practice_history=saved,
+    )
+    start_kind = restarted.current_card().kind
+    progress = Progress(str(root / "progress.json"))
+    attempts = AttemptHistory(str(root / "attempts.jsonl"), language_code="nl")
+    guard = 8
+    while restarted.current_card() and restarted.current_card().kind != "independent_recall" and guard:
+        card = restarted.current_card()
+        if card.kind == "introduction":
+            restarted.continue_card()
+        else:
+            step = _submit_current(restarted)
+            _persist(guest, step)
+            restarted.continue_card()
+        guard -= 1
+    before_independent = guest.count()
+    indie = restarted.submit(restarted.current_card().reveal_word)
+    assert indie.practice is None and indie.write is not None and indie.write.mastered is True
+    apply_independent_write(progress, attempts, indie.write, timestamp="2026-11-27T16:00:00+00:00")
+    after_independent = guest.count()
+    guest.close()
+
+    prior = LearningAttempt(
+        timestamp="2026-11-27T12:00:00+00:00",
+        language_code="nl",
+        word="de fiets",
+        user_answer="nope",
+        expected_answer="de fiets",
+        correct=False,
+        verdict="wrong",
+        hint_used=False,
+        prompt="bicycle",
+        vocab_id=FIETS,
+    )
+    fail_dir = root / "failures"
+    guest = open_guest_store(str(fail_dir), "nl")
+    failing = AdaptiveVocabularySession(
+        ENTRIES[:1],
+        language_code="nl",
+        pool=ENTRIES,
+        attempts=[prior],
+        rng=random.Random(4),
+    )
+    without_practice = starting_level(None, prior)
+    assert failing.current_card().kind == GUIDED_TYPING
+    _persist(guest, failing.submit("nope"))
+    failing.continue_card()
+    _persist(guest, failing.submit("nope"))
+    failing.abandon()
+    assert failing.finished is False
+    guest.close()
+    guest = open_guest_store(str(fail_dir), "nl")
+    failures = guest.for_vocab(FIETS, "nl")
+    supported = AdaptiveVocabularySession(
+        ENTRIES[:1],
+        language_code="nl",
+        pool=ENTRIES,
+        attempts=[prior],
+        practice_history=failures,
+        rng=random.Random(4),
+    )
+    guest.close()
+    evidence = {
+        "success_records": [_public_record(row) for row in saved],
+        "assisted_kind": assisted_kind,
+        "restart_kind": start_kind,
+        "expected_restart_kind": expected,
+        "independent_added_practice_rows": after_independent - before_independent,
+        "attempt_count": len(attempts.load_attempts()),
+        "attempt_mastered": attempts.load_attempts()[0].correct,
+        "progress_words": list((progress.data.get("words") or {}).keys()),
+        "account_study_db": any(root.rglob("account_study.db")),
+        "failure_records": [_public_record(row) for row in failures],
+        "start_without_practice": without_practice,
+        "start_after_repeated_failures": supported.current_card().kind,
+        "more_support_kind": MISSING_LETTERS,
+    }
+    (root / "practice-evidence.json").write_text(
+        json.dumps(evidence, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+    return evidence
+
+
 def preview() -> None:
     import tkinter as tk
 
     from adaptive_vocabulary import AdaptiveSessionBridge, AdaptiveVocabularySession, select_planned_entries
     from adaptive_vocabulary_app import PREVIEW_HEIGHT, PREVIEW_WIDTH, AdaptiveVocabularyApp
     from daily_study import DailyStudyPlan
+    from practice_store import open_guest_store
     from study_session import build_study_session
 
     store, progress, attempts = prepare()
+    practice = open_guest_store(str(PRACTICE_ROOT / "interactive"), "nl")
     rng = random.Random(4)
     planned = select_planned_entries(store, progress, 1, rng)
+    history = []
+    for entry in planned:
+        history.extend(practice.for_vocab(entry["id"], "nl"))
     session = AdaptiveVocabularySession(
         planned,
         language_code="nl",
         pool=[store.get(index) for index in range(store.count())],
         progress_words=progress.data.get("words") or {},
         attempts=attempts.load_attempts(),
+        practice_history=history,
         rng=rng,
     )
+    print("restart starting exercise:", session.current_card().kind if session.current_card() else "none")
     plan = DailyStudyPlan(
         language_code="nl",
         vocab_total=store.count(),
@@ -283,16 +457,25 @@ def preview() -> None:
         attempts=attempts,
         on_completed=finished,
         provider=None,
+        practice_store=practice,
         locked=False,
     )
     root.mainloop()
+    practice.close()
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--screenshots", action="store_true")
+    parser.add_argument("--practice-demo", action="store_true")
     args = parser.parse_args()
     if args.screenshots:
         capture()
+    elif args.practice_demo:
+        evidence = run_practice_demo(PRACTICE_ROOT / "demo")
+        print("restart starting exercise:", evidence["restart_kind"])
+        print("after repeated failures:", evidence["start_after_repeated_failures"])
+        print("practice rows:", len(evidence["success_records"]))
+        print("evidence:", PRACTICE_ROOT / "demo" / "practice-evidence.json")
     else:
         preview()

@@ -4,10 +4,11 @@ Directional plan — **not** a rigid release commitment. Update when phases comp
 
 ## Latest operational checkpoint — 2026-11-27
 
+- **Phase 19.4B is ready for review.** Branch `phase19.4b/practice-records`. Not merged. Practice records are a separate local file for the unlocked preview. The installed study button still opens the legacy quiz. It is not in the v1.5.0 download. Notes: [PHASE-19.4B-practice-records.md](plans/PHASE-19.4B-practice-records.md).
 - **Phase 19.4A is closed and merged, and it is unreleased.** PR #34, merge `e33373110544a1ca4fca6905b8741d47e4932fc4`. The adaptive ladder is an unlocked preview in source. The installed study button still opens the legacy quiz. It is not in the v1.5.0 download. Notes: [PHASE-19.4A-adaptive-vocabulary.md](plans/PHASE-19.4A-adaptive-vocabulary.md).
 - **Phase 19.3 is closed.** Merged by PR #32 at `7aedf7a423d2ef244ce37b5d3f348c7f75ed0241`. Accepted source `3d983331c5d967c8cbe883f6881547eb4ff6ae72`. Local Windows speech is in source. Not in the public v1.5.0 download.
 - **Phase 19.2B UI is merged** (PR #31, `5f8f3c0`) and is also not in v1.5.0. The Tkinter fallback branch stays unmerged.
-- **Next review:** Sentence exercises, Grammar Companion, and the practice-record contract stay unauthorized. Do not replace the legacy quiz from this checkpoint.
+- **Next review:** Phase 19.4B. Do not merge it from this checkpoint. Sentence exercises and Grammar Companion stay unauthorized. Do not replace the legacy quiz.
 - 18C.1, 18C.2, and 18C.3B remain **CLOSED**. 18B.10A remains **AUDIT ACCEPTED, IMPLEMENTATION DEFERRED**. 18B.10B–E remain **NOT AUTHORIZED**.
 - **18B.9 PAUSED, NOT CLOSED.** Google Drive stays **NOT CONFIGURED**. Staging deployment **NOT STARTED**. The 2026-11-24 note that production Cloud Sync was ON for the pilot was not rechecked on 2026-11-27. The November 25 backup-timer elapse is historical.
 - Taste Skill and AI Memory are **PROPOSED — NOT AUDITED — NOT AUTHORIZED FOR INSTALLATION**. See [AI-TOOLCHAIN-SECURITY-AND-LOCAL-MEMORY.md](plans/AI-TOOLCHAIN-SECURITY-AND-LOCAL-MEMORY.md).
@@ -18,7 +19,7 @@ Phase 19.4A implements the first three items as a merged, unreleased unlocked pr
 
 1. Adaptive Vocabulary: introduction, multiple choice, missing letters, assisted recall, and independent typing. Merged at `e33373110544a1ca4fca6905b8741d47e4932fc4`. Not in the installed v1.5.0 download. The production study button still opens the legacy quiz.
 2. Assistance after repeated failures. Two failures at the same step move to an easier vocabulary exercise. This is a session policy, not an SRS formula.
-3. Separate exercise progress from verified SRS mastery. Recognition and assisted practice stay in memory. Only independent recall uses the existing attempt path.
+3. Separate exercise progress from verified SRS mastery. Phase 19.4B, on its review branch, stores recognition and assisted events in `practice_records.db`. Those rows still do not write SRS. Only independent recall uses the existing attempt path. Not merged.
 4. Progressive sentence exercises: word bank, fill-in-the-blank, guided writing, and independent writing.
 5. Expandable Grammar Companion with validated grammar rules and AI-assisted error explanation.
 6. Improved feedback and session completion presentation.

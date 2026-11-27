@@ -4,13 +4,15 @@
 
 ## Latest verified coordination checkpoint — 2026-11-27
 
-**Current priority:** **Phase 19.4A adaptive vocabulary is closed.** Merged by PR [#34](https://github.com/nguyenthaibinh19/EnglishApp/pull/34) at `e33373110544a1ca4fca6905b8741d47e4932fc4`. It is an unlocked preview in source and is not part of the installed v1.5.0 download. The production study button and locked sessions still open the legacy quiz. Recognition and assisted practice stay in memory. Only independent recall uses the existing attempt path. Notes: [PHASE-19.4A-adaptive-vocabulary.md](plans/PHASE-19.4A-adaptive-vocabulary.md).
+**Current priority:** **Phase 19.4B practice records are ready for review on `phase19.4b/practice-records`.** Not merged. The unlocked preview can save recognition and assisted events in a separate local file and use them on the next start. Independent recall still uses the existing attempt path. The production study button and locked sessions still open the legacy quiz. This is not part of the installed v1.5.0 download. Notes: [PHASE-19.4B-practice-records.md](plans/PHASE-19.4B-practice-records.md) and [ADR-026](decisions/ADR-026-practice-records.md).
+
+**Phase 19.4A adaptive vocabulary is closed.** Merged by PR [#34](https://github.com/nguyenthaibinh19/EnglishApp/pull/34) at `e33373110544a1ca4fca6905b8741d47e4932fc4`. On that merge, recognition and assisted practice stay in memory. Notes: [PHASE-19.4A-adaptive-vocabulary.md](plans/PHASE-19.4A-adaptive-vocabulary.md).
 
 **Phase 19.3 is closed and merged.** PR [#32](https://github.com/nguyenthaibinh19/EnglishApp/pull/32), merge `7aedf7a423d2ef244ce37b5d3f348c7f75ed0241`. Accepted audio source `3d983331c5d967c8cbe883f6881547eb4ff6ae72`. `WindowsSpeechProvider` is the shared local catalog. English, Dutch, Spanish, German, and Portuguese played on the Owner PC. French and Italian remain unavailable on that PC. Notes: [PHASE-19.3-multilingual-audio.md](plans/PHASE-19.3-multilingual-audio.md) and [ADR-016](decisions/ADR-016-listening-local-tts.md).
 
 **Public release:** v1.5.0 remains the installed download, built from `154bf03c6856667cf1322cfe4e6f31996e05e09f`. Release checkpoint **978 passed, 24 skipped, 0 failed**. Phase 19.2B UI (PR #31, `5f8f3c0`), Phase 19.3 audio, and the Phase 19.4A adaptive preview are merged source and are not in that download.
 
-**Next review action:** Sentence exercises, Grammar Companion, and the practice-record contract remain unimplemented. Do not wire the adaptive preview into the installed study button from this checkpoint. The rest of the Phase 19.1 list is in [roadmap.md](roadmap.md).
+**Next review action:** Review Phase 19.4B. Do not merge it from this checkpoint. Do not wire the adaptive preview into the installed study button. Sentence exercises and Grammar Companion remain unimplemented. The rest of the Phase 19.1 list is in [roadmap.md](roadmap.md).
 
 **18B.9 PAUSED, NOT CLOSED.** 18B.10A remains **AUDIT ACCEPTED, IMPLEMENTATION DEFERRED**. 18B.10B–E remain **NOT AUTHORIZED**. Google Drive remains **NOT CONFIGURED**. `C-APP-AI-001` v0.2.0 is accepted. `LocalAIProvider` is **NOT AUTHORIZED**. The website is not deployed.
 

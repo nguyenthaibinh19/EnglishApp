@@ -593,3 +593,143 @@ def test_long_missing_letter_mask_wraps_inside_the_card(tk_root):
         assert exercise.frame.winfo_reqwidth() <= 480
     finally:
         _close_window(window)
+
+
+def test_preview_persists_practice_without_an_attempt_or_completion(tmp_path, tk_root):
+    from practice_store import PracticeStoreError, open_guest_store
+
+    store = open_guest_store(str(tmp_path / "guest"), "nl")
+    controller = AdaptiveVocabularySession(
+        [pool()[0]],
+        language_code="nl",
+        pool=pool(),
+        rng=random.Random(4),
+    )
+    study = build_study_session(_plan())
+    bridge = AdaptiveSessionBridge(study, controller, locked=False)
+    progress = Progress(str(tmp_path / "progress.json"))
+    attempts = AttemptHistory(str(tmp_path / "attempts.jsonl"), language_code="nl")
+    window = tk.Toplevel(tk_root)
+    try:
+        app = AdaptiveVocabularyApp(
+            window,
+            controller,
+            bridge=bridge,
+            progress=progress,
+            attempts=attempts,
+            practice_store=store,
+            provider=_SilentVoice(),
+            locked=False,
+        )
+        window.update()
+        app.shell.check_button.invoke()
+        window.update()
+        card = app.session.current_card()
+        app.shell.exercise._select(card.correct_index)
+        app.shell.check_button.invoke()
+        window.update()
+        assert app.practice_saved == 2
+        app._check()
+        assert app.practice_saved == 2
+        assert store.count() == 2
+        rows = store.for_vocab(FIETS, "nl")
+        assert [row.outcome for row in rows] == ["acknowledged", "exact"]
+        assert rows[0].actual_kind == "introduction"
+        assert rows[1].actual_kind == "multiple_choice"
+        assert "user_answer" not in rows[0].__dict__
+        app._leave()
+        tk_root.update()
+    finally:
+        store.close()
+        _close_window(window)
+    assert study.vocabulary_complete() is False
+    assert attempts.load_attempts() == []
+    assert progress.data["words"] == {}
+    reopened = open_guest_store(str(tmp_path / "guest"), "nl")
+    try:
+        again = AdaptiveVocabularySession(
+            [pool()[0]],
+            language_code="nl",
+            pool=pool(),
+            rng=random.Random(4),
+            practice_history=reopened.for_vocab(FIETS, "nl"),
+        )
+        assert again.current_card().kind != "introduction"
+    finally:
+        reopened.close()
+
+    missed = open_guest_store(str(tmp_path / "miss"), "nl")
+    missing = AdaptiveVocabularySession(
+        [pool()[0]],
+        language_code="nl",
+        pool=pool(),
+        rng=random.Random(4),
+        level_overrides={FIETS: MISSING_LETTERS},
+    )
+    hinted = AdaptiveVocabularySession(
+        [pool()[0]],
+        language_code="nl",
+        pool=pool(),
+        rng=random.Random(4),
+        level_overrides={FIETS: INDEPENDENT_RECALL},
+    )
+    other = tk.Toplevel(tk_root)
+    try:
+        app = AdaptiveVocabularyApp(
+            other,
+            missing,
+            practice_store=missed,
+            provider=_SilentVoice(),
+            locked=False,
+        )
+        other.update()
+        app.shell.check_button.invoke()
+        other.update()
+        assert missed.count() == 0
+        assert app._phase == "answer"
+    finally:
+        missed.close()
+        _close_window(other)
+    hint_store = open_guest_store(str(tmp_path / "hint"), "nl")
+    hint_window = tk.Toplevel(tk_root)
+    try:
+        app = AdaptiveVocabularyApp(
+            hint_window,
+            hinted,
+            progress=Progress(str(tmp_path / "hint-progress.json")),
+            attempts=AttemptHistory(str(tmp_path / "hint-attempts.jsonl"), language_code="nl"),
+            practice_store=hint_store,
+            provider=_SilentVoice(),
+            locked=False,
+        )
+        hint_window.update()
+        app._hear(0)
+        app.shell.hint_button.invoke()
+        hint_window.update()
+        assert hint_store.count() == 0
+        assert app.session.current_card().kind == "guided_typing"
+    finally:
+        hint_store.close()
+        _close_window(hint_window)
+
+    class _Broken:
+        def append(self, _record):
+            raise PracticeStoreError("disk full")
+
+    broken_window = tk.Toplevel(tk_root)
+    try:
+        app = AdaptiveVocabularyApp(
+            broken_window,
+            AdaptiveVocabularySession([pool()[0]], language_code="nl", pool=pool(), rng=random.Random(4)),
+            practice_store=_Broken(),
+            provider=_SilentVoice(),
+            locked=False,
+        )
+        broken_window.update()
+        app.shell.check_button.invoke()
+        broken_window.update()
+        assert app.practice_unsaved == 1
+        assert app.practice_saved == 0
+        assert config.ui("chưa được lưu", "was not saved") in app.shell.exercise.voice_note.cget("text")
+    finally:
+        _close_window(broken_window)

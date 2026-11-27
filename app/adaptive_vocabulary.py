@@ -1,7 +1,8 @@
 """Adaptive vocabulary ladder. Pure session state. No Tkinter and no SRS writes.
 
 Exercise difficulty moves inside one session. The SRS ladder still decides when
-a word is due. Recognition and assisted practice stay in memory. Only a
+a word is due. Recognition and assisted submissions can return a practice
+event. This module does not store that event and does not write SRS. Only a
 submitted independent recall returns a write for the existing attempt path.
 
 Policy id ``adaptive-vocab-session-v1`` is not an SRS algorithm id.
@@ -12,7 +13,7 @@ from __future__ import annotations
 import random
 import uuid
 from collections import deque
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import datetime
 from typing import Deque, Dict, Iterable, List, Optional, Sequence
 
@@ -22,7 +23,8 @@ from text_utils import accepted_forms, display_word, entry_word, match_answer, n
 from vocabulary_model import entry_example, entry_meaning
 from vocab_identity import entry_id
 
-POLICY_ID = "adaptive-vocab-session-v1"
+from practice_record import POLICY_ID, practice_start_level
+
 STEP_DOWN_FAILURES = 2
 # Soft cap used only to prefer another planned word. It never removes a word.
 PRESENTATION_CAP = 48
@@ -87,6 +89,7 @@ class ExerciseCard:
     guidance: str = ""
     reveal_word: str = ""
     accepted_answers: tuple[str, ...] = ()
+    exercise_instance_id: str = ""
 
 
 @dataclass(frozen=True)
@@ -118,6 +121,7 @@ class SubmitResult:
     write: Optional[IndependentWrite] = None
     completed_word: bool = False
     session_finished: bool = False
+    practice: object = None
 
 
 @dataclass(frozen=True)
@@ -459,9 +463,27 @@ def starting_level(
     latest_attempt,
     *,
     now: Optional[datetime] = None,
+    practice=(),
 ) -> str:
-    """New words start at introduction. A non-mastered latest attempt starts one step easier."""
+    """New words start at introduction. A non-mastered latest attempt starts one step easier.
+
+    Recent practice can change that start. An exact unaided attempt stays at
+    independent recall. Assisted success never promotes a non-mastered word
+    to independent recall. Two recent practice failures can start one step easier.
+    """
     now = now or utc_now()
+    base = _base_starting_level(stats, latest_attempt, now=now)
+    if base == INDEPENDENT_RECALL:
+        return base
+    return practice_start_level(
+        base,
+        practice,
+        allow_promote=base == INTRODUCTION,
+        now=now,
+    )
+
+
+def _base_starting_level(stats, latest_attempt, *, now: datetime) -> str:
     if latest_attempt is None and is_new(stats):
         return INTRODUCTION
     mastered = _attempt_mastered(latest_attempt)
@@ -508,6 +530,7 @@ class AdaptiveVocabularySession:
         session_id: str = "",
         step_down_after: int = STEP_DOWN_FAILURES,
         level_overrides: Optional[dict] = None,
+        practice_history=(),
     ):
         self.session_id = session_id or uuid.uuid4().hex
         self.language_code = str(language_code or "").strip().lower()
@@ -525,6 +548,11 @@ class AdaptiveVocabularySession:
         self._card: Optional[ExerciseCard] = None
         self.counters = SessionCounters()
         overrides = level_overrides or {}
+        history: Dict[str, list] = {}
+        for record in practice_history or ():
+            if str(getattr(record, "language_code", "") or "") != self.language_code:
+                continue
+            history.setdefault(str(getattr(record, "vocab_id", "") or ""), []).append(record)
         seen = set()
         for entry in entries or ():
             if not isinstance(entry, dict):
@@ -536,7 +564,12 @@ class AdaptiveVocabularySession:
             self._entries[vid] = entry
             latest = latest_attempt_for(attempts, vid, self.language_code)
             stats = self.progress_words.get(vid)
-            kind = overrides.get(vid) or starting_level(stats, latest, now=self.now)
+            kind = overrides.get(vid) or starting_level(
+                stats,
+                latest,
+                now=self.now,
+                practice=history.get(vid, ()),
+            )
             if kind not in LADDER:
                 kind = INTRODUCTION
             self._states[vid] = _WordState(vocab_id=vid, level=LADDER.index(kind))
@@ -758,14 +791,56 @@ class AdaptiveVocabularySession:
         if LADDER[state.level] == INDEPENDENT_RECALL:
             action = "complete"
         self._pending = _Pending(card.vocab_id, action, None)
+        outcome = "acknowledged" if card.kind == INTRODUCTION else (verdict or "exact")
+        practice = self._practice_event(card, outcome)
         if card.kind == INTRODUCTION:
             self._apply_pending()
-            return SubmitResult("advanced", success=True, session_finished=self.finished)
-        return SubmitResult("feedback", success=True, verdict=verdict, tone=tone, feedback=feedback)
+            return SubmitResult(
+                "advanced",
+                success=True,
+                session_finished=self.finished,
+                practice=practice,
+            )
+        return SubmitResult(
+            "feedback",
+            success=True,
+            verdict=verdict,
+            tone=tone,
+            feedback=feedback,
+            practice=practice,
+        )
 
     def _queue_failure(self, card, *, verdict, feedback, tone: str = "bad") -> SubmitResult:
         self._pending = _Pending(card.vocab_id, "fail", None)
-        return SubmitResult("feedback", success=False, verdict=verdict, tone=tone, feedback=feedback)
+        outcome = verdict if verdict in ("near", "wrong") else "wrong"
+        return SubmitResult(
+            "feedback",
+            success=False,
+            verdict=verdict,
+            tone=tone,
+            feedback=feedback,
+            practice=self._practice_event(card, outcome),
+        )
+
+    def _practice_event(self, card, outcome: str):
+        """Recognition and assisted submissions only. Independent recall stays an attempt."""
+        if card.support_level == "independent" or not card.exercise_instance_id:
+            return None
+        from attempt_history import utc_now_iso
+        from practice_record import build_practice_record
+
+        return build_practice_record(
+            practice_event_id=uuid.uuid4().hex,
+            exercise_instance_id=card.exercise_instance_id,
+            session_id=self.session_id,
+            vocab_id=card.vocab_id,
+            language_code=self.language_code,
+            actual_kind=card.kind,
+            intended_kind=card.intended_kind,
+            support_level=card.support_level,
+            outcome=outcome,
+            occurred_at=utc_now_iso(),
+        )
 
     def _apply_pending(self) -> SubmitResult:
         pending = self._pending
@@ -823,7 +898,7 @@ class AdaptiveVocabularySession:
         state = self._states[vid]
         state.presentations += 1
         kind = LADDER[state.level]
-        self._card = build_exercise(
+        card = build_exercise(
             self._entries[vid],
             self.pool,
             self.rng,
@@ -831,6 +906,7 @@ class AdaptiveVocabularySession:
             kind,
             state.assist_depth,
         )
+        self._card = replace(card, exercise_instance_id=uuid.uuid4().hex)
 
 
 def apply_independent_write(progress, attempts, write: IndependentWrite, *, timestamp: str) -> None:
