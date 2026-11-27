@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import random
 
+import config
 import pytest
 
 from adaptive_vocabulary import (
@@ -146,11 +147,11 @@ def test_two_failures_step_down_and_other_words_still_get_a_turn():
 
 def test_repeated_guided_failures_reveal_more_then_step_down():
     controller = session([pool()[0]], level_overrides={FIETS: GUIDED_TYPING})
-    assert "level 1" in controller.current_card().guidance
+    assert config.ui("mức 1", "level 1") in controller.current_card().guidance
     controller.submit("nope")
     controller.continue_card()
     assert controller.current_card().kind == GUIDED_TYPING
-    assert "level 2" in controller.current_card().guidance
+    assert config.ui("mức 2", "level 2") in controller.current_card().guidance
     controller.submit("nope")
     controller.continue_card()
     assert controller.current_card().kind == MISSING_LETTERS
@@ -169,7 +170,7 @@ def test_mask_keeps_unicode_space_and_punctuation():
     assert "-" in punct and "'" in punct
     assert mask_target("é", rng) is None
     guidance = guided_guidance("één", 1)
-    assert guidance.startswith("Assisted spelling, level 1")
+    assert config.ui("mức 1", "level 1") in guidance
     assert "één" not in guidance
 
 
@@ -212,7 +213,8 @@ def test_independent_recall_records_once_and_near_is_not_mastery():
     assert near.write is not None
     assert near.write.verdict == "near"
     assert near.write.mastered is False
-    assert "not mastery" in near.feedback
+    assert "het boek" in near.feedback
+    assert config.ui("không phải đã thuộc", "not mastery") in near.feedback
     wrong = session(
         [word(WATER, "het water", "water")],
         level_overrides={WATER: INDEPENDENT_RECALL},
@@ -313,6 +315,72 @@ def test_audio_stays_hidden_until_independent_submit():
     assert intro.show_example == "Ik ga met de fiets."
     bare = session([word(HUIS, "het huis", "house")]).current_card()
     assert bare.show_example == ""
+
+
+def test_prolonged_failure_keeps_every_word_and_does_not_finish():
+    one = session([pool()[0]], level_overrides={FIETS: INDEPENDENT_RECALL})
+    one._states[FIETS].presentations = 48
+    for _ in range(5):
+        assert one.current_card() is not None
+        assert one.current_card().vocab_id == FIETS
+        one.submit("nope")
+        one.continue_card()
+    assert one._states[FIETS].presentations == 53
+    assert one.counters.words_completed == 0
+    assert one.counters.independent_mastered == 0
+    assert one.finished is False
+    assert list(one._order) == [FIETS]
+
+    both = session(
+        [pool()[0], pool()[1]],
+        level_overrides={FIETS: INDEPENDENT_RECALL, HUIS: INDEPENDENT_RECALL},
+    )
+    for state in both._states.values():
+        state.presentations = 48
+    seen = []
+    for _ in range(6):
+        card = both.current_card()
+        assert card is not None
+        seen.append(card.vocab_id)
+        both.submit("nope")
+        both.continue_card()
+    assert seen == [FIETS, HUIS, FIETS, HUIS, FIETS, HUIS]
+    assert both._states[FIETS].presentations > 48
+    assert both._states[HUIS].presentations > 48
+    assert both.counters.words_completed == 0
+    assert both.counters.independent_mastered == 0
+    assert both.finished is False
+    assert set(both._order) == {FIETS, HUIS}
+
+
+def test_empty_or_invalid_plan_is_not_a_completed_session():
+    empty = AdaptiveVocabularySession([], language_code="nl", rng=random.Random(1))
+    assert empty.current_card() is None
+    assert empty.finished is False
+    assert empty.take_completion() is False
+    invalid = AdaptiveVocabularySession(
+        [{"word": "de fiets", "meaning": "bicycle"}],
+        language_code="nl",
+        rng=random.Random(1),
+    )
+    assert invalid.current_card() is None
+    assert invalid.finished is False
+    plan = DailyStudyPlan(
+        language_code="nl",
+        vocab_total=0,
+        due_review_count=0,
+        new_word_count=0,
+        future_review_count=0,
+        attention_word_count=0,
+        planned_vocab_count=1,
+        reading_enabled=True,
+        listening_enabled=True,
+    )
+    study = build_study_session(plan)
+    bridge = AdaptiveSessionBridge(study, empty, locked=False)
+    assert bridge.note_finished() is False
+    assert study.vocabulary_complete() is False
+    assert study.status(KIND_READING) == "pending"
 
 
 def test_legacy_quiz_still_records_an_independent_answer(tmp_path):

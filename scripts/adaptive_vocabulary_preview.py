@@ -41,13 +41,12 @@ ENTRIES = [
 
 
 class SilentVoice:
-    """Screenshot and unavailable-voice stand-in. It never synthesizes."""
-
-    def supports(self, _language):
-        return False
+    """Screenshot stand-in. Playback reports a missing voice and never synthesizes."""
 
     def play(self, *_args, **_kwargs):
-        raise AssertionError("preview voice stub does not synthesize")
+        from listening import ListeningAudioError
+
+        raise ListeningAudioError("No voice for this language on this PC. You can continue.")
 
 
 def prepare():
@@ -79,14 +78,17 @@ def grab(window, path: Path) -> None:
     image = ImageGrab.grab(window=window.winfo_id())
     path.parent.mkdir(parents=True, exist_ok=True)
     image.save(path)
-    print(f"{path.name} {image.size[0]}x{image.size[1]}")
+    print(
+        f"{path.name} bitmap {image.size[0]}x{image.size[1]} "
+        f"window {window.winfo_width()}x{window.winfo_height()}"
+    )
 
 
 def capture() -> None:
     import tkinter as tk
 
     from adaptive_vocabulary import INDEPENDENT_RECALL, AdaptiveVocabularySession
-    from adaptive_vocabulary_app import AdaptiveVocabularyApp
+    from adaptive_vocabulary_app import PREVIEW_HEIGHT, PREVIEW_WIDTH, AdaptiveVocabularyApp
 
     _store, progress, attempts = prepare()
     root = tk.Tk()
@@ -100,7 +102,7 @@ def capture() -> None:
     ]
     for name, level in kinds:
         window = tk.Toplevel(root)
-        window.geometry("640x760+80+40")
+        window.geometry(f"{PREVIEW_WIDTH}x{PREVIEW_HEIGHT}+80+40")
         overrides = {FIETS: level} if level else None
         session = AdaptiveVocabularySession(
             ENTRIES[:1],
@@ -119,13 +121,22 @@ def capture() -> None:
         )
         window.update()
         if name == "introduction":
-            app.shell.exercise.normal_button.invoke()
-            window.update()
+            def tick(left):
+                if left == 30:
+                    app.shell.exercise.normal_button.invoke()
+                note = app.shell.exercise.voice_note.cget("text")
+                if "You can continue" in note or "tiếp tục" in note.lower() or left <= 0:
+                    window.quit()
+                    return
+                window.after(40, lambda: tick(left - 1))
+
+            window.after(0, lambda: tick(30))
+            window.mainloop()
         grab(window, SHOTS / f"{name}.png")
         window.destroy()
 
     window = tk.Toplevel(root)
-    window.geometry("640x760+80+40")
+    window.geometry(f"{PREVIEW_WIDTH}x{PREVIEW_HEIGHT}+80+40")
     session = AdaptiveVocabularySession(
         ENTRIES[:1],
         language_code="nl",
@@ -149,6 +160,39 @@ def capture() -> None:
     window.update()
     grab(window, SHOTS / "independent-incorrect.png")
     window.destroy()
+
+    window = tk.Toplevel(root)
+    window.geometry(f"{PREVIEW_WIDTH}x{PREVIEW_HEIGHT}+80+40")
+    session = AdaptiveVocabularySession(
+        ENTRIES[:1],
+        language_code="nl",
+        pool=ENTRIES,
+        rng=random.Random(4),
+        level_overrides={FIETS: INDEPENDENT_RECALL},
+    )
+    done_progress = type(progress)(str(ROOT / "completion-progress.json"))
+    done_attempts = type(attempts)(str(ROOT / "completion-attempts.jsonl"), language_code="nl")
+    app = AdaptiveVocabularyApp(
+        window,
+        session,
+        progress=done_progress,
+        attempts=done_attempts,
+        provider=SilentVoice(),
+        locked=False,
+    )
+    window.update()
+    app.shell.exercise.entry.insert(0, "de fiets")
+    app._check()
+    window.update()
+    app.shell.continue_button.invoke()
+    window.update()
+    grab(window, SHOTS / "completion.png")
+    print(
+        f"requested {PREVIEW_WIDTH}x{PREVIEW_HEIGHT} "
+        f"actual {window.winfo_width()}x{window.winfo_height()} "
+        f"minimum 480x560"
+    )
+    window.destroy()
     root.destroy()
 
 
@@ -156,7 +200,7 @@ def preview() -> None:
     import tkinter as tk
 
     from adaptive_vocabulary import AdaptiveSessionBridge, AdaptiveVocabularySession, select_planned_entries
-    from adaptive_vocabulary_app import AdaptiveVocabularyApp
+    from adaptive_vocabulary_app import PREVIEW_HEIGHT, PREVIEW_WIDTH, AdaptiveVocabularyApp
     from daily_study import DailyStudyPlan
     from study_session import build_study_session
 
@@ -185,7 +229,7 @@ def preview() -> None:
     study = build_study_session(plan)
     bridge = AdaptiveSessionBridge(study, session, locked=False)
     root = tk.Tk()
-    root.geometry("640x760+80+40")
+    root.geometry(f"{PREVIEW_WIDTH}x{PREVIEW_HEIGHT}+80+40")
 
     def finished():
         print("vocabulary complete:", study.vocabulary_complete())

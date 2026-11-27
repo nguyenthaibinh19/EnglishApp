@@ -9,8 +9,10 @@ from __future__ import annotations
 import tkinter as tk
 from tkinter import ttk
 
+import config
 import ui_common
 import ui_foundation
+import voice_prefs
 from adaptive_vocabulary import (
     AdaptivePreviewRefused,
     AdaptiveSessionBridge,
@@ -28,6 +30,11 @@ from study_presentation import (
     TypingExercise,
 )
 from vocabulary_model import entry_example
+
+# Compact study card. Four choices plus the whole-word line need more than the
+# legacy 560×520 quiz, so this preview is 560×640. Minimum is 480×560.
+PREVIEW_WIDTH = 560
+PREVIEW_HEIGHT = 640
 
 
 class AdaptiveVocabularyApp:
@@ -55,22 +62,26 @@ class AdaptiveVocabularyApp:
         self.on_leave = on_leave
         self.provider = provider
         self._phase = "answer"
+        self._checking = False
         self._completion_calls = 0
         self._applied_writes = 0
         self._card_token = 0
         self.window.title("LanguageGuard — Adaptive vocabulary preview")
-        try:
-            self.window.geometry("640x760")
-            self.window.minsize(520, 640)
-            self.window.configure(bg=ui_foundation.COLOR_BG)
-        except tk.TclError:
-            pass
         self.guard = ui_common.ScreenGuard(
             window,
             enabled=False,
             on_close_attempt=self._leave,
             on_unlocked_close=self._leave,
         )
+        # ScreenGuard's unlocked path sets 1280×820. The study card then uses
+        # the compact size. Lock stays off.
+        if not self.guard.enabled:
+            try:
+                self.window.geometry(f"{PREVIEW_WIDTH}x{PREVIEW_HEIGHT}")
+                self.window.minsize(480, 560)
+                self.window.configure(bg=ui_foundation.COLOR_BG)
+            except tk.TclError:
+                pass
         self._build()
         self.window.bind("<Return>", self._on_return)
         self.window.bind("<KP_Enter>", self._on_return)
@@ -94,12 +105,13 @@ class AdaptiveVocabularyApp:
             on_emergency=self._leave,
         )
         self.shell.set_copy(
-            check="Check answer",
-            hint="Need a hint",
-            continue_text="Continue",
-            leave="Leave for now",
-            emergency="Emergency exit",
+            check=config.ui("Kiểm tra", "Check answer"),
+            hint=config.ui("Cần gợi ý", "Need a hint"),
+            continue_text=config.ui("Tiếp tục", "Continue"),
+            leave=config.ui("Để lúc khác", "Leave for now"),
+            emergency=config.ui("Thoát khẩn cấp", "Emergency exit"),
         )
+        self.shell.hear_button.configure(text=config.ui("Nghe từ", "Hear the word"))
         self.shell.pack(fill=tk.BOTH, expand=True)
 
     def _on_return(self, _event=None):
@@ -119,16 +131,21 @@ class AdaptiveVocabularyApp:
         return "break"
 
     def _show_current(self) -> None:
-        card = self.session.current_card()
-        if card is None or self.session.finished:
+        if self.session.finished:
             self._show_complete()
+            return
+        card = self.session.current_card()
+        if card is None:
+            self._show_empty()
             return
         self._phase = "answer"
         self._card_token += 1
         self._mount(card)
         show_hint = card.kind == "independent_recall"
         self.shell.check_button.configure(
-            text="Continue" if card.kind == "introduction" else "Check answer"
+            text=config.ui("Tiếp tục", "Continue")
+            if card.kind == "introduction"
+            else config.ui("Kiểm tra", "Check answer")
         )
         self.shell.show_answering(show_hint=show_hint, clear_support=False)
         self._update_progress()
@@ -149,17 +166,24 @@ class AdaptiveVocabularyApp:
         done = self.session.counters.words_completed
         total = max(self.session.counters.planned, 1)
         mastered = self.session.counters.independent_mastered
-        label = f"{done}/{total} practiced"
+        label = config.ui(f"Đã luyện {done}/{total}", f"{done}/{total} practiced")
         self.shell.set_progress(done, total, label)
         # The fraction is independent session progress, not SRS mastery.
         _ = mastered
 
     def _check(self) -> None:
-        if self._phase != "answer":
+        if self._phase != "answer" or self._checking:
             return
         card = self.session.current_card()
         if card is None:
             return
+        self._checking = True
+        try:
+            self._check_card(card)
+        finally:
+            self._checking = False
+
+    def _check_card(self, card) -> None:
         if card.kind == "introduction":
             self.session.continue_card()
             self._show_current()
@@ -216,40 +240,86 @@ class AdaptiveVocabularyApp:
         card = self.session.current_card()
         phase = "feedback" if self._phase == "feedback" else "answer"
         plan = speech_for_card(card, phase)
-        note = getattr(self.shell.exercise, "voice_note", None)
-        if not plan.allowed:
+        if card is None or not plan.allowed:
             return
-        provider = self.provider
-        if provider is not None and hasattr(provider, "supports") and not provider.supports(card.language_code):
-            if note is not None:
-                note.configure(text="No voice for this language on this PC. You can continue.")
-            return
+        token = self._card_token
+        language = card.language_code
+        spoken = plan.text
+        spoken_rate = int(rate)
+        voice_name = voice_prefs.selected_voice_name(language) or None
+
+        def scope() -> bool:
+            if token != self._card_token:
+                return False
+            try:
+                alive = bool(self.window.winfo_exists())
+            except tk.TclError:
+                return False
+            if not alive:
+                return False
+            current_phase = "feedback" if self._phase == "feedback" else "answer"
+            current = speech_for_card(self.session.current_card(), current_phase)
+            return current.allowed and current.text == spoken
+
         started = play_async(
             self.window,
-            text=plan.text,
-            language_code=card.language_code,
-            rate=NORMAL_RATE if rate == 0 else SLOW_RATE,
-            provider=provider,
-            scope=lambda token=self._card_token: token == self._card_token and self.window.winfo_exists(),
-            on_error=lambda _error: self._voice_failed(),
+            text=spoken,
+            language_code=language,
+            rate=spoken_rate,
+            voice_name=voice_name,
+            provider=self.provider,
+            scope=scope,
+            on_error=lambda error, mark=token: self._voice_status(mark, str(error)),
+            on_done=lambda mark=token: self._voice_status(mark, ""),
         )
-        if not started and note is not None:
-            note.configure(text="Audio is busy. You can continue.")
+        if not started:
+            self._voice_status(
+                token,
+                config.ui(
+                    "Đang phát một đoạn khác. Bạn vẫn có thể tiếp tục.",
+                    "Another clip is still playing. You can continue.",
+                ),
+            )
+            return
+        self._voice_status(token, config.ui("Đang phát…", "Playing…"))
 
-    def _voice_failed(self) -> None:
+    def _voice_status(self, token: int, text: str) -> None:
+        if token != self._card_token:
+            return
         note = getattr(self.shell.exercise, "voice_note", None)
-        if note is not None:
-            note.configure(text="No voice for this language on this PC. You can continue.")
+        if note is None:
+            return
+        try:
+            note.configure(text=text)
+        except tk.TclError:
+            pass
+
+    def _show_empty(self) -> None:
+        """An empty plan is not a finished study session."""
+        self._phase = "empty"
+        self.shell.show_complete(
+            config.ui("Chưa có từ trong phiên này.", "This session has no planned words."),
+            config.ui("Phiên này chưa hoàn thành.", "This is not a completed session."),
+            config.ui("Để lúc khác", "Leave for now"),
+        )
+        self.shell.continue_button.configure(command=self._leave)
 
     def _show_complete(self) -> None:
         self._phase = "complete"
         counters = self.session.counters
-        detail = (
+        detail = config.ui(
+            f"{counters.independent_session_correct} câu nhớ độc lập trong phiên. "
+            f"{counters.independent_mastered} câu đã thuộc. "
+            "Câu gần đúng không phải đã thuộc. Bài nhận diện và bài có hỗ trợ không tính vào số này.",
             f"{counters.independent_session_correct} independent session answers. "
             f"{counters.independent_mastered} mastered. "
-            "A near answer is not mastery. Assisted practice stays out of this count."
+            "A near answer is not mastery. Assisted practice stays out of this count.",
         )
-        self.shell.show_complete("Vocabulary done.", detail, "Back")
+        self.shell.show_complete(
+            config.ui("Xong phần từ vựng.", "Vocabulary done."),
+            detail,
+            config.ui("Về hôm nay", "Back"),
+        )
 
     def _close_complete(self) -> None:
         if self._phase != "complete" or self._completion_calls:

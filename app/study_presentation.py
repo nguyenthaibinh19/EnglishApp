@@ -10,6 +10,7 @@ import tkinter as tk
 
 import customtkinter as ctk
 
+import config
 import ui_foundation
 from ctk_keyboard import bind_activation
 
@@ -378,18 +379,21 @@ class IntroductionExercise:
         _label(self.frame, card.kicker, 15).pack(pady=(8, 6))
         _label(self.frame, card.show_word, 32, "bold").pack(pady=(0, 8))
         _label(self.frame, card.show_meaning, 20).pack(pady=(0, 8))
-        example = card.show_example or "No example is stored for this word."
+        example = card.show_example or config.ui(
+            "Từ này chưa có câu ví dụ.",
+            "No example is stored for this word.",
+        )
         _label(self.frame, example, 15).pack(pady=(0, 8))
         row = ctk.CTkFrame(self.frame, fg_color=ui_foundation.COLOR_CARD, corner_radius=0)
         row.pack(pady=(4, 4))
         self.normal_button = ctk.CTkButton(
-            row, text="Listen", width=120, height=34, corner_radius=10,
+            row, text=config.ui("Nghe", "Listen"), width=120, height=34, corner_radius=10,
             fg_color=ui_foundation.COLOR_SOFT_GREEN, hover_color="#D3E6DA",
             text_color=ui_foundation.COLOR_PRIMARY,
             command=lambda: on_hear(0),
         )
         self.slow_button = ctk.CTkButton(
-            row, text="Listen slowly", width=140, height=34, corner_radius=10,
+            row, text=config.ui("Nghe chậm", "Listen slowly"), width=140, height=34, corner_radius=10,
             fg_color=ui_foundation.COLOR_SOFT_GREEN, hover_color="#D3E6DA",
             text_color=ui_foundation.COLOR_PRIMARY,
             command=lambda: on_hear(-4),
@@ -398,8 +402,10 @@ class IntroductionExercise:
         self.slow_button.pack(side=tk.LEFT, padx=6)
         bind_activation(self.normal_button)
         bind_activation(self.slow_button)
-        self.voice_note = _label(self.frame, card.guidance, 14)
-        self.voice_note.pack(pady=(6, 0))
+        self.guidance = _label(self.frame, card.guidance, 14)
+        self.guidance.pack(pady=(6, 0))
+        self.voice_note = _label(self.frame, "", 14)
+        self.voice_note.pack(pady=(2, 0))
 
     def answer_text(self) -> str:
         return ""
@@ -417,7 +423,7 @@ class IntroductionExercise:
 
     def show_support(self, text: str) -> None:
         if text:
-            self.voice_note.configure(text=text)
+            self.guidance.configure(text=text)
 
     def focus_answer(self) -> None:
         return None
@@ -452,6 +458,8 @@ class MultipleChoiceExercise:
             self.buttons.append(button)
         self.support = _label(self.frame, card.guidance, 14)
         self.support.pack(pady=(8, 0))
+        self.voice_note = _label(self.frame, "", 14)
+        self.voice_note.pack(pady=(2, 0))
 
     def _select(self, index: int) -> None:
         self._selected = index
@@ -519,6 +527,8 @@ class TypingExercise:
         self.entry.pack(fill=tk.X, padx=8, pady=(0, 8))
         self.support = _label(self.frame, card.guidance, 14)
         self.support.pack(pady=(0, 4))
+        self.voice_note = _label(self.frame, "", 14)
+        self.voice_note.pack(pady=(0, 2))
 
     def answer_text(self) -> str:
         return self.entry.get().strip()

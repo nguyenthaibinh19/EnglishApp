@@ -24,6 +24,8 @@ from vocab_identity import entry_id
 
 POLICY_ID = "adaptive-vocab-session-v1"
 STEP_DOWN_FAILURES = 2
+# Soft cap used only to prefer another planned word. It never removes a word.
+PRESENTATION_CAP = 48
 
 INTRODUCTION = "introduction"
 MULTIPLE_CHOICE = "multiple_choice"
@@ -47,13 +49,16 @@ SUPPORT = {
     INDEPENDENT_RECALL: "independent",
 }
 
-KICKER = {
-    INTRODUCTION: "Introduction",
-    MULTIPLE_CHOICE: "Recognition",
-    MISSING_LETTERS: "Assisted practice",
-    GUIDED_TYPING: "Assisted practice",
-    INDEPENDENT_RECALL: "Independent recall",
-}
+def _kicker(kind: str) -> str:
+    labels = {
+        INTRODUCTION: ("Làm quen", "Introduction"),
+        MULTIPLE_CHOICE: ("Nhận diện", "Recognition"),
+        MISSING_LETTERS: ("Luyện có hỗ trợ", "Assisted practice"),
+        GUIDED_TYPING: ("Luyện có hỗ trợ", "Assisted practice"),
+        INDEPENDENT_RECALL: ("Nhớ độc lập", "Independent recall"),
+    }
+    vi, en = labels[kind]
+    return config.ui(vi, en)
 
 
 @dataclass(frozen=True)
@@ -180,12 +185,16 @@ def guided_guidance(word: str, depth: int) -> str:
         reveal = 0
     shown = text[:reveal]
     if shown:
-        lead = f"Starts with {shown}."
+        lead_en = f"Starts with {shown}."
+        lead_vi = f"Bắt đầu bằng {shown}."
     else:
-        lead = "Type the whole word."
-    return (
-        f"Assisted spelling, level {level} of 3. {lead} "
-        f"{len(text)} characters."
+        lead_en = "Type the whole word."
+        lead_vi = "Hãy gõ cả từ."
+    return config.ui(
+        f"Luyện chính tả có hỗ trợ, mức {level} trên 3. {lead_vi} "
+        f"{len(text)} ký tự. Hãy gõ cả từ.",
+        f"Assisted spelling, level {level} of 3. {lead_en} "
+        f"{len(text)} characters. Type the whole word.",
     )
 
 
@@ -244,7 +253,10 @@ def generate_multiple_choice(
         prompt=meaning,
         choices=tuple(labels),
         correct_index=labels.index(correct),
-        guidance="Recognition. Pick the word. This does not change mastery.",
+            guidance=config.ui(
+                "Nhận diện. Chọn từ. Bài này không tính là đã thuộc.",
+                "Recognition. Pick the word. This does not change mastery.",
+            ),
         reveal_word=correct,
     )
 
@@ -256,7 +268,7 @@ def _card(entry, language_code, kind, intended, **kwargs) -> ExerciseCard:
         support_level=SUPPORT[kind],
         vocab_id=entry_id(entry),
         language_code=language_code,
-        kicker=KICKER[kind],
+        kicker=_kicker(kind),
         reveal_word=kwargs.pop("reveal_word", display_word(entry) or entry_word(entry)),
         accepted_answers=tuple(sorted(_forms(entry, language_code))),
         **kwargs,
@@ -299,7 +311,10 @@ def _build_exact(entry, pool, rng, language_code, kind, assist_depth, intended) 
             show_word=word,
             show_meaning=meaning,
             show_example=example,
-            guidance="You can continue when this PC has no voice for this language.",
+            guidance=config.ui(
+                "Có thể tiếp tục khi máy này chưa có giọng của ngôn ngữ này.",
+                "You can continue when this PC has no voice for this language.",
+            ),
             reveal_word=word,
         )
     if kind == MULTIPLE_CHOICE:
@@ -331,7 +346,10 @@ def _build_exact(entry, pool, rng, language_code, kind, assist_depth, intended) 
             intended,
             prompt=meaning,
             mask=masked,
-            guidance="Assisted practice. Fill in the word. This does not change mastery.",
+            guidance=config.ui(
+                "Luyện có hỗ trợ. Gõ cả từ, không chỉ các chữ còn thiếu. Bài này không tính là đã thuộc.",
+                "Assisted practice. Type the whole word, not only the missing letters. This does not change mastery.",
+            ),
             reveal_word=word,
         )
     if kind == GUIDED_TYPING:
@@ -353,7 +371,10 @@ def _build_exact(entry, pool, rng, language_code, kind, assist_depth, intended) 
             INDEPENDENT_RECALL,
             intended,
             prompt=meaning,
-            guidance="Independent recall. No hint until you ask for assisted practice.",
+            guidance=config.ui(
+                "Nhớ độc lập. Chưa có gợi ý cho đến khi bạn xin bài có hỗ trợ.",
+                "Independent recall. No hint until you ask for assisted practice.",
+            ),
             reveal_word=word,
             show_example="",
         )
@@ -484,11 +505,19 @@ class AdaptiveVocabularySession:
             return SubmitResult("ignored")
         if card.kind == MULTIPLE_CHOICE:
             if choice_index is None:
-                return SubmitResult("empty", tone="empty", feedback="Choose an answer first.")
+                return SubmitResult(
+                    "empty",
+                    tone="empty",
+                    feedback=config.ui("Hãy chọn một đáp án trước.", "Choose an answer first."),
+                )
             return self._grade_choice(card, choice_index)
         text = str(answer or "").strip()
         if not text:
-            return SubmitResult("empty", tone="empty", feedback="Type an answer first.")
+            return SubmitResult(
+                "empty",
+                tone="empty",
+                feedback=config.ui("Hãy nhập câu trả lời trước.", "Type an answer first."),
+            )
         return self._grade_text(card, text)
 
     def continue_card(self) -> SubmitResult:
@@ -513,22 +542,38 @@ class AdaptiveVocabularySession:
         state.consecutive_failures = 0
         state.assist_depth = 1
         self._rebuild()
-        return SubmitResult("help", feedback="Assisted practice. This answer will not be independent.")
+        return SubmitResult(
+            "help",
+            feedback=config.ui(
+                "Luyện có hỗ trợ. Câu trả lời này không còn là nhớ độc lập.",
+                "Assisted practice. This answer will not be independent.",
+            ),
+        )
 
     def _grade_choice(self, card: ExerciseCard, choice_index: int) -> SubmitResult:
         if choice_index < 0 or choice_index >= len(card.choices):
-            return SubmitResult("empty", tone="empty", feedback="Choose an answer first.")
+            return SubmitResult(
+                "empty",
+                tone="empty",
+                feedback=config.ui("Hãy chọn một đáp án trước.", "Choose an answer first."),
+            )
         if choice_index == card.correct_index:
             return self._queue_success(
                 card,
                 verdict="exact",
                 tone="ok",
-                feedback="That's it. Recognition practice does not count as mastery.",
+                feedback=config.ui(
+                    f"Đúng rồi. Từ là {card.reveal_word}. Đây là nhận diện, chưa phải đã thuộc.",
+                    f"That's it. The word is {card.reveal_word}. Recognition practice does not count as mastery.",
+                ),
             )
         return self._queue_failure(
             card,
             verdict="wrong",
-            feedback=f"The word is {card.reveal_word}.",
+            feedback=config.ui(
+                f"Từ đúng là {card.reveal_word}.",
+                f"The word is {card.reveal_word}.",
+            ),
         )
 
     def _grade_text(self, card: ExerciseCard, answer: str) -> SubmitResult:
@@ -546,19 +591,28 @@ class AdaptiveVocabularySession:
                 card,
                 verdict=verdict,
                 tone="ok",
-                feedback="That's it. Assisted practice does not count as mastery.",
+                feedback=config.ui(
+                    f"Đúng rồi. Từ là {card.reveal_word}. Bài có hỗ trợ không tính là đã thuộc.",
+                    f"That's it. The word is {card.reveal_word}. Assisted practice does not count as mastery.",
+                ),
             )
         if verdict == "near":
             return self._queue_failure(
                 card,
                 verdict=verdict,
                 tone="near",
-                feedback=f"Very close. The word is {card.reveal_word}. Assisted practice is not mastery.",
+                feedback=config.ui(
+                    f"Rất gần. Từ là {card.reveal_word}. Bài có hỗ trợ không phải đã thuộc.",
+                    f"Very close. The word is {card.reveal_word}. Assisted practice is not mastery.",
+                ),
             )
         return self._queue_failure(
             card,
             verdict="wrong",
-            feedback=f"The word is {card.reveal_word}.",
+            feedback=config.ui(
+                f"Từ đúng là {card.reveal_word}.",
+                f"The word is {card.reveal_word}.",
+            ),
         )
 
     def _grade_independent(self, card, entry, answer, verdict) -> SubmitResult:
@@ -579,15 +633,25 @@ class AdaptiveVocabularySession:
             self.counters.independent_session_correct += 1
             if mastered:
                 self.counters.independent_mastered += 1
-                feedback = "That's it. Independent recall."
+                feedback = config.ui(
+                    f"Đúng rồi. Từ là {card.reveal_word}. Đây là nhớ độc lập.",
+                    f"That's it. The word is {card.reveal_word}. Independent recall.",
+                )
                 tone = "ok"
                 action = "complete"
             else:
-                feedback = "Very close. A near answer is not mastery."
+                feedback = config.ui(
+                    f"Rất gần. Từ là {card.reveal_word}. Câu gần đúng không phải đã thuộc.",
+                    f"Very close. The word is {card.reveal_word}. A near answer is not mastery.",
+                )
                 tone = "near"
                 action = "complete"
         else:
-            feedback = f"The word is {card.reveal_word}. It means {entry_meaning(entry)}."
+            meaning = entry_meaning(entry)
+            feedback = config.ui(
+                f"Từ đúng là {card.reveal_word}. Nghĩa là {meaning}.",
+                f"The word is {card.reveal_word}. It means {meaning}.",
+            )
             tone = "bad"
             action = "fail"
         self._pending = _Pending(card.vocab_id, action, write)
@@ -656,21 +720,26 @@ class AdaptiveVocabularySession:
         if len(self._order) > 1 and self._order[0] == vocab_id:
             self._order.rotate(-1)
 
+    def _prefer_word_under_cap(self) -> None:
+        """One bounded pass. If every remaining word is at the cap, keep the front word."""
+        total = len(self._order)
+        if total <= 1:
+            return
+        if not any(self._states[vid].presentations < PRESENTATION_CAP for vid in self._order):
+            return
+        for _ in range(total - 1):
+            if self._states[self._order[0]].presentations < PRESENTATION_CAP:
+                return
+            self._order.rotate(-1)
+
     def _rebuild(self) -> None:
         if not self._order:
             self._card = None
             return
+        self._prefer_word_under_cap()
         vid = self._order[0]
         state = self._states[vid]
         state.presentations += 1
-        if state.presentations > 48:
-            # A single word cannot spin forever in front of the others.
-            self._rotate(vid)
-            if self._order[0] == vid:
-                state.presentations = 1
-            else:
-                self._rebuild()
-                return
         kind = LADDER[state.level]
         self._card = build_exercise(
             self._entries[vid],
