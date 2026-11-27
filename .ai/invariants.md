@@ -66,6 +66,12 @@ hint_used == False
 
 Near answers and hint-assisted exact answers are **non-mastered**. Do not casually redefine `LearningAttempt.correct`.
 
+## Adaptive vocabulary preview
+
+- Phase 19.4A is merged source and is not in the installed v1.5.0 download. The production study button and locked sessions stay on the legacy quiz.
+- Introduction, multiple choice, and assisted practice do not write an attempt or SRS progress. Only a submitted independent recall uses the existing attempt path.
+- An incomplete missing-letter answer is not a failed exercise and does not move the session ladder. A completed assisted answer still does not write SRS.
+
 ## Mistake Book
 
 - Latest **mastered** attempt → item does **not** currently need attention.

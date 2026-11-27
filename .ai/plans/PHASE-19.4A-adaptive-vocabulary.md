@@ -1,10 +1,20 @@
 # Phase 19.4A adaptive vocabulary
 
-Status: UX polish ready for review. Not merged. Branch `phase19.4a/adaptive-vocabulary`. UX polish `98d7bc09f44cdecaa838caa4721d504107555721`. UX parent `0f0925616f1baac1109a4839966056732473f266`. Functional correction `c5f17c5020d72d931b8b2f7022ecd1a57db2e96a`. Foundation parent `5087b33f1b56d5ec47e47f4b1db19b0ed930ee7d`. The branch was created from main `445d62c986b83393a2ba1702c7c108c52aa3f096`. Tag `APP_19D4A_UX_POLISHED_READY_FOR_REVIEW`.
+Status: Closed 2026-11-27. Architect decision `APP_19D4A_UX_ACCEPTED_FOR_CLOSEOUT`. Accepted review checkpoint `dcfd3cee49a6587cd1fd403c944c370e844db67c`. Closeout corrections `d6edf393f54d78c374ee350bd92eaf4cb07bf423`. Merged to main by PR #34 at `e33373110544a1ca4fca6905b8741d47e4932fc4`. Tag `APP_19D4A_CLOSED_ADAPTIVE_VOCABULARY`.
 
-Functional R1 is accepted. This pass changes the learner-facing cards. The ladder and the SRS write boundary stay as accepted.
+The branch `phase19.4a/adaptive-vocabulary` was created from main `445d62c986b83393a2ba1702c7c108c52aa3f096`. UX polish `98d7bc09f44cdecaa838caa4721d504107555721`. Functional correction `c5f17c5020d72d931b8b2f7022ecd1a57db2e96a`. Foundation parent `5087b33f1b56d5ec47e47f4b1db19b0ed930ee7d`.
 
-The installed public release remains v1.5.0. This preview is not that download. StudyMaster still opens the legacy quiz. A locked session cannot open this window.
+This is an accepted, merged, unreleased unlocked preview. The installed public release remains v1.5.0. This preview is not that download. StudyMaster still opens the legacy quiz. A locked session cannot open this window.
+
+## Closeout corrections
+
+An unfinished missing-letter card is not graded. Every blank must hold one letter before Check. Incomplete input does not count as a failure, does not step the ladder, and does not write an attempt. A completed wrong fill still counts as a failure.
+
+Tab moves to the next blank. Shift+Tab moves to the previous blank. Tab on the last blank and Shift+Tab on the first blank leave the group.
+
+A mask that fits the compact card wraps onto more than one row. A mask that still needs more than four rows is not built. The existing fallback then chooses another valid exercise and keeps the intended step. Guided typing uses the same width rule.
+
+A missing local voice and a playback failure are different notes. Both appear only after a playback attempt. Neither one is the raw provider error.
 
 ## What the session does
 
@@ -42,7 +52,7 @@ Generation is local. A seeded `random.Random` makes the choices and masks repeat
 
 Multiple choice uses other vocabulary as distractors, drops duplicate and equivalent forms, and refuses a meaning that another entry also has. Fewer than two safe distractors falls back to another valid exercise. The intended step is unchanged by that fallback.
 
-Missing letters keeps spaces, hyphens, apostrophes, and Unicode letters. The learner types only the blanks. The window rebuilds the word for the existing grader. A one-letter target is not a missing-letter exercise. Guided typing shows a prefix and placeholders, never the whole word, and does not print the internal level. Independent recall hides the example and does not speak the answer until after Check. A correct choice turns soft green. A different choice turns warm amber. Typed feedback shows the expected word in the same colors. Independent exact feedback says the learner recalled it on their own. Assisted success does not. Interface copy uses `config.ui` (Vietnamese, then English). A missing voice is mentioned only after a playback attempt.
+Missing letters keeps spaces, hyphens, apostrophes, and Unicode letters. The learner types only the blanks. The window rebuilds the word for the existing grader. A one-letter target is not a missing-letter exercise. A mask that cannot wrap inside four compact rows falls back. Guided typing shows a prefix and placeholders, never the whole word, and does not print the internal level. Independent recall hides the example and does not speak the answer until after Check. A correct choice turns soft green. A different choice turns warm amber. Typed feedback shows the expected word in the same colors. Independent exact feedback says the learner recalled it on their own. Assisted success does not. Interface copy uses `config.ui` (Vietnamese, then English). A missing voice and a playback failure are separate notes, and only after a playback attempt.
 
 The introduction example is the sentence already stored on the vocabulary record. An empty record shows that no example is stored.
 
@@ -74,7 +84,7 @@ Screenshots from that run:
 
 ## Tests
 
-Domain tests in `tests/test_adaptive_vocabulary.py`: 16 passed, including mask reconstruction, prolonged failure past 48 presentations, and an empty or id-less plan that does not report completion. They are simulated. They are not proof of the window.
+Domain tests in `tests/test_adaptive_vocabulary.py`: 18 passed, including mask reconstruction, an incomplete missing-letter answer that does not fail or step down, a long mask that falls back, prolonged failure past 48 presentations, and an empty or id-less plan that does not report completion. They are simulated. They are not proof of the window.
 
 The simulated Dutch walk for a new word `de fiets` is introduction, multiple choice, missing letters, guided typing, then independent recall. One exact submission is the only write, and it is mastered.
 
@@ -82,15 +92,17 @@ A second simulated walk puts two words on multiple choice. A wrong answer on the
 
 Guided typing shows a one-character prefix, then a longer prefix after one miss, then missing letters after the second miss. The card does not print the policy level.
 
-GUI tests in `tests/test_adaptive_vocabulary_ui.py`: 5 passed, on one Tk root, in a real CustomTkinter window. Leave saved nothing, and reading and listening stayed pending. A missing voice and a busy clip updated the current card only. A wrong independent answer appended one non-mastered attempt, and a second Check did not append another. An empty plan showed Leave and did not call the completion callback. One window walked introduction, multiple choice, missing letters, guided typing, and independent recall. Digit keys selected the choice. Missing letters accepted only the blanks, including backspace, and Enter submitted the rebuilt word. A correct choice turned soft green. The completion header showed 1/1. A re-entrant Check graded recognition once. Recognition and assisted steps wrote nothing. The completion button ran the callback once. A second completion call did not run it again.
+GUI tests in `tests/test_adaptive_vocabulary_ui.py`: 9 passed, on one Tk root, in a real CustomTkinter window. Leave saved nothing, and reading and listening stayed pending. A missing voice and a playback failure use different notes. A busy clip updated the current card only. A wrong independent answer appended one non-mastered attempt, and a second Check did not append another. An empty plan showed Leave and did not call the completion callback. One window walked introduction, multiple choice, missing letters, guided typing, and independent recall. Digit keys selected the choice. Missing letters accepted only the blanks, including backspace, and Enter submitted the rebuilt word. Tab can leave the last blank. An unfinished fill stayed on the card and wrote nothing. A long mask wrapped inside the compact width. A correct choice turned soft green. The completion header showed 1/1. A re-entrant Check graded recognition once. Recognition and assisted steps wrote nothing. The completion button ran the callback once. A second completion call did not run it again.
 
 `tests/test_quiz_engine.py` and `tests/test_study_card_ui.py` passed together in their own process: 10 passed. The legacy quiz still records. A second `Tk()` in the same process is still not a combined-suite pass.
 
-## Limits
+## Remaining integration and persistence
 
-- The production study button still opens the legacy quiz.
-- Locked sessions stay on that quiz.
-- Practice records are not stored.
+- The production study button still opens the legacy quiz. This preview is not wired into StudyMaster.
+- Locked sessions stay on that quiz. `AdaptiveVocabularyApp(locked=True)` refuses to open.
+- Recognition and assisted results live in the session only. They do not write attempts, SRS progress, Mistake Book attention, or a sync event.
+- Practice records are not stored. That contract remains Phase 19.1 E2. There is no schema migration.
+- Completing the vocabulary round does not complete reading or listening, and it does not establish long-term mastery by itself.
 - Sentence practice and Grammar Companion are not in this flow. The legacy quiz still has its own sentence-practice behavior.
 - French and Italian voices were not part of this preview.
-- No executable was built.
+- No executable was built. v1.5.0 does not contain this preview.
