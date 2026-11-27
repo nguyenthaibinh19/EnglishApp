@@ -87,7 +87,9 @@ def grab(window, path: Path) -> None:
 def capture() -> None:
     import tkinter as tk
 
-    from adaptive_vocabulary import INDEPENDENT_RECALL, AdaptiveVocabularySession
+    from adaptive_vocabulary import INDEPENDENT_RECALL, AdaptiveSessionBridge, AdaptiveVocabularySession
+    from daily_study import DailyStudyPlan
+    from study_session import build_study_session
     from adaptive_vocabulary_app import PREVIEW_HEIGHT, PREVIEW_WIDTH, AdaptiveVocabularyApp
 
     _store, progress, attempts = prepare()
@@ -168,13 +170,50 @@ def capture() -> None:
         language_code="nl",
         pool=ENTRIES,
         rng=random.Random(4),
+        level_overrides={FIETS: "multiple_choice"},
+    )
+    app = AdaptiveVocabularyApp(
+        window,
+        session,
+        provider=SilentVoice(),
+        locked=False,
+    )
+    window.update()
+    card = session.current_card()
+    app.shell.exercise._select(card.correct_index)
+    app._check()
+    window.update()
+    grab(window, SHOTS / "choice-correct.png")
+    window.destroy()
+
+    window = tk.Toplevel(root)
+    window.geometry(f"{PREVIEW_WIDTH}x{PREVIEW_HEIGHT}+80+40")
+    session = AdaptiveVocabularySession(
+        ENTRIES[:1],
+        language_code="nl",
+        pool=ENTRIES,
+        rng=random.Random(4),
         level_overrides={FIETS: INDEPENDENT_RECALL},
     )
     done_progress = type(progress)(str(ROOT / "completion-progress.json"))
     done_attempts = type(attempts)(str(ROOT / "completion-attempts.jsonl"), language_code="nl")
+    plan = DailyStudyPlan(
+        language_code="nl",
+        vocab_total=1,
+        due_review_count=0,
+        new_word_count=1,
+        future_review_count=0,
+        attention_word_count=0,
+        planned_vocab_count=1,
+        reading_enabled=True,
+        listening_enabled=True,
+    )
+    study = build_study_session(plan)
+    bridge = AdaptiveSessionBridge(study, session, locked=False)
     app = AdaptiveVocabularyApp(
         window,
         session,
+        bridge=bridge,
         progress=done_progress,
         attempts=done_attempts,
         provider=SilentVoice(),
@@ -184,6 +223,7 @@ def capture() -> None:
     app.shell.exercise.entry.insert(0, "de fiets")
     app._check()
     window.update()
+    grab(window, SHOTS / "correct-feedback.png")
     app.shell.continue_button.invoke()
     window.update()
     grab(window, SHOTS / "completion.png")

@@ -25,6 +25,7 @@ from listening_windows_tts import NORMAL_RATE, SLOW_RATE
 from speech_player import play_async
 from study_presentation import (
     IntroductionExercise,
+    MissingLettersExercise,
     MultipleChoiceExercise,
     StudyCardShell,
     TypingExercise,
@@ -147,9 +148,16 @@ class AdaptiveVocabularyApp:
             if card.kind == "introduction"
             else config.ui("Kiểm tra", "Check answer")
         )
+        self.shell.set_stage(_stage_label(card.kind))
         self.shell.show_answering(show_hint=show_hint, clear_support=False)
         self._update_progress()
-        if hasattr(self.shell.exercise, "entry"):
+        inputs = getattr(self.shell.exercise, "inputs", None) or []
+        if inputs:
+            for entry in inputs:
+                inner = getattr(entry, "_entry", entry)
+                inner.bind("<Return>", self._on_return, add="+")
+                inner.bind("<KP_Enter>", self._on_return, add="+")
+        elif hasattr(self.shell.exercise, "entry"):
             inner = getattr(self.shell.exercise.entry, "_entry", self.shell.exercise.entry)
             inner.bind("<Return>", self._on_return, add="+")
 
@@ -158,6 +166,8 @@ class AdaptiveVocabularyApp:
             exercise = IntroductionExercise(self.shell.card, card, self._hear)
         elif card.kind == "multiple_choice":
             exercise = MultipleChoiceExercise(self.shell.card, card)
+        elif card.kind == "missing_letters":
+            exercise = MissingLettersExercise(self.shell.card, card)
         else:
             exercise = TypingExercise(self.shell.card, card, card.kind)
         self.shell.swap_exercise(exercise)
@@ -166,7 +176,7 @@ class AdaptiveVocabularyApp:
         done = self.session.counters.words_completed
         total = max(self.session.counters.planned, 1)
         mastered = self.session.counters.independent_mastered
-        label = config.ui(f"Đã luyện {done}/{total}", f"{done}/{total} practiced")
+        label = f"{done}/{total}"
         self.shell.set_progress(done, total, label)
         # The fraction is independent session progress, not SRS mastery.
         _ = mastered
@@ -202,12 +212,19 @@ class AdaptiveVocabularyApp:
         self._apply_write(result)
         self._phase = "feedback"
         self._update_progress()
+        tone = result.tone or "bad"
         self.shell.show_feedback(
             result.feedback,
-            result.tone or "bad",
+            tone,
             offer_sentence=False,
             offer_hear=speech_for_card(card, "feedback").allowed,
         )
+        if card.kind == "multiple_choice":
+            mark = getattr(exercise, "mark_result", None)
+            if callable(mark):
+                mark(card.correct_index, exercise.choice_index())
+        elif tone != "empty" and card.reveal_word:
+            self.shell.show_expected(card.reveal_word, tone)
 
     def _help(self) -> None:
         if self._phase != "answer":
@@ -269,7 +286,7 @@ class AdaptiveVocabularyApp:
             voice_name=voice_name,
             provider=self.provider,
             scope=scope,
-            on_error=lambda error, mark=token: self._voice_status(mark, str(error)),
+            on_error=lambda error, mark=token: self._voice_status(mark, _voice_problem(error)),
             on_done=lambda mark=token: self._voice_status(mark, ""),
         )
         if not started:
@@ -291,34 +308,45 @@ class AdaptiveVocabularyApp:
             return
         try:
             note.configure(text=text)
+            if text:
+                note.pack(pady=(2, 0))
+            else:
+                note.pack_forget()
         except tk.TclError:
             pass
 
     def _show_empty(self) -> None:
         """An empty plan is not a finished study session."""
         self._phase = "empty"
+        self.shell.set_stage("")
+        self.shell.set_progress(0, 0, "0/0")
         self.shell.show_complete(
             config.ui("Chưa có từ trong phiên này.", "This session has no planned words."),
             config.ui("Phiên này chưa hoàn thành.", "This is not a completed session."),
             config.ui("Để lúc khác", "Leave for now"),
+            celebrate=False,
         )
         self.shell.continue_button.configure(command=self._leave)
 
     def _show_complete(self) -> None:
         self._phase = "complete"
+        self._update_progress()
+        self.shell.set_stage("")
         counters = self.session.counters
         detail = config.ui(
-            f"{counters.independent_session_correct} câu nhớ độc lập trong phiên. "
-            f"{counters.independent_mastered} câu đã thuộc. "
-            "Câu gần đúng không phải đã thuộc. Bài nhận diện và bài có hỗ trợ không tính vào số này.",
-            f"{counters.independent_session_correct} independent session answers. "
-            f"{counters.independent_mastered} mastered. "
-            "A near answer is not mastery. Assisted practice stays out of this count.",
+            f"{counters.words_completed} từ đã luyện trong phiên này.\n"
+            f"{counters.independent_mastered} từ trả lời đúng khi tự nhớ.",
+            f"{counters.words_completed} words practiced this session.\n"
+            f"{counters.independent_mastered} answered exactly on your own.",
         )
+        waiting = _still_waiting(self.bridge)
+        if waiting:
+            detail = f"{detail}\n\n{waiting}"
         self.shell.show_complete(
-            config.ui("Xong phần từ vựng.", "Vocabulary done."),
+            config.ui("Xong phần từ vựng.", "This vocabulary round is done."),
             detail,
             config.ui("Về hôm nay", "Back"),
+            celebrate=True,
         )
 
     def _close_complete(self) -> None:
@@ -348,6 +376,47 @@ class AdaptiveVocabularyApp:
             self.window.destroy()
         except tk.TclError:
             pass
+
+
+def _stage_label(kind: str) -> str:
+    labels = {
+        "introduction": ("Làm quen", "Introduction"),
+        "multiple_choice": ("Chọn từ", "Choose"),
+        "missing_letters": ("Điền chữ", "Fill the letters"),
+        "guided_typing": ("Gõ từ", "Type the word"),
+        "independent_recall": ("Tự nhớ", "Recall"),
+    }
+    pair = labels.get(kind)
+    if pair is None:
+        return ""
+    return config.ui(*pair)
+
+
+def _voice_problem(error: Exception) -> str:
+    """Learner-facing voice note. Shown only after a playback attempt."""
+    del error
+    return config.ui(
+        "Chưa có giọng cho ngôn ngữ này trên máy này. Bạn vẫn có thể tiếp tục.",
+        "No voice for this language on this PC. You can continue.",
+    )
+
+
+def _still_waiting(bridge) -> str:
+    """Optional activities stay pending. Completing vocabulary is not the whole day."""
+    if bridge is None:
+        return ""
+    study = getattr(bridge, "study_session", None)
+    if study is None:
+        return ""
+    reading = study.status("reading") == "pending"
+    listening = study.status("listening") == "pending"
+    if reading and listening:
+        return config.ui("Đọc và nghe vẫn còn.", "Reading and listening are still waiting.")
+    if reading:
+        return config.ui("Phần đọc vẫn còn.", "Reading is still waiting.")
+    if listening:
+        return config.ui("Phần nghe vẫn còn.", "Listening is still waiting.")
+    return ""
 
 
 def example_sentence_is_stored(entry: dict) -> str:

@@ -1,8 +1,8 @@
 # Phase 19.4A adaptive vocabulary
 
-Status: Corrected and ready for review. Not merged. Branch `phase19.4a/adaptive-vocabulary`. Code correction `c5f17c5020d72d931b8b2f7022ecd1a57db2e96a`. Foundation parent `5087b33f1b56d5ec47e47f4b1db19b0ed930ee7d`. The branch was created from main `445d62c986b83393a2ba1702c7c108c52aa3f096`. Tag `APP_19D4A_ADAPTIVE_VOCABULARY_CORRECTED_READY_FOR_REVIEW`.
+Status: UX polish ready for review. Not merged. Branch `phase19.4a/adaptive-vocabulary`. UX parent `0f0925616f1baac1109a4839966056732473f266`. Functional correction `c5f17c5020d72d931b8b2f7022ecd1a57db2e96a`. Foundation parent `5087b33f1b56d5ec47e47f4b1db19b0ed930ee7d`. The branch was created from main `445d62c986b83393a2ba1702c7c108c52aa3f096`. Tag `APP_19D4A_UX_POLISHED_READY_FOR_REVIEW`.
 
-Architect decision for this correction: `APP_19D4A_FOUNDATION_ACCEPTED_CORRECTION_REQUIRED`. The five-step ladder and the separation of practice from authoritative SRS writes stay as accepted. This correction does not replace the engine.
+Functional R1 is accepted. This pass changes the learner-facing cards. The ladder and the SRS write boundary stay as accepted.
 
 The installed public release remains v1.5.0. This preview is not that download. StudyMaster still opens the legacy quiz. A locked session cannot open this window.
 
@@ -14,8 +14,8 @@ Policy id: `adaptive-vocab-session-v1`. That id is not an SRS algorithm id. The 
 |---|---|---|---|
 | Introduction | See the word, meaning, and stored example. Listen and Listen slowly. | Recognition | None |
 | Multiple choice | Pick the word for the meaning. | Recognition | None |
-| Missing letters | Type the whole word. The card shows some letters and says the missing characters alone are not enough. | Assisted | None |
-| Guided typing | Type the word. The card says the spelling level. | Assisted | None |
+| Missing letters | Fill only the hidden letters. Visible characters, spaces and marks stay fixed. | Assisted | None |
+| Guided typing | Type the whole word. The card shows the revealed prefix and placeholders for the rest. | Assisted | None |
 | Independent recall | Type the word from the meaning. | Independent | Existing attempt and progress path, once per submission |
 
 A new word starts at introduction. A word whose latest independent attempt was non-mastered starts at guided typing. A previously mastered word, including a due review, starts at independent recall.
@@ -34,7 +34,7 @@ Exact and unaided is mastered. Near is session-correct and is not mastery. Wrong
 
 An independent near or exact answer finishes that word for this session, so the word is not asked again today. A wrong independent answer stays in the session and can step down. Previously saved attempts stay saved if the learner leaves after Check.
 
-Leaving before the completion screen does not mark today's vocabulary complete. Reading and listening stay pending. The completion callback runs once, from the completion screen.
+Leaving before the completion screen does not mark today's vocabulary complete. Reading and listening stay pending. The completion card says so, and it does not call the day finished. The header counter is completed planned words over the plan size. It is not a percentage of the five steps. The completion callback runs once, from the completion screen.
 
 ## Exercise generation
 
@@ -42,7 +42,7 @@ Generation is local. A seeded `random.Random` makes the choices and masks repeat
 
 Multiple choice uses other vocabulary as distractors, drops duplicate and equivalent forms, and refuses a meaning that another entry also has. Fewer than two safe distractors falls back to another valid exercise. The intended step is unchanged by that fallback.
 
-Missing letters keeps spaces, hyphens, apostrophes, and Unicode letters. A one-letter target is not a missing-letter exercise. Guided typing states the level and never shows the whole word as the hint. Independent recall hides the example and does not speak the answer until after Check. Correct and near feedback name the expected word. Independent success stays distinct from recognition and assisted success. Interface copy uses `config.ui` (Vietnamese, then English).
+Missing letters keeps spaces, hyphens, apostrophes, and Unicode letters. The learner types only the blanks. The window rebuilds the word for the existing grader. A one-letter target is not a missing-letter exercise. Guided typing shows a prefix and placeholders, never the whole word, and does not print the internal level. Independent recall hides the example and does not speak the answer until after Check. A correct choice turns soft green. A different choice turns warm amber. Typed feedback shows the expected word in the same colors. Independent exact feedback says the learner recalled it on their own. Assisted success does not. Interface copy uses `config.ui` (Vietnamese, then English). A missing voice is mentioned only after a playback attempt.
 
 The introduction example is the sentence already stored on the vocabulary record. An empty record shows that no example is stored.
 
@@ -58,7 +58,7 @@ There is no schema migration and no practice-record table. That contract remains
 
 `scripts/adaptive_vocabulary_preview.py` writes synthetic Dutch words to `D:\EnglishApp\.local\19d4a-preview` and opens the unlocked window. The interactive preview uses the shared speech provider and the saved device voice. Listen and Listen slowly use rates 0 and -4. Voice discovery stays off the Tk thread. A missing voice and a busy clip update the note for the current card only. `--screenshots` uses a provider that reports no voice and does not synthesize.
 
-The unlocked screen guard first applies 1280×820. The preview then sets the compact study window to 560×640, with a minimum of 480×560. The legacy quiz stays 560×520. Lock is not turned on. The card does not scroll. Four choices and the whole-word line fit. The cream area under the card is unused height inside the 640px window. This capture's window and bitmap were both 560×640.
+The unlocked screen guard first applies 1280×820. The preview then sets the compact study window to 560×640, with a minimum of 480×560. The legacy quiz stays 560×520. Lock is not turned on. The card fills the window and the primary button stays at the bottom. The card does not scroll. Four choices and the letter fields fit. This capture's window and bitmap were both 560×640.
 
 Screenshots from that run:
 
@@ -68,19 +68,21 @@ Screenshots from that run:
 - `D:\EnglishApp\.local\19d4a-screenshots\guided-typing.png`
 - `D:\EnglishApp\.local\19d4a-screenshots\independent-recall.png`
 - `D:\EnglishApp\.local\19d4a-screenshots\independent-incorrect.png`
+- `D:\EnglishApp\.local\19d4a-screenshots\choice-correct.png`
+- `D:\EnglishApp\.local\19d4a-screenshots\correct-feedback.png`
 - `D:\EnglishApp\.local\19d4a-screenshots\completion.png`
 
 ## Tests
 
-Domain tests in `tests/test_adaptive_vocabulary.py`: 15 passed, including prolonged failure past 48 presentations for one word and for every remaining word, and an empty or id-less plan that does not report completion. They are simulated. They are not proof of the window.
+Domain tests in `tests/test_adaptive_vocabulary.py`: 16 passed, including mask reconstruction, prolonged failure past 48 presentations, and an empty or id-less plan that does not report completion. They are simulated. They are not proof of the window.
 
 The simulated Dutch walk for a new word `de fiets` is introduction, multiple choice, missing letters, guided typing, then independent recall. One exact submission is the only write, and it is mastered.
 
 A second simulated walk puts two words on multiple choice. A wrong answer on the first word yields the turn to the second word. A second wrong answer on the first word steps it down to introduction.
 
-Guided typing shows level 1, then level 2 after one miss, then missing letters after the second miss.
+Guided typing shows a one-character prefix, then a longer prefix after one miss, then missing letters after the second miss. The card does not print the policy level.
 
-GUI tests in `tests/test_adaptive_vocabulary_ui.py`: 5 passed, on one Tk root, in a real CustomTkinter window. Leave saved nothing, and reading and listening stayed pending. A missing voice and a busy clip updated the current card only. A wrong independent answer appended one non-mastered attempt, and a second Check did not append another. An empty plan showed Leave and did not call the completion callback. One window walked introduction, multiple choice, missing letters, guided typing, and independent recall. Digit keys selected the choice. Enter submitted the whole word. A re-entrant Check graded recognition once. Recognition and assisted steps wrote nothing. The completion button ran the callback once. A second completion call did not run it again.
+GUI tests in `tests/test_adaptive_vocabulary_ui.py`: 5 passed, on one Tk root, in a real CustomTkinter window. Leave saved nothing, and reading and listening stayed pending. A missing voice and a busy clip updated the current card only. A wrong independent answer appended one non-mastered attempt, and a second Check did not append another. An empty plan showed Leave and did not call the completion callback. One window walked introduction, multiple choice, missing letters, guided typing, and independent recall. Digit keys selected the choice. Missing letters accepted only the blanks, including backspace, and Enter submitted the rebuilt word. A correct choice turned soft green. The completion header showed 1/1. A re-entrant Check graded recognition once. Recognition and assisted steps wrote nothing. The completion button ran the callback once. A second completion call did not run it again.
 
 `tests/test_quiz_engine.py` and `tests/test_study_card_ui.py` passed together in their own process: 10 passed. The legacy quiz still records. A second `Tk()` in the same process is still not a combined-suite pass.
 

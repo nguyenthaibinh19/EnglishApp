@@ -8,6 +8,7 @@ import tkinter as tk
 
 import config
 import pytest
+import ui_foundation
 import voice_prefs
 from adaptive_vocabulary import (
     INDEPENDENT_RECALL,
@@ -140,7 +141,8 @@ def test_preview_leave_and_missing_voice_do_not_record(tmp_path, monkeypatch, tk
         assert _during_mainloop(
             window,
             lambda: app.shell.exercise.normal_button.invoke(),
-            lambda: "You can continue" in app.shell.exercise.voice_note.cget("text"),
+            lambda: config.ui("Bạn vẫn có thể tiếp tục", "You can continue")
+            in app.shell.exercise.voice_note.cget("text"),
         )
         assert app.shell.check_button.cget("state") == "normal"
         assert voice.calls[0][2] == 0
@@ -148,7 +150,9 @@ def test_preview_leave_and_missing_voice_do_not_record(tmp_path, monkeypatch, tk
         assert _during_mainloop(
             window,
             lambda: app.shell.exercise.slow_button.invoke(),
-            lambda: len(voice.calls) >= 2 and "You can continue" in app.shell.exercise.voice_note.cget("text"),
+            lambda: len(voice.calls) >= 2
+            and config.ui("Bạn vẫn có thể tiếp tục", "You can continue")
+            in app.shell.exercise.voice_note.cget("text"),
         )
         assert voice.calls[1][2] == -4
         app._leave()
@@ -186,7 +190,7 @@ def test_wrong_independent_answer_records_once_on_the_card(tmp_path, tk_root):
             provider=_SilentVoice(),
         )
         window.update()
-        assert config.ui("Nhớ độc lập", "Independent recall") in app.shell.exercise.kicker.cget("text")
+        assert config.ui("Tự nhớ", "Recall") in app.shell.exercise.kicker.cget("text")
         app.shell.exercise.entry.insert(0, "nope")
         app._check()
         window.update()
@@ -201,12 +205,31 @@ def test_wrong_independent_answer_records_once_on_the_card(tmp_path, tk_root):
         _close_window(window)
 
 
+class _Key:
+    def __init__(self, keysym, char=""):
+        self.keysym = keysym
+        self.char = char
+
+
 def _answer_whole_word(app, window) -> None:
     card = app.session.current_card()
-    app.shell.exercise.entry.insert(0, card.reveal_word)
-    inner = getattr(app.shell.exercise.entry, "_entry", app.shell.exercise.entry)
-    inner.focus_set()
-    inner.event_generate("<Return>")
+    exercise = app.shell.exercise
+    inputs = getattr(exercise, "inputs", None)
+    if inputs:
+        fills = [card.reveal_word[index] for index, char in enumerate(card.mask) if char == "_"]
+        exercise._on_key(_Key(fills[0], fills[0]), 0)
+        exercise._on_key(_Key("BackSpace"), 0 if exercise.inputs[0].get() else 1)
+        for entry, char in zip(exercise.inputs, fills):
+            entry.delete(0, "end")
+            entry.insert(0, char)
+        inner = getattr(exercise.inputs[-1], "_entry", exercise.inputs[-1])
+        inner.focus_set()
+        inner.event_generate("<Return>")
+    else:
+        exercise.entry.insert(0, card.reveal_word)
+        inner = getattr(exercise.entry, "_entry", exercise.entry)
+        inner.focus_set()
+        inner.event_generate("<Return>")
     window.update()
 
 
@@ -290,6 +313,8 @@ def test_keyboard_walk_completes_once_without_early_writes(tmp_path, tk_root):
         window.update()
         app.session.submit = original
         assert app.session.counters.recognition_successes == before + 1
+        chosen = app.shell.exercise.buttons[card.correct_index]
+        assert chosen.cget("fg_color") == ui_foundation.COLOR_SOFT_GREEN
         assert attempts.load_attempts() == []
         assert progress.data["words"] == {}
         app.shell.continue_button.invoke()
@@ -299,7 +324,7 @@ def test_keyboard_walk_completes_once_without_early_writes(tmp_path, tk_root):
         assert card.kind == "missing_letters"
         seen.append(card.kind)
         guidance = app.shell.exercise.support.cget("text")
-        assert config.ui("Gõ cả từ", "Type the whole word") in guidance
+        assert config.ui("Điền các chữ", "Fill in the missing") in guidance
         _answer_whole_word(app, window)
         assert attempts.load_attempts() == []
         app.shell.continue_button.invoke()
@@ -331,7 +356,10 @@ def test_keyboard_walk_completes_once_without_early_writes(tmp_path, tk_root):
         app.shell.continue_button.invoke()
         window.update()
         assert app._phase == "complete"
-        assert config.ui("Xong phần từ vựng", "Vocabulary done") in app.shell.feedback.cget("text")
+        assert "1/1" in app.shell.counter.cget("text")
+        assert app.shell.progress.get() == 1
+        assert config.ui("Xong phần từ vựng", "vocabulary round is done") in app.shell.feedback.cget("text")
+        assert config.ui("vẫn còn", "still waiting") in app.shell.feedback.cget("text")
         app.shell.continue_button.invoke()
         app._close_complete()
     finally:

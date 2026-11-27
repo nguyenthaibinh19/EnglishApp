@@ -19,6 +19,8 @@ from adaptive_vocabulary import (
     apply_independent_write,
     build_exercise,
     guided_guidance,
+    guided_pattern,
+    reconstruct_mask,
     mask_target,
     speech_for_card,
     starting_level,
@@ -147,11 +149,12 @@ def test_two_failures_step_down_and_other_words_still_get_a_turn():
 
 def test_repeated_guided_failures_reveal_more_then_step_down():
     controller = session([pool()[0]], level_overrides={FIETS: GUIDED_TYPING})
-    assert config.ui("mức 1", "level 1") in controller.current_card().guidance
+    assert controller.current_card().mask.startswith("d_")
+    assert "de fiets" not in controller.current_card().mask
     controller.submit("nope")
     controller.continue_card()
     assert controller.current_card().kind == GUIDED_TYPING
-    assert config.ui("mức 2", "level 2") in controller.current_card().guidance
+    assert controller.current_card().mask.startswith("de")
     controller.submit("nope")
     controller.continue_card()
     assert controller.current_card().kind == MISSING_LETTERS
@@ -170,8 +173,10 @@ def test_mask_keeps_unicode_space_and_punctuation():
     assert "-" in punct and "'" in punct
     assert mask_target("é", rng) is None
     guidance = guided_guidance("één", 1)
-    assert config.ui("mức 1", "level 1") in guidance
     assert "één" not in guidance
+    assert guided_pattern("één", 1) != "één"
+    assert "_" in guided_pattern("één", 1)
+    assert "één" not in guided_pattern("één", 2)
 
 
 def test_ambiguous_or_thin_pools_fall_back():
@@ -214,7 +219,7 @@ def test_independent_recall_records_once_and_near_is_not_mastery():
     assert near.write.verdict == "near"
     assert near.write.mastered is False
     assert "het boek" in near.feedback
-    assert config.ui("không phải đã thuộc", "not mastery") in near.feedback
+    assert config.ui("chưa phải lần tự nhớ chính xác", "not an exact recall") in near.feedback
     wrong = session(
         [word(WATER, "het water", "water")],
         level_overrides={WATER: INDEPENDENT_RECALL},
@@ -381,6 +386,24 @@ def test_empty_or_invalid_plan_is_not_a_completed_session():
     assert bridge.note_finished() is False
     assert study.vocabulary_complete() is False
     assert study.status(KIND_READING) == "pending"
+
+
+def test_missing_letter_fields_rebuild_the_word_without_a_write():
+    assert reconstruct_mask("d_ fi_ts", ["e", "e"]) == "de fiets"
+    assert reconstruct_mask("w_ll-'n'-r_ll", ["e", "o"]) == "well-'n'-roll"
+    assert reconstruct_mask("é_n", ["é"]) == "één"
+    assert reconstruct_mask("d_", [""]) == "d"
+    controller = session([pool()[0]], level_overrides={FIETS: MISSING_LETTERS})
+    card = controller.current_card()
+    assert card.kind == MISSING_LETTERS
+    assert card.support_level == "assisted"
+    fills = [card.reveal_word[index] for index, char in enumerate(card.mask) if char == "_"]
+    answer = reconstruct_mask(card.mask, fills)
+    result = controller.submit(answer)
+    assert result.write is None
+    assert result.success is True
+    assert controller.counters.assisted_successes == 1
+    assert controller.counters.independent_answered == 0
 
 
 def test_legacy_quiz_still_records_an_independent_answer(tmp_path):

@@ -52,10 +52,10 @@ SUPPORT = {
 def _kicker(kind: str) -> str:
     labels = {
         INTRODUCTION: ("Làm quen", "Introduction"),
-        MULTIPLE_CHOICE: ("Nhận diện", "Recognition"),
-        MISSING_LETTERS: ("Luyện có hỗ trợ", "Assisted practice"),
-        GUIDED_TYPING: ("Luyện có hỗ trợ", "Assisted practice"),
-        INDEPENDENT_RECALL: ("Nhớ độc lập", "Independent recall"),
+        MULTIPLE_CHOICE: ("Chọn từ", "Choose"),
+        MISSING_LETTERS: ("Điền chữ", "Fill the letters"),
+        GUIDED_TYPING: ("Gõ từ", "Type the word"),
+        INDEPENDENT_RECALL: ("Tự nhớ", "Recall"),
     }
     vi, en = labels[kind]
     return config.ui(vi, en)
@@ -174,28 +174,50 @@ def mask_target(word: str, rng: random.Random) -> Optional[str]:
     return masked
 
 
-def guided_guidance(word: str, depth: int) -> str:
-    """Say the support level. Never reveal the whole answer when more than one character exists."""
+def guided_reveal_count(word: str, depth: int) -> int:
+    """How many leading characters to show. Never the whole word when it is longer than one."""
     text = word or ""
     level = min(max(int(depth), 1), 3)
-    reveal = level
     if len(text) > 1:
-        reveal = min(reveal, len(text) - 1)
-    else:
-        reveal = 0
-    shown = text[:reveal]
-    if shown:
-        lead_en = f"Starts with {shown}."
-        lead_vi = f"Bắt đầu bằng {shown}."
-    else:
-        lead_en = "Type the whole word."
-        lead_vi = "Hãy gõ cả từ."
-    return config.ui(
-        f"Luyện chính tả có hỗ trợ, mức {level} trên 3. {lead_vi} "
-        f"{len(text)} ký tự. Hãy gõ cả từ.",
-        f"Assisted spelling, level {level} of 3. {lead_en} "
-        f"{len(text)} characters. Type the whole word.",
-    )
+        return min(level, len(text) - 1)
+    return 0
+
+
+def guided_pattern(word: str, depth: int) -> str:
+    """Prefix plus the word shape. Unrevealed letters are underscores. Spaces stay visible."""
+    text = word or ""
+    reveal = guided_reveal_count(text, depth)
+    chars = []
+    for index, char in enumerate(text):
+        if index < reveal or not char.isalpha():
+            chars.append(char)
+        else:
+            chars.append("_")
+    return "".join(chars)
+
+
+def guided_guidance(word: str, depth: int) -> str:
+    """Short learner line. The pattern carries the prefix. Policy levels stay off the card."""
+    del word, depth
+    return config.ui("Gõ cả từ.", "Type the whole word.")
+
+
+def reconstruct_mask(mask: str, fills: Sequence[str]) -> str:
+    """Put one learner character into each blank. Fixed characters, spaces and marks stay."""
+    pieces = []
+    cursor = 0
+    supplied = list(fills or ())
+    for char in mask or "":
+        if char != "_":
+            pieces.append(char)
+            continue
+        piece = ""
+        if cursor < len(supplied):
+            raw = str(supplied[cursor] or "")
+            piece = raw[:1]
+        cursor += 1
+        pieces.append(piece)
+    return "".join(pieces)
 
 
 def _forms(entry: dict, language_code: str) -> set[str]:
@@ -253,10 +275,7 @@ def generate_multiple_choice(
         prompt=meaning,
         choices=tuple(labels),
         correct_index=labels.index(correct),
-            guidance=config.ui(
-                "Nhận diện. Chọn từ. Bài này không tính là đã thuộc.",
-                "Recognition. Pick the word. This does not change mastery.",
-            ),
+            guidance=config.ui("Chọn từ đúng.", "Choose the word."),
         reveal_word=correct,
     )
 
@@ -311,10 +330,7 @@ def _build_exact(entry, pool, rng, language_code, kind, assist_depth, intended) 
             show_word=word,
             show_meaning=meaning,
             show_example=example,
-            guidance=config.ui(
-                "Có thể tiếp tục khi máy này chưa có giọng của ngôn ngữ này.",
-                "You can continue when this PC has no voice for this language.",
-            ),
+            guidance="",
             reveal_word=word,
         )
     if kind == MULTIPLE_CHOICE:
@@ -346,10 +362,7 @@ def _build_exact(entry, pool, rng, language_code, kind, assist_depth, intended) 
             intended,
             prompt=meaning,
             mask=masked,
-            guidance=config.ui(
-                "Luyện có hỗ trợ. Gõ cả từ, không chỉ các chữ còn thiếu. Bài này không tính là đã thuộc.",
-                "Assisted practice. Type the whole word, not only the missing letters. This does not change mastery.",
-            ),
+            guidance=config.ui("Điền các chữ còn thiếu.", "Fill in the missing letters."),
             reveal_word=word,
         )
     if kind == GUIDED_TYPING:
@@ -361,6 +374,7 @@ def _build_exact(entry, pool, rng, language_code, kind, assist_depth, intended) 
             GUIDED_TYPING,
             intended,
             prompt=meaning,
+            mask=guided_pattern(word, assist_depth),
             guidance=guided_guidance(word, assist_depth),
             reveal_word=word,
         )
@@ -371,10 +385,7 @@ def _build_exact(entry, pool, rng, language_code, kind, assist_depth, intended) 
             INDEPENDENT_RECALL,
             intended,
             prompt=meaning,
-            guidance=config.ui(
-                "Nhớ độc lập. Chưa có gợi ý cho đến khi bạn xin bài có hỗ trợ.",
-                "Independent recall. No hint until you ask for assisted practice.",
-            ),
+            guidance=config.ui("Tự nhớ từ này.", "Recall this word."),
             reveal_word=word,
             show_example="",
         )
@@ -563,16 +574,16 @@ class AdaptiveVocabularySession:
                 verdict="exact",
                 tone="ok",
                 feedback=config.ui(
-                    f"Đúng rồi. Từ là {card.reveal_word}. Đây là nhận diện, chưa phải đã thuộc.",
-                    f"That's it. The word is {card.reveal_word}. Recognition practice does not count as mastery.",
+                    f"Đúng rồi. Từ là {card.reveal_word}.",
+                    f"That's it. The word is {card.reveal_word}.",
                 ),
             )
         return self._queue_failure(
             card,
             verdict="wrong",
             feedback=config.ui(
-                f"Từ đúng là {card.reveal_word}.",
-                f"The word is {card.reveal_word}.",
+                f"Chưa đúng. Từ là {card.reveal_word}.",
+                f"Not quite. The word is {card.reveal_word}.",
             ),
         )
 
@@ -592,8 +603,8 @@ class AdaptiveVocabularySession:
                 verdict=verdict,
                 tone="ok",
                 feedback=config.ui(
-                    f"Đúng rồi. Từ là {card.reveal_word}. Bài có hỗ trợ không tính là đã thuộc.",
-                    f"That's it. The word is {card.reveal_word}. Assisted practice does not count as mastery.",
+                    f"Đúng rồi. Từ là {card.reveal_word}.",
+                    f"That's it. The word is {card.reveal_word}.",
                 ),
             )
         if verdict == "near":
@@ -602,16 +613,16 @@ class AdaptiveVocabularySession:
                 verdict=verdict,
                 tone="near",
                 feedback=config.ui(
-                    f"Rất gần. Từ là {card.reveal_word}. Bài có hỗ trợ không phải đã thuộc.",
-                    f"Very close. The word is {card.reveal_word}. Assisted practice is not mastery.",
+                    f"Rất gần. Từ là {card.reveal_word}.",
+                    f"Very close. The word is {card.reveal_word}.",
                 ),
             )
         return self._queue_failure(
             card,
             verdict="wrong",
             feedback=config.ui(
-                f"Từ đúng là {card.reveal_word}.",
-                f"The word is {card.reveal_word}.",
+                f"Chưa đúng. Từ là {card.reveal_word}.",
+                f"Not quite. The word is {card.reveal_word}.",
             ),
         )
 
@@ -634,23 +645,23 @@ class AdaptiveVocabularySession:
             if mastered:
                 self.counters.independent_mastered += 1
                 feedback = config.ui(
-                    f"Đúng rồi. Từ là {card.reveal_word}. Đây là nhớ độc lập.",
-                    f"That's it. The word is {card.reveal_word}. Independent recall.",
+                    f"Đúng rồi. Từ là {card.reveal_word}. Bạn đã tự nhớ ra.",
+                    f"That's it. The word is {card.reveal_word}. You recalled it on your own.",
                 )
                 tone = "ok"
                 action = "complete"
             else:
                 feedback = config.ui(
-                    f"Rất gần. Từ là {card.reveal_word}. Câu gần đúng không phải đã thuộc.",
-                    f"Very close. The word is {card.reveal_word}. A near answer is not mastery.",
+                    f"Rất gần. Từ là {card.reveal_word}. Đây chưa phải lần tự nhớ chính xác.",
+                    f"Very close. The word is {card.reveal_word}. This is not an exact recall yet.",
                 )
                 tone = "near"
                 action = "complete"
         else:
             meaning = entry_meaning(entry)
             feedback = config.ui(
-                f"Từ đúng là {card.reveal_word}. Nghĩa là {meaning}.",
-                f"The word is {card.reveal_word}. It means {meaning}.",
+                f"Chưa đúng. Từ là {card.reveal_word}. Nghĩa là {meaning}.",
+                f"Not quite. The word is {card.reveal_word}. It means {meaning}.",
             )
             tone = "bad"
             action = "fail"
