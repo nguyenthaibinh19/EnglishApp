@@ -1,8 +1,7 @@
 """Study card presentation for the current recall step.
 
-The shell is the shared frame for later exercise types. This wave mounts only
-independent typing. Other kinds are named so a later wave can plug in, and
-they are not built into the window.
+The shell is the shared frame. The legacy quiz still mounts only independent
+typing. Adaptive vocabulary mounts the other exercise bodies itself.
 """
 
 from __future__ import annotations
@@ -283,19 +282,29 @@ class StudyCardShell:
         self.leave_button.configure(text=leave)
         self.emergency_button.configure(text=emergency)
 
-    def show_answering(self) -> None:
-        self.exercise.frame.pack(fill=tk.X, padx=18, pady=(22, 8))
+    def swap_exercise(self, exercise) -> None:
+        """Replace the card body. The legacy quiz keeps IndependentTyping."""
+        self.exercise.frame.destroy()
+        self.exercise = exercise
+        self.exercise.frame.pack(fill=tk.X, padx=18, pady=(22, 8), before=self.feedback)
+
+    def show_answering(self, *, show_hint: bool = True, clear_support: bool = True) -> None:
+        self.exercise.frame.pack(fill=tk.X, padx=18, pady=(22, 8), before=self.feedback)
         self.exercise.set_enabled(True)
         self.exercise.clear_answer()
         self.hint_button.configure(state="normal")
-        self.hint_button.pack(pady=(0, 8))
+        if show_hint:
+            self.hint_button.pack(pady=(0, 8))
+        else:
+            self.hint_button.pack_forget()
         self.continue_button.pack_forget()
         self.sentence_button.pack_forget()
         self.hear_button.pack_forget()
         self.check_button.configure(state="normal")
         self.check_button.pack(fill=tk.X)
         self.feedback.configure(text="", text_color=ui_foundation.COLOR_TEXT)
-        self.exercise.show_support("")
+        if clear_support:
+            self.exercise.show_support("")
         self.exercise.focus_answer()
 
     def show_feedback(self, text: str, tone: str, *, offer_sentence: bool = False, offer_hear: bool = False) -> None:
@@ -343,5 +352,191 @@ class StudyCardShell:
         self.continue_button.pack(fill=tk.X, pady=(12, 0))
         try:
             self.continue_button.focus_set()
+        except tk.TclError:
+            pass
+
+
+def _label(parent, text, size, weight=None):
+    return ctk.CTkLabel(
+        parent,
+        text=text,
+        font=ctk.CTkFont(family="Segoe UI", size=size, weight=weight) if weight else ctk.CTkFont(family="Segoe UI", size=size),
+        text_color=ui_foundation.COLOR_TEXT,
+        fg_color=ui_foundation.COLOR_CARD,
+        wraplength=460,
+        justify="center",
+    )
+
+
+class IntroductionExercise:
+    """Word, meaning, and the stored example. Hearing is optional."""
+
+    kind = "introduction"
+
+    def __init__(self, parent, card, on_hear):
+        self.frame = ctk.CTkFrame(parent, fg_color=ui_foundation.COLOR_CARD, corner_radius=0)
+        _label(self.frame, card.kicker, 15).pack(pady=(8, 6))
+        _label(self.frame, card.show_word, 32, "bold").pack(pady=(0, 8))
+        _label(self.frame, card.show_meaning, 20).pack(pady=(0, 8))
+        example = card.show_example or "No example is stored for this word."
+        _label(self.frame, example, 15).pack(pady=(0, 8))
+        row = ctk.CTkFrame(self.frame, fg_color=ui_foundation.COLOR_CARD, corner_radius=0)
+        row.pack(pady=(4, 4))
+        self.normal_button = ctk.CTkButton(
+            row, text="Listen", width=120, height=34, corner_radius=10,
+            fg_color=ui_foundation.COLOR_SOFT_GREEN, hover_color="#D3E6DA",
+            text_color=ui_foundation.COLOR_PRIMARY,
+            command=lambda: on_hear(0),
+        )
+        self.slow_button = ctk.CTkButton(
+            row, text="Listen slowly", width=140, height=34, corner_radius=10,
+            fg_color=ui_foundation.COLOR_SOFT_GREEN, hover_color="#D3E6DA",
+            text_color=ui_foundation.COLOR_PRIMARY,
+            command=lambda: on_hear(-4),
+        )
+        self.normal_button.pack(side=tk.LEFT, padx=6)
+        self.slow_button.pack(side=tk.LEFT, padx=6)
+        bind_activation(self.normal_button)
+        bind_activation(self.slow_button)
+        self.voice_note = _label(self.frame, card.guidance, 14)
+        self.voice_note.pack(pady=(6, 0))
+
+    def answer_text(self) -> str:
+        return ""
+
+    def choice_index(self):
+        return None
+
+    def clear_answer(self) -> None:
+        return None
+
+    def set_enabled(self, enabled: bool) -> None:
+        state = "normal" if enabled else "disabled"
+        self.normal_button.configure(state=state)
+        self.slow_button.configure(state=state)
+
+    def show_support(self, text: str) -> None:
+        if text:
+            self.voice_note.configure(text=text)
+
+    def focus_answer(self) -> None:
+        return None
+
+
+class MultipleChoiceExercise:
+    kind = "multiple_choice"
+
+    def __init__(self, parent, card):
+        self.frame = ctk.CTkFrame(parent, fg_color=ui_foundation.COLOR_CARD, corner_radius=0)
+        self._selected = None
+        self._labels = list(card.choices)
+        _label(self.frame, card.kicker, 15).pack(pady=(8, 6))
+        _label(self.frame, card.prompt, 26, "bold").pack(pady=(0, 12))
+        self.buttons = []
+        for index, label in enumerate(self._labels):
+            button = ctk.CTkButton(
+                self.frame,
+                text=f"{index + 1}.  {label}",
+                height=42,
+                corner_radius=12,
+                fg_color="#FFFFFF",
+                hover_color=ui_foundation.COLOR_SOFT_GREEN,
+                text_color=ui_foundation.COLOR_TEXT,
+                border_width=1,
+                border_color=ui_foundation.COLOR_BORDER,
+                anchor="w",
+                command=lambda i=index: self._select(i),
+            )
+            button.pack(fill=tk.X, padx=8, pady=4)
+            bind_activation(button)
+            self.buttons.append(button)
+        self.support = _label(self.frame, card.guidance, 14)
+        self.support.pack(pady=(8, 0))
+
+    def _select(self, index: int) -> None:
+        self._selected = index
+        for position, button in enumerate(self.buttons):
+            if position == index:
+                button.configure(
+                    fg_color=ui_foundation.COLOR_PRIMARY,
+                    text_color=ui_foundation.COLOR_ON_PRIMARY,
+                )
+            else:
+                button.configure(fg_color="#FFFFFF", text_color=ui_foundation.COLOR_TEXT)
+
+    def answer_text(self) -> str:
+        if self._selected is None:
+            return ""
+        return self._labels[self._selected]
+
+    def choice_index(self):
+        return self._selected
+
+    def clear_answer(self) -> None:
+        self._selected = None
+        for button in self.buttons:
+            button.configure(fg_color="#FFFFFF", text_color=ui_foundation.COLOR_TEXT)
+
+    def set_enabled(self, enabled: bool) -> None:
+        state = "normal" if enabled else "disabled"
+        for button in self.buttons:
+            button.configure(state=state)
+
+    def show_support(self, text: str) -> None:
+        self.support.configure(text=text)
+
+    def focus_answer(self) -> None:
+        if self.buttons:
+            try:
+                self.buttons[0].focus_set()
+            except tk.TclError:
+                pass
+
+
+class TypingExercise:
+    """Shared typed body for missing letters, guided typing, and recall."""
+
+    def __init__(self, parent, card, kind: str):
+        self.kind = kind
+        self.frame = ctk.CTkFrame(parent, fg_color=ui_foundation.COLOR_CARD, corner_radius=0)
+        self.kicker = _label(self.frame, card.kicker, 15)
+        self.kicker.pack(pady=(8, 6))
+        self.question = _label(self.frame, card.prompt, 26, "bold")
+        self.question.pack(pady=(0, 8))
+        self.mask = _label(self.frame, card.mask, 22)
+        if card.mask:
+            self.mask.pack(pady=(0, 8))
+        self.entry = ctk.CTkEntry(
+            self.frame,
+            height=48,
+            corner_radius=12,
+            justify="center",
+            font=ctk.CTkFont(family="Segoe UI", size=20),
+            fg_color="#FFFFFF",
+            border_color=ui_foundation.COLOR_BORDER,
+            text_color=ui_foundation.COLOR_TEXT,
+        )
+        self.entry.pack(fill=tk.X, padx=8, pady=(0, 8))
+        self.support = _label(self.frame, card.guidance, 14)
+        self.support.pack(pady=(0, 4))
+
+    def answer_text(self) -> str:
+        return self.entry.get().strip()
+
+    def choice_index(self):
+        return None
+
+    def clear_answer(self) -> None:
+        self.entry.delete(0, "end")
+
+    def set_enabled(self, enabled: bool) -> None:
+        self.entry.configure(state="normal" if enabled else "disabled")
+
+    def show_support(self, text: str) -> None:
+        self.support.configure(text=text)
+
+    def focus_answer(self) -> None:
+        try:
+            self.entry.focus_set()
         except tk.TclError:
             pass
