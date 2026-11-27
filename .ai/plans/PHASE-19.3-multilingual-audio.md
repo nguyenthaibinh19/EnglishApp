@@ -4,7 +4,7 @@ Branch `phase19.3/multilingual-audio`, created from main `5f8f3c0ad175a82ad61866
 
 ## What speaks
 
-`WindowsLocalTTSProvider` remains the only playback path. Learner text, the voice name, and the rate travel as environment data. The PowerShell scripts stay fixed source.
+`WindowsSpeechProvider` is the shared playback path. System.Speech remains the preferred engine. WinRT speaks a language only when System.Speech cannot, or when that WinRT voice was explicitly saved. Learner text, the voice id, and the rate travel as environment data. The PowerShell scripts stay fixed source.
 
 Normal rate is 0. Slow rate is -4. Both are inside the validated range -10..10. A removed voice falls back to another voice of the same language. A voice from another language is refused. There is no online fallback.
 
@@ -15,6 +15,30 @@ Voice Settings opens from Study Settings. Discovery and playback run off the Tk 
 Listening keeps Play, Slow, and Replay. A missing voice opens the existing unavailable screen with Continue, so a locked session is not trapped. Grading, completion, and SRS are unchanged.
 
 Vocabulary pronunciation uses the same provider where the word is already visible: the library row, the word detail (word and example), and study feedback after the answer. The hear control is hidden while the learner is still answering.
+
+## R2 WinRT speech — 2026-11-27
+
+Review baseline `9cefcf3831f12f2cf080fdc1c0fcc92ce3f09963`.
+
+`WindowsSpeechProvider` lists System.Speech and Windows.Media.SpeechSynthesis together. A saved System.Speech name still selects that voice. When nothing is saved, System.Speech is used if it has a voice for the language. WinRT fills the same language only when System.Speech cannot. An explicit WinRT choice is stored as `winrt:` plus the voice id returned by Windows. That id is data. The app does not read or write the registry.
+
+There is no new Python dependency. Synthesis runs in the existing PowerShell host. PyInstaller does not need a new hidden import or a speech wheel. No executable was rebuilt.
+
+Audible playback through this provider, with the fixed preview sentence:
+
+| Language | Voice used | Result |
+| --- | --- | --- |
+| Dutch | Microsoft Frank, nl-NL, Male, WinRT | Normal 4.40 s, slow 5.32 s. Same voice and text. |
+| Portuguese | Microsoft Helia, pt-PT, Female, WinRT | Normal 4.47 s, slow 5.31 s. Same voice and text. |
+| English | Microsoft David Desktop, en-US, Male, System.Speech | Normal 4.18 s. |
+| Spanish | Microsoft Helena Desktop, es-ES, Female, System.Speech | Normal 4.22 s. |
+| German | Microsoft Hedda Desktop, de-DE, Female, System.Speech | Normal 4.64 s. |
+| French | none | Missing-voice path. Not played. |
+| Italian | none | Missing-voice path. Not played. |
+
+A Dutch WinRT token requested for English resolved to David, not Frank.
+
+Voice Settings re-enables preview after another window releases the shared playback slot. The menu selection and playback use the same saved token.
 
 ## R1 corrections — 2026-11-27
 

@@ -11,12 +11,13 @@ import threading
 from typing import Callable, Optional
 
 from listening import ListeningAudioError
-from listening_windows_tts import NORMAL_RATE, WindowsLocalTTSProvider
+from listening_speech import WindowsSpeechProvider
+from listening_windows_tts import NORMAL_RATE
 
 _lock = threading.Lock()
 _busy = False
 _generation = 0
-_provider: Optional[WindowsLocalTTSProvider] = None
+_provider: Optional[WindowsSpeechProvider] = None
 
 
 def playback_busy() -> bool:
@@ -59,11 +60,11 @@ def finish_playback(token: int) -> bool:
         return current
 
 
-def shared_provider() -> WindowsLocalTTSProvider:
+def shared_provider() -> WindowsSpeechProvider:
     global _provider
     with _lock:
         if _provider is None:
-            _provider = WindowsLocalTTSProvider()
+            _provider = WindowsSpeechProvider()
         return _provider
 
 

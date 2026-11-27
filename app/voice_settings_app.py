@@ -13,6 +13,7 @@ import ui_common
 import ui_foundation
 import voice_prefs
 from ctk_keyboard import bind_activation
+from listening_speech import preference_matches, resolve_saved_voice
 from listening_windows_tts import (
     NORMAL_RATE,
     PREVIEW_TEXT,
@@ -223,13 +224,18 @@ class VoiceSettingsApp:
         self._render_catalog()
         if playback_busy():
             self._set_preview_enabled(False)
+            self._arm_playback_watch()
 
     def _on_voice(self, label: str):
         voice = self._voice_by_label(label)
         if voice is None:
             return
-        voice_prefs.set_selected_voice_name(self._language, voice.name)
+        voice_prefs.set_selected_voice_name(self._language, voice.token())
+        self._preview_token += 1
         self._show_voice(voice)
+        if playback_busy():
+            self._set_preview_enabled(False)
+            self._arm_playback_watch()
 
     def _voice_by_label(self, label: str) -> Optional[WindowsVoiceInfo]:
         for voice in self._voices:
@@ -239,7 +245,8 @@ class VoiceSettingsApp:
 
     def _voice_label(self, voice: WindowsVoiceInfo) -> str:
         gender = f" · {voice.gender}" if voice.gender else ""
-        return f"{voice.name} · {voice.culture}{gender}"
+        kind = "Windows voice" if voice.provider == "winrt" else "System.Speech"
+        return f"{voice.name} · {voice.culture}{gender} · {kind}"
 
     def _refresh(self):
         if self._loading:
@@ -284,15 +291,19 @@ class VoiceSettingsApp:
         labels = [self._voice_label(voice) for voice in self._voices]
         self.voice_menu.configure(values=labels)
         saved = voice_prefs.selected_voice_name(self._language)
-        chosen = next((voice for voice in self._voices if voice.name == saved), None)
+        chosen = resolve_saved_voice(self._language, self._voices, saved)
         if chosen is None:
-            chosen = self._voices[0]
-            if saved:
-                voice_prefs.set_selected_voice_name(self._language, chosen.name)
+            self._show_missing()
+            self.status.configure(text="")
+            return
+        if saved and not preference_matches(chosen, saved):
+            voice_prefs.set_selected_voice_name(self._language, chosen.token())
         self.voice_menu.set(self._voice_label(chosen))
         self._show_voice(chosen)
         self._set_guidance("")
         self._set_preview_enabled(not playback_busy())
+        if playback_busy():
+            self._arm_playback_watch()
         self.status.configure(text="")
 
     def _show_missing(self):
@@ -302,8 +313,8 @@ class VoiceSettingsApp:
         self.voice_menu.configure(state="disabled")
         self.detail.configure(
             text=config.ui(
-                "Chưa có giọng System.Speech cho ngôn ngữ này.",
-                "No System.Speech voice is available for this language.",
+                "Chưa có giọng Windows cho ngôn ngữ này.",
+                "No Windows voice is available for this language.",
             )
         )
         self._set_guidance(install_guidance(self._language))
@@ -313,10 +324,11 @@ class VoiceSettingsApp:
 
     def _show_voice(self, voice: WindowsVoiceInfo):
         gender = voice.gender or config.ui("không ghi", "not reported")
+        kind = "Windows voice" if voice.provider == "winrt" else "System.Speech"
         self.detail.configure(
             text=config.ui(
-                f"Ngôn ngữ giọng: {voice.culture}. Giới tính: {gender}.",
-                f"Voice locale: {voice.culture}. Gender: {gender}.",
+                f"Ngôn ngữ giọng: {voice.culture}. Giới tính: {gender}. Nguồn: {kind}.",
+                f"Voice locale: {voice.culture}. Gender: {gender}. Source: {kind}.",
             )
         )
 
@@ -351,7 +363,7 @@ class VoiceSettingsApp:
         language = self._language
         self._preview_token += 1
         token = self._preview_token
-        voice_name = voice.name
+        voice_name = voice.token()
 
         def scope() -> bool:
             return (
@@ -375,6 +387,7 @@ class VoiceSettingsApp:
         if not started:
             self.status.configure(text=config.ui("Đang phát một đoạn khác.", "Another clip is still playing."))
             self._set_preview_enabled(False)
+            self._arm_playback_watch()
             return
         self.status.configure(text=config.ui("Đang phát…", "Playing…"))
         self._set_preview_enabled(False)
@@ -383,6 +396,35 @@ class VoiceSettingsApp:
         if self._closed or token != self._preview_token or language != self._language or self._loading:
             return
         self.status.configure(text=error)
+
+    def _arm_playback_watch(self):
+        """Re-enable preview after another window releases the shared slot."""
+        self._watch_token = getattr(self, "_watch_token", 0) + 1
+        token = self._watch_token
+
+        def tick():
+            if self._closed or token != getattr(self, "_watch_token", None):
+                return
+            if self._loading:
+                return
+            if playback_busy():
+                try:
+                    self.window.after(200, tick)
+                except tk.TclError:
+                    pass
+                return
+            busy = config.ui("Đang phát một đoạn khác.", "Another clip is still playing.")
+            try:
+                if self.status.cget("text") == busy:
+                    self.status.configure(text="")
+            except tk.TclError:
+                return
+            self._set_preview_enabled(True)
+
+        try:
+            self.window.after(200, tick)
+        except tk.TclError:
+            pass
 
     def _preview_settled(self):
         if self._closed or self._loading:

@@ -4,7 +4,7 @@ Directional plan — **not** a rigid release commitment. Update when phases comp
 
 ## Latest operational checkpoint — 2026-11-24
 
-- **Active priority: Phase 19.3 R1 audio corrections are on `phase19.3/multilingual-audio`.** Not merged. Baseline `17a9692`. English, German, and Spanish play through System.Speech. Dutch and Portuguese exist only as WinRT voices and are not operational. French and Italian are not installed. 18B.9 remains **PAUSED**. 18B.10B–E remain **NOT AUTHORIZED**.
+- **Active priority: Phase 19.3 R2 WinRT speech is on `phase19.3/multilingual-audio`.** Not merged. Baseline `9cefcf3`. Dutch and Portuguese play through Windows.Media.SpeechSynthesis. English, Spanish, and German stay on System.Speech. French and Italian are not installed. 18B.9 remains **PAUSED**. 18B.10B–E remain **NOT AUTHORIZED**.
 - 18C.1, 18C.2, and 18C.3B are **CLOSED**. 18B.10A is **AUDIT ACCEPTED, IMPLEMENTATION DEFERRED**. 18B.10B–E are **NOT AUTHORIZED**.
 - **18B.9 PAUSED, NOT CLOSED.** Production Cloud Sync is **ON**. Google Drive stays **NOT CONFIGURED**. Staging deployment **NOT STARTED**. The supervised Sync pilot remains closed inside its approved scope.
 

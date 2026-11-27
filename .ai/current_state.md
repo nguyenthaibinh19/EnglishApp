@@ -4,7 +4,7 @@
 
 ## Latest verified coordination checkpoint — 2026-11-24
 
-**Current priority:** **Phase 19.3 R1 audio lifecycle corrections are ready for review on `phase19.3/multilingual-audio`.** Not merged. Review baseline `17a96921c743cc688991bccfc29f927838b52783`. Phase 19.2B is merged to main at `5f8f3c0ad175a82ad61866e23eac64af1bfe47ed`. System.Speech plays English (David, Zira), German (Hedda), and Spanish (Helena) at normal and slow rates. Dutch Frank and Portuguese Helia are installed for Windows.Media.SpeechSynthesis and are invisible to System.Speech, so they are not operational. French and Italian are absent from both catalogs. Notes: [PHASE-19.3-multilingual-audio.md](plans/PHASE-19.3-multilingual-audio.md). Release: https://github.com/nguyenthaibinh19/EnglishApp/releases/tag/v1.5.0. **18B.9 PAUSED.**
+**Current priority:** **Phase 19.3 R2 WinRT speech is ready for review on `phase19.3/multilingual-audio`.** Not merged. Review baseline `9cefcf3831f12f2cf080fdc1c0fcc92ce3f09963`. System.Speech still speaks English, Spanish, and German. Windows.Media.SpeechSynthesis now speaks Dutch (Microsoft Frank, nl-NL) and Portuguese (Microsoft Helia, pt-PT). French and Italian are not installed. No new Python speech package. Notes: [PHASE-19.3-multilingual-audio.md](plans/PHASE-19.3-multilingual-audio.md). Release: https://github.com/nguyenthaibinh19/EnglishApp/releases/tag/v1.5.0. **18B.9 PAUSED.**
 
 **Phase 18B.10A: AUDIT ACCEPTED, IMPLEMENTATION DEFERRED** (`APP_18B10A_ARCHITECT_AUDIT_ACCEPTED_DEFERRED`). The audit and its proposed, unapproved numerical limits stay in [PHASE-18B.10A-api-abuse-resistance-audit.md](plans/PHASE-18B.10A-api-abuse-resistance-audit.md). Do not implement 18B.10B, 18B.10C, 18B.10D, or 18B.10E.
 

@@ -33,7 +33,7 @@ Do not silently fall back to online Edge TTS. Do not auto-install language packs
 - Gender is kept only when System.Speech reports Male, Female, or Neutral.
 - The selected voice is stored on this PC under `device_voices`, one name per study language. It is not an account preference and it is not synced.
 - An explicit voice is used only when that voice belongs to the requested language. A missing name falls back to another voice of the same language. A voice from another language is never selected, and there is no online fallback.
-- On 2026-11-25, `Windows.Media.SpeechSynthesis` returned no voices. A later probe on 2026-11-27 found WinRT voices that System.Speech does not list, including Dutch and Portuguese. WinRT remains the smallest local alternative for a separate review. It is not integrated. No paid speech service is added.
+- On 2026-11-25, `Windows.Media.SpeechSynthesis` returned no voices. A later probe on 2026-11-27 found WinRT voices that System.Speech does not list, including Dutch and Portuguese. That probe did not integrate WinRT. The R2 amendment below is the integration. No paid speech service is added.
 
 ## Amendment — 2026-11-27 — Phase 19.3 R1
 
@@ -41,3 +41,10 @@ Do not silently fall back to online Edge TTS. Do not auto-install language packs
 - A playback callback is delivered only when the originating window is open and the caller's language and exercise identity still match.
 - Voice discovery and catalog refresh stay off the Tk thread, including the failure path.
 - Missing-voice guidance names the selected language's Windows speech pack.
+
+## Amendment — 2026-11-27 — Phase 19.3 R2
+
+- `WindowsSpeechProvider` is the shared local catalog. System.Speech remains the voice used when it can speak the language.
+- `Windows.Media.SpeechSynthesis` is used for the same language when System.Speech has no voice, and when the learner explicitly selects a WinRT voice. The voice id and the spoken text stay in environment data. The PowerShell script is fixed. Audio is played from memory and disposed. The registry is not modified.
+- A saved System.Speech voice name still selects that System.Speech voice. A WinRT choice is stored as `winrt:` plus the voice id, on this PC only.
+- No Python speech package is added. A frozen build keeps using PowerShell and does not need a new hidden import. This phase did not rebuild the executable.

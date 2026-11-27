@@ -98,6 +98,14 @@ class WindowsVoiceInfo:
     culture: str
     language: str  # TwoLetterISOLanguageName, lowercased
     gender: str = ""  # Male, Female, Neutral, or empty when the OS does not say
+    provider: str = "sapi"  # sapi | winrt
+    voice_id: str = ""
+
+    def token(self) -> str:
+        """Stable device-local id. System.Speech keeps the saved voice name."""
+        if self.provider == "winrt":
+            return "winrt:" + (self.voice_id or self.name)
+        return self.name
 
 
 def _normalize_culture(value: str) -> str:
@@ -430,12 +438,18 @@ class WindowsLocalTTSProvider(ListeningAudioProvider):
         return self._voices
 
 
-def try_create_windows_tts_provider() -> Optional[WindowsLocalTTSProvider]:
-    """Return a usable provider, or None when the backend cannot initialize."""
+def try_create_windows_tts_provider():
+    """Return the local Windows provider, or None when speech cannot initialize.
+
+    The shared provider prefers System.Speech and uses WinRT only for a
+    language System.Speech cannot speak.
+    """
     if sys.platform != "win32":
         return None
     try:
-        provider = WindowsLocalTTSProvider()
+        from listening_speech import WindowsSpeechProvider
+
+        provider = WindowsSpeechProvider()
         if not provider.is_available():
             return None
         return provider
