@@ -26,6 +26,18 @@ Durable engineering lessons from Phases 1–14. Prefer these over repeating past
 - Future SRS reviews must never be labeled **due**.
 - Reading failure must not hard-block session completion after required vocab.
 
+## Local speech
+
+- Windows has two speech catalogs. A voice listed in System.Speech is not the same fact as a voice listed in Windows.Media.SpeechSynthesis.
+- A locale map is not playback. Audible playback on one PC does not mean every study language has a voice.
+- Learner text, voice id, and rate stay in environment data. The script stays fixed. Do not persist generated audio.
+- A second `Tk()` in the same process is not a combined-suite pass.
+
+## Third-party agent tools
+
+- A proposed skill or local memory server is not project memory until a human accepts it. `.ai/` on GitHub remains the approved record.
+- Inspect scripts, hooks, dependencies, licenses, and outbound data before any execution. Pin the reviewed commit. Do not download and execute an installer as the review.
+
 ## Windows installation
 
 - `shutil.copy2` keeps the source timestamp, so an older executable can replace a newer install without looking newer.

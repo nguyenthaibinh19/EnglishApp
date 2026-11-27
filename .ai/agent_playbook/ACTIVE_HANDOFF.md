@@ -1,42 +1,42 @@
 # Active handoff
 
-Rolling coordination checkpoint. See [current_state.md](../current_state.md) and [PHASE-18C.4-two-device-sync-acceptance.md](../plans/PHASE-18C.4-two-device-sync-acceptance.md).
+Rolling coordination checkpoint. Product position is [current_state.md](../current_state.md). This file is coordination, not a second source of truth.
 
 ## 1. Checkpoint metadata
 
 - Written: 2026-11-27.
-- Tag: `APP_19D3_WINRT_AUDIO_READY_FOR_REVIEW`. Architect decision: `APP_19D3_AUDIO_R1_ACCEPTED_WINRT_EXTENSION_REQUIRED`. Review baseline: `9cefcf3831f12f2cf080fdc1c0fcc92ce3f09963`. Branch: `phase19.3/multilingual-audio`. Not merged. Phase 19.2B is merged to main at `5f8f3c0ad175a82ad61866e23eac64af1bfe47ed` (PR #31, accepted UI `fd18a1d849d3898cdbff4bd517b22cfff1f4bdbc`). Tkinter fallback: `phase19.2a/ui-foundation-today` at `7c566027d393ae6753592b67a17c83ddb1b08c3d`. Visual trial remains `baf501351dc0b326df1a286ea64b5572bfa2f7bb`.
-- Source baseline: `88239b61e4255e24446bea076486c4411bebdced`. Installed EXE SHA-256 `6954dbdadec226140ac35e55395ffda0c20a31b1ebaffde643c7edcd6d6ee1e9`.
-- Active priority: **Review Phase 19.3 R2 WinRT speech. Do not merge.** Dutch Frank and Portuguese Helia play through Windows.Media.SpeechSynthesis. English, Spanish, and German stay on System.Speech. French and Italian are not installed. Do not start Adaptive Vocabulary, Grammar Companion, or LocalAIProvider. Screenshots are under `D:\EnglishApp\.local\19d3-screenshots`. Account ID 1 migration remains complete. Do not launch the protected RC database again. Server and installed app: 115 vocabulary entities, 6 attempts, 6 progress rows, empty pending outbox, no conflicts. The 114 recovery IDs match. The extra entity `242e5e4c-4345-447c-a777-44df6132b2da` is present once. Accepted event IDs: `1ac28d33-316d-40e4-b68e-d90be119e734`, `72deb6e9-a3a0-4eb3-835a-40249bf2204d`, `7d67dc07-ac1f-4e6b-b911-0529826c7fd9`, `8f7c5f0a-2665-49fc-9350-6ecaefc6770e`, `ac4d0208-9992-408a-a1dd-19f7dc9d6552`, `cc1a1d73-1e53-44c2-845a-e2413f20519b`. Post-migration backup `study-sync-20261124-204803-765136.db`, SHA-256 `7ed7ad81fa39d8eb6596c8b8b74b64b3ae23dc041da5e4db8fafdb6f2071def6`, checked `2026-11-24T20:48:12Z`, status `VERIFIED`. Preferences were not changed. Account ID 3 is still 2 vocabulary entities and 2 attempts. The installed home is unlocked: 3 due, 109 new, Cloud Sync Synced. Production `sync_http.py` remains `d173ad179ca9039a13489df0ce8ca81473ddfd711897fd803af96f60920f0dd2`. The backup timer is enabled. Next elapse: `2026-11-25 04:47:46 UTC`. It has not fired.
-- Application source baseline: `d6578c0f579d7ee9bd02aec855193339a7d8c124`.
-- Remote main at the start of Phase 19.3: `527a01c0263287b1a4b7fc97dc216cbf4b7f1056`. Merged main: `5f8f3c0ad175a82ad61866e23eac64af1bfe47ed`.
+- Tag: `APP_19D3_CLOSED_PROJECT_MEMORY_SYNCED`. Architect decision: `APP_19D3_ARCHITECT_ACCEPTED_FOR_MERGE`.
+- Accepted audio source: `3d983331c5d967c8cbe883f6881547eb4ff6ae72` on `phase19.3/multilingual-audio`.
+- Phase 19.3 merge: PR #32, merge `7aedf7a423d2ef244ce37b5d3f348c7f75ed0241`. Remote main before that merge was `5f8f3c0ad175a82ad61866e23eac64af1bfe47ed` (PR #31, accepted UI `fd18a1d849d3898cdbff4bd517b22cfff1f4bdbc`).
+- Public release remains v1.5.0, built from `154bf03c6856667cf1322cfe4e6f31996e05e09f`. Release checkpoint: 978 passed, 24 skipped, 0 failed. Phase 19 UI and multilingual audio are merged source and are not in that download.
+- Tkinter fallback: `phase19.2a/ui-foundation-today` at `7c566027d393ae6753592b67a17c83ddb1b08c3d`. Visual trial remains `baf501351dc0b326df1a286ea64b5572bfa2f7bb`. Neither is the merged UI.
+- Closed audio behavior: one local Windows provider. System.Speech is preferred. WinRT speaks the same language only when System.Speech cannot, or when that WinRT voice was explicitly saved. Voice preferences stay on the device. Normal rate is 0 and Slow rate is -4. One playback slot covers Listening, Voice Settings, Vocabulary Library, Word Detail, and Study Feedback. A missing voice uses the existing unavailable path. English, Dutch, Spanish, German, and Portuguese played on the Owner PC. French and Italian remain unavailable on that PC and are not a closeout blocker. 78 focused simulated tests passed. No cloud speech fallback, no new Python speech package, no registry edits, and no frozen-executable verification.
 - 18C.1, 18C.2, and 18C.3B remain CLOSED. The Sync Engine was not rebuilt.
 - Phase 18B.10A: **AUDIT ACCEPTED, IMPLEMENTATION DEFERRED.** 18B.10B–E are **NOT AUTHORIZED.**
-- Phase 18B.9: **PAUSED, NOT CLOSED.**
-- Cloud Sync production: **ON**, supervised pilot. The verifier service completed `VERIFIED`.
+- Phase 18B.9: **PAUSED, NOT CLOSED.** Google Drive is **NOT CONFIGURED.**
+- Cloud Sync production pilot was **ON** as of 2026-11-24. That observation was not rechecked on 2026-11-27. The November 25 backup-timer elapse in the previous handoff is historical. Do not treat it as the current schedule.
 - Staging deployment: **NOT STARTED.**
-- Real two-PC vocabulary A → VPS → B: **PASS — Owner confirmed**. Same-machine restart persistence passed. Production conflict, production offline, and production replay are not claimed.
-- Sync pilot: closed within the approved pilot scope. Full physical-device acceptance beyond the owner-confirmed vocabulary direction is not complete.
-- Account id 1 reconciliation is in [PHASE-18D.1-desktop-release-candidate.md](../plans/PHASE-18D.1-desktop-release-candidate.md). The 2026-11-19 recovery copy was read and not overwritten. Local and production incident backups are under `.local\backups\18d1-data-incident\` and `/var/backups/language-guard/study-sync/`; neither is in Git.
+- `C-APP-AI-001` v0.2.0 is accepted. `LocalAIProvider` is **NOT AUTHORIZED.** The website is not deployed.
+- Taste Skill and AI Memory are **PROPOSED — NOT AUDITED — NOT AUTHORIZED FOR INSTALLATION.** See [AI-TOOLCHAIN-SECURITY-AND-LOCAL-MEMORY.md](../plans/AI-TOOLCHAIN-SECURITY-AND-LOCAL-MEMORY.md).
 
 ## 2. Evidence
 
-- Shared source: `D:\EnglishApp\.local\clients\18c4p-r3`. Client A data: `.local\data\18c4p-r3`. Client B data: `.local\data\18c4p-r3-b`. Launcher: `.local\labs\18c4p-r3\launch_client.py`.
-- Both clients are `syncpilot_18c4p`, user id 3, with distinct unchanged device ids. `syncprobe` remains revision 4, meaning `lab-marker-a`. Two accepted attempts are preserved, sequences 1 and 2. SRS counts are unchanged. Details: [PHASE-18C.4-two-device-sync-acceptance.md](../plans/PHASE-18C.4-two-device-sync-acceptance.md).
-- The focused Account Sync suite passed, 88 tests, on a temporary localhost backend. That count includes `test_f2_keep_local_converges_both_clients`. The three Tk lifecycle tests passed. This evidence is separate from production.
-- The full application suite after the screen-lock guard correction: **970 passed, 25 skipped, 0 failed**. Details: [PHASE-18D.2A-emergency-exit-security.md](../plans/PHASE-18D.2A-emergency-exit-security.md).
+- Phase 19.3 audible matrix and historical probes: [PHASE-19.3-multilingual-audio.md](../plans/PHASE-19.3-multilingual-audio.md). Decision: [ADR-016](../decisions/ADR-016-listening-local-tts.md).
+- Earlier two-device lab evidence remains in [PHASE-18C.4-two-device-sync-acceptance.md](../plans/PHASE-18C.4-two-device-sync-acceptance.md). That evidence is separate from production.
+- The full application suite after the screen-lock guard correction: **970 passed, 25 skipped, 0 failed**. The v1.5.0 release checkpoint is **978 passed, 24 skipped, 0 failed**. Details: [PHASE-18D.2A-emergency-exit-security.md](../plans/PHASE-18D.2A-emergency-exit-security.md) and [PROJECT_OVERVIEW.md](../../docs/PROJECT_OVERVIEW.md).
 
-## 3. Next
+## 3. Next authorized action
 
-1. Review `phase19.3/multilingual-audio`. Phase 19.2B is already on main at `5f8f3c0`. The Tkinter fallback remains `phase19.2a/ui-foundation-today` at `7c56602`. Do not point a data root at production AppData. Install Dutch (Netherlands) and Spanish (Spain) speech only if the Owner chooses to, without changing the Windows display language, then use Refresh voices.
-2. Leave the installed v1.5.0 window unlocked. Do not launch the protected RC database or upload anything further for account ID 1.
-3. Do not point RC smoke at `.local\data\18d1-v1.5.0-rc`. Rollback of the EXE is the copy at `.local\builds\18d3-v1.5.0-final\rollback-1.4.0\langstudyguard.exe`.
+1. Wait for a separate Architect brief before implementing Adaptive Vocabulary. That is the next product implementation priority. The accepted Phase 19.1 list is in [roadmap.md](../roadmap.md). Do not start Grammar Companion, sentence exercises, or a mascot from this handoff.
+2. Do not install, build, or execute Taste Skill or AI Memory.
+3. Do not rebuild or publish an executable. Do not describe Phase 19 UI or audio as publicly released.
+4. Leave Phase 18 safety decisions closed. Do not resume 18B.9. Do not implement 18B.10B–E. Do not launch the protected RC database.
 
 ## 4. STOP
 
-- Do not paste the synthetic password into chat.
+- Do not paste secrets, session tokens, or learner records into chat.
 - Do not follow the historical LAN, SSH, or staging-lab steps in the 18C.4 acceptance plan.
-- Do not disable the Sync backup timer and do not treat the manual `study-sync-20261124-174104-409289.db` snapshot as the first natural 04:45 UTC run.
-- Do not upload the preserved 114-word account.
+- Do not disable the Sync backup timer, and do not treat a manual snapshot as the first natural timer run. The 2026-11-25 next-elapse time was not rechecked on 2026-11-27.
+- Do not upload a preserved learner account.
 - Do not resume 18B.9 or implement 18B.10B–E.
 - Put disposable artifacts in `D:\EnglishApp\.local`. Do not create a new `D:\lg-*` directory. See [LOCAL_WORKSPACE_POLICY.md](../procedures/LOCAL_WORKSPACE_POLICY.md).

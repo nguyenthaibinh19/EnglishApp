@@ -1,8 +1,8 @@
 # Sync database operations
 
-## Current production, 2026-11-24
+## Historical observation — 2026-11-24, not rechecked on 2026-11-27
 
-Production Cloud Sync is on. `STUDY_SYNC_ENABLED` is exactly `1`. `language-guard-sync-backup.timer` is enabled and active: `04:45:00 UTC`, `Persistent=true`, `RandomizedDelaySec=10m`. The verifier timer stays at `08:00:00 Europe/Amsterdam`, after that backup window. The accounts backup timer is separate and was not changed. Backup files are mode `0600` in `/var/backups/language-guard/study-sync`, and that directory is mode `0700`. The verifier reads them through its read-only bind, not by widening those modes. The first natural timer run had not occurred when this note was written. The manual snapshot and the deployed HTTP hashes are in [PHASE-18D.2B-production-backend-sync-backup.md](../plans/PHASE-18D.2B-production-backend-sync-backup.md).
+On 2026-11-24, production Cloud Sync was on. `STUDY_SYNC_ENABLED` was exactly `1`. `language-guard-sync-backup.timer` was recorded as enabled and active: `04:45:00 UTC`, `Persistent=true`, `RandomizedDelaySec=10m`. The verifier timer was `08:00:00 Europe/Amsterdam`, after that backup window. The accounts backup timer was separate and was not changed. Backup files were mode `0600` in `/var/backups/language-guard/study-sync`, and that directory was mode `0700`. The verifier reads them through its read-only bind, not by widening those modes. The first natural timer run had not occurred when this note was written. That schedule was not rechecked on 2026-11-27. The manual snapshot and the deployed HTTP hashes are in [PHASE-18D.2B-production-backend-sync-backup.md](../plans/PHASE-18D.2B-production-backend-sync-backup.md).
 
 The sections below are the original source procedure. They describe the repository behavior and the earlier inactive production state. They are not an instruction to turn Sync off or to disable the timer.
 
