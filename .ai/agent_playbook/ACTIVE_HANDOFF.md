@@ -5,7 +5,7 @@ Rolling coordination checkpoint. Product position is [current_state.md](../curre
 ## 1. Checkpoint metadata
 
 - Written: 2026-11-27.
-- Tag: `APP_19D4B_PERSISTENT_PRACTICE_READY_FOR_REVIEW`. Branch: `phase19.4b/practice-records`. Not merged. Baseline: `8fa61e304eee4ac5a609eb87dbc50d638c52f9df`.
+- Tag: `APP_19D4B_PERSISTENT_PRACTICE_READY_FOR_REVIEW`. Branch: `phase19.4b/practice-records`. Review commit: `0df2ee5b32e7b032d96f5ec171dd5a4f64bc191b`. Not merged. Baseline: `8fa61e304eee4ac5a609eb87dbc50d638c52f9df`.
 - Phase 19.4A remains closed. Tag `APP_19D4A_CLOSED_ADAPTIVE_VOCABULARY`. Merge PR #34, `e33373110544a1ca4fca6905b8741d47e4932fc4`. Closeout corrections: `d6edf393f54d78c374ee350bd92eaf4cb07bf423`. Accepted review checkpoint: `dcfd3cee49a6587cd1fd403c944c370e844db67c`. UX polish: `98d7bc09f44cdecaa838caa4721d504107555721`. Functional correction: `c5f17c5020d72d931b8b2f7022ecd1a57db2e96a`. Foundation parent: `5087b33f1b56d5ec47e47f4b1db19b0ed930ee7d`. Remote main before that merge was `445d62c986b83393a2ba1702c7c108c52aa3f096`.
 - Previous milestone: `APP_19D3_ARCHITECT_ACCEPTED_CLOSED`. Phase 19.3 remains merged at `7aedf7a423d2ef244ce37b5d3f348c7f75ed0241`.
 - Accepted audio source: `3d983331c5d967c8cbe883f6881547eb4ff6ae72` on `phase19.3/multilingual-audio`.

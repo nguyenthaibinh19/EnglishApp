@@ -1,6 +1,6 @@
 # Phase 19.4B practice records
 
-Status: Ready for review. Not merged. Branch `phase19.4b/practice-records`. Baseline `8fa61e304eee4ac5a609eb87dbc50d638c52f9df`. Decision: [ADR-026](../decisions/ADR-026-practice-records.md). Tag `APP_19D4B_PERSISTENT_PRACTICE_READY_FOR_REVIEW`.
+Status: Ready for review. Not merged. Branch `phase19.4b/practice-records`. Review commit `0df2ee5b32e7b032d96f5ec171dd5a4f64bc191b`. Baseline `8fa61e304eee4ac5a609eb87dbc50d638c52f9df`. Decision: [ADR-026](../decisions/ADR-026-practice-records.md). Tag `APP_19D4B_PERSISTENT_PRACTICE_READY_FOR_REVIEW`.
 
 This follows Phase 19.1 section 10 and E2. It adds a local practice file to the unlocked adaptive preview. It does not replace the legacy quiz, and it is not part of the installed v1.5.0 download.
 
