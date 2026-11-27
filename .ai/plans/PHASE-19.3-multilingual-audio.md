@@ -1,6 +1,8 @@
 # Phase 19.3 multilingual audio
 
-Branch `phase19.3/multilingual-audio`, created from main `5f8f3c0ad175a82ad61866e23eac64af1bfe47ed` (PR #31). Not merged.
+Status: Closed 2026-11-27. Architect decision `APP_19D3_ARCHITECT_ACCEPTED_FOR_MERGE`. Accepted audio source `3d983331c5d967c8cbe883f6881547eb4ff6ae72`. Merged to main by PR #32 at `7aedf7a423d2ef244ce37b5d3f348c7f75ed0241`. The installed public release remains v1.5.0. This audio work is merged source and is not in that download.
+
+The branch was created from main `5f8f3c0ad175a82ad61866e23eac64af1bfe47ed` (PR #31).
 
 ## What speaks
 
@@ -46,7 +48,9 @@ Review baseline `17a96921c743cc688991bccfc29f927838b52783`.
 
 Listening now takes the same playback slot as Voice Settings, the vocabulary library, word detail, and study feedback. A second window gets a busy message instead of a second clip. Callbacks are checked again at delivery against the window, the language, and the exercise that started them. Advancing a study card drops a late error onto the next question. Discovery failure does not call `voices_for()` on the Tk thread. Installation guidance names the selected language.
 
-## Voice inventory on this PC — 2026-11-27
+## Historical System.Speech-only probe — 2026-11-27, before R2
+
+This table records what System.Speech alone could play before Windows.Media.SpeechSynthesis was wired in. It is not the closed result. The closed audible matrix is the R2 table above.
 
 System.Speech, played with the fixed preview sentence. Normal rate 0 and slow rate -4 used the same voice and the same text. These timings are audible playback, not mocked tests.
 
@@ -60,19 +64,19 @@ System.Speech, played with the fixed preview sentence. Normal rate 0 and slow ra
 | Italian | none | Not played. |
 | Portuguese | none | Not played. |
 
-`Windows.Media.SpeechSynthesis` on the same PC also lists Microsoft Frank, nl-NL, and Microsoft Helia, pt-PT, plus extra Spanish, German, and English voices. Those WinRT voices do not appear in System.Speech, so the app cannot play them. Dutch is installed for WinRT and remains unavailable to LanguageGuard. French and Italian are absent from both catalogs.
+At that same moment `Windows.Media.SpeechSynthesis` also listed Microsoft Frank, nl-NL, and Microsoft Helia, pt-PT, plus extra Spanish, German, and English voices. Those voices were absent from System.Speech, so this System.Speech-only probe could not play them. R2 later plays Frank and Helia. French and Italian were absent from both catalogs and remain unavailable on this PC.
 
 The saved voice name is what Listening, the vocabulary surfaces, and study feedback pass into playback. Zira was resolved and played when English was saved as Zira, rather than the alphabetical default David.
 
 ## Future local neural speech — not implemented
 
-`Windows.Media.SpeechSynthesis` is the smallest next local provider. It is offline, uses voices Windows already installed, and adds no model files to the package. On this PC it is the only catalog that can see Dutch and Portuguese. A separate review would put it behind the existing provider seam. It is not a cloud service.
+`Windows.Media.SpeechSynthesis` is implemented as of R2, behind `WindowsSpeechProvider`. It speaks a language only when System.Speech cannot, or when that WinRT voice was explicitly saved. It is offline and adds no model files. It is not a cloud service.
 
-Piper is the practical offline neural alternative if Windows voices stay split. The archived `rhasspy/piper` engine was MIT. The active `piper-tts` package and `OHF-Voice/piper1-gpl` are GPL-3.0. The `rhasspy/piper-voices` files are MIT and include Dutch, English, Spanish, French, German, Italian, and Portuguese. A medium voice is about 63 MB. One medium voice for each of the seven languages is on the order of 440 MB, plus an ONNX runtime. That size and the GPL engine are the packaging constraints. This correction does not add Piper.
+Piper is not implemented and is not authorized. Before any commercial distribution, the engine license and each individual voice model's license must be evaluated separately. The archived `rhasspy/piper` engine was MIT. The active `piper-tts` package and `OHF-Voice/piper1-gpl` are GPL-3.0. A repository card that says the voice collection is MIT does not clear every voice file for commercial use. The collection includes Dutch, English, Spanish, French, German, Italian, and Portuguese. A medium voice is about 63 MB. One medium voice for each of the seven languages is on the order of 440 MB, plus an ONNX runtime. That size and the separate license reviews are the packaging constraints. This phase does not add Piper.
 
 ## Earlier probe — 2026-11-25
 
-This inventory is historical. The 2026-11-27 table above is the current one.
+This inventory is historical. The closed result is the R2 table. The System.Speech-only table later in this file is the probe from before WinRT playback.
 
 System.Speech, read by the app probe:
 
@@ -88,11 +92,9 @@ System.Speech, read by the app probe:
 
 Windows user languages on this PC are en-US and ja. Japanese is not a study language and is not used as a fallback. `Windows.Media.SpeechSynthesis.AllVoices` returned an empty list. A locale listed in `SPEECH_LOCALE_PREFERENCES` is not an operational voice.
 
-## Owner action still open
+## Owner action after closeout
 
-Spanish and German now play through System.Speech. Dutch does not. Microsoft Frank, nl-NL, is visible to Windows.Media.SpeechSynthesis and invisible to System.Speech. Refresh voices cannot select Frank. The same split hides Microsoft Helia, pt-PT. French and Italian are not in either catalog.
-
-The app will not install a language pack, change the display language, or edit the registry. A further System.Speech download for Dutch (Netherlands), French (France), Italian (Italy), or Portuguese (Portugal) is the Owner's choice. If Windows asks for an administrator, that choice belongs to the Owner. Until System.Speech lists the voice, LanguageGuard reports it as missing.
+English, Dutch, Spanish, German, and Portuguese played on this PC through the closed provider. French and Italian are still absent from both catalogs. That gap is not a closeout blocker. The app will not install a language pack, change the display language, or edit the registry. Adding French or Italian speech is the Owner's choice. If Windows asks for an administrator, that choice belongs to the Owner. Until a same-language voice exists, LanguageGuard reports the language as missing.
 
 ## Carried limits
 
@@ -104,4 +106,4 @@ Windows display scaling above 100% was not measured. A 150% widget-scaling probe
 
 ## Tests
 
-Injected providers cover the shared playback slot, a stale exercise callback, missing-voice feedback, a catalog read that does not discover, per-language guidance, the saved voice name on Listening, vocabulary, and study feedback, rate bounds, and slow or replay playback that does not complete a listening session twice. Those tests do not prove the speakers made sound. The audible results are in the 2026-11-27 table.
+Injected providers cover the shared playback slot, a stale exercise callback, missing-voice feedback, a catalog read that does not discover, per-language guidance, the saved voice name on Listening, vocabulary, and study feedback, rate bounds, and slow or replay playback that does not complete a listening session twice. Those tests do not prove the speakers made sound. The closed audible results are in the R2 table. Focused simulated tests: 78 passed. No frozen executable was verified.

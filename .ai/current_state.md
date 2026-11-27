@@ -2,9 +2,23 @@
 
 > First file a new agent should read. Keep this concise and update when phases complete.
 
-## Latest verified coordination checkpoint — 2026-11-24
+## Latest verified coordination checkpoint — 2026-11-27
 
-**Current priority:** **Phase 19.3 R2 WinRT speech is ready for review on `phase19.3/multilingual-audio`.** Not merged. Review baseline `9cefcf3831f12f2cf080fdc1c0fcc92ce3f09963`. System.Speech still speaks English, Spanish, and German. Windows.Media.SpeechSynthesis now speaks Dutch (Microsoft Frank, nl-NL) and Portuguese (Microsoft Helia, pt-PT). French and Italian are not installed. No new Python speech package. Notes: [PHASE-19.3-multilingual-audio.md](plans/PHASE-19.3-multilingual-audio.md). Release: https://github.com/nguyenthaibinh19/EnglishApp/releases/tag/v1.5.0. **18B.9 PAUSED.**
+**Current priority:** **Phase 19.3 is closed and merged.** PR [#32](https://github.com/nguyenthaibinh19/EnglishApp/pull/32), merge `7aedf7a423d2ef244ce37b5d3f348c7f75ed0241`. Accepted audio source `3d983331c5d967c8cbe883f6881547eb4ff6ae72`. `WindowsSpeechProvider` is the shared local catalog: System.Speech when it can speak the language, Windows.Media.SpeechSynthesis for the same language otherwise or when that WinRT voice was explicitly saved. Device-local voice preferences, Normal and Slow playback, and one shared playback slot are in source. English, Dutch, Spanish, German, and Portuguese played on the Owner PC. French and Italian remain unavailable on that PC. 78 focused simulated tests passed. No cloud speech fallback, no new Python speech package, no registry edits, and no frozen-executable verification. Notes: [PHASE-19.3-multilingual-audio.md](plans/PHASE-19.3-multilingual-audio.md) and [ADR-016](decisions/ADR-016-listening-local-tts.md).
+
+**Public release:** v1.5.0 remains the installed download, built from `154bf03c6856667cf1322cfe4e6f31996e05e09f`. Release checkpoint **978 passed, 24 skipped, 0 failed**. Phase 19.2B UI (PR #31, `5f8f3c0`) and Phase 19.3 audio are merged source and are not in that download.
+
+**Next product implementation:** Adaptive Vocabulary, pending a separate Architect brief. Do not start it from this checkpoint. The accepted Phase 19.1 priorities that remain unimplemented are recorded in [roadmap.md](roadmap.md).
+
+**18B.9 PAUSED, NOT CLOSED.** 18B.10A remains **AUDIT ACCEPTED, IMPLEMENTATION DEFERRED**. 18B.10B–E remain **NOT AUTHORIZED**. Google Drive remains **NOT CONFIGURED**. `C-APP-AI-001` v0.2.0 is accepted. `LocalAIProvider` is **NOT AUTHORIZED**. The website is not deployed.
+
+The 2026-11-24 coordination text below is historical. The November 25 backup-timer elapse was not rechecked on 2026-11-27. Do not treat that schedule as the current timer state.
+
+## Historical coordination checkpoint — 2026-11-24
+
+**Then-current priority:** Phase 19.3 R2 WinRT speech was ready for review and was not yet merged. That review later closed in the checkpoint above. Release: https://github.com/nguyenthaibinh19/EnglishApp/releases/tag/v1.5.0. **18B.9 PAUSED.**
+
+**Preserved closures:** The milestone records below stay in force. Where the 2026-11-16 snapshot says Cloud Sync is OFF, or that `C-APP-AI-001` is still proposed, the 2026-11-27 checkpoint supersedes that sentence. Phase 18 safety decisions and closed milestones are unchanged.
 
 **Phase 18B.10A: AUDIT ACCEPTED, IMPLEMENTATION DEFERRED** (`APP_18B10A_ARCHITECT_AUDIT_ACCEPTED_DEFERRED`). The audit and its proposed, unapproved numerical limits stay in [PHASE-18B.10A-api-abuse-resistance-audit.md](plans/PHASE-18B.10A-api-abuse-resistance-audit.md). Do not implement 18B.10B, 18B.10C, 18B.10D, or 18B.10E.
 
@@ -22,7 +36,7 @@
 
 Historical pre-fix executable-path audit **ACCEPTED UNSAFE** preserved ([#7009010670](https://github.com/nguyenthaibinh19/EnglishApp/issues/8#issuecomment-7009010670)). D5A2D2/D5A2D3 **FAIL** preserved. Owner actions still required for age/OAuth/folder/credential install, isolation execution, restore drill, monitoring, and activation.
 
-**Existing operational facts (Cursor-reported):** VPS Python `3.14.4`; journal `delete`; `guard` 995/982; `lg-backup` 994/977. Drive **NOT CONFIGURED**. Production Cloud Sync is **ON**. The 2026-11-24 Sync backup timer and deployed HTTP hashes are in [PHASE-18D.2B-production-backend-sync-backup.md](plans/PHASE-18D.2B-production-backend-sync-backup.md).
+**Historical operational observation, recorded 2026-11-24 and not rechecked on 2026-11-27:** VPS Python `3.14.4`; journal `delete`; `guard` 995/982; `lg-backup` 994/977. Drive **NOT CONFIGURED**. Production Cloud Sync was **ON** for the controlled pilot. The Sync backup timer note and deployed HTTP hashes from that day are in [PHASE-18D.2B-production-backend-sync-backup.md](plans/PHASE-18D.2B-production-backend-sync-backup.md). The November 25 next-elapse time is not a current status.
 
 **AI separate workstream:** `C-APP-AI-001 v0.2.0` ACCEPTED; PR #14 MERGED. **AI-M4 / LocalAIProvider NOT AUTHORIZED.**
 

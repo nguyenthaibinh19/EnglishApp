@@ -14,11 +14,13 @@ The installed v1.4.0 client updated to that build through the in-app updater. Th
 
 `https://langstudyguard.com` is the deployed account and sync API. It is not a deployed marketing website.
 
-Production Cloud Sync is on for a controlled pilot. Google Drive off-box backup is not configured and is not operational. A scheduled on-server sync backup exists, and a manual restore check of a backup was verified during the v1.5.0 backend work.
+Production Cloud Sync was on for a controlled pilot as of 2026-11-24. That observation was not rechecked on 2026-11-27. Google Drive off-box backup is not configured and is not operational. During the v1.5.0 backend work, a scheduled on-server sync backup was recorded and a manual restore check of a backup was verified. The November 25 timer elapse is a historical observation, not a current status.
 
 ## What is implemented but not released
 
-Phase 19 desktop UI work, including CustomTkinter home and study presentations, lives on review branches. Those screenshots in the README are development previews. They are not in the v1.5.0 download.
+Phase 19.2B CustomTkinter home and study presentation is merged to `main` (PR #31, `5f8f3c0ad175a82ad61866e23eac64af1bfe47ed`) and is not in the v1.5.0 download. The README screenshots of that layout are development previews.
+
+Phase 19.3 local multilingual speech is merged to `main` (PR #32, `7aedf7a423d2ef244ce37b5d3f348c7f75ed0241`) and is not in the v1.5.0 download. Source uses System.Speech when that catalog can speak the language, and Windows.Media.SpeechSynthesis for the same language otherwise. There is no cloud speech fallback. The public release still uses the earlier Windows-voice listening path.
 
 App-side consumer checks for contract **C-APP-AI-001 v0.2.0** are in the public repository. They do not switch the running app to a local model.
 
@@ -41,7 +43,7 @@ Accepted decisions worth reading:
 - [ADR-004](../.ai/decisions/ADR-004-learning-attempt-history.md), [ADR-005](../.ai/decisions/ADR-005-mistake-book-semantics.md), [ADR-006](../.ai/decisions/ADR-006-srs-v2.md) — attempts, mistakes, and review spacing.
 - [ADR-007](../.ai/decisions/ADR-007-daily-study-planner.md) and [ADR-008](../.ai/decisions/ADR-008-study-session.md) — the daily plan and the session.
 - [ADR-009](../.ai/decisions/ADR-009-stable-vocabulary-identity.md) — immutable vocabulary UUIDs.
-- [ADR-016](../.ai/decisions/ADR-016-listening-local-tts.md) — Windows voices only, and no silent fallback to another language.
+- [ADR-016](../.ai/decisions/ADR-016-listening-local-tts.md) — local Windows speech. System.Speech is preferred. WinRT covers the same language when System.Speech cannot. No silent fallback to another language or to a cloud voice.
 - [ADR-018](../.ai/decisions/ADR-018-account-cloud-sync.md) and [ADR-022](../.ai/decisions/ADR-022-event-first-automatic-account-sync.md) — account sync. ADR-018 is the foundation. Later accepted work turned the pilot on. The foundation note's original "not in production" line is historical.
 - [ADR-025](../.ai/decisions/ADR-025-environment-identity-and-isolation.md) — development, staging, and production data roots stay apart.
 

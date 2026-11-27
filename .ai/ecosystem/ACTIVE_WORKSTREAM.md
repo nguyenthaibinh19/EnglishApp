@@ -38,6 +38,17 @@
 - AI: `nguyenthaibinh19/langstudyguard-ai` (private) — exists; AI-M2 implementation committed @ `5cd4dd2`; architectural acceptance pending; no App↔AI integration accepted
 - `C-APP-AI-001`: **PROPOSED / IN REVIEW** — not ACCEPTED; App LocalAIProvider **NOT AUTHORIZED**
 
+## Later checkpoint — 2026-11-27
+
+The 2026-11-18 assignment and gate table above are historical. Read [current_state.md](../current_state.md) for the accepted position. Do not rewrite D5A2D2 or D5A2D3 into a pass.
+
+- Phase 19.3 multilingual audio is merged to main (PR #32, `7aedf7a423d2ef244ce37b5d3f348c7f75ed0241`). It is not in the installed public release v1.5.0.
+- Phase 19.2B UI is merged (PR #31, `5f8f3c0ad175a82ad61866e23eac64af1bfe47ed`) and is also not in v1.5.0.
+- Cloud Sync for the production pilot was ON as of the 2026-11-24 checkpoint. That observation was not rechecked on 2026-11-27.
+- Google Drive remains **NOT CONFIGURED**. Phase 18B.9 remains **PAUSED, NOT CLOSED**.
+- `C-APP-AI-001` v0.2.0 is accepted. `LocalAIProvider` is not authorized. The private website is not deployed. Existence of the web and AI repositories is not integration.
+- Next product implementation is Adaptive Vocabulary, pending a separate Architect brief.
+
 ## Change control
 
 Update this file only when a [LEADERSHIP_HANDOFF_PROTOCOL.md](LEADERSHIP_HANDOFF_PROTOCOL.md) handoff completes or the Owner corrects a factual error.

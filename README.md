@@ -30,6 +30,8 @@ These images come from synthetic development profiles. They contain starter voca
 
 A signed-in Cloud Sync state is not shown. Guest mode correctly reports sync as disabled. No website or local-AI screenshot is included: the website is not publicly deployed, and local AI is a separate private workstream.
 
+Source on `main` after 2026-11-27 also contains work that is not in the v1.5.0 download: the Phase 19.2B CustomTkinter home and study presentation (PR #31), and Phase 19.3 local speech (PR #32). That speech path prefers System.Speech and uses Windows.Media.SpeechSynthesis only for a same-language gap or an explicitly saved WinRT voice. It does not call a cloud voice. On the development PC used for the audible check, French and Italian had no voice. The public download remains v1.5.0.
+
 ## Core features
 
 Released v1.5.0 includes:
@@ -115,7 +117,7 @@ More detail is in the [project overview](docs/PROJECT_OVERVIEW.md) and in [archi
 
 | Area | Released or in active use | Development stage |
 |---|---|---|
-| Desktop and UI | Python, Tkinter, ttk | CustomTkinter, on unreleased branches. Not in v1.5.0. |
+| Desktop and UI | Python, Tkinter, ttk | CustomTkinter home and study presentation, merged to main and not in v1.5.0. |
 | Backend | Python account service, HTTPS | |
 | Database | SQLite on the desktop and on the server | |
 | AI integration | Provider boundary, cloud model through the account server | |

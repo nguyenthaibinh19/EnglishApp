@@ -17,7 +17,7 @@ Separate **implemented** from **planned**. Do not claim Web, App, and AI are alr
 | Website production hosting | Apex domain static routes | **NOT AUTHORIZED** (W1) |
 | Website | Live account registration UI | Not implemented |
 | App | Google Drive off-box production backup | **NOT CONFIGURED**; Phase 18B.9 open; D5A2D2 FAIL |
-| App | Vocabulary Cloud Sync | **OFF** |
+| App | Vocabulary Cloud Sync | Pilot **ON** as of 2026-11-24; not rechecked 2026-11-27. Older rows that say OFF are historical. |
 | App | Local AI runtime (`langstudyguard-ai`) | AI repo **exists**; integration **NOT IMPLEMENTED**; `C-APP-AI-001` **wire v0.2.0 ACCEPTED** (not a deployment) |
 
 ## Planned (proposed only)

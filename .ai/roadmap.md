@@ -2,11 +2,33 @@
 
 Directional plan — **not** a rigid release commitment. Update when phases complete or priorities shift.
 
-## Latest operational checkpoint — 2026-11-24
+## Latest operational checkpoint — 2026-11-27
 
-- **Active priority: Phase 19.3 R2 WinRT speech is on `phase19.3/multilingual-audio`.** Not merged. Baseline `9cefcf3`. Dutch and Portuguese play through Windows.Media.SpeechSynthesis. English, Spanish, and German stay on System.Speech. French and Italian are not installed. 18B.9 remains **PAUSED**. 18B.10B–E remain **NOT AUTHORIZED**.
-- 18C.1, 18C.2, and 18C.3B are **CLOSED**. 18B.10A is **AUDIT ACCEPTED, IMPLEMENTATION DEFERRED**. 18B.10B–E are **NOT AUTHORIZED**.
-- **18B.9 PAUSED, NOT CLOSED.** Production Cloud Sync is **ON**. Google Drive stays **NOT CONFIGURED**. Staging deployment **NOT STARTED**. The supervised Sync pilot remains closed inside its approved scope.
+- **Phase 19.3 is closed.** Merged by PR #32 at `7aedf7a423d2ef244ce37b5d3f348c7f75ed0241`. Accepted source `3d983331c5d967c8cbe883f6881547eb4ff6ae72`. Local Windows speech is in source: System.Speech preferred, WinRT for a same-language gap or an explicit saved WinRT voice. English, Dutch, Spanish, German, and Portuguese played on the Owner PC. French and Italian remain unavailable there. Not in the public v1.5.0 download.
+- **Phase 19.2B UI is merged** (PR #31, `5f8f3c0`) and is also not in v1.5.0. The Tkinter fallback branch stays unmerged.
+- **Next product implementation:** Adaptive Vocabulary, pending a separate Architect brief. Do not implement it from this checkpoint.
+- 18C.1, 18C.2, and 18C.3B remain **CLOSED**. 18B.10A remains **AUDIT ACCEPTED, IMPLEMENTATION DEFERRED**. 18B.10B–E remain **NOT AUTHORIZED**.
+- **18B.9 PAUSED, NOT CLOSED.** Google Drive stays **NOT CONFIGURED**. Staging deployment **NOT STARTED**. The 2026-11-24 note that production Cloud Sync was ON for the pilot was not rechecked on 2026-11-27. The November 25 backup-timer elapse is historical.
+- Taste Skill and AI Memory are **PROPOSED — NOT AUDITED — NOT AUTHORIZED FOR INSTALLATION**. See [AI-TOOLCHAIN-SECURITY-AND-LOCAL-MEMORY.md](plans/AI-TOOLCHAIN-SECURITY-AND-LOCAL-MEMORY.md).
+
+### Next learning work, from the accepted Phase 19.1 specification
+
+These items are recorded and not authorized for implementation until a separate brief:
+
+1. Adaptive Vocabulary: introduction, multiple choice, missing letters, assisted recall, and independent typing.
+2. Assistance after repeated failures.
+3. Separate exercise progress from verified SRS mastery.
+4. Progressive sentence exercises: word bank, fill-in-the-blank, guided writing, and independent writing.
+5. Expandable Grammar Companion with validated grammar rules and AI-assisted error explanation.
+6. Improved feedback and session completion presentation.
+7. Further Library, Progress, and Settings redesign.
+8. Mascot and animation stay deferred.
+
+## Historical operational checkpoint — 2026-11-24
+
+- Phase 19.3 R2 was then on `phase19.3/multilingual-audio` and was not merged. That review later closed in the checkpoint above.
+- 18C.1, 18C.2, and 18C.3B were **CLOSED**. 18B.10A was **AUDIT ACCEPTED, IMPLEMENTATION DEFERRED**. 18B.10B–E were **NOT AUTHORIZED**.
+- **18B.9 PAUSED, NOT CLOSED.** The note that production Cloud Sync was **ON** belongs to this date. Google Drive stayed **NOT CONFIGURED**. Staging deployment **NOT STARTED**.
 
 The 2026-11-19 checkpoint below is historical and is not the current priority.
 

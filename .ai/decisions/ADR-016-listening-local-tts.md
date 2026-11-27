@@ -48,3 +48,11 @@ Do not silently fall back to online Edge TTS. Do not auto-install language packs
 - `Windows.Media.SpeechSynthesis` is used for the same language when System.Speech has no voice, and when the learner explicitly selects a WinRT voice. The voice id and the spoken text stay in environment data. The PowerShell script is fixed. Audio is played from memory and disposed. The registry is not modified.
 - A saved System.Speech voice name still selects that System.Speech voice. A WinRT choice is stored as `winrt:` plus the voice id, on this PC only.
 - No Python speech package is added. A frozen build keeps using PowerShell and does not need a new hidden import. This phase did not rebuild the executable.
+
+## Closeout — 2026-11-27
+
+Accepted by `APP_19D3_ARCHITECT_ACCEPTED_FOR_MERGE`. Source `3d983331c5d967c8cbe883f6881547eb4ff6ae72`. Merged to main by PR #32 at `7aedf7a423d2ef244ce37b5d3f348c7f75ed0241`.
+
+The shared provider is implemented. Dutch and Portuguese played on the Owner PC through Windows.Media.SpeechSynthesis. English, Spanish, and German stayed on System.Speech. French and Italian were absent from both catalogs and are not a closeout blocker. 78 focused simulated tests passed. There is no cloud speech fallback, no registry modification, and no frozen-executable verification. The installed public release remains v1.5.0.
+
+The 2026-11-25 amendment records an empty WinRT probe. That sentence is historical. It does not mean WinRT stayed unimplemented.

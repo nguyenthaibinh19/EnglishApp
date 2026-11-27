@@ -85,9 +85,10 @@ The canonical loop is [`agent_playbook/AI_AGENT_WORKFLOW.md`](agent_playbook/AI_
 | [invariants.md](invariants.md) | Rules that must not be broken |
 | [roadmap.md](roadmap.md) | Directional plan |
 | [lessons.md](lessons.md) | Durable engineering lessons |
-| [decisions/](decisions/) | Architecture Decision Records through ADR-024. ADR-022 is Accepted; 18C.1 implements the local vertical slice (production activation still gated). ADR-023 is Accepted at `3dff28d3f78a22da0fda73a50168ed9c3d6e9d57` and is not a release. |
+| [decisions/](decisions/) | Architecture Decision Records. ADR-022 is Accepted. ADR-023 is Accepted at `3dff28d3f78a22da0fda73a50168ed9c3d6e9d57` and is not a release. ADR-025 is Accepted. |
 | [procedures/SYNC_DB_OPERATIONS.md](procedures/SYNC_DB_OPERATIONS.md) | Sync backup/restore and activation checklist (not executed) |
 | [plans/PHASE-18B.3-production-readiness.md](plans/PHASE-18B.3-production-readiness.md) | Phase 18B.3 production-readiness plan (Accepted; `97f7b25`) |
+| [plans/AI-TOOLCHAIN-SECURITY-AND-LOCAL-MEMORY.md](plans/AI-TOOLCHAIN-SECURITY-AND-LOCAL-MEMORY.md) | Proposed third-party skills and local memory. Not audited. Not authorized for installation. |
 | [procedures/](procedures/) | How-to checklists |
 | [procedures/HOW_TO_UPDATE_PROJECT_MEMORY.md](procedures/HOW_TO_UPDATE_PROJECT_MEMORY.md) | When/how to update `.ai/` memory |
 | [agent_playbook/README.md](agent_playbook/README.md) | Collaboration playbook: workflow, diff standard, and chat handoffs |

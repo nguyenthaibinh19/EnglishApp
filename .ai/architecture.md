@@ -84,7 +84,9 @@ ai_teacher → AIService → AIProvider → OpenAIProvider
         ↓
 validated ListeningItem
         ↓
-ListeningSession → WindowsLocalTTSProvider
+ListeningSession → WindowsSpeechProvider
+                   System.Speech preferred
+                   WinRT only for the same language
 ```
 
 - StudyGuard chooses up to 2 target words; AI only writes content ([ADR-017](decisions/ADR-017-listening-content-generation.md)).
@@ -92,6 +94,7 @@ ListeningSession → WindowsLocalTTSProvider
 - Answer must be grounded in transcript. Cache + bundled sample fallback. No Listening attempt/SRS/mastery writes.
 - StudyMaster must **not** discover Windows voices during construction. TTS discovery runs only when Listening is enabled and the learner opens Listening, via `ui_common.run_async` (off the Tk thread). Provider/catalog is cached for the StudyMaster lifetime. Async discovery completion auto-opens Listening only when still safe (no other study child open; pending language still active); otherwise the cache remains for a later explicit click. Listening callbacks bind the window's language explicitly (not mutable `active_code()`).
 - No Progress / SRS / AttemptHistory writes from Listening.
+- Playback goes through one shared slot in `speech_player`. Listening, Voice Settings, Vocabulary Library, Word Detail, and Study Feedback use that slot. A saved voice is device-local and is not an account preference. Discovery and synthesis stay off the Tk thread. A missing same-language voice uses the unavailable path. There is no wrong-language voice and no cloud speech fallback.
 
 ## UI (Tkinter)
 

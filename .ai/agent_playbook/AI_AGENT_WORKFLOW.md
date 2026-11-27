@@ -1,6 +1,6 @@
 # AI agent collaboration workflow — Study English App / StudyGuard
 
-This is the canonical collaboration workflow. `.ai/procedures/AI_AGENT_WORKFLOW.md` points here. Product position stays in `.ai/current_state.md`, invariants, ADRs, and the roadmap.
+This is the canonical collaboration workflow. `.ai/procedures/AI_AGENT_WORKFLOW.md` points here. Product position stays in `.ai/current_state.md`, invariants, ADRs, and the roadmap. GitHub `.ai/` remains the approved project memory. The tools in [AI-TOOLCHAIN-SECURITY-AND-LOCAL-MEMORY.md](../plans/AI-TOOLCHAIN-SECURITY-AND-LOCAL-MEMORY.md) are proposed, not audited, and not authorized for installation.
 
 ## 1. Roles and decision authority
 

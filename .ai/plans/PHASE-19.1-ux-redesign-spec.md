@@ -2,7 +2,9 @@
 
 Status: **R1 READY FOR REVIEW.** Architect decision `APP_19D1_UI_DIRECTION_ACCEPTED_SPEC_EXTENSION_REQUIRED`. The Today / Words / You / Settings architecture is accepted. This revision extends the same specification. It does not redo the UX audit, reopen Phase 18, or authorize implementation.
 
-Specification only. No UI rewrite, no release rebuild, no backend change, no voice-engine change, and no mascot work are authorized. Adaptive learning, sentence practice, and grammar stay in this phase as future engine and schema work. No new mastery formula is accepted in R1.
+Specification only. No UI rewrite, no release rebuild, no backend change, no voice-engine change, and no mascot work are authorized by this document. Adaptive learning, sentence practice, and grammar stay in this phase as future engine and schema work. No new mastery formula is accepted in R1.
+
+Implementation note, 2026-11-27: Phase 19.2B later merged the CustomTkinter home and study presentation (PR #31). Phase 19.3 later merged local System.Speech plus WinRT playback, including Normal and Slow (PR #32, `7aedf7a423d2ef244ce37b5d3f348c7f75ed0241`). Neither is in the installed public release v1.5.0. The specification text below is preserved as written, including the statement that rate was not implemented when this spec was accepted. Adaptive Vocabulary is the next product implementation priority and still needs a separate Architect brief. This note does not authorize that work.
 
 Baseline: released v1.5.0 on `main`. Product shell is `FreeHome` in `app/home_app.py`. Study orchestration is `StudySession` (`app/study_session.py`) plus the Tk adapters `quiz_app.py`, `reading_app.py`, and `listening_app.py`. Presentation models that must stay pure: `home_viewmodel.py`, `progress_viewmodel.py`.
 
@@ -509,7 +511,7 @@ On this development PC the discovery returned two enabled voices, both `en-US`: 
 ### Windows limitations
 
 - Speech uses desktop System.Speech voices. A Windows display language can be installed without a text-to-speech voice.
-- The speak script calls `SelectVoice` and `Speak`. It does not set `Rate`, so Normal and Slow are not implemented. Both buttons would sound the same until a later approved change passes a rate as environment data.
+- The speak script calls `SelectVoice` and `Speak`. It does not set `Rate`, so Normal and Slow are not implemented in this specification. Both buttons would sound the same until a later approved change passes a rate as environment data. Phase 19.3 later made that change. This bullet stays as the specification was written.
 - Discovery does not return `VoiceInfo.Gender`. A Male / Female control stays absent. The English choice on this PC is alphabetical, not a gender choice.
 - Playback is one hidden PowerShell process per utterance, with a 90-second speak timeout and a 20-second discovery timeout. Discovery stays off the Tk thread.
 - The backend can be available while every non-English study language is unsupported. `is_available()` and `supports(language)` answer different questions.

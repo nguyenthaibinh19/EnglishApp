@@ -85,8 +85,9 @@ Near answers and hint-assisted exact answers are **non-mastered**. Do not casual
 
 ## Listening optionality / audio safety
 
-- Listening is optional when enabled; settings default **disabled** until a production audio provider exists.
-- Missing / failed audio provider → Listening **unavailable**; must not permanently block lock-session completion after required vocabulary work.
+- Listening stays optional. The settings default remains off. A local Windows provider exists in source after Phase 19.3 and is not part of the installed v1.5.0 download.
+- Missing or failed audio leaves Listening unavailable and must not permanently block lock-session completion after required vocabulary work.
+- A voice from another language is refused. There is no cloud speech fallback. Saved voice tokens stay on the device and are not synced.
 - Listening answer feedback must not redefine vocabulary mastery / SRS. See [ADR-015](decisions/ADR-015-listening-activity.md).
 
 ## StudySession vs ScreenGuard
