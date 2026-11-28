@@ -40,6 +40,12 @@ Do not conflate “due now” with “requeued later in this session”. See [AD
 - `vocab_id` is identity when available; `word` is a historical spelling snapshot.
 - Feeds Mistake Book, analytics, future AI dataset work. See [ADR-004](decisions/ADR-004-learning-attempt-history.md).
 
+## Practice records
+
+- Append-only recognition and assisted vocabulary events in a separate `practice_records.db`. See [ADR-026](decisions/ADR-026-practice-records.md).
+- Not a `LearningAttempt`, not an SRS review, and not a Cloud Sync progress event.
+- Guest and account files stay separate. The file is not `account_study.db`.
+
 ## MistakeBook
 
 - **Derived** state from AttemptHistory — not a separate persistent attention store.

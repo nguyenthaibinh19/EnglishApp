@@ -50,6 +50,7 @@ class AdaptiveVocabularyApp:
         on_completed=None,
         on_leave=None,
         provider=None,
+        practice_store=None,
         locked: bool = False,
     ):
         if locked:
@@ -62,6 +63,10 @@ class AdaptiveVocabularyApp:
         self.on_completed = on_completed
         self.on_leave = on_leave
         self.provider = provider
+        self.practice_store = practice_store
+        self.practice_saved = 0
+        self.practice_unsaved = 0
+        self._unsaved_notice = ""
         self._phase = "answer"
         self._checking = False
         self._completion_calls = 0
@@ -195,8 +200,10 @@ class AdaptiveVocabularyApp:
 
     def _check_card(self, card) -> None:
         if card.kind == "introduction":
-            self.session.continue_card()
+            result = self.session.continue_card()
+            self._persist_practice(result.practice)
             self._show_current()
+            self._show_unsaved_notice()
             return
         exercise = self.shell.exercise
         result = self.session.submit(
@@ -209,12 +216,16 @@ class AdaptiveVocabularyApp:
             return
         if result.status != "feedback":
             return
+        saved = self._persist_practice(result.practice)
         self._apply_write(result)
         self._phase = "feedback"
         self._update_progress()
         tone = result.tone or "bad"
+        feedback = result.feedback
+        if result.practice is not None and not saved:
+            feedback = f"{feedback}\n\n{_unsaved_practice()}"
         self.shell.show_feedback(
-            result.feedback,
+            feedback,
             tone,
             offer_sentence=False,
             offer_hear=speech_for_card(card, "feedback").allowed,
@@ -241,6 +252,36 @@ class AdaptiveVocabularyApp:
             self._show_complete()
             return
         self._show_current()
+
+    def _persist_practice(self, record) -> bool:
+        """Save one practice event. False means the learner must be told it was not saved."""
+        if record is None or self.practice_store is None:
+            return True
+        from practice_store import PracticeStoreError
+
+        try:
+            self.practice_store.append(record)
+        except PracticeStoreError:
+            self.practice_unsaved += 1
+            self._unsaved_notice = _unsaved_practice()
+            return False
+        self.practice_saved += 1
+        self._unsaved_notice = ""
+        return True
+
+    def _show_unsaved_notice(self) -> None:
+        notice = getattr(self, "_unsaved_notice", "")
+        if not notice:
+            return
+        note = getattr(self.shell.exercise, "voice_note", None)
+        if note is None:
+            return
+        try:
+            note.configure(text=notice)
+            note.pack(pady=(2, 0))
+        except tk.TclError:
+            pass
+        self._unsaved_notice = ""
 
     def _apply_write(self, result) -> None:
         if result.write is None or self.progress is None or self.attempts is None:
@@ -403,6 +444,13 @@ def _voice_unavailable(error: Exception) -> bool:
         "chưa cài giọng",
     )
     return any(marker in text for marker in markers)
+
+
+def _unsaved_practice() -> str:
+    return config.ui(
+        "Kết quả luyện này chưa được lưu.",
+        "This practice result was not saved.",
+    )
 
 
 def _voice_problem(error: Exception) -> str:
