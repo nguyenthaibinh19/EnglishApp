@@ -10,7 +10,10 @@ from __future__ import annotations
 import uuid
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
-from typing import Optional, Sequence
+from typing import Optional, Sequence, Union
+
+from languages import is_supported_language
+from vocab_identity import is_vocab_id
 
 FORMAT_VERSION = 1
 POLICY_ID = "adaptive-vocab-session-v1"
@@ -30,11 +33,21 @@ LADDER: tuple[str, ...] = (
     INDEPENDENT_RECALL,
 )
 
+PRACTICE_KINDS = (INTRODUCTION, MULTIPLE_CHOICE, MISSING_LETTERS, GUIDED_TYPING)
 OUTCOMES = ("acknowledged", "exact", "near", "wrong")
 SUCCESS_OUTCOMES = ("acknowledged", "exact")
 FAILURE_OUTCOMES = ("near", "wrong")
-ERROR_CLASSES = ("", "spelling", "vocabulary")
+# Conservative labels. A wrong answer is not diagnosed as a linguistic class.
+ERROR_NEAR_MATCH = "near_match"
+ERROR_INCORRECT = "incorrect_answer"
+ERROR_CLASSES = ("", ERROR_NEAR_MATCH, ERROR_INCORRECT)
 SUPPORT_LEVELS = ("recognition", "assisted")
+SUPPORT_FOR_KIND = {
+    INTRODUCTION: "recognition",
+    MULTIPLE_CHOICE: "recognition",
+    MISSING_LETTERS: "assisted",
+    GUIDED_TYPING: "assisted",
+}
 REPEATED_FAILURES = 2
 
 
@@ -61,7 +74,7 @@ class PracticeRecord:
     format_version: int
 
 
-def _uuid(value: str) -> bool:
+def _event_uuid(value: str) -> bool:
     try:
         uuid.UUID(str(value or "").strip())
     except (ValueError, TypeError, AttributeError):
@@ -70,17 +83,18 @@ def _uuid(value: str) -> bool:
 
 
 def observable_error(kind: str, outcome: str) -> str:
-    """Only classes the existing matcher can actually show.
+    """Conservative observable categories only.
 
-    A near answer is a spelling miss. A wrong answer is a vocabulary miss.
-    Conjugation, word order, and grammar are not inferred here.
+    A near answer is a near match. A wrong answer is an incorrect answer.
+    Spelling, conjugation, word order, and grammar are not inferred.
     """
+    del kind
     if outcome in ("acknowledged", "exact"):
         return ""
     if outcome == "near":
-        return "spelling"
+        return ERROR_NEAR_MATCH
     if outcome == "wrong":
-        return "vocabulary"
+        return ERROR_INCORRECT
     return ""
 
 
@@ -119,23 +133,29 @@ def build_practice_record(
 def validate_practice_record(record: PracticeRecord) -> None:
     if not isinstance(record, PracticeRecord):
         raise PracticeRecordError("practice record is missing")
-    for name in ("practice_event_id", "exercise_instance_id", "session_id", "vocab_id"):
-        if not _uuid(getattr(record, name)):
+    for name in ("practice_event_id", "exercise_instance_id", "session_id"):
+        if not _event_uuid(getattr(record, name)):
             raise PracticeRecordError(f"{name} is not a UUID")
-    if not record.language_code or len(record.language_code) > 12:
-        raise PracticeRecordError("study language is missing")
-    if record.actual_kind not in LADDER or record.actual_kind == INDEPENDENT_RECALL:
+    if not is_vocab_id(record.vocab_id):
+        raise PracticeRecordError("vocab_id is not a stable vocabulary UUID")
+    if not is_supported_language(record.language_code):
+        raise PracticeRecordError("study language is not supported")
+    if record.actual_kind not in PRACTICE_KINDS:
         raise PracticeRecordError("actual exercise kind is not a practice exercise")
     if record.intended_kind not in LADDER:
         raise PracticeRecordError("intended exercise kind is not valid")
     if record.support_level not in SUPPORT_LEVELS:
         raise PracticeRecordError("support level is not recognition or assisted")
+    if record.support_level != SUPPORT_FOR_KIND[record.actual_kind]:
+        raise PracticeRecordError("support level does not match the exercise kind")
     if record.outcome not in OUTCOMES:
         raise PracticeRecordError("outcome is not valid")
     if record.outcome == "acknowledged" and record.actual_kind != INTRODUCTION:
         raise PracticeRecordError("only introduction is acknowledged")
     if record.actual_kind == INTRODUCTION and record.outcome != "acknowledged":
         raise PracticeRecordError("introduction is recorded as an acknowledgement")
+    if record.actual_kind != INTRODUCTION and record.outcome == "acknowledged":
+        raise PracticeRecordError("graded exercises are not acknowledgements")
     if record.error_class not in ERROR_CLASSES:
         raise PracticeRecordError("error class is not observable")
     if record.error_class != observable_error(record.actual_kind, record.outcome):
@@ -144,11 +164,16 @@ def validate_practice_record(record: PracticeRecord) -> None:
         raise PracticeRecordError("policy id is not the adaptive session policy")
     if record.format_version != FORMAT_VERSION:
         raise PracticeRecordError("practice record version is not supported")
-    if _parse_time(record.occurred_at) is None:
+    if parse_practice_time(record.occurred_at) is None:
         raise PracticeRecordError("occurrence time is not UTC")
 
 
-def _parse_time(value: str) -> Optional[datetime]:
+def parse_practice_time(value: Union[str, datetime, None]) -> Optional[datetime]:
+    """Parse a timezone-aware UTC instant. Naive values are refused."""
+    if isinstance(value, datetime):
+        if value.tzinfo is None:
+            return None
+        return value.astimezone(timezone.utc)
     text = str(value or "").strip()
     if not text:
         return None
@@ -161,13 +186,23 @@ def _parse_time(value: str) -> Optional[datetime]:
     return parsed.astimezone(timezone.utc)
 
 
-def usable_practice(records: Sequence[PracticeRecord], *, now: Optional[datetime] = None) -> list[PracticeRecord]:
-    """Drop missing, stale, invalid, and unsupported records. Order is oldest first."""
+def usable_practice(
+    records: Sequence[PracticeRecord],
+    *,
+    now: Optional[datetime] = None,
+    after: Optional[Union[str, datetime]] = None,
+) -> list[PracticeRecord]:
+    """Drop missing, stale, invalid, and unsupported records. Order is oldest first.
+
+    When ``after`` is set, only practice strictly newer than that UTC instant is kept.
+    Equal timestamps keep the caller's order, which for the store is append order.
+    """
     moment = now or datetime.now(timezone.utc)
     if moment.tzinfo is None:
         moment = moment.replace(tzinfo=timezone.utc)
     moment = moment.astimezone(timezone.utc)
     cutoff = moment - timedelta(days=EVIDENCE_DAYS)
+    floor = parse_practice_time(after)
     kept = []
     for record in records or ():
         if not isinstance(record, PracticeRecord):
@@ -178,11 +213,14 @@ def usable_practice(records: Sequence[PracticeRecord], *, now: Optional[datetime
             validate_practice_record(record)
         except PracticeRecordError:
             continue
-        occurred = _parse_time(record.occurred_at)
+        occurred = parse_practice_time(record.occurred_at)
         if occurred is None or occurred < cutoff or occurred > moment + timedelta(minutes=5):
             continue
+        if floor is not None and occurred <= floor:
+            continue
         kept.append(record)
-    kept.sort(key=lambda item: item.occurred_at)
+    # Stable sort: equal UTC times keep their incoming order (store uses rowid).
+    kept.sort(key=lambda item: parse_practice_time(item.occurred_at) or datetime.min.replace(tzinfo=timezone.utc))
     return kept
 
 
@@ -197,11 +235,18 @@ def _after_success(kind: str) -> str:
     return LADDER[index]
 
 
-def practice_start_level(base: str, records: Sequence[PracticeRecord], *, allow_promote: bool, now: Optional[datetime] = None) -> str:
+def practice_start_level(
+    base: str,
+    records: Sequence[PracticeRecord],
+    *,
+    allow_promote: bool,
+    now: Optional[datetime] = None,
+    after: Optional[Union[str, datetime]] = None,
+) -> str:
     """Conservative start. Repeated failures add support. Success cannot grant mastery."""
     if base not in LADDER:
         return INTRODUCTION
-    usable = usable_practice(records, now=now)
+    usable = usable_practice(records, now=now, after=after)
     if not usable:
         return base
     failures = 0

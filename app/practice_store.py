@@ -1,7 +1,8 @@
 """Isolated SQLite file for practice records.
 
 This is not account_study.db. It has no outbox and no SRS tables.
-The caller passes an explicit data root. Production AppData is refused.
+The caller passes an explicit data root. Production AppData, protected RC
+data, and recovery directories are refused for every runtime identity.
 Nothing here imports guest rows into an account file.
 
 Growth is one small row per submitted recognition or assisted exercise.
@@ -17,7 +18,17 @@ import os
 import sqlite3
 from typing import Optional, Sequence
 
-from app_environment import validate_data_root_for_identity
+from app_environment import (
+    DATA_FOLDER,
+    ENV_PRODUCTION,
+    RC_DATA_FOLDER,
+    RECOVERY_FOLDER,
+    normalize_fs_path,
+    paths_overlap,
+    production_data_dir,
+    production_install_dir,
+)
+from languages import is_supported_language
 from practice_record import (
     FORMAT_VERSION,
     PracticeRecord,
@@ -50,39 +61,106 @@ class PracticeStoreError(RuntimeError):
     """The practice file could not be read or written."""
 
 
+def refuse_practice_data_root(
+    path: str,
+    *,
+    appdata: Optional[str] = None,
+    localappdata: Optional[str] = None,
+) -> Optional[str]:
+    """Refuse empty roots and protected directories for every runtime identity."""
+    raw = str(path or "").strip()
+    if not raw:
+        return "practice store needs an explicit directory"
+    candidate = normalize_fs_path(raw)
+    if not candidate:
+        return "practice store needs an explicit directory"
+    prod_data = production_data_dir(appdata=appdata)
+    prod_install = production_install_dir(localappdata=localappdata)
+    if paths_overlap(candidate, prod_data):
+        return f"practice store refused production AppData: {prod_data}"
+    if paths_overlap(candidate, prod_install):
+        return f"practice store refused production install dir: {prod_install}"
+    app_root = appdata if appdata is not None else (os.environ.get("APPDATA") or os.path.expanduser("~"))
+    local_root = (
+        localappdata
+        if localappdata is not None
+        else (os.environ.get("LOCALAPPDATA") or os.environ.get("APPDATA") or os.path.expanduser("~"))
+    )
+    rc_root = os.path.join(app_root, RC_DATA_FOLDER)
+    recovery_root = os.path.join(local_root, RECOVERY_FOLDER)
+    if paths_overlap(candidate, rc_root):
+        return "practice store refused the protected RC AppData directory"
+    if paths_overlap(candidate, recovery_root):
+        return "practice store refused the recovery directory"
+    base = os.path.basename(candidate.rstrip("\\/"))
+    if os.path.normcase(base) == os.path.normcase(RC_DATA_FOLDER):
+        return "practice store refused the protected RC folder name"
+    if os.path.normcase(base) == os.path.normcase(RECOVERY_FOLDER):
+        return "practice store refused the recovery folder name"
+    if os.path.normcase(base) == os.path.normcase(DATA_FOLDER[ENV_PRODUCTION]):
+        return f"practice store refused production folder name {base!r}"
+    return None
+
+
+def _resolved_under_root(path: str, root: str) -> bool:
+    candidate = normalize_fs_path(path)
+    base = normalize_fs_path(root)
+    if not candidate or not base:
+        return False
+    left = os.path.normcase(candidate)
+    right = os.path.normcase(base)
+    if left == right:
+        return False
+    return left.startswith(right + os.sep)
+
+
 class PracticeStore:
     """One append-only file for one guest language or one account."""
 
     def __init__(self, db_path: str, *, data_root: str, owner_scope: str, language_code: str = ""):
+        self._connection = None
         scope = str(owner_scope or "").strip().lower()
         if scope not in ("guest", "account"):
             raise PracticeStoreError("practice owner is not guest or account")
-        root = os.path.abspath(str(data_root or "").strip())
-        path = os.path.abspath(str(db_path or "").strip())
+        raw_root = str(data_root or "").strip()
+        raw_path = str(db_path or "").strip()
+        if not raw_root or not raw_path:
+            raise PracticeStoreError("practice store needs an explicit directory")
+        problem = refuse_practice_data_root(raw_root)
+        if problem:
+            raise PracticeStoreError(problem)
+        root = normalize_fs_path(raw_root)
+        path = normalize_fs_path(raw_path)
         if not root or not path:
             raise PracticeStoreError("practice store needs an explicit directory")
         if os.path.basename(path).lower() == "account_study.db":
             raise PracticeStoreError("practice records do not use account_study.db")
-        problem = validate_data_root_for_identity(root)
-        if problem:
-            raise PracticeStoreError(problem)
-        if os.path.normcase(path) == os.path.normcase(root) or not os.path.normcase(path).startswith(
-            os.path.normcase(root) + os.sep
-        ):
+        if not _resolved_under_root(path, root):
             raise PracticeStoreError("practice file is outside its data root")
         self.data_root = root
         self.db_path = path
         self.owner_scope = scope
         self.language_code = str(language_code or "").strip().lower()
-        if scope == "guest" and not self.language_code:
-            raise PracticeStoreError("guest practice store needs a study language")
-        os.makedirs(os.path.dirname(path), exist_ok=True)
-        self._connection = sqlite3.connect(path, check_same_thread=False)
-        self._connection.row_factory = sqlite3.Row
-        self._prepare()
+        if scope == "guest":
+            if not self.language_code or not is_supported_language(self.language_code):
+                raise PracticeStoreError("guest practice store needs a supported study language")
+        try:
+            os.makedirs(os.path.dirname(path), exist_ok=True)
+            self._connection = sqlite3.connect(path, check_same_thread=False)
+            self._connection.row_factory = sqlite3.Row
+            self._prepare()
+        except PracticeStoreError:
+            self._close_quietly()
+            raise
+        except sqlite3.Error as error:
+            self._close_quietly()
+            raise PracticeStoreError("practice store was not opened") from error
+        except OSError as error:
+            self._close_quietly()
+            raise PracticeStoreError("practice store was not opened") from error
 
     def close(self) -> None:
-        self._connection.close()
+        self._close_quietly()
 
     def append(self, record: PracticeRecord) -> PracticeRecord:
         """Insert one submission. The same exercise instance returns the stored row."""
@@ -92,7 +170,10 @@ class PracticeStore:
             raise PracticeStoreError(str(error)) from error
         if self.owner_scope == "guest" and record.language_code != self.language_code:
             raise PracticeStoreError("guest practice language does not match this file")
-        self._connection.execute("BEGIN IMMEDIATE")
+        try:
+            self._connection.execute("BEGIN IMMEDIATE")
+        except sqlite3.Error as error:
+            raise PracticeStoreError("practice record was not saved") from error
         try:
             existing = self._find_locked(record)
             if existing is not None:
@@ -109,30 +190,63 @@ class PracticeStore:
             )
             self._connection.commit()
         except PracticeStoreError:
-            self._connection.rollback()
+            try:
+                self._connection.rollback()
+            except sqlite3.Error:
+                pass
             raise
         except sqlite3.Error as error:
-            self._connection.rollback()
+            try:
+                self._connection.rollback()
+            except sqlite3.Error:
+                pass
             raise PracticeStoreError("practice record was not saved") from error
         return record
 
     def for_vocab(self, vocab_id: str, language_code: str) -> list[PracticeRecord]:
         code = str(language_code or "").strip().lower()
-        rows = self._connection.execute(
-            """
-            SELECT * FROM practice_records
-            WHERE vocab_id = ? AND language_code = ?
-            ORDER BY occurred_at, rowid
-            """,
-            (str(vocab_id or "").strip(), code),
-        ).fetchall()
-        return [_from_row(row) for row in rows]
+        try:
+            rows = self._connection.execute(
+                """
+                SELECT * FROM practice_records
+                WHERE vocab_id = ? AND language_code = ?
+                ORDER BY occurred_at, rowid
+                """,
+                (str(vocab_id or "").strip(), code),
+            ).fetchall()
+        except sqlite3.Error as error:
+            raise PracticeStoreError("practice records could not be read") from error
+        found = []
+        for row in rows:
+            try:
+                record = _from_row(row)
+                validate_practice_record(record)
+            except (PracticeRecordError, KeyError, TypeError, ValueError):
+                continue
+            found.append(record)
+        return found
 
     def count(self) -> int:
-        return int(self._connection.execute("SELECT COUNT(*) FROM practice_records").fetchone()[0])
+        try:
+            return int(self._connection.execute("SELECT COUNT(*) FROM practice_records").fetchone()[0])
+        except sqlite3.Error as error:
+            raise PracticeStoreError("practice records could not be read") from error
+
+    def _close_quietly(self) -> None:
+        connection = self._connection
+        self._connection = None
+        if connection is None:
+            return
+        try:
+            connection.close()
+        except sqlite3.Error:
+            pass
 
     def _prepare(self) -> None:
-        self._connection.execute("BEGIN IMMEDIATE")
+        try:
+            self._connection.execute("BEGIN IMMEDIATE")
+        except sqlite3.Error as error:
+            raise PracticeStoreError("practice store was not opened") from error
         try:
             self._connection.execute(
                 """
@@ -189,10 +303,16 @@ class PracticeStore:
             )
             self._connection.commit()
         except PracticeStoreError:
-            self._connection.rollback()
+            try:
+                self._connection.rollback()
+            except sqlite3.Error:
+                pass
             raise
-        except sqlite3.Error as error:
-            self._connection.rollback()
+        except (sqlite3.Error, TypeError, ValueError) as error:
+            try:
+                self._connection.rollback()
+            except sqlite3.Error:
+                pass
             raise PracticeStoreError("practice store was not opened") from error
 
     def _find_locked(self, record: PracticeRecord) -> Optional[PracticeRecord]:
@@ -205,18 +325,27 @@ class PracticeStore:
         ).fetchone()
         if row is None:
             return None
-        return _from_row(row)
+        try:
+            found = _from_row(row)
+            validate_practice_record(found)
+        except (PracticeRecordError, KeyError, TypeError, ValueError) as error:
+            raise PracticeStoreError("stored practice row is invalid") from error
+        return found
 
 
 def open_guest_store(data_root: str, language_code: str) -> PracticeStore:
     code = str(language_code or "").strip().lower()
-    root = os.path.abspath(data_root)
+    if not str(data_root or "").strip():
+        raise PracticeStoreError("practice store needs an explicit directory")
+    root = normalize_fs_path(data_root)
     path = os.path.join(root, "languages", code, PRACTICE_DB_FILE)
     return PracticeStore(path, data_root=root, owner_scope="guest", language_code=code)
 
 
 def open_account_store(data_root: str, user_id: int) -> PracticeStore:
-    root = os.path.abspath(data_root)
+    if not str(data_root or "").strip():
+        raise PracticeStoreError("practice store needs an explicit directory")
+    root = normalize_fs_path(data_root)
     path = os.path.join(root, "accounts", str(int(user_id)), PRACTICE_DB_FILE)
     return PracticeStore(path, data_root=root, owner_scope="account")
 
@@ -261,11 +390,14 @@ def _from_row(row: sqlite3.Row) -> PracticeRecord:
 def _same_submission(stored: PracticeRecord, incoming: PracticeRecord) -> bool:
     return (
         stored.exercise_instance_id == incoming.exercise_instance_id
+        and stored.session_id == incoming.session_id
         and stored.vocab_id == incoming.vocab_id
         and stored.language_code == incoming.language_code
         and stored.actual_kind == incoming.actual_kind
+        and stored.intended_kind == incoming.intended_kind
         and stored.outcome == incoming.outcome
         and stored.support_level == incoming.support_level
+        and stored.error_class == incoming.error_class
     )
 
 

@@ -23,7 +23,7 @@ from text_utils import accepted_forms, display_word, entry_word, match_answer, n
 from vocabulary_model import entry_example, entry_meaning
 from vocab_identity import entry_id
 
-from practice_record import POLICY_ID, practice_start_level
+from practice_record import POLICY_ID, parse_practice_time, practice_start_level
 
 STEP_DOWN_FAILURES = 2
 # Soft cap used only to prefer another planned word. It never removes a word.
@@ -470,16 +470,22 @@ def starting_level(
     Recent practice can change that start. An exact unaided attempt stays at
     independent recall. Assisted success never promotes a non-mastered word
     to independent recall. Two recent practice failures can start one step easier.
+    Practice that is older than, or equal to, the latest independent attempt
+    does not override that attempt.
     """
     now = now or utc_now()
     base = _base_starting_level(stats, latest_attempt, now=now)
     if base == INDEPENDENT_RECALL:
         return base
+    after = None
+    if latest_attempt is not None:
+        after = parse_practice_time(getattr(latest_attempt, "timestamp", "") or "")
     return practice_start_level(
         base,
         practice,
         allow_promote=base == INTRODUCTION,
         now=now,
+        after=after,
     )
 
 
