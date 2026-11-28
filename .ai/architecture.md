@@ -46,6 +46,7 @@ Do not conflate “due now” with “requeued later in this session”. See [AD
 - Not a `LearningAttempt`, not an SRS review, and not a Cloud Sync progress event.
 - Guest and account files stay separate. The file is not `account_study.db`.
 - Observable error classes are `near_match` and `incorrect_answer`. Practice older than the latest independent attempt does not override that attempt.
+- Phase 19.4C opens the correct practice file from the live StudyBundle identity for unlocked development sessions only. Frozen installs do not write practice rows from Home.
 
 ## MistakeBook
 
@@ -102,6 +103,15 @@ ListeningSession → WindowsSpeechProvider
 - StudyMaster must **not** discover Windows voices during construction. TTS discovery runs only when Listening is enabled and the learner opens Listening, via `ui_common.run_async` (off the Tk thread). Provider/catalog is cached for the StudyMaster lifetime. Async discovery completion auto-opens Listening only when still safe (no other study child open; pending language still active); otherwise the cache remains for a later explicit click. Listening callbacks bind the window's language explicitly (not mutable `active_code()`).
 - No Progress / SRS / AttemptHistory writes from Listening.
 - Playback goes through one shared slot in `speech_player`. Listening, Voice Settings, Vocabulary Library, Word Detail, and Study Feedback use that slot. A saved voice is device-local and is not an account preference. Discovery and synthesis stay off the Tk thread. A missing same-language voice uses the unavailable path. There is no wrong-language voice and no cloud speech fallback.
+
+## Adaptive Study integration (development)
+
+- Requires `LG_ADAPTIVE_STUDY=1` and a validated isolated `LG_DATA_DIR`. Frozen installs stay classic.
+- FreeHome **Start learning** keeps the required StudyMaster → locked `VocabQuizApp` route.
+- FreeHome **Adaptive Study (dev)** and StudyMaster **Adaptive** open unlocked `AdaptiveVocabularyApp` only when opted in and ScreenGuard is not locking the learner.
+- Due/new selection must equal `planned_vocab_count`; a smaller eligible set refuses Adaptive and leaves vocabulary unresolved.
+- Practice persistence statuses: `ok` / `unavailable` / `disabled`. Unavailable is never reported as saved.
+- Account generation + language bindings invalidate stale callbacks. See [PHASE-19.4C-adaptive-study-integration.md](plans/PHASE-19.4C-adaptive-study-integration.md).
 
 ## UI (Tkinter)
 

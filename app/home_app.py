@@ -262,8 +262,31 @@ class FreeHome:
             text_color=ui_foundation.COLOR_ON_PRIMARY,
             font=ctk.CTkFont(family="Segoe UI", size=16, weight="bold"),
         )
-        self.start_button.pack(fill=tk.X, padx=16, pady=(0, 16))
+        self.start_button.pack(fill=tk.X, padx=16, pady=(0, 8))
         bind_activation(self.start_button)
+        self.adaptive_button = None
+        try:
+            from adaptive_study import adaptive_integration_enabled
+
+            show_adaptive = adaptive_integration_enabled()
+        except Exception:
+            show_adaptive = False
+        if show_adaptive:
+            self.adaptive_button = ctk.CTkButton(
+                self.plan_card,
+                text=config.ui("Adaptive Study (dev)", "Adaptive Study (dev)"),
+                command=self._start_adaptive_study,
+                height=40,
+                corner_radius=14,
+                fg_color=ui_foundation.COLOR_SOFT_GREEN,
+                hover_color="#D7E8DC",
+                text_color=ui_foundation.COLOR_TEXT,
+                font=ctk.CTkFont(family="Segoe UI", size=14, weight="bold"),
+            )
+            self.adaptive_button.pack(fill=tk.X, padx=16, pady=(0, 16))
+            bind_activation(self.adaptive_button)
+        else:
+            self.start_button.pack_configure(pady=(0, 16))
 
         shortcuts = ctk.CTkFrame(content, fg_color=ui_foundation.COLOR_BG, corner_radius=0)
         shortcuts.pack(fill=tk.X, pady=(12, 0))
@@ -628,6 +651,13 @@ class FreeHome:
         # Keep the existing poller; do not start a second loop on account switch.
 
     def _start_study(self):
+        self._launch_study_master(prefer_adaptive=False)
+
+    def _start_adaptive_study(self):
+        """Unlocked Adaptive Study entry for development / synthetic sessions."""
+        self._launch_study_master(prefer_adaptive=True)
+
+    def _launch_study_master(self, *, prefer_adaptive: bool = False):
         self.refresh()  # avoid stale plan before launch
         self._invalidate_owned_callbacks()
         self._stop_sync_status_polling()
@@ -640,7 +670,11 @@ class FreeHome:
                 pass
         self.root.resizable(True, True)
         StudyMasterApp = self._study_master_class()
-        StudyMasterApp(self.root, on_finished=self._on_study_finished)
+        StudyMasterApp(
+            self.root,
+            on_finished=self._on_study_finished,
+            prefer_adaptive=prefer_adaptive,
+        )
 
     @staticmethod
     def _study_master_class():
