@@ -2,6 +2,9 @@
 
 **Status:** Closed (`APP_19D5A_CLOSED_SENTENCE_PRACTICE`)  
 **Branch:** `phase19.5a/sentence-practice` (merged)  
+**Merge PR:** [#40](https://github.com/nguyenthaibinh19/EnglishApp/pull/40)  
+**Merge SHA:** `5812be03feb507e4656c78e5c157f80f12f42a96`  
+**Closeout tip:** `4b76083c5d276f19a26c590f051bad3e9bda027e`  
 **Baseline:** `a21f8c9e2ab314cdfcb31a223fc0bab1727768fd`  
 **R1 accepted checkpoint:** `ad169f871181a0525f0e1145ed115c200272ddb1`  
 **Architect:** `APP_19D5A_R1_ACCEPTED_FOR_CLOSEOUT`  

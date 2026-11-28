@@ -4,7 +4,7 @@ Directional plan — **not** a rigid release commitment. Update when phases comp
 
 ## Latest operational checkpoint — 2026-11-28
 
-- **Phase 19.5A Progressive Sentence Practice is closed and merged, and it is unreleased.** Tag `APP_19D5A_CLOSED_SENTENCE_PRACTICE`. Notes: [PHASE-19.5A-sentence-practice.md](plans/PHASE-19.5A-sentence-practice.md). Dutch A1 author-curated / pending expert validation. Not in v1.5.0.
+- **Phase 19.5A Progressive Sentence Practice is closed and merged, and it is unreleased.** Tag `APP_19D5A_CLOSED_SENTENCE_PRACTICE`. PR [#40](https://github.com/nguyenthaibinh19/EnglishApp/pull/40), merge `5812be03feb507e4656c78e5c157f80f12f42a96`. Notes: [PHASE-19.5A-sentence-practice.md](plans/PHASE-19.5A-sentence-practice.md). Dutch A1 author-curated / pending expert validation. Not in v1.5.0.
 - **Phase 19.5B Structured AI Feedback and Sentence Skill is the next learning priority.** It waits for a separate Architect brief.
 - **Phase 19.4C is closed and merged, and it is unreleased.** PR #38, merge `55a1efc9b6b9d76f621b2e4f7740c3470ac77192`. Opt-in isolated Adaptive Study on FreeHome/StudyMaster. Notes: [PHASE-19.4C-adaptive-study-integration.md](plans/PHASE-19.4C-adaptive-study-integration.md).
 - **Phase 19.4B is closed and merged, and it is unreleased.** PR #36, merge `91d3c60f59c5d26d321433a9334c6af31e09c1a5`. ADR-026 is Accepted. Notes: [PHASE-19.4B-practice-records.md](plans/PHASE-19.4B-practice-records.md).
