@@ -1,6 +1,6 @@
 # ADR-027 Structured sentence feedback and sentence skill persistence
 
-Status: **Accepted.** Closeout on branch `phase19.5b/structured-feedback-sentence-skill`. Review checkpoint `b37afac6a7627e9f9d9191e59fe08fc9f6220a95`. Architect: `APP_19D5B_FOUNDATION_ACCEPTED_CLOSEOUT_CORRECTIONS_REQUIRED`. Merged, unreleased development functionality. Not in the installed v1.5.0 download.
+Status: **Accepted.** Merged by PR [#41](https://github.com/nguyenthaibinh19/EnglishApp/pull/41) at `98cf2191a9ebbb0d6f513c14cbaedf898fefdd48`. Review checkpoint `b37afac6a7627e9f9d9191e59fe08fc9f6220a95`. Architect: `APP_19D5B_FOUNDATION_ACCEPTED_CLOSEOUT_CORRECTIONS_REQUIRED`. Merged, unreleased development functionality. Not in the installed v1.5.0 download.
 
 ## Context
 

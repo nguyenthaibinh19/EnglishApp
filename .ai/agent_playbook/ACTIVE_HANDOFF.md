@@ -5,7 +5,7 @@ Rolling coordination checkpoint. Product position is [current_state.md](../curre
 ## 1. Checkpoint metadata
 
 - Written: 2026-11-28.
-- Tag: `APP_19D5B_CLOSED_STRUCTURED_FEEDBACK_SENTENCE_SKILL`. Phase 19.5B Structured AI Feedback and Persistent Sentence Skill is closed. ADR-027 Accepted. Merged, unreleased development functionality.
+- Tag: `APP_19D5B_CLOSED_STRUCTURED_FEEDBACK_SENTENCE_SKILL`. Phase 19.5B Structured AI Feedback and Persistent Sentence Skill is closed. Merge PR [#41](https://github.com/nguyenthaibinh19/EnglishApp/pull/41) at `98cf2191a9ebbb0d6f513c14cbaedf898fefdd48`. ADR-027 Accepted. Merged, unreleased development functionality.
 - Prior closed: `APP_19D5A_CLOSED_SENTENCE_PRACTICE` / Phase 19.5A merge PR [#40](https://github.com/nguyenthaibinh19/EnglishApp/pull/40).
 - Public release remains v1.5.0. Phase 19 UI/audio/adaptive/practice/19.5A/19.5B are not in that download.
 - 18C.1–18C.3B remain CLOSED. 18B.10A **AUDIT ACCEPTED, IMPLEMENTATION DEFERRED.** 18B.9 **PAUSED.** Staging **NOT STARTED.**

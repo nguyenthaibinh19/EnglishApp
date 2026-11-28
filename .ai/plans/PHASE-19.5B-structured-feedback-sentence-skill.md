@@ -4,6 +4,7 @@
 **Branch:** `phase19.5b/structured-feedback-sentence-skill`  
 **Base main:** `e37fea87cedb38466d804e2294d3eb1b0a4136c7`  
 **Review checkpoint:** `b37afac6a7627e9f9d9191e59fe08fc9f6220a95`  
+**Merge PR:** [#41](https://github.com/nguyenthaibinh19/EnglishApp/pull/41) at `98cf2191a9ebbb0d6f513c14cbaedf898fefdd48`  
 **Architect:** `APP_19D5B_FOUNDATION_ACCEPTED_CLOSEOUT_CORRECTIONS_REQUIRED`  
 **ADR:** [ADR-027](../decisions/ADR-027-structured-sentence-feedback-and-skill.md) (Accepted)  
 **Merged, unreleased development functionality.** Not in v1.5.0.

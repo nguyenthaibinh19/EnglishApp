@@ -6,7 +6,7 @@
 
 **Current priority:** **Phase 19.6 Library, Progress and Settings** — pending a separate Architect brief. Do not start it from this checkpoint.
 
-**Phase 19.5B Structured AI Feedback and Sentence Skill is closed.** Tag `APP_19D5B_CLOSED_STRUCTURED_FEEDBACK_SENTENCE_SKILL`. Merged, unreleased development functionality. ADR-027 Accepted. Requires `LG_ADAPTIVE_STUDY=1` and a validated isolated `LG_DATA_DIR`. Notes: [PHASE-19.5B-structured-feedback-sentence-skill.md](plans/PHASE-19.5B-structured-feedback-sentence-skill.md). Not in the installed v1.5.0 download.
+**Phase 19.5B Structured AI Feedback and Sentence Skill is closed.** Tag `APP_19D5B_CLOSED_STRUCTURED_FEEDBACK_SENTENCE_SKILL`. Merge PR [#41](https://github.com/nguyenthaibinh19/EnglishApp/pull/41) at `98cf2191a9ebbb0d6f513c14cbaedf898fefdd48`. Merged, unreleased development functionality. ADR-027 Accepted. Requires `LG_ADAPTIVE_STUDY=1` and a validated isolated `LG_DATA_DIR`. Notes: [PHASE-19.5B-structured-feedback-sentence-skill.md](plans/PHASE-19.5B-structured-feedback-sentence-skill.md). Not in the installed v1.5.0 download.
 
 **Phase 19.5A Sentence Practice and Grammar Companion is closed.** Tag `APP_19D5A_CLOSED_SENTENCE_PRACTICE`. Merge PR [#40](https://github.com/nguyenthaibinh19/EnglishApp/pull/40) at `5812be03feb507e4656c78e5c157f80f12f42a96`. Merged, unreleased development functionality. Requires `LG_ADAPTIVE_STUDY=1` and a validated isolated `LG_DATA_DIR`. Dutch A1 pack is author-curated and pending independent expert validation. Notes: [PHASE-19.5A-sentence-practice.md](plans/PHASE-19.5A-sentence-practice.md). Not in the installed v1.5.0 download.
 
