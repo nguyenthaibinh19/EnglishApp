@@ -1186,8 +1186,24 @@ class StudyMasterApp:
         self._activate(code)
         generation = int(getattr(self, "_account_generation", 0) or 0)
         identity = capture_identity(code, account_generation=generation)
+        skill_store = None
+        skill_history = ()
         try:
-            session = SentencePracticeSession.from_language(code, "A1")
+            from adaptive_study import open_sentence_skill_store
+            from sentence_skill_store import load_sentence_skill_history
+
+            skill_store = open_sentence_skill_store(identity)
+            skill_history = tuple(load_sentence_skill_history(skill_store, code))
+        except Exception:
+            skill_store = None
+            skill_history = ()
+        try:
+            session = SentencePracticeSession.from_language(
+                code,
+                "A1",
+                skill_store=skill_store,
+                skill_history=skill_history,
+            )
         except Exception as error:
             self.guard.show_info(
                 config.ui("Chưa có bài câu", "No sentence pack"),

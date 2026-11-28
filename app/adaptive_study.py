@@ -184,6 +184,23 @@ def open_practice_store(identity: AdaptiveStudyIdentity) -> PracticeStore:
     return open_guest_store(identity.data_root, identity.language_code)
 
 
+def open_sentence_skill_store(identity: AdaptiveStudyIdentity):
+    """Open the separate sentence-skill store for this captured identity."""
+    from sentence_skill_store import (
+        SentenceSkillStoreError,
+        open_account_sentence_skill_store,
+        open_guest_sentence_skill_store,
+    )
+
+    if not str(identity.data_root or "").strip():
+        raise SentenceSkillStoreError("sentence skill store needs an explicit directory")
+    if identity.signed_in:
+        if identity.user_id <= 0:
+            raise SentenceSkillStoreError("signed-in sentence skill store needs an account id")
+        return open_account_sentence_skill_store(identity.data_root, identity.user_id)
+    return open_guest_sentence_skill_store(identity.data_root, identity.language_code)
+
+
 def open_practice_availability(identity: AdaptiveStudyIdentity) -> PracticeAvailability:
     try:
         store = open_practice_store(identity)

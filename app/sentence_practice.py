@@ -1,9 +1,10 @@
-"""Progressive sentence practice engine (Phase 19.5A R1).
+"""Progressive sentence practice engine (Phase 19.5A / 19.5B).
 
 Four levels: word bank → fill blank → guided writing → independent writing.
 Success advances. Failure steps down one level within the exercise family.
-Session-memory results only — no vocabulary LearningAttempt, Progress, SRS,
-Mistake Book, or outbox writes.
+Session results stay in memory; optional SentenceSkillRecord appends go to a
+separate SQLite file. No vocabulary LearningAttempt, Progress, SRS,
+Mistake Book, PracticeRecord v1, or outbox writes.
 """
 
 from __future__ import annotations
@@ -40,6 +41,14 @@ from sentence_grading import (
     grade_locally,
     join_tokens,
 )
+from sentence_skill_persist import persist_sentence_skill
+from sentence_skill_policy import (
+    SentenceSelectionDecision,
+    pick_exercise_for_decision,
+    select_from_sentence_skill_history,
+    support_rank_for_kind,
+)
+from sentence_skill_store import SentenceSkillStore, SentenceSkillStoreError
 
 MAX_FAILURES_PER_LEVEL = 2
 
@@ -92,6 +101,7 @@ class SentenceSubmitResult:
     tone: str = "bad"
     submission_id: str = ""
     instance_id: str = ""
+    skill_persist_error: str = ""
 
 
 @dataclass
@@ -107,6 +117,9 @@ class SentencePracticeSession:
     abandoned: bool = False
     missing_content: bool = False
     results: List[SentenceSessionResult] = field(default_factory=list)
+    skill_store: Optional[SentenceSkillStore] = None
+    selection_decision: Optional[SentenceSelectionDecision] = None
+    skill_history: Sequence = field(default_factory=tuple)
 
     def __post_init__(self):
         self.session_id = self.session_id or uuid.uuid4().hex
@@ -121,11 +134,13 @@ class SentencePracticeSession:
         self._completion_taken = False
         self._open_submission_id: str = ""
         self._pending_instance_id: str = ""
+        self._last_skill_error = ""
         if not self.pack.exercises:
             self.missing_content = True
             self.finished = False
             self._card = None
             return
+        self._apply_cross_session_selection()
         self._rebuild_card()
         if self._card is None and not self.abandoned:
             self.missing_content = True
@@ -133,6 +148,30 @@ class SentencePracticeSession:
     @classmethod
     def from_language(cls, language_code: str = "nl", cefr: str = "A1", **kwargs):
         return cls(load_pack(language_code, cefr), **kwargs)
+
+    def _apply_cross_session_selection(self) -> None:
+        decision = self.selection_decision
+        if decision is None and self.skill_history:
+            decision = select_from_sentence_skill_history(
+                self.skill_history,
+                self.pack.exercises,
+                study_language=self.language_code,
+                content_version=str(self.pack.content_version),
+            )
+            self.selection_decision = decision
+        if decision is None or not decision.family_id:
+            return
+        picked = pick_exercise_for_decision(self.pack.exercises, decision)
+        if picked is None:
+            return
+        self._active_family = decision.family_id
+        rank = support_rank_for_kind(picked.kind)
+        if decision.preferred_support_rank >= 0:
+            rank = decision.preferred_support_rank
+        self._level = max(0, min(rank, len(LADDER) - 1))
+        if decision.preferred_kind in LADDER:
+            self._level = LADDER.index(decision.preferred_kind)
+            self.start_kind = decision.preferred_kind
 
     def current_card(self) -> Optional[SentenceCard]:
         return None if self.finished or self.abandoned or self.missing_content else self._card
@@ -292,6 +331,14 @@ class SentencePracticeSession:
             return SentenceSubmitResult(status="stale", tone="near")
         submitted = self._card.exercise
         if grade.status in (STATUS_UNAVAILABLE, STATUS_UNGRADED):
+            skill_error = ""
+            if grade.status == STATUS_UNAVAILABLE:
+                skill_error = self._persist_skill(
+                    exercise=submitted,
+                    grade=grade,
+                    exercise_instance_id=instance_id or self._card.instance_id,
+                    submission_id=submission_id or self._open_submission_id,
+                )
             self.clear_submission(submission_id)
             # Unavailable AI is not a learner failure — no failure count / step-down.
             note = grade.feedback or config.ui(
@@ -307,8 +354,15 @@ class SentencePracticeSession:
                 tone="near",
                 submission_id=submission_id,
                 instance_id=self._card.instance_id,
+                skill_persist_error=skill_error,
             )
         if grade.status == STATUS_PROVISIONAL_CORRECT:
+            skill_error = self._persist_skill(
+                exercise=submitted,
+                grade=grade,
+                exercise_instance_id=instance_id or self._card.instance_id,
+                submission_id=submission_id or self._open_submission_id,
+            )
             self.clear_submission(submission_id)
             return SentenceSubmitResult(
                 status="feedback",
@@ -319,6 +373,7 @@ class SentencePracticeSession:
                 tone="near",
                 submission_id=submission_id,
                 instance_id=self._card.instance_id,
+                skill_persist_error=skill_error,
             )
         if grade.status == STATUS_PROVISIONAL_ACCEPT:
             # May advance; remains provisional in session results (not reviewed_correct).
@@ -368,6 +423,12 @@ class SentencePracticeSession:
                 submission_id=submission_id,
             )
         )
+        skill_error = self._persist_skill(
+            exercise=exercise,
+            grade=grade,
+            exercise_instance_id=instance_id,
+            submission_id=submission_id,
+        )
         self.clear_submission(submission_id)
 
         if grade.status in _LEVEL_ACHIEVED:
@@ -406,6 +467,7 @@ class SentencePracticeSession:
                 tone="ok" if grade.status == STATUS_REVIEWED_CORRECT else "near",
                 submission_id=submission_id,
                 instance_id=instance_id,
+                skill_persist_error=skill_error,
             )
 
         # Incorrect: step down after repeated failure; prefer related family item.
@@ -431,7 +493,31 @@ class SentencePracticeSession:
             tone="bad",
             submission_id=submission_id,
             instance_id=instance_id,
+            skill_persist_error=skill_error,
         )
+
+    def _persist_skill(
+        self,
+        *,
+        exercise: SentenceExercise,
+        grade: SentenceGrade,
+        exercise_instance_id: str,
+        submission_id: str,
+    ) -> str:
+        self._last_skill_error = ""
+        try:
+            persist_sentence_skill(
+                self.skill_store,
+                session_id=self.session_id,
+                exercise=exercise,
+                grade=grade,
+                exercise_instance_id=exercise_instance_id,
+                submission_id=submission_id,
+            )
+        except SentenceSkillStoreError as error:
+            self._last_skill_error = str(error) or "sentence skill record was not saved"
+            return self._last_skill_error
+        return ""
 
     def continue_after_feedback(self) -> SentenceSubmitResult:
         if self.finished:

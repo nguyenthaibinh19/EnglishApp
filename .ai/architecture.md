@@ -106,11 +106,13 @@ ListeningSession → WindowsSpeechProvider
 
 ## Sentence practice (development)
 
-- Progressive sentence exercises are a **separate skill** from vocabulary recall. Phase 19.5A is merged unreleased source. Session-memory results only — no `LearningAttempt`, Progress, SRS, Mistake Book, PracticeRecord, or sync outbox writes.
+- Progressive sentence exercises are a **separate skill** from vocabulary recall. Phase 19.5A is merged unreleased source. Phase 19.5B (review branch) adds App-domain structured feedback and local SentenceSkillRecord persistence — still no `LearningAttempt`, Progress, SRS, Mistake Book, PracticeRecord v1, or sync outbox writes from sentence practice.
 - Content contract: versioned `SentenceExercise` / `GrammarRule` / `SentencePack` in `sentence_content.py`, including `family_id` for related scaffolding. Reviewed `accepted_answers` are content; AI drafts are not answer keys. Dutch A1 remains author-curated / pending expert validation.
 - Ladder: word bank → fill blank → guided writing → independent writing (`sentence_practice.py`). Local grading for reviewed answers; simulated AIService adapter for unlisted open writing — provisional only. Progress = distinct achieved levels. Explicit easier-related recovery is available.
-- Grammar Companion selects curated rules by evidenced error hints (`grammar_companion.py`). Uncertain cases stay guidance-only. No full Grammar Library browser yet.
-- UI: unlocked `SentencePracticeApp` via StudyMaster **Sentence** and optional post-adaptive CTA under the same `LG_ADAPTIVE_STUDY` + isolated `LG_DATA_DIR` opt-in as Adaptive Study. Post-vocab sentence defers Reading/Listening until the sentence round ends; exit/account/language invalidate deferred transitions. See [PHASE-19.5A-sentence-practice.md](plans/PHASE-19.5A-sentence-practice.md).
+- Structured feedback (`sentence_feedback.py`) is validated at the trust boundary. `GradeResult` / deployed `/api/grade` / `C-APP-AI-001` v0.2.0 stay unchanged; future transport mapping is documented only ([ADR-027](decisions/ADR-027-structured-sentence-feedback-and-skill.md)).
+- Grammar Companion selects curated rules by evidenced error hints (`grammar_companion.py`), shows original/corrected segments when available, and keeps model suggestions distinct from reviewed examples. Uncertain cases stay guidance-only. No full Grammar Library browser yet.
+- Sentence skill history: append-only `sentence_skill_records.db` under guest/account data roots (`sentence_skill_store.py`). Cross-session policy `sentence-skill-family-support-v1` prefers related scaffolding for recent reliable local incorrect evidence; provisional AI does not drive selection.
+- UI: unlocked `SentencePracticeApp` via StudyMaster **Sentence** and optional post-adaptive CTA under the same `LG_ADAPTIVE_STUDY` + isolated `LG_DATA_DIR` opt-in as Adaptive Study. Post-vocab sentence defers Reading/Listening until the sentence round ends; exit/account/language invalidate deferred transitions. See [PHASE-19.5A-sentence-practice.md](plans/PHASE-19.5A-sentence-practice.md) and [PHASE-19.5B-structured-feedback-sentence-skill.md](plans/PHASE-19.5B-structured-feedback-sentence-skill.md).
 
 ## Adaptive Study integration (development)
 

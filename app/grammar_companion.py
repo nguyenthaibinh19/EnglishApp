@@ -33,6 +33,12 @@ class GrammarCompanionView:
     review_status: str = ""
     diagnosis_certain: bool = False
     guidance_only: bool = False
+    original_segment: str = ""
+    corrected_segment: str = ""
+    provisional: bool = False
+    model_suggestion: bool = False
+    explanation: str = ""
+    primary_error_class: str = ""
 
     @property
     def has_rule(self) -> bool:
@@ -81,19 +87,48 @@ def build_companion(
     diagnosis_certain: bool = False,
     native: str = None,
     allow_ai_suggestion: bool = False,
+    structured=None,
 ) -> Optional[GrammarCompanionView]:
     """Build companion from curated content only.
 
     AI suggestions must not appear as validated rules or reviewed examples.
     Corrected text and components always refer to the same reviewed sentence.
+    Structured feedback may supply segment highlights and provisional notes.
     """
+    original_segment = ""
+    corrected_segment = ""
+    provisional = False
+    model_suggestion = False
+    explanation = ""
+    primary_error_class = ""
+    structured_rule_id = ""
+
+    if structured is not None:
+        original_segment = str(getattr(structured, "original_segment", "") or "")
+        corrected_segment = str(getattr(structured, "corrected_segment", "") or "")
+        provisional = bool(getattr(structured, "provisional", False))
+        explanation = str(getattr(structured, "explanation", "") or "")
+        primary_error_class = str(getattr(structured, "primary_error_class", "") or "")
+        structured_rule_id = str(getattr(structured, "grammar_rule_id", "") or "")
+        source = str(getattr(structured, "grading_source", "") or "")
+        model_suggestion = source == "ai" or provisional
+        if structured_rule_id and not any(rule.rule_id == structured_rule_id for rule in rules):
+            # Untrusted / unrelated reference — general guidance only.
+            structured_rule_id = ""
+            diagnosis_certain = False
+        elif structured_rule_id and not diagnosis_certain:
+            # Validated rule id may still be guidance-only when diagnosis uncertain.
+            pass
+        if primary_error_class and not error_hint and diagnosis_certain:
+            error_hint = primary_error_class
+
     rule, claims = select_rule(
         exercise,
         rules,
         error_hint=error_hint,
-        diagnosis_certain=diagnosis_certain,
+        diagnosis_certain=diagnosis_certain and not provisional,
     )
-    if rule is None:
+    if rule is None and not explanation and not original_segment:
         return None
 
     use_vi = (native or config.native_code() or "").strip().lower() == "vi"
@@ -105,19 +140,44 @@ def build_companion(
     elif not allow_ai_suggestion:
         corrected = reviewed
 
-    title = rule.title_vi if use_vi else rule.title_en
-    beginner = rule.beginner_vi if use_vi else rule.beginner_en
-    full = rule.full_vi if use_vi else rule.full_en
-    guidance_only = not claims
-    if guidance_only:
+    if rule is not None:
+        title = rule.title_vi if use_vi else rule.title_en
+        beginner = rule.beginner_vi if use_vi else rule.beginner_en
+        full = rule.full_vi if use_vi else rule.full_en
+        examples = tuple(rule.examples[:2])
+        rule_id = rule.rule_id
+        provenance = rule.provenance
+        review_status = rule.review_status
+    else:
+        title = config.ui("Gợi ý chung", "General guidance")
+        beginner = explanation or config.ui(
+            "Chưa có quy tắc khớp đã xác nhận. Hãy thử lại với mẫu đã duyệt.",
+            "No matching validated rule. Try again with a reviewed pattern.",
+        )
+        full = ""
+        examples = ()
+        rule_id = ""
+        provenance = "general-guidance"
+        review_status = ""
+
+    guidance_only = not claims or rule is None
+    if guidance_only and rule is not None:
         prefix = config.ui(
             "Gợi ý học (chưa chẩn đoán lỗi cụ thể): ",
             "Learning guidance (not a specific error diagnosis): ",
         )
         beginner = prefix + beginner
+    if provisional:
+        provisional_note = config.ui(
+            "Chẩn đoán tạm thời (chưa xác nhận). ",
+            "Provisional diagnosis (not confirmed). ",
+        )
+        beginner = provisional_note + beginner
+        if explanation and explanation not in beginner:
+            beginner = f"{beginner} {explanation}".strip()
 
     status_note = ""
-    if rule.review_status == REVIEW_PENDING_EXPERT:
+    if rule is not None and rule.review_status == REVIEW_PENDING_EXPERT:
         status_note = config.ui(
             " (chưa có xác nhận chuyên gia ngôn ngữ)",
             " (pending expert linguistic validation)",
@@ -128,13 +188,19 @@ def build_companion(
         beginner=beginner,
         full=full,
         corrected=corrected,
-        examples=tuple(rule.examples[:2]),
+        examples=examples,
         components=exercise.components,
-        rule_id=rule.rule_id,
-        provenance=rule.provenance,
-        review_status=rule.review_status,
-        diagnosis_certain=claims,
+        rule_id=rule_id,
+        provenance=provenance,
+        review_status=review_status,
+        diagnosis_certain=claims and not provisional,
         guidance_only=guidance_only,
+        original_segment=original_segment,
+        corrected_segment=corrected_segment,
+        provisional=provisional,
+        model_suggestion=model_suggestion,
+        explanation=explanation,
+        primary_error_class=primary_error_class,
     )
 
 
