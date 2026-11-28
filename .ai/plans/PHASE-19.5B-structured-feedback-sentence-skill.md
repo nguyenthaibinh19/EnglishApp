@@ -3,6 +3,7 @@
 **Status:** Ready for review (`APP_19D5B_STRUCTURED_FEEDBACK_SENTENCE_SKILL_READY_FOR_REVIEW`)  
 **Branch:** `phase19.5b/structured-feedback-sentence-skill`  
 **Base main:** `e37fea87cedb38466d804e2294d3eb1b0a4136c7`  
+**Review commit:** `036bc4ee963afb06a108142dc0cfbd722e842d68`  
 **Architect:** `APP_19D5A_ARCHITECT_ACCEPTED_CLOSED`  
 **ADR:** [ADR-027](../decisions/ADR-027-structured-sentence-feedback-and-skill.md)
 
