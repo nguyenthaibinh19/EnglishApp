@@ -1,4 +1,4 @@
-"""Phase 19.5A Dutch A1 sentence practice demo + screenshots.
+"""Phase 19.5A R1 Dutch A1 sentence practice demo + screenshots.
 
 Isolated synthetic root only:
 
@@ -131,13 +131,21 @@ def _assert_no_vocab_writes() -> dict:
     }
 
 
+def _solve_word_bank(app) -> None:
+    body = app.shell.exercise
+    order = ["Zij", "leest", "een", "boek", "."]
+    for token in order:
+        body._pick(token)
+        _pump(app.window, 20)
+
+
 def run() -> dict:
     _env_prepare()
     _wipe_and_seed()
     _reload_config()
 
     evidence = {
-        "tag": "APP_19D5A_SENTENCE_PRACTICE_DEMO",
+        "tag": "APP_19D5A_SENTENCE_PRACTICE_R1_DEMO",
         "root": str(ROOT),
         "screenshots": [],
         "flow": [],
@@ -146,149 +154,103 @@ def run() -> dict:
 
     root, window, app, session = _open_app("accept_valid")
     try:
-        # 1) Word bank answering
         grab(window, SHOTS / "01-word-bank.png")
         evidence["screenshots"].append("01-word-bank.png")
+
+        # Incorrect word order
         body = app.shell.exercise
-        # Incorrect arrangement first
-        for token in ("water", "Ik", "drink", "."):
+        for token in ("boek", "Zij", "leest", "een", "."):
             body._pick(token)
-            _pump(window, 40)
+            _pump(window, 30)
         app._check()
         _pump(window, 120)
         grab(window, SHOTS / "02-incorrect-word-order.png")
         evidence["screenshots"].append("02-incorrect-word-order.png")
         evidence["flow"].append("incorrect_word_order")
         app._continue()
-        _pump(window, 100)
+        _pump(window, 80)
 
-        # Still on word bank (one failure) — solve correctly (may be second bank item)
-        body = app.shell.exercise
-        # Prefer tokens matching drink-water if present, else book order.
-        bank_tokens = list(body.exercise.word_bank)
-        if "drink" in bank_tokens:
-            order = ["Ik", "drink", "water", "."]
-        else:
-            order = ["Zij", "leest", "een", "boek", "."]
-        for token in order:
-            body._pick(token)
-            _pump(window, 30)
+        _solve_word_bank(app)
         grab(window, SHOTS / "03-word-bank-arranged.png")
         evidence["screenshots"].append("03-word-bank-arranged.png")
         app._check()
-        _pump(window, 120)
+        _pump(window, 100)
         app._toggle_grammar()
         _pump(window, 150)
         grab(window, SHOTS / "04-grammar-companion-expanded.png")
         evidence["screenshots"].append("04-grammar-companion-expanded.png")
         evidence["flow"].append("grammar_companion_expanded")
         app._toggle_grammar()
-        _pump(window, 80)
         app._continue()
-        _pump(window, 100)
+        _pump(window, 80)
 
-        # 2) Fill blank — conjugation miss then correct
+        # Fill blank conjugation miss
         grab(window, SHOTS / "05-fill-blank.png")
         evidence["screenshots"].append("05-fill-blank.png")
         body = app.shell.exercise
         body.entry.delete(0, "end")
-        body.entry.insert(0, "drinken")
+        body.entry.insert(0, "lezen")
         app._check()
         _pump(window, 120)
         grab(window, SHOTS / "06-conjugation-feedback.png")
         evidence["screenshots"].append("06-conjugation-feedback.png")
         evidence["flow"].append("conjugation_correction")
+        app._toggle_grammar()
+        _pump(window, 120)
+        grab(window, SHOTS / "06b-conjugation-grammar.png")
+        evidence["screenshots"].append("06b-conjugation-grammar.png")
+        app._toggle_grammar()
         app._continue()
-        _pump(window, 100)
-        body = app.shell.exercise
-        if body.exercise.kind == "fill_blank":
-            body.entry.delete(0, "end")
-            body.entry.insert(0, "drinkt")
-            app._check()
-            _pump(window, 100)
-            app._continue()
-            _pump(window, 100)
-        elif body.exercise.kind == "word_bank":
-            # Stepped down after two fails — climb again quickly
-            for token in list(body.exercise.word_bank):
-                # naive: just pick in bank order if it matches accepted join
-                body._pick(token)
-            # rebuild correct order from accepted
-            app._bank_selected = []
-            body.selected.clear()
-            body._refresh()
-            order = (
-                ["Ik", "drink", "water", "."]
-                if "drink" in body.exercise.word_bank
-                else ["Zij", "leest", "een", "boek", "."]
-            )
-            for token in order:
-                body._pick(token)
-            app._check()
-            _pump(window, 80)
-            app._continue()
-            _pump(window, 80)
-            body = app.shell.exercise
-            if body.exercise.kind == "fill_blank":
-                body.entry.delete(0, "end")
-                body.entry.insert(0, "drinkt")
-                app._check()
-                _pump(window, 80)
-                app._continue()
-                _pump(window, 80)
+        _pump(window, 80)
 
-        # Climb remaining levels with reviewed answers
+        # Correct fill blank (may have stepped down — climb back)
         guard = 0
-        while not session.finished and app._phase != "complete" and guard < 12:
+        while session.current_card() and session.current_card().exercise.kind != "guided_writing" and guard < 8:
             guard += 1
-            card = session.current_card()
-            if card is None:
-                break
             body = app.shell.exercise
-            kind = card.exercise.kind
+            kind = session.current_card().exercise.kind
             if kind == "word_bank":
-                order = (
-                    ["Ik", "drink", "water", "."]
-                    if "drink" in body.exercise.word_bank
-                    else ["Zij", "leest", "een", "boek", "."]
-                )
-                for token in order:
-                    body._pick(token)
+                _solve_word_bank(app)
             elif kind == "fill_blank":
                 body.entry.delete(0, "end")
-                body.entry.insert(0, "drinkt")
-            elif kind == "guided_writing":
-                if "07-guided-writing.png" not in evidence["screenshots"]:
-                    grab(window, SHOTS / "07-guided-writing.png")
-                    evidence["screenshots"].append("07-guided-writing.png")
-                body.entry.delete(0, "end")
-                body.entry.insert(0, "Ze leest een boek.")
-            elif kind == "independent_writing":
-                if "08-independent-writing.png" not in evidence["screenshots"]:
-                    grab(window, SHOTS / "08-independent-writing.png")
-                    evidence["screenshots"].append("08-independent-writing.png")
-                # Outside reviewed set → fake AI provisional accept
-                body.entry.delete(0, "end")
-                body.entry.insert(0, "Ik koop een fiets vandaag")
+                body.entry.insert(0, "leest")
             app._check()
-            _pump(window, 120)
-            if kind == "independent_writing":
-                for _ in range(40):
-                    if not app._ai_pending and app._phase == "feedback":
-                        break
-                    _pump(window, 40)
-                if "09-ai-provisional-outside-reviewed.png" not in evidence["screenshots"]:
-                    grab(window, SHOTS / "09-ai-provisional-outside-reviewed.png")
-                    evidence["screenshots"].append("09-ai-provisional-outside-reviewed.png")
-                    evidence["flow"].append("ai_provisional_accept")
+            _pump(window, 80)
             if app._phase == "feedback":
                 app._continue()
-                _pump(window, 100)
+                _pump(window, 60)
+
+        grab(window, SHOTS / "07-guided-writing.png")
+        evidence["screenshots"].append("07-guided-writing.png")
+        body = app.shell.exercise
+        body.entry.delete(0, "end")
+        body.entry.insert(0, "Ze leest een boek.")
+        app._check()
+        _pump(window, 80)
+        app._continue()
+        _pump(window, 80)
+
+        grab(window, SHOTS / "08-independent-writing.png")
+        evidence["screenshots"].append("08-independent-writing.png")
+        body = app.shell.exercise
+        body.entry.delete(0, "end")
+        body.entry.insert(0, "Zij leest een boek vandaag")
+        app._check()
+        for _ in range(40):
+            if not app._ai_pending and app._phase == "feedback":
+                break
+            _pump(window, 40)
+        grab(window, SHOTS / "09-ai-provisional-outside-reviewed.png")
+        evidence["screenshots"].append("09-ai-provisional-outside-reviewed.png")
+        evidence["flow"].append("ai_provisional_accept")
+        if app._phase == "feedback":
+            app._continue()
+            _pump(window, 100)
 
         if app._phase == "complete" or session.finished:
             if app._phase != "complete":
                 app._show_complete()
-                _pump(window, 100)
+                _pump(window, 80)
             grab(window, SHOTS / "10-complete.png")
             evidence["screenshots"].append("10-complete.png")
             evidence["flow"].append("four_levels_complete")
@@ -302,48 +264,37 @@ def run() -> dict:
         except Exception:
             pass
 
-    # AI unavailable path
+    # AI unavailable
     root, window, app, session = _open_app("unavailable")
     try:
-        # Jump to independent by solving three levels quickly
-        answers = {
-            "word_bank": None,
-            "fill_blank": "drinkt",
-            "guided_writing": "Zij leest een boek.",
-        }
         while session.current_card() and session.current_card().exercise.kind != "independent_writing":
-            card = session.current_card()
             body = app.shell.exercise
-            kind = card.exercise.kind
+            kind = session.current_card().exercise.kind
             if kind == "word_bank":
-                order = (
-                    ["Ik", "drink", "water", "."]
-                    if "drink" in body.exercise.word_bank
-                    else ["Zij", "leest", "een", "boek", "."]
-                )
-                for token in order:
-                    body._pick(token)
+                _solve_word_bank(app)
+            elif kind == "fill_blank":
+                body.entry.delete(0, "end")
+                body.entry.insert(0, "leest")
             else:
                 body.entry.delete(0, "end")
-                body.entry.insert(0, answers[kind])
+                body.entry.insert(0, "Zij leest een boek.")
             app._check()
-            _pump(window, 80)
-            app._continue()
             _pump(window, 60)
+            if app._phase == "feedback":
+                app._continue()
+                _pump(window, 40)
         body = app.shell.exercise
         body.entry.delete(0, "end")
         body.entry.insert(0, "something novel")
         app._check()
-        for _ in range(30):
+        for _ in range(40):
             if not app._ai_pending and app._phase == "feedback":
                 break
-            _pump(window, 50)
+            _pump(window, 40)
         grab(window, SHOTS / "11-ai-unavailable.png")
         evidence["screenshots"].append("11-ai-unavailable.png")
         evidence["flow"].append("ai_unavailable_provisional")
-        # Safe early exit
         app._leave()
-        _pump(root, 80)
         evidence["flow"].append("safe_early_exit")
     finally:
         try:

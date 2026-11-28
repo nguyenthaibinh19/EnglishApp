@@ -1,4 +1,4 @@
-"""Versioned sentence exercise and grammar content contract (Phase 19.5A).
+"""Versioned sentence exercise and grammar content contract (Phase 19.5A / R1).
 
 Reviewed accepted answers are content, not AI drafts. Arbitrary vocabulary
 examples are not answer keys. The contract is language-aware for all seven
@@ -7,8 +7,8 @@ study languages; only Dutch A1 ships a curated pack in this wave.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from typing import Iterable, Optional, Sequence, Tuple
+from dataclasses import dataclass
+from typing import Optional, Sequence, Tuple
 
 CONTENT_FORMAT_VERSION = 1
 
@@ -30,9 +30,9 @@ ROLE_ARTICLE = "article"
 ROLE_OTHER = "other"
 
 SENTENCE_COMPONENT_COLORS = {
-    ROLE_SUBJECT: "#2C654E",  # dark green
-    ROLE_VERB: "#1F4E79",  # stable blue
-    ROLE_OBJECT: "#6B4E16",  # warm brown
+    ROLE_SUBJECT: "#2C654E",
+    ROLE_VERB: "#1F4E79",
+    ROLE_OBJECT: "#6B4E16",
     ROLE_ARTICLE: "#5C7268",
     ROLE_OTHER: "#5C7268",
 }
@@ -44,6 +44,13 @@ LADDER: Tuple[str, ...] = (
     KIND_INDEPENDENT_WRITING,
 )
 
+# Map conservative error hints to preferred grammar rule ids when present.
+ERROR_RULE_PREFERENCE = {
+    "conjugation": ("present-conjugation", "conjugation"),
+    "word_order": ("svo", "word-order", "word_order"),
+    "article": ("articles", "article"),
+}
+
 
 @dataclass(frozen=True)
 class SentenceComponent:
@@ -53,7 +60,7 @@ class SentenceComponent:
 
 @dataclass(frozen=True)
 class GrammarRule:
-    """Validated foundational grammar content. Not learner data."""
+    """Curated foundational grammar content. Not learner data."""
 
     rule_id: str
     language_code: str
@@ -68,6 +75,7 @@ class GrammarRule:
     provenance: str = ""
     review_status: str = REVIEW_CURATED_AUTHOR
     content_version: int = CONTENT_FORMAT_VERSION
+    topics: Tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -83,6 +91,7 @@ class SentenceExercise:
     translation_en: str
     translation_vi: str
     accepted_answers: Tuple[str, ...]
+    family_id: str = ""
     target_lemma: str = ""
     target_vocab_id: str = ""
     word_bank: Tuple[str, ...] = ()
@@ -94,6 +103,7 @@ class SentenceExercise:
     review_status: str = REVIEW_CURATED_AUTHOR
     content_version: int = CONTENT_FORMAT_VERSION
     notes: str = ""
+    learning_objective: str = ""
 
     def primary_answer(self) -> str:
         return self.accepted_answers[0] if self.accepted_answers else ""
@@ -116,6 +126,17 @@ class SentencePack:
 
     def by_kind(self, kind: str) -> Tuple[SentenceExercise, ...]:
         return tuple(item for item in self.exercises if item.kind == kind)
+
+    def by_family(self, family_id: str) -> Tuple[SentenceExercise, ...]:
+        fid = str(family_id or "").strip()
+        return tuple(item for item in self.exercises if item.family_id == fid)
+
+    def families(self) -> Tuple[str, ...]:
+        seen = []
+        for item in self.exercises:
+            if item.family_id and item.family_id not in seen:
+                seen.append(item.family_id)
+        return tuple(seen)
 
 
 def validate_exercise(exercise: SentenceExercise) -> Optional[str]:
@@ -161,6 +182,15 @@ def validate_pack(pack: SentencePack) -> list:
     for kind in LADDER:
         if kind not in kinds:
             problems.append(f"pack is missing exercise kind {kind}")
+    # At least one family must cover all four levels.
+    complete = False
+    for family_id in pack.families():
+        family_kinds = {item.kind for item in pack.by_family(family_id)}
+        if family_kinds == set(LADDER):
+            complete = True
+            break
+    if not complete:
+        problems.append("pack needs at least one exercise family covering all four levels")
     return problems
 
 
@@ -184,7 +214,7 @@ def future_sentence_skill_record_contract() -> tuple[str, ...]:
     """Documented before any persistent sentence history is introduced."""
     return (
         "SentenceSkillRecord is a separate append-only local skill file, not PracticeRecord v1.",
-        "Fields: skill_event_id, exercise_id, content_version, language_code, kind, "
+        "Fields: skill_event_id, exercise_id, family_id, content_version, language_code, kind, "
         "support_level, outcome, graded_by (local|ai|none), error_class, occurred_at, "
         "policy_id, format_version.",
         "It must never call Progress.record, change SRS, clear Mistake Book attention, "
@@ -205,4 +235,15 @@ def future_ai_feedback_contract_extensions() -> tuple[str, ...]:
         "Confidence / provisional flag so unavailable or uncertain AI feedback is not a "
         "definitive wrong answer.",
         "These require a versioned GradeResult extension; score alone must not invent classes.",
+    )
+
+
+def provisional_acceptance_progression_policy() -> str:
+    """Provisional AI acceptance may advance the ladder but is not reviewed correctness."""
+    return (
+        "When independent writing outside the reviewed set receives provisional_accept "
+        "from the AI adapter (valid GradeResult, is_correct_usage true, finite score "
+        "in [0, 1], score >= 0.7), the session may advance one level. Session results "
+        "record outcome=provisional_accept (not correct). Learner feedback must say the "
+        "acceptance is provisional. Reviewed correct remains only for local accepted_answers."
     )

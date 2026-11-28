@@ -1,26 +1,46 @@
-"""Local deterministic grading and AI adapter for sentence practice.
+"""Local deterministic grading and AI adapter for sentence practice (19.5A R1).
 
 Reviewed accepted answers are graded locally. Independent writing outside that
 set may call the existing AIService boundary. AI feedback never becomes a
-reviewed answer key. Unavailable or malformed AI results are provisional.
+reviewed answer key. Unavailable or malformed AI results are ungraded.
 """
 
 from __future__ import annotations
 
+import math
 import re
 import threading
+from collections import Counter
 from dataclasses import dataclass
 from typing import Callable, Optional, Sequence
 
-from sentence_content import SentenceExercise
+from sentence_content import (
+    KIND_FILL_BLANK,
+    KIND_GUIDED_WRITING,
+    KIND_INDEPENDENT_WRITING,
+    KIND_WORD_BANK,
+    SentenceExercise,
+)
 
-_PUNCT_RE = re.compile(r"[.!?,;:¡¿\"'“”‘’]+")
+# Terminal punctuation kept for display/join; stripped for matching.
+_MATCH_PUNCT_RE = re.compile(r"[.!?,;:¡¿\"'“”‘’]+")
 _SPACE_RE = re.compile(r"\s+")
+_LATIN_WORD_RE = re.compile(r"[A-Za-zÀ-ÖØ-öø-ÿ]+")
+
+STATUS_REVIEWED_CORRECT = "reviewed_correct"
+STATUS_INCORRECT = "incorrect"
+STATUS_INCOMPLETE = "incomplete"
+STATUS_UNLISTED = "unlisted"
+STATUS_PROVISIONAL_ACCEPT = "provisional_accept"
+STATUS_PROVISIONAL_CORRECT = "provisional_correct"
+STATUS_UNAVAILABLE = "unavailable"
+STATUS_UNGRADED = "ungraded"
+STATUS_EMPTY = "empty"
 
 
 def normalize_sentence(text: str, *, keep_case: bool = False) -> str:
     raw = str(text or "").strip()
-    raw = _PUNCT_RE.sub("", raw)
+    raw = _MATCH_PUNCT_RE.sub("", raw)
     raw = _SPACE_RE.sub(" ", raw).strip()
     if not keep_case:
         raw = raw.casefold()
@@ -38,68 +58,181 @@ def local_match(exercise: SentenceExercise, learner_answer: str) -> bool:
     return answers_match(learner_answer, exercise.accepted_answers)
 
 
+def join_tokens(tokens: Sequence[str]) -> str:
+    parts = [str(t) for t in tokens if str(t).strip() != ""]
+    if not parts:
+        return ""
+    out = parts[0]
+    for token in parts[1:]:
+        if token in {".", "!", "?", ",", ";", ":"}:
+            out += token
+        else:
+            out += " " + token
+    return out.strip()
+
+
+def word_bank_complete(exercise: SentenceExercise, tokens: Sequence[str]) -> bool:
+    """True when selected tokens use the full bank multiplicity (punctuation optional)."""
+    bank = [str(t) for t in exercise.word_bank]
+    selected = [str(t) for t in tokens]
+    if not selected:
+        return False
+    bank_words = [t for t in bank if t not in {".", "!", "?", ",", ";", ":"}]
+    selected_words = [t for t in selected if t not in {".", "!", "?", ",", ";", ":"}]
+    return Counter(selected_words) == Counter(bank_words)
+
+
+def word_bank_multiplicity_ok(exercise: SentenceExercise, tokens: Sequence[str]) -> bool:
+    """Reject selections that over-use a token beyond the bank."""
+    bank_counts = Counter(str(t) for t in exercise.word_bank)
+    selected_counts = Counter(str(t) for t in tokens)
+    for token, count in selected_counts.items():
+        if count > bank_counts.get(token, 0):
+            return False
+    return True
+
+
 @dataclass(frozen=True)
 class SentenceGrade:
     """Outcome of one submission. Never mutates vocabulary progress."""
 
-    status: str  # correct | incorrect | provisional | unavailable | empty
+    status: str
     matched_local: bool
     graded_by: str  # local | ai | none
     feedback: str = ""
     corrected_sentence: str = ""
     error_hint: str = ""
     score: float = 0.0
+    diagnosis_certain: bool = False
 
 
-def grade_locally(exercise: SentenceExercise, learner_answer: str) -> SentenceGrade:
-    text = str(learner_answer or "").strip()
+def grade_locally(
+    exercise: SentenceExercise,
+    learner_answer: str = "",
+    *,
+    tokens: Sequence[str] = (),
+) -> SentenceGrade:
+    if exercise.kind == KIND_WORD_BANK and tokens is not None and tuple(tokens) != ():
+        if not word_bank_multiplicity_ok(exercise, tokens):
+            return SentenceGrade(
+                status=STATUS_INCOMPLETE,
+                matched_local=False,
+                graded_by="none",
+                feedback="",
+                error_hint="",
+            )
+        if not word_bank_complete(exercise, tokens):
+            return SentenceGrade(
+                status=STATUS_INCOMPLETE,
+                matched_local=False,
+                graded_by="none",
+                feedback="",
+            )
+        text = join_tokens(tokens)
+    else:
+        text = str(learner_answer or "").strip()
+
     if not text:
         return SentenceGrade(
-            status="empty",
+            status=STATUS_EMPTY,
             matched_local=False,
             graded_by="none",
             feedback="",
         )
+
     if local_match(exercise, text):
         return SentenceGrade(
-            status="correct",
+            status=STATUS_REVIEWED_CORRECT,
             matched_local=True,
             graded_by="local",
             feedback="",
             corrected_sentence=exercise.primary_answer(),
             score=1.0,
+            diagnosis_certain=True,
         )
+
+    # Constrained exercises: complete but non-matching → definite incorrect.
+    if exercise.kind in (KIND_WORD_BANK, KIND_FILL_BLANK, KIND_GUIDED_WRITING):
+        hint, certain = _conservative_local_hint(exercise, text)
+        return SentenceGrade(
+            status=STATUS_INCORRECT,
+            matched_local=False,
+            graded_by="local",
+            feedback="",
+            corrected_sentence=exercise.primary_answer(),
+            error_hint=hint,
+            score=0.0,
+            diagnosis_certain=certain,
+        )
+
+    # Independent writing outside reviewed set is unlisted — not definitive wrong.
     return SentenceGrade(
-        status="incorrect",
+        status=STATUS_UNLISTED,
         matched_local=False,
-        graded_by="local",
+        graded_by="none",
         feedback="",
-        corrected_sentence=exercise.primary_answer(),
-        error_hint=_guess_local_hint(exercise, text),
+        corrected_sentence="",
         score=0.0,
+        diagnosis_certain=False,
     )
 
 
-def _guess_local_hint(exercise: SentenceExercise, learner: str) -> str:
-    """Conservative local hint only — not a full linguistic classifier."""
-    from sentence_content import KIND_FILL_BLANK, KIND_WORD_BANK
-
+def _conservative_local_hint(exercise: SentenceExercise, learner: str) -> tuple[str, bool]:
+    """Return (hint, certain). Prefer empty/uncertain over over-claiming."""
     norm = normalize_sentence(learner)
     primary = normalize_sentence(exercise.primary_answer())
+    left = norm.split()
+    right = primary.split()
+
     if exercise.kind == KIND_WORD_BANK:
-        return "word_order"
+        if Counter(left) == Counter(right):
+            return "word_order", True
+        return "word_order", True
+
     if exercise.kind == KIND_FILL_BLANK:
-        if "drink" in norm and "drinkt" in primary and "drinkt" not in norm:
-            return "conjugation"
-        return "conjugation"
-    # Token overlap without full match → likely order or small form issue.
-    left = set(norm.split())
-    right = set(primary.split())
-    if left and right and left == right:
-        return "word_order"
-    if left & right:
-        return "grammar"
-    return "vocabulary"
+        # Only claim conjugation when the blank is a verb slot (component role).
+        blank = exercise.blank_sentence or ""
+        if "___" not in blank:
+            return "", False
+        expected_verb = None
+        for part in exercise.components:
+            if part.role == "verb":
+                expected_verb = normalize_sentence(part.text)
+                break
+        if not expected_verb:
+            return "", False
+        typed = norm
+        if " " not in typed:
+            if typed == expected_verb:
+                return "", True
+            # Verb-slot blank: a wrong single token is a conjugation miss.
+            return "conjugation", True
+        # Full-sentence answer that keeps the frame but misses the finite verb.
+        if expected_verb not in left and (
+            any(token.endswith("en") for token in left) or set(left) != set(right)
+        ):
+            frame_ok = all(
+                token in left or token == expected_verb for token in right if token != expected_verb
+            )
+            if frame_ok or any(token.endswith("en") for token in left):
+                return "conjugation", True
+        return "", False
+
+    # Guided writing: article omission is detectable; otherwise stay uncertain.
+    if exercise.kind == KIND_GUIDED_WRITING:
+        articles = {
+            normalize_sentence(part.text)
+            for part in exercise.components
+            if part.role == "article"
+        }
+        if articles and not (articles & set(left)) and Counter(left) != Counter(right):
+            if set(left) | articles == set(right) or set(left) == set(right) - articles:
+                return "article", True
+        if left and right and Counter(left) == Counter(right):
+            return "word_order", True
+        return "", False
+
+    return "", False
 
 
 class FakeSentenceGradeProvider:
@@ -114,6 +247,11 @@ class FakeSentenceGradeProvider:
 
         self.calls.append(request)
         text = str(request.user_sentence or "").strip()
+        study = getattr(request, "study_language", None)
+        study_code = ""
+        if study is not None:
+            study_code = str(getattr(study, "code", study) or "").strip().lower()
+
         if self.mode == "unavailable":
             from ai.base import AIError
 
@@ -126,79 +264,151 @@ class FakeSentenceGradeProvider:
                 corrected_sentence="",
                 suggested_sentence="",
             )
-        # Accept a known valid variant outside the reviewed set for the demo.
-        valid_extra = normalize_sentence("Ik koop een fiets vandaag")
-        ok = normalize_sentence(text) == valid_extra or normalize_sentence(text) == normalize_sentence(
-            "I buy a bike"
-        )
+        if self.mode == "malformed_bool":
+            # Intentionally invalid boolean-like payload via wrong type on score path.
+            return GradeResult(
+                is_correct_usage="yes",  # type: ignore[arg-type]
+                score=0.9,
+                feedback_vi="bad",
+                corrected_sentence="",
+                suggested_sentence="",
+            )
+
+        # Never accept English for a Dutch exercise.
+        if study_code in ("nl", "dutch") or _looks_dutch_target(request):
+            if _looks_english_sentence(text) and not _looks_dutch_sentence(text):
+                return GradeResult(
+                    is_correct_usage=False,
+                    score=0.15,
+                    feedback_vi="Provisional: write the sentence in Dutch.",
+                    corrected_sentence="Zij leest een boek.",
+                    suggested_sentence="Zij leest een boek.",
+                )
+
+        valid_extra = normalize_sentence("Zij leest een boek vandaag")
+        ok = normalize_sentence(text) == valid_extra
         if self.mode == "reject":
             ok = False
+        if self.mode == "correct":
+            ok = False
+            return GradeResult(
+                is_correct_usage=False,
+                score=0.35,
+                feedback_vi="Provisional: try the present form.",
+                corrected_sentence="Zij leest een boek.",
+                suggested_sentence="Zij leest een boek.",
+            )
         return GradeResult(
             is_correct_usage=ok,
-            score=0.88 if ok else 0.2,
+            score=0.88 if ok else 0.25,
             feedback_vi="Provisional AI note only." if ok else "Provisional: try again.",
-            corrected_sentence="Ik koop een fiets." if not ok else text,
-            suggested_sentence="Ik koop een fiets.",
+            corrected_sentence=text if ok else "Zij leest een boek.",
+            suggested_sentence="Zij leest een boek.",
         )
+
+
+def _looks_dutch_target(request) -> bool:
+    meaning = str(getattr(request, "meaning", "") or "")
+    word = str(getattr(request, "target_word", "") or "")
+    return word in ("lezen", "drinken", "kopen") or "book" in meaning.lower()
+
+
+def _looks_english_sentence(text: str) -> bool:
+    norm = normalize_sentence(text)
+    english_markers = ("she reads", "i buy", "a book", "the book", "i drink")
+    return any(marker in norm for marker in english_markers)
+
+
+def _looks_dutch_sentence(text: str) -> bool:
+    norm = normalize_sentence(text)
+    dutch_markers = ("zij ", "ze ", "ik ", "hij ", "een ", "het ", "de ")
+    return any(norm.startswith(m.strip()) or f" {m.strip()} " in f" {norm} " for m in dutch_markers)
+
+
+def _validate_grade_result(result) -> Optional[str]:
+    """Return a problem string if GradeResult fields are malformed."""
+    flag = getattr(result, "is_correct_usage", None)
+    if not isinstance(flag, bool):
+        return "is_correct_usage must be a boolean"
+    score = getattr(result, "score", None)
+    try:
+        value = float(score)
+    except (TypeError, ValueError):
+        return "score must be numeric"
+    if not math.isfinite(value):
+        return "score must be finite"
+    if value < 0.0 or value > 1.0:
+        return "score must be in [0, 1]"
+    return None
 
 
 def grade_with_ai_service(service, exercise: SentenceExercise, learner_answer: str) -> SentenceGrade:
     """Synchronous AI grade through the existing service. No account proxy by default."""
     from ai.base import AIError
+    from languages import get_language
 
     try:
         result = service.grade_answer(
             target_word=exercise.target_lemma or exercise.prompt,
             user_sentence=learner_answer,
             meaning=exercise.translation_en or exercise.prompt,
+            profile={"code": exercise.language_code},
+            level=exercise.cefr,
             use_account_proxy=False,
         )
+        _ = get_language  # study language reaches the request via profile["code"]
     except AIError as error:
         return SentenceGrade(
-            status="unavailable",
+            status=STATUS_UNAVAILABLE,
             matched_local=False,
             graded_by="ai",
             feedback=str(error),
         )
     except Exception as error:  # noqa: BLE001 — boundary
         return SentenceGrade(
-            status="unavailable",
+            status=STATUS_UNAVAILABLE,
             matched_local=False,
             graded_by="ai",
             feedback=str(error),
         )
-    score = float(getattr(result, "score", 0.0) or 0.0)
-    if score != score:  # NaN
+
+    problem = _validate_grade_result(result)
+    if problem:
         return SentenceGrade(
-            status="provisional",
+            status=STATUS_UNGRADED,
             matched_local=False,
             graded_by="ai",
             feedback="AI feedback was incomplete. This is not a definitive result.",
-            corrected_sentence=str(getattr(result, "corrected_sentence", "") or ""),
+            corrected_sentence="",
             score=0.0,
         )
-    # Score alone is not a linguistic class. Treat as provisional correctness only.
-    if bool(getattr(result, "is_correct_usage", False)) and score >= 0.7:
+
+    score = float(result.score)
+    corrected = str(getattr(result, "corrected_sentence", "") or "").strip()
+    suggested = str(getattr(result, "suggested_sentence", "") or "").strip()
+    note = str(getattr(result, "feedback_vi", "") or "").strip()
+
+    # Never invent a grammar error class from score alone.
+    if result.is_correct_usage and score >= 0.7:
         return SentenceGrade(
-            status="provisional",
+            status=STATUS_PROVISIONAL_ACCEPT,
             matched_local=False,
             graded_by="ai",
-            feedback=str(getattr(result, "feedback_vi", "") or "Looks usable (provisional)."),
-            corrected_sentence=str(getattr(result, "corrected_sentence", "") or ""),
+            feedback=note or "Looks usable (provisional).",
+            corrected_sentence=corrected or learner_answer,
             score=score,
+            diagnosis_certain=False,
         )
+
     return SentenceGrade(
-        status="provisional",
+        status=STATUS_PROVISIONAL_CORRECT,
         matched_local=False,
         graded_by="ai",
-        feedback=str(getattr(result, "feedback_vi", "") or "Needs another try (provisional)."),
-        corrected_sentence=str(
-            getattr(result, "corrected_sentence", "")
-            or getattr(result, "suggested_sentence", "")
-            or exercise.primary_answer()
-        ),
-        error_hint="grammar",
+        feedback=note or "Needs another try (provisional).",
+        corrected_sentence=corrected or suggested or exercise.primary_answer(),
+        error_hint="",
         score=score,
+        diagnosis_certain=False,
     )
 
 
@@ -210,14 +420,9 @@ def grade_async(
     learner_answer: str,
     on_done: Callable[[SentenceGrade], None],
     still_current: Optional[Callable[[], bool]] = None,
+    submission_id: str = "",
 ) -> None:
-    """Grade via AIService and deliver on the Tk thread when the binding is current.
-
-    Fake / deterministic providers run synchronously (no worker thread) so demos
-    and tests are not blocked by Tk cross-thread `after` scheduling. Real
-    network providers still use a background thread; results are queued and
-    polled from the main loop.
-    """
+    """Grade via AIService and deliver on the Tk thread when the binding is current."""
 
     provider = getattr(service, "provider", None)
     if isinstance(provider, FakeSentenceGradeProvider):
@@ -250,7 +455,7 @@ def grade_async(
         if remaining <= 0:
             on_done(
                 SentenceGrade(
-                    status="unavailable",
+                    status=STATUS_UNAVAILABLE,
                     matched_local=False,
                     graded_by="ai",
                     feedback="Grading timed out. This is not a definitive wrong answer.",

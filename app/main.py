@@ -56,6 +56,10 @@ class StudyMasterApp:
         self.reading_window = None
         self.listening_window = None
         self.sentence_window = None
+        self._sentence_binding_language = None
+        self._sentence_after_vocab = None  # (code, generation) when deferring Reading/Listening
+        self._resume_after_sentence = None  # (code, generation) resume StudySession once
+        self._sentence_resume_done = False
         self.reading_unavailable = False
         self.listening_unavailable = False
         # Lazy TTS: never discover Windows voices during StudyMaster construction.
@@ -565,6 +569,18 @@ class StudyMasterApp:
                 self._close_window(self.vocab_window)
             self.vocab_window = None
             self._vocab_binding_language = None
+        if language_changed and self.sentence_window is not None:
+            try:
+                exists = self.sentence_window.winfo_exists()
+            except tk.TclError:
+                exists = False
+            if exists:
+                self._close_window(self.sentence_window)
+            self.sentence_window = None
+            self._sentence_binding_language = None
+            self._sentence_after_vocab = None
+            self._resume_after_sentence = None
+            self._sentence_resume_done = False
         bundle = open_study_data(code)
         self.store = bundle.vocab
         self.progress = bundle.progress
@@ -713,6 +729,10 @@ class StudyMasterApp:
         account_session.close_account_bound_windows(*windows)
         self._account_generation = int(getattr(self, "_account_generation", 0) or 0) + 1
         self._vocab_binding_language = None
+        self._sentence_binding_language = None
+        self._sentence_after_vocab = None
+        self._resume_after_sentence = None
+        self._sentence_resume_done = False
         # A new account identity does not keep the previous account's completed flags.
         self.sessions = {}
         bundle = open_study_data()
@@ -1111,16 +1131,39 @@ class StudyMasterApp:
         """Optional sentence round after adaptive vocab — does not affect vocab completion."""
         if int(getattr(self, "_account_generation", 0) or 0) != int(generation):
             return
+        code = str(code or "").strip().lower()
+        # Defer Reading/Listening until sentence ends; avoid competing delayed windows.
+        self._sentence_after_vocab = (code, int(generation))
+        self._resume_after_sentence = (code, int(generation))
+        self._sentence_resume_done = False
         self.root.after(
-            100, lambda: self.open_sentence_practice_section(code, after_vocab=True)
+            100,
+            lambda c=code, g=generation: self._open_sentence_after_vocab_guarded(c, g),
         )
 
-    def open_sentence_practice_section(self, code=None, *, after_vocab: bool = False):
+    def _open_sentence_after_vocab_guarded(self, code: str, generation: int) -> None:
+        if int(getattr(self, "_account_generation", 0) or 0) != int(generation):
+            self._sentence_after_vocab = None
+            return
+        if str(config.active_code() or "").strip().lower() != str(code).strip().lower():
+            self._sentence_after_vocab = None
+            return
+        self.open_sentence_practice_section(
+            code, after_vocab=True, account_generation=generation
+        )
+
+    def open_sentence_practice_section(
+        self, code=None, *, after_vocab: bool = False, account_generation: int = None
+    ):
         """Optional sentence practice. Never required for StudySession vocabulary completion."""
         from adaptive_study import adaptive_unlocked_allowed, capture_identity
         from sentence_practice import SentencePracticeSession
         from sentence_practice_app import SentencePracticeApp, build_demo_grade_service
 
+        if account_generation is not None and int(
+            getattr(self, "_account_generation", 0) or 0
+        ) != int(account_generation):
+            return
         if not adaptive_unlocked_allowed(self.guard):
             self.guard.show_info(
                 config.ui("Sentence Practice khóa", "Sentence Practice locked"),
@@ -1131,10 +1174,11 @@ class StudyMasterApp:
             )
             return
         code = config.active_code() if code is None else code
+        code = str(code or "").strip().lower()
         if (
             self.sentence_window is not None
             and self.sentence_window.winfo_exists()
-            and str(getattr(self, "_sentence_binding_language", "") or "") == str(code)
+            and str(getattr(self, "_sentence_binding_language", "") or "") == code
         ):
             try:
                 self.sentence_window.lift()
@@ -1154,13 +1198,33 @@ class StudyMasterApp:
                     f"No sentence pack for this language yet.\n{error}",
                 ),
             )
+            if after_vocab:
+                self._resume_study_after_sentence(code, generation)
             return
 
         self._suspend_for_activity()
         grade_service = build_demo_grade_service("accept_valid")
+        if after_vocab:
+            self._resume_after_sentence = (code, generation)
+            self._sentence_resume_done = False
 
         def _still() -> bool:
             return identity.still_current(account_generation=self._account_generation)
+
+        def _on_sentence_done() -> None:
+            if not _still():
+                return
+            self._refresh_status()
+            self.root.after(
+                50, lambda c=code, g=generation: self._resume_study_after_sentence(c, g)
+            )
+
+        def _on_sentence_leave() -> None:
+            if not _still():
+                return
+            self.root.after(
+                50, lambda c=code, g=generation: self._resume_study_after_sentence(c, g)
+            )
 
         def build(window):
             window.bind("<Destroy>", self._on_sentence_destroy, add="+")
@@ -1172,30 +1236,75 @@ class StudyMasterApp:
                     getattr(self, "_account_generation", 0) or 0
                 ),
                 grade_service=grade_service,
-                on_completed=lambda: None if not _still() else self._refresh_status(),
-                on_leave=lambda: None,
+                on_completed=_on_sentence_done if after_vocab else (
+                    lambda: None if not _still() else self._refresh_status()
+                ),
+                on_leave=_on_sentence_leave if after_vocab else (lambda: None),
                 locked=False,
             )
 
         def failed(error):
             self._report_activity_launch_error("Sentence Practice", error)
             self._resume_after_activity()
+            if after_vocab:
+                self._resume_study_after_sentence(code, generation)
 
         self.sentence_window = ui_common.launch_toplevel_app(
             self.root, build, on_error=failed
         )
         if self.sentence_window is not None:
-            self._sentence_binding_language = str(code).strip().lower()
-        # after_vocab is informational only — vocabulary already completed separately.
-        _ = after_vocab
+            self._sentence_binding_language = code
+            self._sentence_after_vocab = None
+        elif after_vocab:
+            self._resume_study_after_sentence(code, generation)
+
+    def _resume_study_after_sentence(self, code: str, generation: int) -> None:
+        """Resume Reading/Listening / finish exactly once after optional sentence."""
+        if self._sentence_resume_done:
+            return
+        if int(getattr(self, "_account_generation", 0) or 0) != int(generation):
+            return
+        if str(config.active_code() or "").strip().lower() != str(code).strip().lower():
+            return
+        pending = self._resume_after_sentence
+        if pending is None:
+            return
+        pending_code, pending_gen = pending
+        if str(pending_code) != str(code) or int(pending_gen) != int(generation):
+            return
+        self._sentence_resume_done = True
+        self._resume_after_sentence = None
+        self._sentence_after_vocab = None
+        session = self._session_for(code)
+        nxt = session.next_activity()
+        if nxt is not None and nxt.kind == KIND_READING:
+            self.root.after(
+                100, lambda g=generation, c=code: self._open_one_reading(c, account_generation=g)
+            )
+            return
+        if nxt is not None and nxt.kind == KIND_LISTENING:
+            self.root.after(
+                100, lambda g=generation, c=code: self._open_one_listening(c, account_generation=g)
+            )
+            return
+        self.root.after(100, lambda g=generation: self._finish_if_all_done_for(g))
 
     def _on_sentence_destroy(self, event):
         if event.widget is not self.sentence_window:
             return
+        code = str(getattr(self, "_sentence_binding_language", "") or "")
+        generation = int(getattr(self, "_account_generation", 0) or 0)
+        resume = self._resume_after_sentence
         self.sentence_window = None
         self._sentence_binding_language = None
         self.root.after(50, self._show_menu)
         self.root.after(50, self._refresh_status)
+        if resume is not None and not self._sentence_resume_done:
+            c, g = resume
+            if c == code or not code:
+                self.root.after(
+                    80, lambda cc=c, gg=g: self._resume_study_after_sentence(cc, gg)
+                )
 
     def open_reading_section(self, code=None):
         if not config.activity_enabled("reading"):
@@ -1548,6 +1657,18 @@ class StudyMasterApp:
         session = self._session_for(code)
         session.complete(KIND_VOCABULARY)
         self._refresh_status()
+        # Optional sentence after vocab owns the next transition; do not open
+        # Reading/Listening in parallel with a competing delayed window.
+        pending = getattr(self, "_sentence_after_vocab", None)
+        if pending is not None:
+            pending_code, pending_gen = pending
+            if (
+                str(pending_code).strip().lower() == code
+                and int(pending_gen) == int(generation)
+            ):
+                self._resume_after_sentence = (code, int(generation))
+                self._sentence_resume_done = False
+                return
         nxt = session.next_activity()
         if nxt is not None and nxt.kind == KIND_READING:
             self.root.after(

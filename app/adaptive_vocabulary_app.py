@@ -486,6 +486,7 @@ class AdaptiveVocabularyApp:
             config.ui("Về hôm nay", "Back"),
             celebrate=True,
         )
+        self._sentence_cta = None
         if callable(self.on_sentence_practice):
             try:
                 from adaptive_study import adaptive_integration_enabled
@@ -497,9 +498,14 @@ class AdaptiveVocabularyApp:
                 import customtkinter as ctk
                 from ctk_keyboard import bind_activation
 
+                # Parent must match continue_button so packing order stays valid.
+                parent = self.shell.continue_button.master
                 button = ctk.CTkButton(
-                    self.shell.host,
-                    text=config.ui("Luyện một câu (tuỳ chọn)", "Practice a sentence (optional)"),
+                    parent,
+                    text=config.ui(
+                        "Luyện một câu (tuỳ chọn)",
+                        "Practice a sentence (optional)",
+                    ),
                     command=self._open_sentence_practice,
                     height=36,
                     corner_radius=12,
@@ -510,16 +516,20 @@ class AdaptiveVocabularyApp:
                 )
                 button.pack(fill=tk.X, pady=(8, 0), before=self.shell.continue_button)
                 bind_activation(button)
+                self._sentence_cta = button
 
     def _open_sentence_practice(self) -> None:
         if not callable(self.on_sentence_practice):
             return
         if not self._binding_current():
             return
-        # Close vocab complete first so StudyMaster can open the sentence window.
+        if self._phase != "complete":
+            return
         callback = self.on_sentence_practice
-        self._close_complete()
+        # Signal sentence preference before completion so StudyMaster defers Reading.
         callback()
+        # Then finish vocab completion without scheduling competing activities.
+        self._close_complete()
 
     def _close_practice_store(self) -> None:
         store = self.practice_store

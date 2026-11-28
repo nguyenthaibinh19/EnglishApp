@@ -4,7 +4,7 @@ Directional plan — **not** a rigid release commitment. Update when phases comp
 
 ## Latest operational checkpoint — 2026-11-28
 
-- **Phase 19.5A Progressive Sentence Practice is on review branch `phase19.5a/sentence-practice`.** Tag `APP_19D5A_SENTENCE_PRACTICE_READY_FOR_REVIEW`. Baseline `a21f8c9e2ab314cdfcb31a223fc0bab1727768fd`. Notes: [PHASE-19.5A-sentence-practice.md](plans/PHASE-19.5A-sentence-practice.md). Not merged. Not in v1.5.0.
+- **Phase 19.5A Progressive Sentence Practice R1 corrections are on review branch `phase19.5a/sentence-practice`.** Tag `APP_19D5A_SENTENCE_PRACTICE_CORRECTED_READY_FOR_REVIEW`. Foundation checkpoint `9c8bfe14b7304ae659a982202d88e29a369802e1`. Notes: [PHASE-19.5A-sentence-practice.md](plans/PHASE-19.5A-sentence-practice.md). Not merged. Not in v1.5.0.
 - **Phase 19.4C is closed and merged, and it is unreleased.** PR #38, merge `55a1efc9b6b9d76f621b2e4f7740c3470ac77192`. Opt-in isolated Adaptive Study on FreeHome/StudyMaster. Notes: [PHASE-19.4C-adaptive-study-integration.md](plans/PHASE-19.4C-adaptive-study-integration.md).
 - **Phase 19.4B is closed and merged, and it is unreleased.** PR #36, merge `91d3c60f59c5d26d321433a9334c6af31e09c1a5`. ADR-026 is Accepted. Notes: [PHASE-19.4B-practice-records.md](plans/PHASE-19.4B-practice-records.md).
 - **Phase 19.4A is closed and merged, and it is unreleased.** PR #34, merge `e33373110544a1ca4fca6905b8741d47e4932fc4`. Notes: [PHASE-19.4A-adaptive-vocabulary.md](plans/PHASE-19.4A-adaptive-vocabulary.md).

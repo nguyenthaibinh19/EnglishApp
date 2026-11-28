@@ -15,8 +15,9 @@ import config
 import ui_common
 import ui_foundation
 import voice_prefs
-from adaptive_vocabulary import AdaptivePreviewRefused
+from adaptive_vocabulary import AdaptivePreviewRefused, SpeechPlan
 from grammar_companion import build_companion, component_color
+from listening import ListeningAudioError
 from listening_windows_tts import NORMAL_RATE, SLOW_RATE
 from sentence_content import (
     KIND_FILL_BLANK,
@@ -24,7 +25,16 @@ from sentence_content import (
     KIND_INDEPENDENT_WRITING,
     KIND_WORD_BANK,
 )
-from sentence_grading import FakeSentenceGradeProvider, grade_async
+from sentence_grading import (
+    STATUS_INCORRECT,
+    STATUS_PROVISIONAL_ACCEPT,
+    STATUS_PROVISIONAL_CORRECT,
+    STATUS_REVIEWED_CORRECT,
+    STATUS_UNGRADED,
+    STATUS_UNAVAILABLE,
+    FakeSentenceGradeProvider,
+    grade_async,
+)
 from sentence_practice import SentencePracticeSession
 from speech_player import play_async
 from study_presentation import StudyCardShell
@@ -35,6 +45,32 @@ ctk.set_appearance_mode("light")
 
 PREVIEW_WIDTH = 560
 PREVIEW_HEIGHT = 720
+
+
+def speech_for_sentence(exercise, phase: str) -> SpeechPlan:
+    """Only speak reviewed revealed sentences after check."""
+    if exercise is None:
+        return SpeechPlan(False, reason="no exercise")
+    if phase != "feedback":
+        return SpeechPlan(False, reason="answer stays hidden until check")
+    text = exercise.primary_answer()
+    if not text:
+        return SpeechPlan(False, reason="no reviewed sentence")
+    return SpeechPlan(True, text=text)
+
+
+def _voice_problem(error) -> str:
+    message = str(error or "")
+    lower = message.lower()
+    if "no voice" in lower or "not available" in lower:
+        return config.ui(
+            "Máy này chưa có giọng cho ngôn ngữ đang học. Bạn vẫn có thể tiếp tục.",
+            "No voice for this language on this PC. You can continue.",
+        )
+    return config.ui(
+        "Không phát được âm thanh. Bạn vẫn có thể tiếp tục.",
+        "Playback failed. You can continue.",
+    )
 
 
 class SentencePracticeApp:
@@ -64,11 +100,15 @@ class SentencePracticeApp:
         self._phase = "answer"
         self._checking = False
         self._completion_calls = 0
+        self._leave_calls = 0
         self._card_token = 0
         self._grammar_open = False
         self._last_feedback = None
+        self._feedback_exercise = None
         self._bank_selected: list = []
         self._ai_pending = False
+        self._active_submission_id = ""
+        self._active_instance_id = ""
         self.window.title(
             config.ui(
                 "LanguageGuard — Luyện câu",
@@ -176,24 +216,36 @@ class SentencePracticeApp:
             self._check()
         return "break"
 
+    def _update_progress(self) -> None:
+        done, total = self.session.progress_pair()
+        self.shell.set_progress(done, total, f"{done}/{total}")
+
     def _show_current(self) -> None:
-        if self.session.finished:
+        if self.session.abandoned:
+            self._show_left()
+            return
+        if self.session.missing_content:
+            self._show_missing()
+            return
+        if self.session.finished and self.session.levels_achieved() >= 4:
             self._show_complete()
             return
         card = self.session.current_card()
         if card is None:
-            self._show_complete()
+            self._show_missing()
             return
         self._phase = "answer"
         self._card_token += 1
         self._grammar_open = False
         self._last_feedback = None
+        self._feedback_exercise = None
         self._bank_selected = []
+        self._active_submission_id = ""
+        self._active_instance_id = ""
         self._clear_feedback_extras()
         self._mount(card.exercise)
         self.shell.set_stage(_stage_label(card.exercise.kind))
-        done = sum(1 for row in self.session.results if row.outcome == "correct")
-        self.shell.set_progress(done, 4, f"{min(done, 4)}/4")
+        self._update_progress()
         self.shell.show_answering(show_hint=False, clear_support=True)
         self.shell.hint_button.pack_forget()
 
@@ -220,98 +272,129 @@ class SentencePracticeApp:
         card = self.session.current_card()
         if card is None:
             return
+        submission_id = self.session.begin_submission()
+        if not submission_id:
+            return
         self._checking = True
+        self._active_submission_id = submission_id
+        self._active_instance_id = card.instance_id
         try:
-            from sentence_grading import grade_locally
-
             exercise = card.exercise
             if exercise.kind == KIND_WORD_BANK:
-                from sentence_practice import _join_tokens
-
-                answer = _join_tokens(self._bank_selected)
+                result = self.session.submit_local(
+                    tokens=self._bank_selected,
+                    submission_id=submission_id,
+                    instance_id=card.instance_id,
+                )
             else:
                 answer = self.shell.exercise.answer_text()
-            peek = grade_locally(exercise, answer)
-            if peek.status == "empty":
+                result = self.session.submit_local(
+                    answer,
+                    submission_id=submission_id,
+                    instance_id=card.instance_id,
+                )
+            if result.status in ("empty", "incomplete"):
                 self.shell.show_feedback(
-                    config.ui("Hãy nhập câu trả lời.", "Please enter an answer."),
+                    result.feedback
+                    or config.ui("Hãy nhập câu trả lời.", "Please enter an answer."),
                     "empty",
                 )
                 self._phase = "answer"
                 return
-            if (
-                peek.status == "incorrect"
-                and exercise.kind == KIND_INDEPENDENT_WRITING
-                and self.grade_service is not None
-                and not peek.matched_local
-            ):
-                # Outside reviewed set → AI adapter (provisional only). Do not
-                # record a local incorrect until AI returns (or fails soft).
+            if result.status == "waiting_ai" and self.grade_service is not None:
                 self._ai_pending = True
                 self.shell.show_feedback(
                     config.ui("Đang chấm…", "Checking…"),
                     "near",
                 )
+                answer = self.shell.exercise.answer_text()
                 grade_async(
                     self.window,
                     service=self.grade_service,
                     exercise=exercise,
                     learner_answer=answer,
-                    still_current=self._binding_current,
-                    on_done=lambda grade, text=answer: self._on_ai_grade(grade, text),
+                    still_current=lambda sid=submission_id, iid=card.instance_id: (
+                        self._binding_current()
+                        and self.session.submission_current(sid, iid)
+                    ),
+                    submission_id=submission_id,
+                    on_done=lambda grade, text=answer, sid=submission_id, iid=card.instance_id: self._on_ai_grade(
+                        grade, text, submission_id=sid, instance_id=iid
+                    ),
                 )
                 return
-            if exercise.kind == KIND_WORD_BANK:
-                result = self.session.submit_local(tokens=self._bank_selected)
-            else:
-                result = self.session.submit_local(answer)
+            if result.status == "stale":
+                return
             self._show_feedback_result(result)
         finally:
             self._checking = False
 
-    def _on_ai_grade(self, grade, learner_answer: str) -> None:
+    def _on_ai_grade(self, grade, learner_answer: str, *, submission_id: str, instance_id: str) -> None:
         self._ai_pending = False
         if not self._binding_current():
+            self.session.clear_submission(submission_id)
             return
-        result = self.session.apply_external_grade(grade, learner_answer)
+        if not self.session.submission_current(submission_id, instance_id):
+            return
+        result = self.session.apply_external_grade(
+            grade,
+            learner_answer,
+            submission_id=submission_id,
+            instance_id=instance_id,
+        )
+        if result.status == "stale":
+            return
         self._show_feedback_result(result)
 
     def _show_feedback_result(self, result) -> None:
         self._phase = "feedback"
         self._last_feedback = result
-        card = self.session.current_card()
-        exercise = (
-            result.card.exercise
-            if result.card is not None
-            else (self.session.pack.exercises[0] if result.session_finished else None)
-        )
-        # Prefer the exercise that was just graded.
-        if self.session.results:
+        exercise = result.submitted_exercise
+        if exercise is None and self.session.results:
             last_id = self.session.results[-1].exercise_id
             for item in self.session.pack.exercises:
                 if item.exercise_id == last_id:
                     exercise = item
                     break
+        self._feedback_exercise = exercise
         tone = result.tone or "bad"
         feedback = result.feedback
-        offer_hear = bool(exercise and exercise.primary_answer())
-        done = sum(1 for row in self.session.results if row.outcome == "correct")
-        self.shell.set_progress(done, 4, f"{min(done, 4)}/4")
-        self.shell.show_feedback(feedback, tone, offer_sentence=False, offer_hear=offer_hear)
-        if exercise and result.grade and result.grade.status in ("incorrect", "correct", "provisional"):
-            shown = result.grade.corrected_sentence or exercise.primary_answer()
+        plan = speech_for_sentence(exercise, "feedback")
+        self._update_progress()
+        self.shell.show_feedback(
+            feedback, tone, offer_sentence=False, offer_hear=plan.allowed
+        )
+        grade = result.grade
+        if exercise and grade and grade.status in (
+            STATUS_INCORRECT,
+            STATUS_PROVISIONAL_CORRECT,
+            STATUS_PROVISIONAL_ACCEPT,
+            STATUS_REVIEWED_CORRECT,
+        ):
+            shown = ""
+            if grade.status == STATUS_INCORRECT:
+                shown = exercise.primary_answer()
+            elif grade.status == STATUS_PROVISIONAL_CORRECT:
+                shown = grade.corrected_sentence or exercise.primary_answer()
+            elif grade.status == STATUS_PROVISIONAL_ACCEPT:
+                shown = ""
+            elif grade.status == STATUS_REVIEWED_CORRECT:
+                shown = ""
             if shown and tone != "ok":
                 self.shell.show_expected(shown, tone)
         self._companion = None
-        if exercise is not None:
-            rules = self.session.rules_for(exercise)
-            corrected = ""
-            if result.grade is not None:
-                corrected = result.grade.corrected_sentence or exercise.primary_answer()
-            self._companion = build_companion(
-                exercise, rules, corrected_sentence=corrected
-            )
-        if offer_hear:
+        if exercise is not None and grade is not None:
+            if grade.status not in (STATUS_UNAVAILABLE, STATUS_UNGRADED):
+                rules = self.session.rules_for(exercise)
+                self._companion = build_companion(
+                    exercise,
+                    rules,
+                    corrected_sentence=exercise.primary_answer(),
+                    error_hint=grade.error_hint,
+                    diagnosis_certain=grade.diagnosis_certain,
+                    allow_ai_suggestion=False,
+                )
+        if plan.allowed:
             self.slow_hear_button.pack(pady=(4, 0))
         else:
             self.slow_hear_button.pack_forget()
@@ -319,9 +402,6 @@ class SentencePracticeApp:
             self.why_button.pack(pady=(4, 0))
         else:
             self.why_button.pack_forget()
-        if result.session_finished:
-            # Stay on feedback; Continue opens completion.
-            pass
 
     def _toggle_grammar(self) -> None:
         if self._companion is None or self._phase != "feedback":
@@ -401,7 +481,6 @@ class SentencePracticeApp:
                 anchor="w",
             ).pack(fill=tk.X, padx=12, pady=(0, 2))
         self.grammar_host.pack(fill=tk.X, before=self.shell.continue_button)
-        # Continue remains available while grammar is open.
         self.shell.continue_button.configure(state="normal")
 
     def _hide_grammar(self) -> None:
@@ -426,59 +505,90 @@ class SentencePracticeApp:
             self._leave()
             return
         self._clear_feedback_extras()
-        if self.session.finished:
+        if self.session.finished and self.session.levels_achieved() >= 4:
             self._show_complete()
             return
         self.session.continue_after_feedback()
         self._show_current()
 
     def _hear(self, rate: int) -> None:
-        text = ""
-        if self._last_feedback and self._last_feedback.grade:
-            text = self._last_feedback.grade.corrected_sentence or ""
-        if not text and self.session.results:
-            last = self.session.results[-1]
-            for item in self.session.pack.exercises:
-                if item.exercise_id == last.exercise_id:
-                    text = item.primary_answer()
-                    break
-        if not text:
+        exercise = self._feedback_exercise
+        plan = speech_for_sentence(exercise, "feedback" if self._phase == "feedback" else "answer")
+        if not plan.allowed:
             return
         token = self._card_token
         language = self.session.language_code
+        spoken = plan.text
         voice_name = voice_prefs.selected_voice_name(language) or None
 
         def scope() -> bool:
-            return token == self._card_token and self._binding_current()
+            if token != self._card_token:
+                return False
+            if not self._binding_current():
+                return False
+            current = speech_for_sentence(self._feedback_exercise, "feedback")
+            return current.allowed and current.text == spoken
 
         started = play_async(
             self.window,
-            text=text,
+            text=spoken,
             language_code=language,
             rate=int(rate),
             voice_name=voice_name,
             provider=self.provider,
             scope=scope,
-            on_error=lambda *_a, **_k: None,
-            on_done=lambda: None,
+            on_error=lambda error, mark=token: self._voice_status(mark, _voice_problem(error)),
+            on_done=lambda mark=token: self._voice_status(mark, ""),
         )
-        if not started and hasattr(self.shell.exercise, "support"):
-            try:
-                self.shell.exercise.support.configure(
-                    text=config.ui(
-                        "Đang phát một đoạn khác.",
-                        "Another clip is still playing.",
-                    )
-                )
-            except Exception:
-                pass
+        if not started:
+            self._voice_status(
+                token,
+                config.ui(
+                    "Đang phát một đoạn khác. Bạn vẫn có thể tiếp tục.",
+                    "Another clip is still playing. You can continue.",
+                ),
+            )
+            return
+        self._voice_status(token, config.ui("Đang phát…", "Playing…"))
+
+    def _voice_status(self, token: int, text: str) -> None:
+        if token != self._card_token:
+            return
+        note = getattr(self.shell.exercise, "support", None)
+        if note is None:
+            return
+        try:
+            if text:
+                note.configure(text=text)
+        except tk.TclError:
+            pass
 
     def _show_complete(self) -> None:
+        if self.session.abandoned or self.session.missing_content:
+            self._show_left() if self.session.abandoned else self._show_missing()
+            return
+        if self.session.levels_achieved() < 4:
+            # Repeating easier levels must not look like success.
+            self._phase = "incomplete"
+            self._clear_feedback_extras()
+            self.shell.set_stage("")
+            self._update_progress()
+            self.shell.show_complete(
+                config.ui("Chưa xong bốn mức.", "The four levels are not finished yet."),
+                config.ui(
+                    "Phiên câu chưa hoàn thành.",
+                    "This sentence round is not complete.",
+                ),
+                config.ui("Để lúc khác", "Leave for now"),
+                celebrate=False,
+            )
+            self.shell.continue_button.configure(command=self._leave)
+            return
         self._phase = "complete"
         self._clear_feedback_extras()
-        correct = sum(1 for row in self.session.results if row.outcome == "correct")
+        done, total = self.session.progress_pair()
         self.shell.set_stage("")
-        self.shell.set_progress(correct, 4, f"{correct}/4")
+        self.shell.set_progress(done, total, f"{done}/{total}")
         self.shell.show_complete(
             config.ui("Xong phần luyện câu.", "Sentence practice is done."),
             config.ui(
@@ -491,15 +601,49 @@ class SentencePracticeApp:
             celebrate=True,
         )
 
+    def _show_missing(self) -> None:
+        self._phase = "missing"
+        self._clear_feedback_extras()
+        self.shell.set_stage("")
+        self.shell.set_progress(0, 4, "0/4")
+        self.shell.show_complete(
+            config.ui("Chưa có bài câu.", "No sentence content is available."),
+            config.ui(
+                "Phiên này chưa hoàn thành.",
+                "This is not a completed session.",
+            ),
+            config.ui("Để lúc khác", "Leave for now"),
+            celebrate=False,
+        )
+        self.shell.continue_button.configure(command=self._leave)
+
+    def _show_left(self) -> None:
+        self._phase = "left"
+        self._clear_feedback_extras()
+        self.shell.set_stage("")
+        self._update_progress()
+        self.shell.show_complete(
+            config.ui("Đã thoát luyện câu.", "Sentence practice was left."),
+            config.ui(
+                "Chưa hoàn thành. Tiến độ từ vựng không đổi.",
+                "Not completed. Vocabulary progress is unchanged.",
+            ),
+            config.ui("Về Study", "Back to Study"),
+            celebrate=False,
+        )
+        self.shell.continue_button.configure(command=self._leave)
+
     def _close_complete(self) -> None:
         if self._phase != "complete" or self._completion_calls:
             return
         if not self._binding_current():
-            self._leave()
+            self._force_leave()
+            return
+        if not self.session.take_completion():
+            self._force_leave()
             return
         self._completion_calls += 1
         self._phase = "closed"
-        self.session.take_completion()
         if callable(self.on_completed):
             self.on_completed()
         try:
@@ -507,17 +651,32 @@ class SentencePracticeApp:
         except tk.TclError:
             pass
 
-    def _leave(self) -> None:
-        if self._phase == "complete":
-            self._close_complete()
+    def _force_leave(self) -> None:
+        """Leave without recursion through complete."""
+        if self._leave_calls:
             return
-        self.session.abandon()
+        self._leave_calls += 1
+        self._phase = "closed"
+        if not self.session.abandoned:
+            self.session.abandon()
         if callable(self.on_leave):
             self.on_leave()
         try:
             self.window.destroy()
         except tk.TclError:
             pass
+
+    def _leave(self) -> None:
+        if self._phase == "complete":
+            # Binding may be invalid — never recurse into leave via close_complete.
+            if not self._binding_current():
+                self._force_leave()
+                return
+            self._close_complete()
+            return
+        if self._phase in ("closed",):
+            return
+        self._force_leave()
 
     def _on_destroy(self, event=None) -> None:
         if event is not None and event.widget is not self.window:
@@ -613,9 +772,14 @@ class WordBankExercise(_BaseSentenceBody):
         )
         undo.pack(pady=(8, 4))
         bind_activation(undo)
+        translation = (
+            exercise.translation_vi
+            if config.native_code() == "vi"
+            else exercise.translation_en
+        )
         self.support = ctk.CTkLabel(
             self.frame,
-            text=exercise.translation_en,
+            text=translation,
             font=ctk.CTkFont(family="Segoe UI", size=13),
             text_color="#5C7268",
             fg_color=ui_foundation.COLOR_CARD,
@@ -623,16 +787,11 @@ class WordBankExercise(_BaseSentenceBody):
         self.support.pack(pady=(4, 0))
 
     def _pick(self, token: str) -> None:
-        remaining = [t for t, _ in self._buttons]
-        used = list(self.selected)
-        # Allow each bank token once in order of appearance copies.
-        counts = {}
-        for item in remaining:
-            counts[item] = counts.get(item, 0) + 1
-        used_counts = {}
-        for item in used:
-            used_counts[item] = used_counts.get(item, 0) + 1
-        if used_counts.get(token, 0) >= counts.get(token, 0):
+        from collections import Counter
+
+        bank_counts = Counter(t for t, _ in self._buttons)
+        used_counts = Counter(self.selected)
+        if used_counts.get(token, 0) >= bank_counts.get(token, 0):
             return
         self.selected.append(token)
         self._refresh()
@@ -643,17 +802,13 @@ class WordBankExercise(_BaseSentenceBody):
             self._refresh()
 
     def _refresh(self) -> None:
-        from sentence_practice import _join_tokens
+        from sentence_grading import join_tokens
 
-        self.built.configure(text=_join_tokens(self.selected))
+        self.built.configure(text=join_tokens(self.selected))
         used_counts = {}
         for item in self.selected:
             used_counts[item] = used_counts.get(item, 0) + 1
-        seen = {}
         for token, button in self._buttons:
-            seen[token] = seen.get(token, 0) + 1
-            disabled = used_counts.get(token, 0) >= seen[token] and used_counts.get(token, 0) > 0
-            # Simpler: disable tokens already used matching multiplicity
             count_token = sum(1 for t, _ in self._buttons if t == token)
             used = used_counts.get(token, 0)
             button.configure(state="disabled" if used >= count_token else "normal")
@@ -661,9 +816,9 @@ class WordBankExercise(_BaseSentenceBody):
             self.on_change(self.selected)
 
     def answer_text(self) -> str:
-        from sentence_practice import _join_tokens
+        from sentence_grading import join_tokens
 
-        return _join_tokens(self.selected)
+        return join_tokens(self.selected)
 
     def clear_answer(self) -> None:
         self.selected.clear()
@@ -708,9 +863,14 @@ class FillBlankExercise(_BaseSentenceBody):
             text_color=ui_foundation.COLOR_TEXT,
         )
         self.entry.pack(fill=tk.X, padx=8, pady=(0, 8))
+        translation = (
+            exercise.translation_vi
+            if config.native_code() == "vi"
+            else exercise.translation_en
+        )
         self.support = ctk.CTkLabel(
             self.frame,
-            text=exercise.translation_en,
+            text=translation,
             font=ctk.CTkFont(family="Segoe UI", size=13),
             text_color="#5C7268",
             fg_color=ui_foundation.COLOR_CARD,
@@ -721,7 +881,6 @@ class FillBlankExercise(_BaseSentenceBody):
         typed = self.entry.get().strip()
         if not typed:
             return ""
-        # Allow the missing token alone or a full sentence.
         if "___" in self._blank and " " not in typed:
             return self._blank.replace("___", typed)
         return typed
@@ -774,9 +933,14 @@ class GuidedWritingExercise(_BaseSentenceBody):
             text_color=ui_foundation.COLOR_TEXT,
         )
         self.entry.pack(fill=tk.X, padx=8, pady=(0, 8))
+        translation = (
+            exercise.translation_vi
+            if config.native_code() == "vi"
+            else exercise.translation_en
+        )
         self.support = ctk.CTkLabel(
             self.frame,
-            text=exercise.translation_en,
+            text=translation,
             font=ctk.CTkFont(family="Segoe UI", size=13),
             text_color="#5C7268",
             fg_color=ui_foundation.COLOR_CARD,

@@ -1,14 +1,35 @@
 # PHASE-19.5A — Progressive Sentence Practice and Grammar Companion Foundation
 
-**Status:** Ready for review (`APP_19D5A_SENTENCE_PRACTICE_READY_FOR_REVIEW`)  
+**Status:** Corrected ready for review (`APP_19D5A_SENTENCE_PRACTICE_CORRECTED_READY_FOR_REVIEW`)  
 **Branch:** `phase19.5a/sentence-practice`  
 **Baseline:** `a21f8c9e2ab314cdfcb31a223fc0bab1727768fd`  
-**Architect:** `APP_19D4C_ARCHITECT_ACCEPTED_CLOSED`  
+**Foundation checkpoint:** `9c8bfe14b7304ae659a982202d88e29a369802e1`  
+**Architect:** `APP_19D5A_FOUNDATION_ACCEPTED_CORRECTION_REQUIRED`  
 **Spec anchors:** Phase 19.1 §§7–10, E3
 
 ## Goal
 
 Extend Adaptive Study from vocabulary recall to contextual sentence construction: a four-level progressive flow plus an expandable Grammar Companion backed by curated content.
+
+## R1 corrections (summary)
+
+| Area | Correction |
+|------|------------|
+| Families | `family_id` on exercises; step-down prefers same family; NL A1 ships one complete four-level family (`nl-a1-family-lezen-boek`) |
+| Grading | Distinct statuses: `reviewed_correct`, `incorrect`, `incomplete`, `unlisted`, `provisional_accept`, `provisional_correct`, `unavailable`, `ungraded` |
+| Open writing | Unlisted answers are not definitive wrong; AI path only |
+| Word bank | Incomplete selections do not fail the exercise |
+| Fake AI | English rejected for Dutch; malformed score/bool → `ungraded` |
+| Grammar | Rule selected by error hint + certainty; uncertain → guidance without diagnosis claim |
+| Progress | Distinct achieved levels (max 4/4); repeats do not false-complete |
+| Binding | `instance_id` + `submission_id`; stale AI ignored |
+| Completion | Abandon / missing content never celebrate; `take_completion` requires all levels |
+| StudyMaster | Sentence CTA parent = continue_button master; defers Reading/Listening; resumes once |
+| Audio | Reviewed-sentence speech gate; saved voice; missing/busy feedback |
+
+### Provisional acceptance progression
+
+See `provisional_acceptance_progression_policy()`: `provisional_accept` may advance the ladder, but session results and learner feedback keep it distinct from `reviewed_correct`.
 
 ## Content contract
 
@@ -17,6 +38,7 @@ Versioned model in `app/sentence_content.py` (`CONTENT_FORMAT_VERSION = 1`):
 | Field | Role |
 |-------|------|
 | `exercise_id` | Stable content id |
+| `family_id` | Links related scaffolding across levels |
 | `content_version` | Pack/exercise version |
 | `language_code` / `cefr` | Study language + level |
 | `target_lemma` / `target_vocab_id` | Lexical reference (optional) |
@@ -47,10 +69,11 @@ Contract is language-aware for all seven study languages; only **Dutch A1** ship
 3. Guided writing  
 4. Independent writing  
 
-Local deterministic grading for reviewed answers (`app/sentence_grading.py`): punctuation, Unicode, capitalization, repeated tokens, and multiple accepted strings.
+Local deterministic grading for reviewed answers (`app/sentence_grading.py`): punctuation, Unicode, capitalization, token multiplicity, and multiple accepted strings.
 
-- Success advances one level.  
-- Repeated failure (`MAX_FAILURES_PER_LEVEL = 2`) steps down one level.  
+- Success advances one level (reviewed or provisional accept).  
+- Repeated failure (`MAX_FAILURES_PER_LEVEL = 2`) steps down one level within the active family.  
+- Incomplete word-bank input is not a failure.  
 - No infinite retry completion; abandon is safe.  
 - Sentence practice is **never** forced after a wrong vocabulary answer.
 
@@ -58,12 +81,12 @@ Local deterministic grading for reviewed answers (`app/sentence_grading.py`): pu
 
 `app/grammar_companion.py` + expandable UI in `SentencePracticeApp`:
 
-- Short beginner explanation + fuller validated rule  
-- Color-coded components (stable semantic colors)  
-- Corrected sentence + up to two reviewed examples  
+- Selects curated rule from error hint when diagnosis is certain  
+- Uncertain → learning guidance without claiming a specific diagnosis  
+- Color-coded components + reviewed corrected sentence (not AI suggestion as rule/example)  
+- Pending expert-validation status remains visible  
 - Continue remains available while expanded  
 - Hidden on independent vocabulary recall cards  
-- No rule invented when none is validated; ordinary feedback only  
 - Full Grammar Library browser **not** in this wave
 
 ## AI boundary
@@ -72,21 +95,23 @@ Reuses `AIService` / `GradeRequest` / `GradeResult` with `use_account_proxy=Fals
 
 - Reviewed answers: local only.  
 - Independent writing outside the reviewed set: async adapter; FakeSentenceGradeProvider for demos/tests.  
-- Unavailable / malformed / uncertain → provisional or ungraded, **not** definitive wrong.  
+- GradeResult validation: `is_correct_usage` must be bool; score finite in `[0, 1]` — else `ungraded`.  
+- Unavailable / malformed / uncertain → not definitive wrong.  
 - AI feedback never becomes a reviewed answer key or grammar rule.  
 - Score alone does not invent linguistic error classes.
 
-Documented future extensions: `future_ai_feedback_contract_extensions()` and `future_sentence_skill_record_contract()` in `sentence_content.py`.
+Documented future extensions: `future_ai_feedback_contract_extensions()` and `future_sentence_skill_record_contract()`.
 
-No production AI calls, no new endpoints, no new credentials.
+No production AI calls, no new endpoints, no new credentials, no GradeResult wire-protocol changes.
 
 ## UI and integration
 
 - CustomTkinter `StudyCardShell`, warm cream/green design.  
-- Word-bank with undo, blank input, grammar template, independent input, Check / Continue, Why?, Normal + Slow hear.  
+- Word-bank with undo, blank input, grammar template, independent input, Check / Continue, Why?, Normal + Slow hear (reviewed sentences only).  
 - Optional **Sentence** action on StudyMaster language row and optional post-adaptive complete CTA — same opt-in as Adaptive (`LG_ADAPTIVE_STUDY=1` + isolated `LG_DATA_DIR`).  
-- Separate from required vocabulary completion; skip/leave does not undo saved vocab attempts.  
-- Reading / Listening orchestration unchanged.  
+- Post-vocab sentence defers Reading/Listening; after sentence complete/skip/leave resumes StudySession flow exactly once.  
+- Account switch / language change / exit invalidate sentence windows.  
+- Separate from required vocabulary completion.  
 - No installed Study-button activation; no locked-session adaptive; no EXE rebuild.
 
 ## Learning data boundaries
@@ -107,15 +132,16 @@ Future persistence requires a separate `SentenceSkillRecord` contract (documente
 
 ## Content coverage (Dutch A1)
 
-| Kind | Exercise ids (summary) |
-|------|-------------------------|
-| Word bank | `nl-a1-wb-drink-water`, `nl-a1-wb-leest-boek` |
-| Fill blank | `nl-a1-fb-hij-drinkt` (conjugation) |
-| Guided | `nl-a1-gw-leest-boek` (Zij/Ze variants) |
-| Independent | `nl-a1-iw-koop-fiets` |
-| Rules | SVO main clause, present -t, basic articles |
+Family `nl-a1-family-lezen-boek` (all four levels):
 
-Patterns: SVO, present conjugation, articles, main-clause order.
+| Kind | Exercise id |
+|------|-------------|
+| Word bank | `nl-a1-wb-leest-boek` |
+| Fill blank | `nl-a1-fb-zij-leest` |
+| Guided | `nl-a1-gw-leest-boek` |
+| Independent | `nl-a1-iw-leest-boek` |
+
+Rules: SVO main clause, present `-t`, basic articles. Zij/Ze variants reviewed.
 
 ## Preview
 
@@ -126,14 +152,12 @@ set LOCK_SCREEN=0
 python scripts/sentence_practice_demo.py
 ```
 
-Screenshots under `D:\EnglishApp\.local\19d5a-preview\screenshots\`.
-
-Manual StudyMaster path: same env → Home → Study → **Sentence** (or Adaptive complete → optional sentence CTA).
+Screenshots under `D:\EnglishApp\.local\19d5a-preview\screenshots\` (conjugation, Grammar Companion, provisional AI, completion).
 
 ## Verification
 
 - Focused: `tests/test_sentence_practice.py`  
-- Adjacent: `tests/test_adaptive_vocabulary.py`, `test_adaptive_vocabulary_ui.py`, `test_adaptive_study_integration.py`  
+- Adjacent: adaptive vocabulary + UI + integration  
 - Demo evidence: `sentence-evidence.json` (isolation flags all true)
 
 ## Limitations (unresolved / deferred)
