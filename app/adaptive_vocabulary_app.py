@@ -1,7 +1,7 @@
 """Unlocked adaptive vocabulary window. The legacy quiz is unchanged.
 
-This window is the development preview. StudyMaster keeps VocabQuizApp, and a
-locked session is refused here.
+Locked ScreenGuard sessions stay on VocabQuizApp. Development StudyMaster may
+open this window when ScreenGuard is not locking the learner.
 """
 
 from __future__ import annotations
@@ -51,6 +51,7 @@ class AdaptiveVocabularyApp:
         on_leave=None,
         provider=None,
         practice_store=None,
+        identity=None,
         locked: bool = False,
     ):
         if locked:
@@ -64,6 +65,7 @@ class AdaptiveVocabularyApp:
         self.on_leave = on_leave
         self.provider = provider
         self.practice_store = practice_store
+        self.identity = identity
         self.practice_saved = 0
         self.practice_unsaved = 0
         self._unsaved_notice = ""
@@ -72,7 +74,12 @@ class AdaptiveVocabularyApp:
         self._completion_calls = 0
         self._applied_writes = 0
         self._card_token = 0
-        self.window.title("LanguageGuard — Adaptive vocabulary preview")
+        self.window.title(
+            config.ui(
+                "LanguageGuard — Học thích ứng",
+                "LanguageGuard — Adaptive study",
+            )
+        )
         self.guard = ui_common.ScreenGuard(
             window,
             enabled=False,
@@ -91,6 +98,7 @@ class AdaptiveVocabularyApp:
         self._build()
         self.window.bind("<Return>", self._on_return)
         self.window.bind("<KP_Enter>", self._on_return)
+        self.window.bind("<Destroy>", self._on_destroy, add="+")
         for digit, index in (("1", 0), ("2", 1), ("3", 2), ("4", 3)):
             self.window.bind(digit, lambda _event, i=index: self._select_choice(i))
         self._show_current()
@@ -253,10 +261,23 @@ class AdaptiveVocabularyApp:
             return
         self._show_current()
 
+    def _binding_current(self) -> bool:
+        identity = self.identity
+        if identity is None:
+            return True
+        check = getattr(identity, "still_current", None)
+        if callable(check):
+            return bool(check())
+        return True
+
     def _persist_practice(self, record) -> bool:
         """Save one practice event. False means the learner must be told it was not saved."""
         if record is None or self.practice_store is None:
             return True
+        if not self._binding_current():
+            self.practice_unsaved += 1
+            self._unsaved_notice = _unsaved_practice()
+            return False
         from practice_store import PracticeStoreError
 
         try:
@@ -285,6 +306,8 @@ class AdaptiveVocabularyApp:
 
     def _apply_write(self, result) -> None:
         if result.write is None or self.progress is None or self.attempts is None:
+            return
+        if not self._binding_current():
             return
         apply_independent_write(
             self.progress,
@@ -390,16 +413,34 @@ class AdaptiveVocabularyApp:
             celebrate=True,
         )
 
+    def _close_practice_store(self) -> None:
+        store = self.practice_store
+        self.practice_store = None
+        if store is None:
+            return
+        closer = getattr(store, "close", None)
+        if callable(closer):
+            try:
+                closer()
+            except Exception:
+                pass
+
+    def _on_destroy(self, event=None) -> None:
+        if event is not None and event.widget is not self.window:
+            return
+        self._close_practice_store()
+
     def _close_complete(self) -> None:
         if self._phase != "complete" or self._completion_calls:
             return
         self._completion_calls += 1
         self._phase = "closed"
         notified = False
-        if self.bridge is not None:
+        if self.bridge is not None and self._binding_current():
             notified = self.bridge.note_finished()
         if notified and callable(self.on_completed):
             self.on_completed()
+        self._close_practice_store()
         try:
             self.window.destroy()
         except tk.TclError:
@@ -413,6 +454,7 @@ class AdaptiveVocabularyApp:
             self.bridge.leave()
         if callable(self.on_leave):
             self.on_leave()
+        self._close_practice_store()
         try:
             self.window.destroy()
         except tk.TclError:

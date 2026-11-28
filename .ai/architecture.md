@@ -46,6 +46,7 @@ Do not conflate “due now” with “requeued later in this session”. See [AD
 - Not a `LearningAttempt`, not an SRS review, and not a Cloud Sync progress event.
 - Guest and account files stay separate. The file is not `account_study.db`.
 - Observable error classes are `near_match` and `incorrect_answer`. Practice older than the latest independent attempt does not override that attempt.
+- Phase 19.4C opens the correct practice file from the live StudyBundle identity for unlocked development sessions only. Frozen installs do not write practice rows from Home.
 
 ## MistakeBook
 
@@ -102,6 +103,13 @@ ListeningSession → WindowsSpeechProvider
 - StudyMaster must **not** discover Windows voices during construction. TTS discovery runs only when Listening is enabled and the learner opens Listening, via `ui_common.run_async` (off the Tk thread). Provider/catalog is cached for the StudyMaster lifetime. Async discovery completion auto-opens Listening only when still safe (no other study child open; pending language still active); otherwise the cache remains for a later explicit click. Listening callbacks bind the window's language explicitly (not mutable `active_code()`).
 - No Progress / SRS / AttemptHistory writes from Listening.
 - Playback goes through one shared slot in `speech_player`. Listening, Voice Settings, Vocabulary Library, Word Detail, and Study Feedback use that slot. A saved voice is device-local and is not an account preference. Discovery and synthesis stay off the Tk thread. A missing same-language voice uses the unavailable path. There is no wrong-language voice and no cloud speech fallback.
+
+## Adaptive Study integration (development)
+
+- FreeHome **Start learning** keeps the required StudyMaster → locked `VocabQuizApp` route.
+- FreeHome **Adaptive Study (dev)** and StudyMaster **Adaptive** open unlocked `AdaptiveVocabularyApp` only when source is not frozen and ScreenGuard is not locking the learner.
+- `adaptive_study.py` binds planning (`planned_vocab_count`), PracticeStore, StudyBundle, and `AdaptiveSessionBridge`. Completion is unique-word independent success for that planned N; recognition/assisted never complete vocabulary and never write the sync outbox.
+- Account switch invalidates adaptive identity and clears StudySession completion flags. See [PHASE-19.4C-adaptive-study-integration.md](plans/PHASE-19.4C-adaptive-study-integration.md).
 
 ## UI (Tkinter)
 

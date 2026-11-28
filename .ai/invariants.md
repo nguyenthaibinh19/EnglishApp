@@ -72,6 +72,14 @@ Near answers and hint-assisted exact answers are **non-mastered**. Do not casual
 - Introduction, multiple choice, and assisted practice do not write an attempt or SRS progress. Only a submitted independent recall uses the existing attempt path.
 - An incomplete missing-letter answer is not a failed exercise and does not move the session ladder. A completed assisted answer still does not write SRS.
 
+## Adaptive Study integration (19.4C)
+
+- Unlocked development may open Adaptive Vocabulary from FreeHome **Adaptive Study (dev)** / StudyMaster **Adaptive**. Locked ScreenGuard sessions and frozen installs keep `VocabQuizApp`.
+- Do not reinterpret a locked required Study child as unlocked merely to open Adaptive Vocabulary.
+- Adaptive completion uses the same `planned_vocab_count` as the legacy lock session. Unique independent successes satisfy that N; recognition/assisted do not. Do not silently shrink the planned target.
+- Vocabulary completion must not auto-complete Reading or Listening.
+- Adaptive windows bind an explicit account/language/data-root identity. Late callbacks must not write a previous account's store. Account switch clears StudySession completion flags.
+
 ## Practice records
 
 - Recognition and assisted vocabulary events belong in `practice_records.db`. They do not belong in `account_study.db` or AttemptHistory.
@@ -81,6 +89,7 @@ Near answers and hint-assisted exact answers are **non-mastered**. Do not casual
 - Practice that is older than, or equal to, the latest independent attempt cannot override that attempt's starting-level evidence.
 - Observable error classes stay conservative: `near_match` and `incorrect_answer`. Do not invent unsupported linguistic diagnoses.
 - The practice store refuses production AppData, protected RC data, and recovery directories for every runtime identity.
+- Integrated development sessions open the account/guest practice file for the captured identity. They must not use the standalone 19.4B preview database as the live app store.
 
 ## Mistake Book
 

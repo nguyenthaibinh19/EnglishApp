@@ -4,17 +4,19 @@
 
 ## Latest verified coordination checkpoint — 2026-11-28
 
-**Current priority:** **Phase 19.4C Adaptive Study Integration is the next product priority.** It waits for a separate Architect brief. Do not start it from this checkpoint.
+**Current priority:** **Phase 19.4C Adaptive Study Integration is ready for review** on `phase19.4c/adaptive-study-integration`. Tag `APP_19D4C_ADAPTIVE_STUDY_INTEGRATION_READY_FOR_REVIEW`. Not merged. Not in the installed v1.5.0 download.
 
-**Phase 19.4B practice records are closed.** Merged by PR [#36](https://github.com/nguyenthaibinh19/EnglishApp/pull/36) at `91d3c60f59c5d26d321433a9334c6af31e09c1a5`. Closeout corrections `5f27db9b946f909fdadc1e07609850848121e60a`. ADR-026 is Accepted. The unlocked preview can save recognition and assisted events in `practice_records.db` and use them on the next start. Independent recall still uses the existing attempt path. The production study button and locked sessions still open the legacy quiz. This is not part of the installed v1.5.0 download. Notes: [PHASE-19.4B-practice-records.md](plans/PHASE-19.4B-practice-records.md) and [ADR-026](decisions/ADR-026-practice-records.md).
+**Phase 19.4C integrates Adaptive Vocabulary into FreeHome → StudyMaster for unlocked development only.** FreeHome **Adaptive Study (dev)** and StudyMaster **Adaptive** open unlocked `AdaptiveVocabularyApp`. **Start learning** / Vocabulary keep locked `VocabQuizApp`. PracticeStore follows the live StudyBundle identity. Assisted practice writes zero outbox rows. Independent recall uses the existing attempt path. Notes: [PHASE-19.4C-adaptive-study-integration.md](plans/PHASE-19.4C-adaptive-study-integration.md). Evidence: `D:\EnglishApp\.local\19d4c-preview\integration-evidence.json`.
+
+**Phase 19.4B practice records are closed.** Merged by PR [#36](https://github.com/nguyenthaibinh19/EnglishApp/pull/36) at `91d3c60f59c5d26d321433a9334c6af31e09c1a5`. Closeout corrections `5f27db9b946f909fdadc1e07609850848121e60a`. ADR-026 is Accepted. The production study button and locked sessions still open the legacy quiz. This is not part of the installed v1.5.0 download. Notes: [PHASE-19.4B-practice-records.md](plans/PHASE-19.4B-practice-records.md) and [ADR-026](decisions/ADR-026-practice-records.md).
 
 **Phase 19.4A adaptive vocabulary is closed.** Merged by PR [#34](https://github.com/nguyenthaibinh19/EnglishApp/pull/34) at `e33373110544a1ca4fca6905b8741d47e4932fc4`. Notes: [PHASE-19.4A-adaptive-vocabulary.md](plans/PHASE-19.4A-adaptive-vocabulary.md).
 
 **Phase 19.3 is closed and merged.** PR [#32](https://github.com/nguyenthaibinh19/EnglishApp/pull/32), merge `7aedf7a423d2ef244ce37b5d3f348c7f75ed0241`. Accepted audio source `3d983331c5d967c8cbe883f6881547eb4ff6ae72`. `WindowsSpeechProvider` is the shared local catalog. English, Dutch, Spanish, German, and Portuguese played on the Owner PC. French and Italian remain unavailable on that PC. Notes: [PHASE-19.3-multilingual-audio.md](plans/PHASE-19.3-multilingual-audio.md) and [ADR-016](decisions/ADR-016-listening-local-tts.md).
 
-**Public release:** v1.5.0 remains the installed download, built from `154bf03c6856667cf1322cfe4e6f31996e05e09f`. Release checkpoint **978 passed, 24 skipped, 0 failed**. Phase 19.2B UI, Phase 19.3 audio, Phase 19.4A adaptive preview, and Phase 19.4B practice records are merged source and are not in that download.
+**Public release:** v1.5.0 remains the installed download, built from `154bf03c6856667cf1322cfe4e6f31996e05e09f`. Release checkpoint **978 passed, 24 skipped, 0 failed**. Phase 19.2B UI, Phase 19.3 audio, Phase 19.4A–C adaptive work, and practice records are source-only relative to that download (19.4C is review-branch only until merged).
 
-**Next review action:** Wait for the Phase 19.4C Architect brief. Do not wire the adaptive preview into the installed study button. Sentence exercises and Grammar Companion remain unimplemented. The rest of the Phase 19.1 list is in [roadmap.md](roadmap.md).
+**Next review action:** Architect review of Phase 19.4C. Do not merge until accepted. Do not expose Adaptive Study on the installed Study button. Sentence exercises and Grammar Companion remain unimplemented. The rest of the Phase 19.1 list is in [roadmap.md](roadmap.md).
 
 **18B.9 PAUSED, NOT CLOSED.** 18B.10A remains **AUDIT ACCEPTED, IMPLEMENTATION DEFERRED**. 18B.10B–E remain **NOT AUTHORIZED**. Google Drive remains **NOT CONFIGURED**. `C-APP-AI-001` v0.2.0 is accepted. `LocalAIProvider` is **NOT AUTHORIZED**. The website is not deployed.
 
