@@ -5,7 +5,7 @@ Rolling coordination checkpoint. Product position is [current_state.md](../curre
 ## 1. Checkpoint metadata
 
 - Written: 2026-11-28.
-- Tag: `APP_19D4C_CLOSED_ADAPTIVE_STUDY_INTEGRATION`. Phase 19.4C Adaptive Study Integration is closed and merged. Review checkpoint was `23cdf1c9de2c1c8c756dd57ea18507fdbcb9a058`. Closeout corrections landed on `phase19.4c/adaptive-study-integration` before merge.
+- Tag: `APP_19D4C_CLOSED_ADAPTIVE_STUDY_INTEGRATION`. Phase 19.4C Adaptive Study Integration is closed. Merge PR [#38](https://github.com/nguyenthaibinh19/EnglishApp/pull/38), merge `55a1efc9b6b9d76f621b2e4f7740c3470ac77192`. Review checkpoint `23cdf1c9de2c1c8c756dd57ea18507fdbcb9a058`. Closeout commit `327f44bb3446e96461cd155596be8676ec6d1478`.
 - Prior: `APP_19D4B_ARCHITECT_ACCEPTED_CLOSED` / PR #36. ADR-026 is Accepted. Phase 19.4A remains closed (PR #34). Phase 19.3 remains merged at `7aedf7a423d2ef244ce37b5d3f348c7f75ed0241`.
 - Public release remains v1.5.0 (`154bf03c6856667cf1322cfe4e6f31996e05e09f`). Phase 19 UI/audio/adaptive/practice/19.4C are not in that download.
 - 18C.1–18C.3B remain CLOSED. 18B.10A **AUDIT ACCEPTED, IMPLEMENTATION DEFERRED.** 18B.9 **PAUSED.** Staging **NOT STARTED.**

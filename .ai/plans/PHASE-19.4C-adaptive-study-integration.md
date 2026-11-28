@@ -2,7 +2,8 @@
 
 Status: **closed / merged** (after Architect closeout corrections).  
 Architect decisions: `APP_19D4B_ARCHITECT_ACCEPTED_CLOSED` → review `APP_19D4C_ADAPTIVE_STUDY_INTEGRATION_READY_FOR_REVIEW` → closeout `APP_19D4C_INTEGRATION_ACCEPTED_CLOSEOUT_CORRECTIONS_REQUIRED` → `APP_19D4C_CLOSED_ADAPTIVE_STUDY_INTEGRATION`.  
-Review checkpoint: `23cdf1c9de2c1c8c756dd57ea18507fdbcb9a058`.
+Review checkpoint: `23cdf1c9de2c1c8c756dd57ea18507fdbcb9a058`.  
+Merge: PR #38, `55a1efc9b6b9d76f621b2e4f7740c3470ac77192`. Closeout commit: `327f44bb3446e96461cd155596be8676ec6d1478`.
 
 ## What this is
 
