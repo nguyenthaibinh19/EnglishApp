@@ -4,12 +4,13 @@ Directional plan — **not** a rigid release commitment. Update when phases comp
 
 ## Latest operational checkpoint — 2026-11-28
 
-- **Phase 19.4C Adaptive Study Integration is ready for review** on `phase19.4c/adaptive-study-integration`. Not merged. Unlocked FreeHome/StudyMaster integration only. Notes: [PHASE-19.4C-adaptive-study-integration.md](plans/PHASE-19.4C-adaptive-study-integration.md).
-- **Phase 19.4B is closed and merged, and it is unreleased.** PR #36, merge `91d3c60f59c5d26d321433a9334c6af31e09c1a5`. Closeout corrections `5f27db9b946f909fdadc1e07609850848121e60a`. ADR-026 is Accepted. Practice records are a separate local file. The installed study button still opens the legacy quiz. It is not in the v1.5.0 download. Notes: [PHASE-19.4B-practice-records.md](plans/PHASE-19.4B-practice-records.md).
-- **Phase 19.4A is closed and merged, and it is unreleased.** PR #34, merge `e33373110544a1ca4fca6905b8741d47e4932fc4`. The adaptive ladder is an unlocked preview in source. The installed study button still opens the legacy quiz. It is not in the v1.5.0 download. Notes: [PHASE-19.4A-adaptive-vocabulary.md](plans/PHASE-19.4A-adaptive-vocabulary.md).
-- **Phase 19.3 is closed.** Merged by PR #32 at `7aedf7a423d2ef244ce37b5d3f348c7f75ed0241`. Accepted source `3d983331c5d967c8cbe883f6881547eb4ff6ae72`. Local Windows speech is in source. Not in the public v1.5.0 download.
+- **Phase 19.5 Sentence Practice and Grammar Companion is the next product priority.** It waits for a separate Architect brief.
+- **Phase 19.4C is closed and merged, and it is unreleased.** Opt-in isolated Adaptive Study on FreeHome/StudyMaster. Notes: [PHASE-19.4C-adaptive-study-integration.md](plans/PHASE-19.4C-adaptive-study-integration.md).
+- **Phase 19.4B is closed and merged, and it is unreleased.** PR #36, merge `91d3c60f59c5d26d321433a9334c6af31e09c1a5`. ADR-026 is Accepted. Notes: [PHASE-19.4B-practice-records.md](plans/PHASE-19.4B-practice-records.md).
+- **Phase 19.4A is closed and merged, and it is unreleased.** PR #34, merge `e33373110544a1ca4fca6905b8741d47e4932fc4`. Notes: [PHASE-19.4A-adaptive-vocabulary.md](plans/PHASE-19.4A-adaptive-vocabulary.md).
+- **Phase 19.3 is closed.** Merged by PR #32 at `7aedf7a423d2ef244ce37b5d3f348c7f75ed0241`. Local Windows speech is in source. Not in the public v1.5.0 download.
 - **Phase 19.2B UI is merged** (PR #31, `5f8f3c0`) and is also not in v1.5.0. The Tkinter fallback branch stays unmerged.
-- **Next review:** Architect review of Phase 19.4C. Sentence exercises and Grammar Companion stay unauthorized. Do not replace the legacy quiz on the installed Study button.
+- **Next review:** Phase 19.5, after a separate Architect brief. Do not replace the legacy quiz on the installed Study button.
 - 18C.1, 18C.2, and 18C.3B remain **CLOSED**. 18B.10A remains **AUDIT ACCEPTED, IMPLEMENTATION DEFERRED**. 18B.10B–E remain **NOT AUTHORIZED**.
 - **18B.9 PAUSED, NOT CLOSED.** Google Drive stays **NOT CONFIGURED**. Staging deployment **NOT STARTED**. The 2026-11-24 note that production Cloud Sync was ON for the pilot was not rechecked on 2026-11-27. The November 25 backup-timer elapse is historical.
 - Taste Skill and AI Memory are **PROPOSED — NOT AUDITED — NOT AUTHORIZED FOR INSTALLATION**. See [AI-TOOLCHAIN-SECURITY-AND-LOCAL-MEMORY.md](plans/AI-TOOLCHAIN-SECURITY-AND-LOCAL-MEMORY.md).

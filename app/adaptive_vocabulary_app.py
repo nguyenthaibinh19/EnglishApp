@@ -51,8 +51,10 @@ class AdaptiveVocabularyApp:
         on_leave=None,
         provider=None,
         practice_store=None,
+        practice_persistence: str = "ok",
         identity=None,
         locked: bool = False,
+        account_generation_reader=None,
     ):
         if locked:
             raise AdaptivePreviewRefused("Locked sessions stay on the legacy quiz.")
@@ -65,7 +67,10 @@ class AdaptiveVocabularyApp:
         self.on_leave = on_leave
         self.provider = provider
         self.practice_store = practice_store
+        # ok | unavailable | disabled — unavailable must never look like a successful save.
+        self.practice_persistence = str(practice_persistence or "ok").strip().lower()
         self.identity = identity
+        self.account_generation_reader = account_generation_reader
         self.practice_saved = 0
         self.practice_unsaved = 0
         self._unsaved_notice = ""
@@ -73,6 +78,7 @@ class AdaptiveVocabularyApp:
         self._checking = False
         self._completion_calls = 0
         self._applied_writes = 0
+        self._authoritative_write_failed = False
         self._card_token = 0
         self.window.title(
             config.ui(
@@ -207,6 +213,9 @@ class AdaptiveVocabularyApp:
             self._checking = False
 
     def _check_card(self, card) -> None:
+        if not self._binding_current():
+            self._reject_stale_action()
+            return
         if card.kind == "introduction":
             result = self.session.continue_card()
             self._persist_practice(result.practice)
@@ -224,14 +233,31 @@ class AdaptiveVocabularyApp:
             return
         if result.status != "feedback":
             return
+        if not self._binding_current():
+            self._reject_stale_action()
+            return
         saved = self._persist_practice(result.practice)
-        self._apply_write(result)
+        wrote = self._apply_write(result)
+        if result.write is not None and not wrote:
+            # Independent success without an authoritative write must not complete.
+            self._authoritative_write_failed = True
+            self._phase = "feedback"
+            self.shell.show_feedback(
+                config.ui(
+                    "Không ghi được câu trả lời tự nhớ. Phiên này chưa hoàn thành.",
+                    "The independent answer could not be saved. This session is not complete.",
+                ),
+                "bad",
+                offer_sentence=False,
+                offer_hear=False,
+            )
+            return
         self._phase = "feedback"
         self._update_progress()
         tone = result.tone or "bad"
         feedback = result.feedback
         if result.practice is not None and not saved:
-            feedback = f"{feedback}\n\n{_unsaved_practice()}"
+            feedback = f"{feedback}\n\n{self._practice_failure_text()}"
         self.shell.show_feedback(
             feedback,
             tone,
@@ -248,12 +274,21 @@ class AdaptiveVocabularyApp:
     def _help(self) -> None:
         if self._phase != "answer":
             return
+        if not self._binding_current():
+            self._reject_stale_action()
+            return
         result = self.session.request_assistance()
         if result.status == "help":
             self._show_current()
 
     def _continue(self) -> None:
         if self._phase != "feedback":
+            return
+        if not self._binding_current():
+            self._reject_stale_action()
+            return
+        if self._authoritative_write_failed:
+            self._leave()
             return
         result = self.session.continue_card()
         if result.session_finished or self.session.finished:
@@ -265,15 +300,48 @@ class AdaptiveVocabularyApp:
         identity = self.identity
         if identity is None:
             return True
+        generation = None
+        reader = self.account_generation_reader
+        if callable(reader):
+            try:
+                generation = int(reader())
+            except Exception:
+                generation = None
         check = getattr(identity, "still_current", None)
         if callable(check):
-            return bool(check())
+            try:
+                return bool(check(account_generation=generation))
+            except TypeError:
+                return bool(check())
         return True
+
+    def _reject_stale_action(self) -> None:
+        self._unsaved_notice = config.ui(
+            "Phiên học này đã hết hiệu lực. Không ghi thêm câu trả lời.",
+            "This study window is no longer current. No further answers were saved.",
+        )
+        self._show_unsaved_notice()
+        self._leave()
+
+    def _practice_failure_text(self) -> str:
+        if self.practice_persistence == "unavailable":
+            return config.ui(
+                "Không dùng được lịch sử luyện Adaptive. Câu trả lời tự nhớ vẫn được ghi.",
+                "Adaptive practice history is unavailable. Independent answers are still recorded.",
+            )
+        return _unsaved_practice()
 
     def _persist_practice(self, record) -> bool:
         """Save one practice event. False means the learner must be told it was not saved."""
-        if record is None or self.practice_store is None:
+        if record is None:
             return True
+        if self.practice_persistence == "disabled" and self.practice_store is None:
+            # Intentionally off — not a failed save.
+            return True
+        if self.practice_persistence == "unavailable" or self.practice_store is None:
+            self.practice_unsaved += 1
+            self._unsaved_notice = self._practice_failure_text()
+            return False
         if not self._binding_current():
             self.practice_unsaved += 1
             self._unsaved_notice = _unsaved_practice()
@@ -304,11 +372,14 @@ class AdaptiveVocabularyApp:
             pass
         self._unsaved_notice = ""
 
-    def _apply_write(self, result) -> None:
-        if result.write is None or self.progress is None or self.attempts is None:
-            return
+    def _apply_write(self, result) -> bool:
+        """Apply one independent write. False means no authoritative learning evidence."""
+        if result.write is None:
+            return True
+        if self.progress is None or self.attempts is None:
+            return False
         if not self._binding_current():
-            return
+            return False
         apply_independent_write(
             self.progress,
             self.attempts,
@@ -316,6 +387,7 @@ class AdaptiveVocabularyApp:
             timestamp=utc_now_iso(),
         )
         self._applied_writes += 1
+        return True
 
     def _hear(self, rate: int) -> None:
         card = self.session.current_card()
@@ -432,6 +504,9 @@ class AdaptiveVocabularyApp:
 
     def _close_complete(self) -> None:
         if self._phase != "complete" or self._completion_calls:
+            return
+        if self._authoritative_write_failed or not self._binding_current():
+            self._leave()
             return
         self._completion_calls += 1
         self._phase = "closed"

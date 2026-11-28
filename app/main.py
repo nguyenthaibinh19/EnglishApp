@@ -539,20 +539,55 @@ class StudyMasterApp:
         )
 
     def _activate(self, code: str):
+        """Bind StudyMaster stores to ``code``. Same-language calls keep an open vocab window."""
+        code = str(code or "").strip().lower()
+        previous = str(config.active_code() or "").strip().lower()
         if code not in config.study_codes():
             config.set_study_codes(list(config.study_codes()) + [code])
             self.sessions[code] = build_study_session(plan_for_language(code))
             self._build_language_rows()
+        language_changed = bool(previous) and previous != code
         config.set_language(code)
-        if self.vocab_window is not None and self.vocab_window.winfo_exists():
-            self._close_window(self.vocab_window)
+        if language_changed and self.vocab_window is not None:
+            try:
+                exists = self.vocab_window.winfo_exists()
+            except tk.TclError:
+                exists = False
+            if exists:
+                self._close_window(self.vocab_window)
             self.vocab_window = None
+            self._vocab_binding_language = None
         bundle = open_study_data(code)
         self.store = bundle.vocab
         self.progress = bundle.progress
         self.attempts = bundle.attempts
         self.study_bundle = bundle
         self._session_for(code)
+
+    def _lift_vocab_window_if_same(self, code: str) -> bool:
+        """True when an in-progress vocab window for ``code`` was lifted."""
+        code = str(code or "").strip().lower()
+        window = self.vocab_window
+        if window is None:
+            return False
+        try:
+            exists = bool(window.winfo_exists())
+        except tk.TclError:
+            exists = False
+        if not exists:
+            self.vocab_window = None
+            return False
+        bound = str(getattr(self, "_vocab_binding_language", "") or "").strip().lower()
+        if bound and bound != code:
+            return False
+        if not bound and str(config.active_code() or "").strip().lower() != code:
+            return False
+        try:
+            window.lift()
+            window.focus_force()
+        except tk.TclError:
+            pass
+        return True
 
     def _refresh_status(self):
         required = config.study_codes()
@@ -668,6 +703,7 @@ class StudyMasterApp:
             setattr(self, attr, None)
         account_session.close_account_bound_windows(*windows)
         self._account_generation = int(getattr(self, "_account_generation", 0) or 0) + 1
+        self._vocab_binding_language = None
         # A new account identity does not keep the previous account's completed flags.
         self.sessions = {}
         bundle = open_study_data()
@@ -829,11 +865,10 @@ class StudyMasterApp:
 
     def open_vocab_section(self, code=None):
         """Required Study route: locked VocabQuizApp (legacy quiz). Unchanged for frozen installs."""
-        if code is not None:
-            self._activate(code)
-        else:
-            code = config.active_code()
-            self._activate(code)
+        code = config.active_code() if code is None else code
+        if self._lift_vocab_window_if_same(code):
+            return
+        self._activate(code)
         session = self._session_for(code)
         if not session.has_activity(KIND_VOCABULARY):
             self.guard.show_info(
@@ -847,10 +882,11 @@ class StudyMasterApp:
         if session.vocabulary_complete():
             # Already done — allow review with required=False.
             pass
-        if self.vocab_window is not None and self.vocab_window.winfo_exists():
-            self.vocab_window.lift()
+        if self._lift_vocab_window_if_same(code):
             return
 
+        generation = int(getattr(self, "_account_generation", 0) or 0)
+        bound_progress = self.progress
         self._suspend_for_activity()
         started = False
 
@@ -863,8 +899,8 @@ class StudyMasterApp:
             VocabQuizApp(
                 window,
                 store=self.store,
-                progress=self.progress,
-                on_completed=self._on_vocab_completed,
+                progress=bound_progress,
+                on_completed=lambda: self._deliver_vocab_completed(generation, code),
                 on_request_switch=(
                     self._switch_to_reading
                     if config.activity_enabled("reading")
@@ -884,12 +920,14 @@ class StudyMasterApp:
         self.vocab_window = ui_common.launch_toplevel_app(
             self.root, build, on_error=failed
         )
+        if self.vocab_window is not None:
+            self._vocab_binding_language = str(code).strip().lower()
         if self.vocab_window is None and started:
             # Constructor failed after start — leave vocab pending for retry.
             pass
 
     def open_adaptive_vocab_section(self, code=None):
-        """Unlocked Adaptive Vocabulary — development / synthetic sessions only.
+        """Unlocked Adaptive Vocabulary — explicit isolated development only.
 
         Does not replace the locked Vocabulary route. ScreenGuard must not be
         locking the learner. Recognition and assisted practice never mark
@@ -900,28 +938,30 @@ class StudyMasterApp:
             attach_bridge,
             build_integrated_session,
             capture_identity,
-            open_practice_store,
+            incomplete_target_message,
+            open_practice_availability,
+            practice_unavailable_message,
         )
         from adaptive_vocabulary_app import AdaptiveVocabularyApp
-        from practice_store import PracticeStoreError
 
         if not adaptive_unlocked_allowed(self.guard):
             self.guard.show_info(
                 config.ui("Adaptive Study khóa", "Adaptive Study locked"),
                 config.ui(
-                    "Adaptive Study chỉ mở khi ScreenGuard không khóa phiên. "
-                    "Dùng nút Từ vựng (Legacy Quiz) khi đang khóa.",
-                    "Adaptive Study only opens when ScreenGuard is not locking "
-                    "the session. Use Vocabulary (Legacy Quiz) while locked.",
+                    "Adaptive Study chỉ mở với LG_ADAPTIVE_STUDY=1, LG_DATA_DIR "
+                    "cô lập, và khi ScreenGuard không khóa phiên. "
+                    "Dùng nút Từ vựng (Legacy Quiz) khi không đủ điều kiện.",
+                    "Adaptive Study only opens with LG_ADAPTIVE_STUDY=1, an "
+                    "isolated LG_DATA_DIR, and when ScreenGuard is not locking "
+                    "the session. Use Vocabulary (Legacy Quiz) otherwise.",
                 ),
             )
             return
 
-        if code is not None:
-            self._activate(code)
-        else:
-            code = config.active_code()
-            self._activate(code)
+        code = config.active_code() if code is None else code
+        if self._lift_vocab_window_if_same(code):
+            return
+        self._activate(code)
         session = self._session_for(code)
         if not session.has_activity(KIND_VOCABULARY):
             self.guard.show_info(
@@ -932,8 +972,7 @@ class StudyMasterApp:
                 ),
             )
             return
-        if self.vocab_window is not None and self.vocab_window.winfo_exists():
-            self.vocab_window.lift()
+        if self._lift_vocab_window_if_same(code):
             return
         if session.vocabulary_complete():
             self.guard.show_info(
@@ -958,55 +997,55 @@ class StudyMasterApp:
             )
             return
 
-        identity = capture_identity(code)
-        practice_store = None
-        practice_error = ""
-        try:
-            practice_store = open_practice_store(identity)
-        except PracticeStoreError as error:
-            practice_error = str(error or "")
-            practice_store = None
-
-        adaptive_session = build_integrated_session(
+        generation = int(getattr(self, "_account_generation", 0) or 0)
+        identity = capture_identity(code, account_generation=generation)
+        practice = open_practice_availability(identity)
+        built = build_integrated_session(
             self.study_bundle,
             planned_count=planned,
-            practice_store=practice_store,
+            practice=practice,
         )
-        if int(adaptive_session.counters.planned or 0) <= 0:
-            if practice_store is not None:
+        if not built.ok:
+            if practice.store is not None:
                 try:
-                    practice_store.close()
+                    practice.store.close()
                 except Exception:
                     pass
-            self.guard.show_info(
-                config.ui("Chưa sẵn sàng", "Not ready"),
-                config.ui(
-                    "Không đủ từ đủ điều kiện cho Adaptive Study hôm nay. "
-                    "Dùng Legacy Quiz hoặc thêm từ vào kho.",
-                    "Not enough eligible words for Adaptive Study today. "
-                    "Use Legacy Quiz or add words to the store.",
-                ),
+            title, body = incomplete_target_message(
+                built.required_count, built.selected_count
             )
+            self.guard.show_info(title, body)
+            # Required vocabulary stays unresolved — Legacy Quiz remains available.
             return
 
-        generation = int(getattr(self, "_account_generation", 0) or 0)
+        adaptive_session = built.session
+        practice_store = built.practice.store if built.practice.ok else (
+            built.practice.store if built.practice.unavailable else None
+        )
+        # When unavailable, keep the store closed for writes but show the notice.
+        if built.practice.unavailable and built.practice.store is not None:
+            # History failed: close so appends are not silently half-open.
+            try:
+                built.practice.store.close()
+            except Exception:
+                pass
+            practice_store = None
+
+        bound_progress = self.progress
+        bound_attempts = self.attempts
         bridge = attach_bridge(session, adaptive_session, locked=False)
         self._suspend_for_activity()
 
-        def _still_same_account() -> bool:
-            return (
-                int(getattr(self, "_account_generation", 0) or 0) == generation
-                and identity.still_current()
-            )
+        def _still_same_binding() -> bool:
+            return identity.still_current(account_generation=self._account_generation)
 
         def _on_completed() -> None:
-            if not _still_same_account():
+            if not _still_same_binding():
                 return
-            self._on_vocab_completed()
+            self._deliver_vocab_completed(generation, code)
 
         def _on_leave() -> None:
-            # Destroy handler resumes the StudyMaster menu; do not mark complete.
-            if not _still_same_account():
+            if not _still_same_binding():
                 return
 
         def build(window):
@@ -1015,25 +1054,31 @@ class StudyMasterApp:
                 window,
                 adaptive_session,
                 bridge=bridge,
-                progress=self.progress,
-                attempts=self.attempts,
-                practice_store=practice_store,
+                progress=bound_progress,
+                attempts=bound_attempts,
+                practice_store=practice_store if built.practice.ok else None,
+                practice_persistence=(
+                    "ok"
+                    if built.practice.ok
+                    else ("unavailable" if built.practice.unavailable else "disabled")
+                ),
                 identity=identity,
+                account_generation_reader=lambda: int(
+                    getattr(self, "_account_generation", 0) or 0
+                ),
                 on_completed=_on_completed,
                 on_leave=_on_leave,
                 locked=False,
             )
-            if practice_error:
-                app.practice_unsaved += 1
-                app._unsaved_notice = config.ui(
-                    "Không lưu được bản ghi luyện tập. Câu trả lời tự nhớ vẫn được ghi.",
-                    "Practice events could not be saved. Independent answers are still recorded.",
-                )
+            if built.practice.unavailable:
+                app._unsaved_notice = practice_unavailable_message()
+                app._show_unsaved_notice()
 
         def failed(error):
-            if practice_store is not None:
+            store = built.practice.store
+            if store is not None:
                 try:
-                    practice_store.close()
+                    store.close()
                 except Exception:
                     pass
             self._report_activity_launch_error("Adaptive Study", error)
@@ -1042,6 +1087,13 @@ class StudyMasterApp:
         self.vocab_window = ui_common.launch_toplevel_app(
             self.root, build, on_error=failed
         )
+        if self.vocab_window is not None:
+            self._vocab_binding_language = str(code).strip().lower()
+        elif built.practice.store is not None:
+            try:
+                built.practice.store.close()
+            except Exception:
+                pass
 
     def open_reading_section(self, code=None):
         if not config.activity_enabled("reading"):
@@ -1351,6 +1403,8 @@ class StudyMasterApp:
             self.listening_window,
         ):
             return
+        if event.widget is self.vocab_window:
+            self._vocab_binding_language = None
         self.root.after(50, self._show_menu)
         self.root.after(50, self._refresh_status)
 
@@ -1371,47 +1425,89 @@ class StudyMasterApp:
     # ============================================================
 
     def _on_vocab_completed(self):
-        code = config.active_code()
+        """Legacy entrypoint — capture generation/language at call time."""
+        self._deliver_vocab_completed(
+            int(getattr(self, "_account_generation", 0) or 0),
+            str(config.active_code() or "").strip().lower(),
+        )
+
+    def _deliver_vocab_completed(self, generation: int, code: str):
+        """Complete vocabulary only when the binding that finished is still current."""
+        if int(getattr(self, "_account_generation", 0) or 0) != int(generation):
+            return
+        code = str(code or "").strip().lower()
+        if str(config.active_code() or "").strip().lower() != code:
+            return
         session = self._session_for(code)
         session.complete(KIND_VOCABULARY)
         self._refresh_status()
         nxt = session.next_activity()
         if nxt is not None and nxt.kind == KIND_READING:
-            self.root.after(200, lambda: self._open_one_reading(code))
+            self.root.after(
+                200, lambda g=generation, c=code: self._open_one_reading(c, account_generation=g)
+            )
             return
         if nxt is not None and nxt.kind == KIND_LISTENING:
-            self.root.after(200, lambda: self._open_one_listening(code))
+            self.root.after(
+                200, lambda g=generation, c=code: self._open_one_listening(c, account_generation=g)
+            )
             return
-        self.root.after(200, self._finish_if_all_done)
+        self.root.after(
+            200, lambda g=generation: self._finish_if_all_done_for(g)
+        )
 
-    def _open_one_reading(self, code: str):
+    def _open_one_reading(self, code: str, *, account_generation: int = None):
+        if account_generation is not None and int(
+            getattr(self, "_account_generation", 0) or 0
+        ) != int(account_generation):
+            return
         if self._child_open():
             return
         session = self._session_for(code)
         if session.is_resolved(KIND_READING):
-            self._advance_after_reading(code)
+            self._advance_after_reading(code, account_generation=account_generation)
             return
         if not session.has_activity(KIND_READING):
-            self._advance_after_reading(code)
+            self._advance_after_reading(code, account_generation=account_generation)
             return
         self.open_reading_section(code)
 
-    def _open_one_listening(self, code: str):
+    def _open_one_listening(self, code: str, *, account_generation: int = None):
+        if account_generation is not None and int(
+            getattr(self, "_account_generation", 0) or 0
+        ) != int(account_generation):
+            return
         if self._child_open():
             return
         session = self._session_for(code)
         if session.is_resolved(KIND_LISTENING) or not session.has_activity(KIND_LISTENING):
-            self._finish_if_all_done()
+            self._finish_if_all_done_for(account_generation)
             return
         self.open_listening_section(code)
 
-    def _advance_after_reading(self, code: str):
+    def _advance_after_reading(self, code: str, *, account_generation: int = None):
+        if account_generation is not None and int(
+            getattr(self, "_account_generation", 0) or 0
+        ) != int(account_generation):
+            return
         session = self._session_for(code)
         nxt = session.next_activity()
         if nxt is not None and nxt.kind == KIND_LISTENING:
-            self.root.after(200, lambda: self._open_one_listening(code))
+            self.root.after(
+                200,
+                lambda g=account_generation, c=code: self._open_one_listening(
+                    c, account_generation=g
+                ),
+            )
             return
-        self.root.after(200, self._finish_if_all_done)
+        self.root.after(200, lambda g=account_generation: self._finish_if_all_done_for(g))
+
+    def _finish_if_all_done_for(self, account_generation: int = None):
+        if account_generation is not None and int(
+            getattr(self, "_account_generation", 0) or 0
+        ) != int(account_generation):
+            return
+        self._finish_if_all_done()
 
     def _mark_reading_unavailable(self):
         """Mark Reading unavailable for the active study language only."""

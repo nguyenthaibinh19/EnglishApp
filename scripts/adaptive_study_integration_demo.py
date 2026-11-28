@@ -3,6 +3,7 @@
 Isolated synthetic root only:
 
     set LG_DATA_DIR=D:\\EnglishApp\\.local\\19d4c-preview
+    set LG_ADAPTIVE_STUDY=1
     set LOCK_SCREEN=0
     python scripts/adaptive_study_integration_demo.py
 
@@ -53,12 +54,17 @@ class SilentVoice:
 
 def _env_prepare() -> None:
     os.environ["LG_DATA_DIR"] = str(ROOT)
+    os.environ["LG_ADAPTIVE_STUDY"] = "1"
     os.environ["LOCK_SCREEN"] = "0"
     os.environ["QUIZ_TARGET_CORRECT"] = "2"
     os.environ.pop("ACCOUNT_SERVER_URL", None)
+    os.environ.pop("ACCOUNT_TOKEN", None)
 
 
 def _wipe_and_seed_guest() -> None:
+    # Only the isolated demo root. Never touch production AppData or sibling folders.
+    if ROOT.resolve() != Path(r"D:\EnglishApp\.local\19d4c-preview").resolve():
+        raise SystemExit(f"refusing to wipe unexpected root: {ROOT}")
     if ROOT.exists():
         shutil.rmtree(ROOT)
     ROOT.mkdir(parents=True)
@@ -301,12 +307,14 @@ def _account_isolation_demo(data_root: Path) -> dict:
         store = open_practice_store(identity)
         plan = plan_for_language("nl")
         session = build_study_session(plan)
-        controller = build_integrated_session(
+        built = build_integrated_session(
             bundle,
             planned_count=1,
             practice_store=store,
             rng=random.Random(user_id),
         )
+        assert built.ok and built.session is not None
+        controller = built.session
         bridge = attach_bridge(session, controller, locked=False)
         assisted_practice = 0
         outbox_before = _count_outbox(data_root, user_id)

@@ -74,11 +74,13 @@ Near answers and hint-assisted exact answers are **non-mastered**. Do not casual
 
 ## Adaptive Study integration (19.4C)
 
-- Unlocked development may open Adaptive Vocabulary from FreeHome **Adaptive Study (dev)** / StudyMaster **Adaptive**. Locked ScreenGuard sessions and frozen installs keep `VocabQuizApp`.
+- Adaptive Study requires `LG_ADAPTIVE_STUDY=1` and a validated isolated `LG_DATA_DIR`. Source alone is not enough. Locked ScreenGuard sessions and frozen installs keep `VocabQuizApp`.
 - Do not reinterpret a locked required Study child as unlocked merely to open Adaptive Vocabulary.
-- Adaptive completion uses the same `planned_vocab_count` as the legacy lock session. Unique independent successes satisfy that N; recognition/assisted do not. Do not silently shrink the planned target.
+- Due/new eligible unique vocab ids must equal `planned_vocab_count`. Do not silently shrink the target or pad with future reviews / invalid ids.
+- Unique independent successes satisfy that N; recognition/assisted do not. Independent success without an authoritative write must not complete the session.
 - Vocabulary completion must not auto-complete Reading or Listening.
-- Adaptive windows bind an explicit account/language/data-root identity. Late callbacks must not write a previous account's store. Account switch clears StudySession completion flags.
+- Adaptive windows bind account generation, language, and data root. Late callbacks must not write a previous account's store. Same-language repeats lift; language changes close the bound window.
+- Practice `unavailable` must not be reported as saved.
 
 ## Practice records
 

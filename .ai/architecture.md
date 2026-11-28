@@ -106,10 +106,12 @@ ListeningSession → WindowsSpeechProvider
 
 ## Adaptive Study integration (development)
 
+- Requires `LG_ADAPTIVE_STUDY=1` and a validated isolated `LG_DATA_DIR`. Frozen installs stay classic.
 - FreeHome **Start learning** keeps the required StudyMaster → locked `VocabQuizApp` route.
-- FreeHome **Adaptive Study (dev)** and StudyMaster **Adaptive** open unlocked `AdaptiveVocabularyApp` only when source is not frozen and ScreenGuard is not locking the learner.
-- `adaptive_study.py` binds planning (`planned_vocab_count`), PracticeStore, StudyBundle, and `AdaptiveSessionBridge`. Completion is unique-word independent success for that planned N; recognition/assisted never complete vocabulary and never write the sync outbox.
-- Account switch invalidates adaptive identity and clears StudySession completion flags. See [PHASE-19.4C-adaptive-study-integration.md](plans/PHASE-19.4C-adaptive-study-integration.md).
+- FreeHome **Adaptive Study (dev)** and StudyMaster **Adaptive** open unlocked `AdaptiveVocabularyApp` only when opted in and ScreenGuard is not locking the learner.
+- Due/new selection must equal `planned_vocab_count`; a smaller eligible set refuses Adaptive and leaves vocabulary unresolved.
+- Practice persistence statuses: `ok` / `unavailable` / `disabled`. Unavailable is never reported as saved.
+- Account generation + language bindings invalidate stale callbacks. See [PHASE-19.4C-adaptive-study-integration.md](plans/PHASE-19.4C-adaptive-study-integration.md).
 
 ## UI (Tkinter)
 
