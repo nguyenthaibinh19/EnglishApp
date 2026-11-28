@@ -106,11 +106,11 @@ ListeningSession → WindowsSpeechProvider
 
 ## Sentence practice (development)
 
-- Progressive sentence exercises are a **separate skill** from vocabulary recall. Session-memory results only in Phase 19.5A — no `LearningAttempt`, Progress, SRS, Mistake Book, PracticeRecord, or sync outbox writes.
-- Content contract: versioned `SentenceExercise` / `GrammarRule` / `SentencePack` in `sentence_content.py`, including `family_id` for related scaffolding. Reviewed `accepted_answers` are content; AI drafts are not answer keys.
-- Ladder: word bank → fill blank → guided writing → independent writing (`sentence_practice.py`). Local grading for reviewed answers; AIService adapter (no account proxy by default) for unlisted independent writing — provisional only. Progress = distinct achieved levels.
-- Grammar Companion selects curated rules by reliable error hints (`grammar_companion.py`). No full Grammar Library browser yet. Never invent a rule when none is validated.
-- UI: unlocked `SentencePracticeApp` via StudyMaster **Sentence** and optional post-adaptive CTA under the same `LG_ADAPTIVE_STUDY` + isolated `LG_DATA_DIR` opt-in as Adaptive Study. Post-vocab sentence defers Reading/Listening until the sentence round ends. See [PHASE-19.5A-sentence-practice.md](plans/PHASE-19.5A-sentence-practice.md).
+- Progressive sentence exercises are a **separate skill** from vocabulary recall. Phase 19.5A is merged unreleased source. Session-memory results only — no `LearningAttempt`, Progress, SRS, Mistake Book, PracticeRecord, or sync outbox writes.
+- Content contract: versioned `SentenceExercise` / `GrammarRule` / `SentencePack` in `sentence_content.py`, including `family_id` for related scaffolding. Reviewed `accepted_answers` are content; AI drafts are not answer keys. Dutch A1 remains author-curated / pending expert validation.
+- Ladder: word bank → fill blank → guided writing → independent writing (`sentence_practice.py`). Local grading for reviewed answers; simulated AIService adapter for unlisted open writing — provisional only. Progress = distinct achieved levels. Explicit easier-related recovery is available.
+- Grammar Companion selects curated rules by evidenced error hints (`grammar_companion.py`). Uncertain cases stay guidance-only. No full Grammar Library browser yet.
+- UI: unlocked `SentencePracticeApp` via StudyMaster **Sentence** and optional post-adaptive CTA under the same `LG_ADAPTIVE_STUDY` + isolated `LG_DATA_DIR` opt-in as Adaptive Study. Post-vocab sentence defers Reading/Listening until the sentence round ends; exit/account/language invalidate deferred transitions. See [PHASE-19.5A-sentence-practice.md](plans/PHASE-19.5A-sentence-practice.md).
 
 ## Adaptive Study integration (development)
 

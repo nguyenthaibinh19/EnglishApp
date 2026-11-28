@@ -26,6 +26,7 @@ from sentence_grading import (
     STATUS_PROVISIONAL_ACCEPT,
     STATUS_PROVISIONAL_CORRECT,
     STATUS_REVIEWED_CORRECT,
+    STATUS_UNAVAILABLE,
     STATUS_UNGRADED,
     STATUS_UNLISTED,
     FakeSentenceGradeProvider,
@@ -96,6 +97,76 @@ def test_potentially_valid_unlisted_is_not_incorrect():
     grade = grade_locally(independent, "Zij leest een boek vandaag")
     assert grade.status == STATUS_UNLISTED
     assert grade.status != STATUS_INCORRECT
+
+
+def test_random_fill_blank_token_is_not_conjugation_claim():
+    pack = load_pack("nl", "A1")
+    blank = next(item for item in pack.exercises if item.kind == KIND_FILL_BLANK)
+    related = grade_locally(blank, "lezen")
+    assert related.status == STATUS_INCORRECT
+    assert related.error_hint == "conjugation"
+    assert related.diagnosis_certain
+    random = grade_locally(blank, "xyzzy")
+    assert random.status == STATUS_INCORRECT
+    assert random.error_hint == ""
+    assert not random.diagnosis_certain
+
+
+def test_guided_unlisted_vs_template_violation():
+    pack = load_pack("nl", "A1")
+    guided = next(item for item in pack.exercises if item.kind == KIND_GUIDED_WRITING)
+    # Pure reorder of reviewed tokens → definite word-order incorrect.
+    reorder = grade_locally(guided, "een boek Zij leest")
+    assert reorder.status == STATUS_INCORRECT
+    assert reorder.error_hint == "word_order"
+    # Potentially valid alternative wording → unlisted, not automatic wrong.
+    alt = grade_locally(guided, "Zij leest het boek vandaag")
+    assert alt.status == STATUS_UNLISTED
+    assert alt.status != STATUS_INCORRECT
+
+
+def test_offer_easier_related_without_failure_count():
+    session = SentencePracticeSession.from_language(
+        "nl", "A1", start_kind=KIND_INDEPENDENT_WRITING
+    )
+    family = session.current_card().exercise.family_id
+    before_failures = dict(session._failures)
+    result = session.offer_easier_related()
+    assert result.stepped_down
+    assert session.current_card().exercise.kind == KIND_GUIDED_WRITING
+    assert session.current_card().exercise.family_id == family
+    assert session._failures == before_failures
+    assert len(session.results) == 0
+
+
+def test_unavailable_ai_is_not_learner_failure():
+    session = SentencePracticeSession.from_language(
+        "nl", "A1", start_kind=KIND_INDEPENDENT_WRITING
+    )
+    sid = session.begin_submission()
+    card = session.current_card()
+    grade = grade_with_ai_service(
+        build_demo_grade_service("unavailable"),
+        card.exercise,
+        "Zij leest een boek vandaag",
+    )
+    assert grade.status == STATUS_UNAVAILABLE
+    applied = session.apply_external_grade(
+        grade,
+        "Zij leest een boek vandaag",
+        submission_id=sid,
+        instance_id=card.instance_id,
+    )
+    assert not applied.stepped_down
+    assert session.levels_achieved() == 0
+    assert len(session.results) == 0
+    assert session.current_card() is not None
+
+
+def test_fake_provider_is_marked_simulated():
+    provider = FakeSentenceGradeProvider(mode="accept_valid")
+    assert provider.simulated is True
+    assert "simulated" in provider.SIMULATED_LABEL.lower() or "not a live" in provider.SIMULATED_LABEL.lower()
 
 
 def test_wrong_language_fake_grading():
@@ -338,6 +409,55 @@ def test_account_language_lifecycle_closes_sentence_binding():
     session.abandon()
     assert session.abandoned
     assert session.current_card() is None
+
+
+def test_invalidate_sentence_transitions_clears_deferred_resume():
+    import main as main_mod
+
+    master = object.__new__(main_mod.StudyMasterApp)
+    master._sentence_after_vocab = ("nl", 1)
+    master._resume_after_sentence = ("nl", 1)
+    master._sentence_resume_done = False
+    main_mod.StudyMasterApp._invalidate_sentence_transitions(master)
+    assert master._sentence_after_vocab is None
+    assert master._resume_after_sentence is None
+    assert master._sentence_resume_done is True
+
+
+def test_quit_all_closes_sentence_window(monkeypatch):
+    import main as main_mod
+
+    closed = []
+    master = object.__new__(main_mod.StudyMasterApp)
+    master.progress = type("P", (), {"save": lambda self: None})()
+    master.vocab_window = None
+    master.reading_window = None
+    master.listening_window = None
+    master.sentence_window = object()
+    master._sentence_binding_language = "nl"
+    master._sentence_after_vocab = ("nl", 1)
+    master._resume_after_sentence = ("nl", 1)
+    master._sentence_resume_done = False
+    master.on_finished = None
+    master._force_exit = True
+    master.root = type("R", (), {"destroy": lambda self: None, "after": lambda *a, **k: None})()
+    master.guard = type("G", (), {"enabled": True})()
+    monkeypatch.setattr(
+        master,
+        "_close_window",
+        lambda window: closed.append(window),
+    )
+    monkeypatch.setattr(master, "_invalidate_sentence_transitions", lambda: master.__dict__.update(
+        _sentence_after_vocab=None, _resume_after_sentence=None, _sentence_resume_done=True
+    ))
+    # Avoid full quit path teardown — call only the window loop portion via quit_all with force exit.
+    # Patch ui_common.reset_window and destroy to no-op after windows closed.
+    import ui_common
+
+    monkeypatch.setattr(ui_common, "reset_window", lambda *a, **k: None)
+    main_mod.StudyMasterApp.quit_all(master)
+    assert master.sentence_window is None
+    assert any(item is not None for item in closed) or master._sentence_resume_done is True
 
 
 def test_no_vocab_writes_from_sentence(tmp_path, monkeypatch):

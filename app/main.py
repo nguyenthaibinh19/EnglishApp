@@ -578,9 +578,9 @@ class StudyMasterApp:
                 self._close_window(self.sentence_window)
             self.sentence_window = None
             self._sentence_binding_language = None
-            self._sentence_after_vocab = None
-            self._resume_after_sentence = None
-            self._sentence_resume_done = False
+            self._invalidate_sentence_transitions()
+        elif language_changed:
+            self._invalidate_sentence_transitions()
         bundle = open_study_data(code)
         self.store = bundle.vocab
         self.progress = bundle.progress
@@ -730,9 +730,7 @@ class StudyMasterApp:
         self._account_generation = int(getattr(self, "_account_generation", 0) or 0) + 1
         self._vocab_binding_language = None
         self._sentence_binding_language = None
-        self._sentence_after_vocab = None
-        self._resume_after_sentence = None
-        self._sentence_resume_done = False
+        self._invalidate_sentence_transitions()
         # A new account identity does not keep the previous account's completed flags.
         self.sessions = {}
         bundle = open_study_data()
@@ -1289,6 +1287,12 @@ class StudyMasterApp:
             return
         self.root.after(100, lambda g=generation: self._finish_if_all_done_for(g))
 
+    def _invalidate_sentence_transitions(self) -> None:
+        """Drop deferred Reading/Listening and pending sentence open callbacks."""
+        self._sentence_after_vocab = None
+        self._resume_after_sentence = None
+        self._sentence_resume_done = True
+
     def _on_sentence_destroy(self, event):
         if event.widget is not self.sentence_window:
             return
@@ -1301,6 +1305,9 @@ class StudyMasterApp:
         self.root.after(50, self._refresh_status)
         if resume is not None and not self._sentence_resume_done:
             c, g = resume
+            if int(g) != int(generation):
+                self._invalidate_sentence_transitions()
+                return
             if c == code or not code:
                 self.root.after(
                     80, lambda cc=c, gg=g: self._resume_study_after_sentence(cc, gg)
@@ -1908,11 +1915,20 @@ class StudyMasterApp:
 
     def quit_all(self):
         self.progress.save()
-        for window in (self.vocab_window, self.reading_window, self.listening_window):
+        # Invalidate deferred sentence → Reading/Listening before closing children.
+        self._invalidate_sentence_transitions()
+        for window in (
+            self.vocab_window,
+            self.reading_window,
+            self.listening_window,
+            self.sentence_window,
+        ):
             try:
                 self._close_window(window)
             except tk.TclError:
                 pass
+        self.sentence_window = None
+        self._sentence_binding_language = None
         # FreeHome dashboard: return and refresh plan. Lock/boot mode: exit app.
         if callable(self.on_finished) and not self._force_exit:
             try:

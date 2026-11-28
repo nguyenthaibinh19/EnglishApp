@@ -151,8 +151,8 @@ def grade_locally(
             diagnosis_certain=True,
         )
 
-    # Constrained exercises: complete but non-matching → definite incorrect.
-    if exercise.kind in (KIND_WORD_BANK, KIND_FILL_BLANK, KIND_GUIDED_WRITING):
+    # Word bank / fill blank: constrained → definite incorrect when complete.
+    if exercise.kind in (KIND_WORD_BANK, KIND_FILL_BLANK):
         hint, certain = _conservative_local_hint(exercise, text)
         return SentenceGrade(
             status=STATUS_INCORRECT,
@@ -163,6 +163,31 @@ def grade_locally(
             error_hint=hint,
             score=0.0,
             diagnosis_certain=certain,
+        )
+
+    # Guided writing: only definite incorrect for evidenced template violations.
+    # Other unlisted answers stay unlisted (not automatic linguistic wrong).
+    if exercise.kind == KIND_GUIDED_WRITING:
+        hint, certain = _conservative_local_hint(exercise, text)
+        if certain and hint in ("article", "word_order", "conjugation"):
+            return SentenceGrade(
+                status=STATUS_INCORRECT,
+                matched_local=False,
+                graded_by="local",
+                feedback="",
+                corrected_sentence=exercise.primary_answer(),
+                error_hint=hint,
+                score=0.0,
+                diagnosis_certain=True,
+            )
+        return SentenceGrade(
+            status=STATUS_UNLISTED,
+            matched_local=False,
+            graded_by="none",
+            feedback="",
+            corrected_sentence="",
+            score=0.0,
+            diagnosis_certain=False,
         )
 
     # Independent writing outside reviewed set is unlisted — not definitive wrong.
@@ -177,6 +202,35 @@ def grade_locally(
     )
 
 
+def _related_verb_form(typed: str, expected: str) -> bool:
+    """True when the typed token looks like a related finite/infinitive of expected."""
+    if not typed or not expected:
+        return False
+    if typed == expected:
+        return True
+    if typed + "t" == expected or typed == expected[:-1]:
+        return True
+    # Infinitive -en vs finite -t/-d with a shared onset (Dutch A1 stems).
+    if typed.endswith("en") and expected.endswith(("t", "d")) and len(typed) >= 4:
+        if typed[:2] == expected[:2]:
+            return True
+        stem = typed[:-2]
+        core = expected[:-1]
+        if len(stem) >= 2 and (
+            core.startswith(stem[:2])
+            or stem.startswith(core[:2])
+            or expected.startswith(stem[:2])
+        ):
+            return True
+    # Shared prefix of at least 3 letters with a short length delta.
+    shared = 0
+    for a, b in zip(typed, expected):
+        if a != b:
+            break
+        shared += 1
+    return shared >= 3 and abs(len(typed) - len(expected)) <= 3
+
+
 def _conservative_local_hint(exercise: SentenceExercise, learner: str) -> tuple[str, bool]:
     """Return (hint, certain). Prefer empty/uncertain over over-claiming."""
     norm = normalize_sentence(learner)
@@ -185,12 +239,12 @@ def _conservative_local_hint(exercise: SentenceExercise, learner: str) -> tuple[
     right = primary.split()
 
     if exercise.kind == KIND_WORD_BANK:
+        # Complete bank uses the same tokens; wrong order is evidenced.
         if Counter(left) == Counter(right):
             return "word_order", True
         return "word_order", True
 
     if exercise.kind == KIND_FILL_BLANK:
-        # Only claim conjugation when the blank is a verb slot (component role).
         blank = exercise.blank_sentence or ""
         if "___" not in blank:
             return "", False
@@ -205,20 +259,20 @@ def _conservative_local_hint(exercise: SentenceExercise, learner: str) -> tuple[
         if " " not in typed:
             if typed == expected_verb:
                 return "", True
-            # Verb-slot blank: a wrong single token is a conjugation miss.
-            return "conjugation", True
-        # Full-sentence answer that keeps the frame but misses the finite verb.
-        if expected_verb not in left and (
-            any(token.endswith("en") for token in left) or set(left) != set(right)
-        ):
-            frame_ok = all(
-                token in left or token == expected_verb for token in right if token != expected_verb
-            )
-            if frame_ok or any(token.endswith("en") for token in left):
+            # Only claim conjugation when the token is related to the expected verb.
+            if _related_verb_form(typed, expected_verb):
                 return "conjugation", True
+            return "", False
+        # Full-sentence: conjugation only if frame matches and a related wrong verb appears.
+        if expected_verb not in left:
+            frame_tokens = [token for token in right if token != expected_verb]
+            if all(token in left for token in frame_tokens):
+                extras = [token for token in left if token not in frame_tokens]
+                if extras and any(_related_verb_form(token, expected_verb) for token in extras):
+                    return "conjugation", True
         return "", False
 
-    # Guided writing: article omission is detectable; otherwise stay uncertain.
+    # Guided writing: article omission / pure reorder only when evidenced.
     if exercise.kind == KIND_GUIDED_WRITING:
         articles = {
             normalize_sentence(part.text)
@@ -236,11 +290,16 @@ def _conservative_local_hint(exercise: SentenceExercise, learner: str) -> tuple[
 
 
 class FakeSentenceGradeProvider:
-    """Deterministic provider for demos and tests. No network."""
+    """Simulated development grading provider. No network. Not live AI."""
+
+    SIMULATED_LABEL = (
+        "Simulated development grading — not a live AI call."
+    )
 
     def __init__(self, *, mode: str = "accept_valid"):
         self.mode = mode
         self.calls = []
+        self.simulated = True
 
     def grade_answer(self, request):
         from ai.base import GradeResult
@@ -280,7 +339,7 @@ class FakeSentenceGradeProvider:
                 return GradeResult(
                     is_correct_usage=False,
                     score=0.15,
-                    feedback_vi="Provisional: write the sentence in Dutch.",
+                    feedback_vi="Provisional (simulated): write the sentence in Dutch.",
                     corrected_sentence="Zij leest een boek.",
                     suggested_sentence="Zij leest een boek.",
                 )
@@ -294,14 +353,18 @@ class FakeSentenceGradeProvider:
             return GradeResult(
                 is_correct_usage=False,
                 score=0.35,
-                feedback_vi="Provisional: try the present form.",
+                feedback_vi="Provisional (simulated): try the present form.",
                 corrected_sentence="Zij leest een boek.",
                 suggested_sentence="Zij leest een boek.",
             )
         return GradeResult(
             is_correct_usage=ok,
             score=0.88 if ok else 0.25,
-            feedback_vi="Provisional AI note only." if ok else "Provisional: try again.",
+            feedback_vi=(
+                "Provisional (simulated) note only."
+                if ok
+                else "Provisional (simulated): try again."
+            ),
             corrected_sentence=text if ok else "Zij leest een boek.",
             suggested_sentence="Zij leest een boek.",
         )

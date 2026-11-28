@@ -4,7 +4,9 @@
 
 ## Latest verified coordination checkpoint — 2026-11-28
 
-**Current priority:** **Phase 19.5 Sentence Practice and Grammar Companion** — pending a separate Architect brief. Do not start it from this checkpoint.
+**Current priority:** **Phase 19.5B Structured AI Feedback and Sentence Skill** — pending a separate Architect brief. Do not start it from this checkpoint.
+
+**Phase 19.5A Sentence Practice and Grammar Companion is closed.** Tag `APP_19D5A_CLOSED_SENTENCE_PRACTICE`. Merged, unreleased development functionality. Requires `LG_ADAPTIVE_STUDY=1` and a validated isolated `LG_DATA_DIR`. Dutch A1 pack is author-curated and pending independent expert validation. Session-memory sentence results only — no vocabulary LearningAttempt / Progress / SRS / PracticeRecord / sync-outbox writes. Notes: [PHASE-19.5A-sentence-practice.md](plans/PHASE-19.5A-sentence-practice.md). Not in the installed v1.5.0 download.
 
 **Phase 19.4C Adaptive Study Integration is closed.** Tag `APP_19D4C_CLOSED_ADAPTIVE_STUDY_INTEGRATION`. Merge PR [#38](https://github.com/nguyenthaibinh19/EnglishApp/pull/38) at `55a1efc9b6b9d76f621b2e4f7740c3470ac77192`. Requires `LG_ADAPTIVE_STUDY=1` and a validated isolated `LG_DATA_DIR`. FreeHome **Adaptive Study (dev)** / StudyMaster **Adaptive** open unlocked Adaptive Vocabulary; **Start learning** / Vocabulary keep locked `VocabQuizApp`. Due/new selection must equal `planned_vocab_count` or Adaptive refuses. Notes: [PHASE-19.4C-adaptive-study-integration.md](plans/PHASE-19.4C-adaptive-study-integration.md). Evidence: `D:\EnglishApp\.local\19d4c-preview\integration-evidence.json`. Not in the installed v1.5.0 download.
 
@@ -14,9 +16,9 @@
 
 **Phase 19.3 is closed and merged.** PR [#32](https://github.com/nguyenthaibinh19/EnglishApp/pull/32), merge `7aedf7a423d2ef244ce37b5d3f348c7f75ed0241`. Notes: [PHASE-19.3-multilingual-audio.md](plans/PHASE-19.3-multilingual-audio.md) and [ADR-016](decisions/ADR-016-listening-local-tts.md).
 
-**Public release:** v1.5.0 remains the installed download, built from `154bf03c6856667cf1322cfe4e6f31996e05e09f`. Release checkpoint **978 passed, 24 skipped, 0 failed**. Phase 19.2B–19.4C work is source-merged and is not in that download.
+**Public release:** v1.5.0 remains the installed download, built from `154bf03c6856667cf1322cfe4e6f31996e05e09f`. Release checkpoint **978 passed, 24 skipped, 0 failed**. Phase 19.2B–19.5A work is source-merged and is not in that download.
 
-**Next review action:** Wait for the Phase 19.5 Architect brief. Do not expose Adaptive Study on the installed Study button. Sentence exercises and Grammar Companion remain unimplemented.
+**Next review action:** Wait for the Phase 19.5B Architect brief. Do not expose Adaptive Study or Sentence Practice on the installed Study button.
 
 **18B.9 PAUSED, NOT CLOSED.** 18B.10A remains **AUDIT ACCEPTED, IMPLEMENTATION DEFERRED**. 18B.10B–E remain **NOT AUTHORIZED**. Google Drive remains **NOT CONFIGURED**. `C-APP-AI-001` v0.2.0 is accepted. `LocalAIProvider` is **NOT AUTHORIZED**. The website is not deployed.
 

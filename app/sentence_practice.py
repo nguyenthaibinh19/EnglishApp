@@ -293,16 +293,17 @@ class SentencePracticeSession:
         submitted = self._card.exercise
         if grade.status in (STATUS_UNAVAILABLE, STATUS_UNGRADED):
             self.clear_submission(submission_id)
+            # Unavailable AI is not a learner failure — no failure count / step-down.
+            note = grade.feedback or config.ui(
+                "Chưa chấm được. Đây không phải lỗi của bạn. Tiến độ từ vựng không đổi.",
+                "Grading is unavailable. This is not counted as a failure. Vocabulary progress is unchanged.",
+            )
             return SentenceSubmitResult(
                 status="feedback",
                 grade=grade,
                 card=self._card,
                 submitted_exercise=submitted,
-                feedback=grade.feedback
-                or config.ui(
-                    "Chưa chấm được. Tiến độ từ vựng không đổi.",
-                    "Grading is unavailable. Your vocabulary progress is unchanged.",
-                ),
+                feedback=note,
                 tone="near",
                 submission_id=submission_id,
                 instance_id=self._card.instance_id,
@@ -443,6 +444,43 @@ class SentencePracticeSession:
             status="feedback",
             card=self._card,
             session_finished=self.finished,
+        )
+
+    def offer_easier_related(self) -> SentenceSubmitResult:
+        """Explicit learner recovery: step down one related level without a failure count.
+
+        Used when independent/guided writing is unlisted, provisionally corrected,
+        unavailable, or ungraded. Does not count as a learner failure.
+        """
+        if self.finished or self.abandoned or self.missing_content:
+            return SentenceSubmitResult(status="empty", session_finished=self.finished)
+        self.clear_submission()
+        if self._level <= 0:
+            self._rebuild_card()
+            return SentenceSubmitResult(
+                status="feedback",
+                card=self._card,
+                feedback=config.ui(
+                    "Đang ở mức dễ nhất trong gia đình bài này.",
+                    "You are already on the easiest related step.",
+                ),
+                tone="near",
+            )
+        current = self._card.exercise if self._card else None
+        if current and current.family_id:
+            self._active_family = current.family_id
+        self._level -= 1
+        self._failures[LADDER[self._level]] = 0
+        self._rebuild_card()
+        return SentenceSubmitResult(
+            status="feedback",
+            card=self._card,
+            stepped_down=True,
+            feedback=config.ui(
+                "Thử bài dễ hơn cùng mục tiêu học.",
+                "Try an easier related exercise for the same learning goal.",
+            ),
+            tone="near",
         )
 
 

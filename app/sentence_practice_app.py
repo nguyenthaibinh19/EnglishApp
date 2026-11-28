@@ -31,6 +31,7 @@ from sentence_grading import (
     STATUS_PROVISIONAL_CORRECT,
     STATUS_REVIEWED_CORRECT,
     STATUS_UNGRADED,
+    STATUS_UNLISTED,
     STATUS_UNAVAILABLE,
     FakeSentenceGradeProvider,
     grade_async,
@@ -187,6 +188,32 @@ class SentencePracticeApp:
             font=ctk.CTkFont(family="Segoe UI", size=13),
         )
         bind_activation(self.slow_hear_button)
+        self.easier_button = ctk.CTkButton(
+            self.shell.host,
+            text=config.ui(
+                "Thử bài dễ hơn (cùng mục tiêu)",
+                "Try an easier related exercise",
+            ),
+            command=self._offer_easier,
+            height=32,
+            corner_radius=10,
+            fg_color=ui_foundation.COLOR_SOFT_GREEN,
+            hover_color="#D7E8DC",
+            text_color=ui_foundation.COLOR_TEXT,
+            font=ctk.CTkFont(family="Segoe UI", size=13, weight="bold"),
+        )
+        bind_activation(self.easier_button)
+        self.sim_note = ctk.CTkLabel(
+            self.shell.host,
+            text=config.ui(
+                "Chấm AI ở đây là giả lập phát triển — không gọi AI thật.",
+                "Grading here uses a simulated development provider — not a live AI call.",
+            ),
+            font=ctk.CTkFont(family="Segoe UI", size=11),
+            text_color="#5C7268",
+            fg_color=ui_foundation.COLOR_BG,
+            wraplength=460,
+        )
 
     def _binding_current(self) -> bool:
         identity = self.identity
@@ -301,27 +328,38 @@ class SentencePracticeApp:
                 )
                 self._phase = "answer"
                 return
-            if result.status == "waiting_ai" and self.grade_service is not None:
-                self._ai_pending = True
-                self.shell.show_feedback(
-                    config.ui("Đang chấm…", "Checking…"),
-                    "near",
-                )
+            if result.status == "waiting_ai":
                 answer = self.shell.exercise.answer_text()
-                grade_async(
-                    self.window,
-                    service=self.grade_service,
-                    exercise=exercise,
-                    learner_answer=answer,
-                    still_current=lambda sid=submission_id, iid=card.instance_id: (
-                        self._binding_current()
-                        and self.session.submission_current(sid, iid)
-                    ),
-                    submission_id=submission_id,
-                    on_done=lambda grade, text=answer, sid=submission_id, iid=card.instance_id: self._on_ai_grade(
-                        grade, text, submission_id=sid, instance_id=iid
-                    ),
+                if self.grade_service is not None:
+                    self._ai_pending = True
+                    self.shell.show_feedback(
+                        config.ui("Đang chấm…", "Checking…"),
+                        "near",
+                    )
+                    grade_async(
+                        self.window,
+                        service=self.grade_service,
+                        exercise=exercise,
+                        learner_answer=answer,
+                        still_current=lambda sid=submission_id, iid=card.instance_id: (
+                            self._binding_current()
+                            and self.session.submission_current(sid, iid)
+                        ),
+                        submission_id=submission_id,
+                        on_done=lambda grade, text=answer, sid=submission_id, iid=card.instance_id: self._on_ai_grade(
+                            grade, text, submission_id=sid, instance_id=iid
+                        ),
+                    )
+                    return
+                # No AI service: keep unlisted as soft feedback with recovery.
+                self.session.clear_submission(submission_id)
+                result.status = "feedback"
+                result.tone = "near"
+                result.feedback = config.ui(
+                    "Câu này chưa nằm trong đáp án đã duyệt. Chưa chấm sai chắc chắn.",
+                    "This answer is not in the reviewed set. It is not marked definitively wrong.",
                 )
+                self._show_feedback_result(result)
                 return
             if result.status == "stale":
                 return
@@ -402,6 +440,51 @@ class SentencePracticeApp:
             self.why_button.pack(pady=(4, 0))
         else:
             self.why_button.pack_forget()
+        offer_easier = bool(
+            grade
+            and grade.status
+            in (
+                STATUS_PROVISIONAL_CORRECT,
+                STATUS_UNAVAILABLE,
+                STATUS_UNGRADED,
+                STATUS_UNLISTED,
+            )
+        )
+        # Also after provisional AI path when grade was unlisted then corrected.
+        if (
+            grade
+            and grade.graded_by == "ai"
+            and grade.status
+            in (STATUS_PROVISIONAL_CORRECT, STATUS_UNAVAILABLE, STATUS_UNGRADED)
+        ):
+            offer_easier = True
+        if offer_easier and not result.session_finished:
+            self.easier_button.pack(fill=tk.X, pady=(6, 0), before=self.shell.continue_button)
+        else:
+            try:
+                self.easier_button.pack_forget()
+            except tk.TclError:
+                pass
+        if grade and grade.graded_by == "ai":
+            self.sim_note.pack(pady=(4, 0))
+        else:
+            try:
+                self.sim_note.pack_forget()
+            except tk.TclError:
+                pass
+
+    def _offer_easier(self) -> None:
+        if self._phase != "feedback":
+            return
+        if not self._binding_current():
+            self._leave()
+            return
+        self._clear_feedback_extras()
+        result = self.session.offer_easier_related()
+        if result.card is None:
+            self._show_current()
+            return
+        self._show_current()
 
     def _toggle_grammar(self) -> None:
         if self._companion is None or self._phase != "feedback":
@@ -495,6 +578,8 @@ class SentencePracticeApp:
         try:
             self.why_button.pack_forget()
             self.slow_hear_button.pack_forget()
+            self.easier_button.pack_forget()
+            self.sim_note.pack_forget()
         except tk.TclError:
             pass
 
