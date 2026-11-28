@@ -1,4 +1,4 @@
-# LanguageGuard — AI-Powered Language Learning Platform
+# LangStudyGuard — AI-Powered Language Learning Platform
 
 LanguageGuard is a Windows desktop product for daily language study. Learning data stays on the computer first. An optional account can synchronize that data across devices, and optional AI features add sentence feedback and generated reading. The public source repository is [EnglishApp](https://github.com/nguyenthaibinh19/EnglishApp).
 
