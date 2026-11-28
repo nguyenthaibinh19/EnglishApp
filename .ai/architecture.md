@@ -104,6 +104,14 @@ ListeningSession → WindowsSpeechProvider
 - No Progress / SRS / AttemptHistory writes from Listening.
 - Playback goes through one shared slot in `speech_player`. Listening, Voice Settings, Vocabulary Library, Word Detail, and Study Feedback use that slot. A saved voice is device-local and is not an account preference. Discovery and synthesis stay off the Tk thread. A missing same-language voice uses the unavailable path. There is no wrong-language voice and no cloud speech fallback.
 
+## Sentence practice (development)
+
+- Progressive sentence exercises are a **separate skill** from vocabulary recall. Phase 19.5A is merged unreleased source. Session-memory results only — no `LearningAttempt`, Progress, SRS, Mistake Book, PracticeRecord, or sync outbox writes.
+- Content contract: versioned `SentenceExercise` / `GrammarRule` / `SentencePack` in `sentence_content.py`, including `family_id` for related scaffolding. Reviewed `accepted_answers` are content; AI drafts are not answer keys. Dutch A1 remains author-curated / pending expert validation.
+- Ladder: word bank → fill blank → guided writing → independent writing (`sentence_practice.py`). Local grading for reviewed answers; simulated AIService adapter for unlisted open writing — provisional only. Progress = distinct achieved levels. Explicit easier-related recovery is available.
+- Grammar Companion selects curated rules by evidenced error hints (`grammar_companion.py`). Uncertain cases stay guidance-only. No full Grammar Library browser yet.
+- UI: unlocked `SentencePracticeApp` via StudyMaster **Sentence** and optional post-adaptive CTA under the same `LG_ADAPTIVE_STUDY` + isolated `LG_DATA_DIR` opt-in as Adaptive Study. Post-vocab sentence defers Reading/Listening until the sentence round ends; exit/account/language invalidate deferred transitions. See [PHASE-19.5A-sentence-practice.md](plans/PHASE-19.5A-sentence-practice.md).
+
 ## Adaptive Study integration (development)
 
 - Requires `LG_ADAPTIVE_STUDY=1` and a validated isolated `LG_DATA_DIR`. Frozen installs stay classic.

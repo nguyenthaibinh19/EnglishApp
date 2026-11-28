@@ -72,6 +72,19 @@ Near answers and hint-assisted exact answers are **non-mastered**. Do not casual
 - Introduction, multiple choice, and assisted practice do not write an attempt or SRS progress. Only a submitted independent recall uses the existing attempt path.
 - An incomplete missing-letter answer is not a failed exercise and does not move the session ladder. A completed assisted answer still does not write SRS.
 
+## Sentence practice (19.5A closed)
+
+- Sentence submissions must never create vocabulary `LearningAttempt` rows, call `Progress.record`, change SRS, clear Mistake Book attention, write PracticeRecord v1, or enqueue vocabulary progress outbox events.
+- Reviewed `accepted_answers` are curated content. Outcomes distinguish reviewed correct, definite incorrect, incomplete, unlisted, provisional accept/correct, unavailable, and ungraded.
+- Incomplete word-bank input is not a failed exercise. Unlisted open-writing / guided alternatives are not definitive wrong unless a template violation is evidenced.
+- Claim conjugation/article/word-order only with sufficient evidence; otherwise use neutral guidance.
+- Unavailable AI is not a learner failure. Fake/simulated grading must be labeled as development-only — not a live AI call.
+- AI grades are provisional and must not become answer keys or validated grammar rules. Malformed GradeResult fields yield ungraded — not wrong.
+- Progress counts distinct achieved levels, not raw correct tallies. Abandon and missing content are not successful completion.
+- App exit, account switch, language change, and return to Home must close sentence windows and invalidate deferred Reading/Listening transitions.
+- Activation matches Adaptive Study opt-in (`LG_ADAPTIVE_STUDY=1` + isolated `LG_DATA_DIR`). Not on the installed Study button. Not under locked ScreenGuard sessions. Not in frozen installs as a production path.
+- Only Dutch A1 ships a curated pack in 19.5A; do not claim complete multilingual grammar coverage or expert linguistic validation.
+
 ## Adaptive Study integration (19.4C)
 
 - Adaptive Study requires `LG_ADAPTIVE_STUDY=1` and a validated isolated `LG_DATA_DIR`. Source alone is not enough. Locked ScreenGuard sessions and frozen installs keep `VocabQuizApp`.

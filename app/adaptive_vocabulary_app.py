@@ -49,6 +49,7 @@ class AdaptiveVocabularyApp:
         attempts=None,
         on_completed=None,
         on_leave=None,
+        on_sentence_practice=None,
         provider=None,
         practice_store=None,
         practice_persistence: str = "ok",
@@ -65,6 +66,7 @@ class AdaptiveVocabularyApp:
         self.attempts = attempts
         self.on_completed = on_completed
         self.on_leave = on_leave
+        self.on_sentence_practice = on_sentence_practice
         self.provider = provider
         self.practice_store = practice_store
         # ok | unavailable | disabled — unavailable must never look like a successful save.
@@ -484,6 +486,50 @@ class AdaptiveVocabularyApp:
             config.ui("Về hôm nay", "Back"),
             celebrate=True,
         )
+        self._sentence_cta = None
+        if callable(self.on_sentence_practice):
+            try:
+                from adaptive_study import adaptive_integration_enabled
+
+                allow = adaptive_integration_enabled()
+            except Exception:
+                allow = False
+            if allow:
+                import customtkinter as ctk
+                from ctk_keyboard import bind_activation
+
+                # Parent must match continue_button so packing order stays valid.
+                parent = self.shell.continue_button.master
+                button = ctk.CTkButton(
+                    parent,
+                    text=config.ui(
+                        "Luyện một câu (tuỳ chọn)",
+                        "Practice a sentence (optional)",
+                    ),
+                    command=self._open_sentence_practice,
+                    height=36,
+                    corner_radius=12,
+                    fg_color=ui_foundation.COLOR_SOFT_GREEN,
+                    hover_color="#D7E8DC",
+                    text_color=ui_foundation.COLOR_TEXT,
+                    font=ctk.CTkFont(family="Segoe UI", size=14, weight="bold"),
+                )
+                button.pack(fill=tk.X, pady=(8, 0), before=self.shell.continue_button)
+                bind_activation(button)
+                self._sentence_cta = button
+
+    def _open_sentence_practice(self) -> None:
+        if not callable(self.on_sentence_practice):
+            return
+        if not self._binding_current():
+            return
+        if self._phase != "complete":
+            return
+        callback = self.on_sentence_practice
+        # Signal sentence preference before completion so StudyMaster defers Reading.
+        callback()
+        # Then finish vocab completion without scheduling competing activities.
+        self._close_complete()
 
     def _close_practice_store(self) -> None:
         store = self.practice_store
