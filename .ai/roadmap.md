@@ -5,7 +5,7 @@ Directional plan — **not** a rigid release commitment. Update when phases comp
 ## Latest operational checkpoint — 2026-11-28
 
 - **Phase 19.5 Sentence Practice and Grammar Companion is the next product priority.** It waits for a separate Architect brief.
-- **Phase 19.4C is closed and merged, and it is unreleased.** Opt-in isolated Adaptive Study on FreeHome/StudyMaster. Notes: [PHASE-19.4C-adaptive-study-integration.md](plans/PHASE-19.4C-adaptive-study-integration.md).
+- **Phase 19.4C is closed and merged, and it is unreleased.** PR #38, merge `55a1efc9b6b9d76f621b2e4f7740c3470ac77192`. Opt-in isolated Adaptive Study on FreeHome/StudyMaster. Notes: [PHASE-19.4C-adaptive-study-integration.md](plans/PHASE-19.4C-adaptive-study-integration.md).
 - **Phase 19.4B is closed and merged, and it is unreleased.** PR #36, merge `91d3c60f59c5d26d321433a9334c6af31e09c1a5`. ADR-026 is Accepted. Notes: [PHASE-19.4B-practice-records.md](plans/PHASE-19.4B-practice-records.md).
 - **Phase 19.4A is closed and merged, and it is unreleased.** PR #34, merge `e33373110544a1ca4fca6905b8741d47e4932fc4`. Notes: [PHASE-19.4A-adaptive-vocabulary.md](plans/PHASE-19.4A-adaptive-vocabulary.md).
 - **Phase 19.3 is closed.** Merged by PR #32 at `7aedf7a423d2ef244ce37b5d3f348c7f75ed0241`. Local Windows speech is in source. Not in the public v1.5.0 download.
