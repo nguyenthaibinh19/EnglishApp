@@ -89,7 +89,7 @@ The canonical loop is [`agent_playbook/AI_AGENT_WORKFLOW.md`](agent_playbook/AI_
 | [procedures/SYNC_DB_OPERATIONS.md](procedures/SYNC_DB_OPERATIONS.md) | Sync backup/restore and activation checklist (not executed) |
 | [plans/PHASE-18B.3-production-readiness.md](plans/PHASE-18B.3-production-readiness.md) | Phase 18B.3 production-readiness plan (Accepted; `97f7b25`) |
 | [plans/AI-TOOLCHAIN-SECURITY-AND-LOCAL-MEMORY.md](plans/AI-TOOLCHAIN-SECURITY-AND-LOCAL-MEMORY.md) | Proposed third-party skills and local memory. Not audited. Not authorized for installation. |
-| [plans/PHASE-19.4B-practice-records.md](plans/PHASE-19.4B-practice-records.md) | Practice records. Ready for review. Not merged. Not in v1.5.0. |
+| [plans/PHASE-19.4B-practice-records.md](plans/PHASE-19.4B-practice-records.md) | Practice records. Merged and unreleased. ADR-026 Accepted. Not in v1.5.0. |
 | [plans/PHASE-19.4A-adaptive-vocabulary.md](plans/PHASE-19.4A-adaptive-vocabulary.md) | Adaptive vocabulary preview. Merged and unreleased. Not in v1.5.0. |
 | [procedures/](procedures/) | How-to checklists |
 | [procedures/HOW_TO_UPDATE_PROJECT_MEMORY.md](procedures/HOW_TO_UPDATE_PROJECT_MEMORY.md) | When/how to update `.ai/` memory |

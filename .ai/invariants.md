@@ -78,6 +78,9 @@ Near answers and hint-assisted exact answers are **non-mastered**. Do not casual
 - A practice row must not call `Progress.record`, change SRS, clear Mistake Book attention, or enqueue a Cloud Sync progress event.
 - Independent recall remains the only vocabulary path that appends a `LearningAttempt`.
 - Guest practice is not imported into an account. An exact unaided attempt still outranks assisted practice for the next start, and assisted success does not make a non-mastered word mastered.
+- Practice that is older than, or equal to, the latest independent attempt cannot override that attempt's starting-level evidence.
+- Observable error classes stay conservative: `near_match` and `incorrect_answer`. Do not invent unsupported linguistic diagnoses.
+- The practice store refuses production AppData, protected RC data, and recovery directories for every runtime identity.
 
 ## Mistake Book
 
