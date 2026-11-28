@@ -5,22 +5,25 @@ Rolling coordination checkpoint. Product position is [current_state.md](../curre
 ## 1. Checkpoint metadata
 
 - Written: 2026-11-28.
-- Tag: `APP_19D5A_CLOSED_SENTENCE_PRACTICE`. Phase 19.5A Sentence Practice and Grammar Companion is closed. Merge PR [#40](https://github.com/nguyenthaibinh19/EnglishApp/pull/40) at `5812be03feb507e4656c78e5c157f80f12f42a96`. Closeout tip `4b76083c5d276f19a26c590f051bad3e9bda027e`. R1 accepted checkpoint `ad169f871181a0525f0e1145ed115c200272ddb1`. Architect: `APP_19D5A_R1_ACCEPTED_FOR_CLOSEOUT`.
-- Prior closed: `APP_19D4C_ARCHITECT_ACCEPTED_CLOSED` / Phase 19.4C merge PR [#38](https://github.com/nguyenthaibinh19/EnglishApp/pull/38).
-- Public release remains v1.5.0. Phase 19 UI/audio/adaptive/practice/19.5A are not in that download.
+- Tag: `APP_19D5B_CLOSED_STRUCTURED_FEEDBACK_SENTENCE_SKILL`. Phase 19.5B Structured AI Feedback and Persistent Sentence Skill is closed. ADR-027 Accepted. Merged, unreleased development functionality.
+- Prior closed: `APP_19D5A_CLOSED_SENTENCE_PRACTICE` / Phase 19.5A merge PR [#40](https://github.com/nguyenthaibinh19/EnglishApp/pull/40).
+- Public release remains v1.5.0. Phase 19 UI/audio/adaptive/practice/19.5A/19.5B are not in that download.
 - 18C.1–18C.3B remain CLOSED. 18B.10A **AUDIT ACCEPTED, IMPLEMENTATION DEFERRED.** 18B.9 **PAUSED.** Staging **NOT STARTED.**
 - Taste Skill and AI Memory remain **PROPOSED — NOT AUTHORIZED FOR INSTALLATION.**
+- Ecosystem: `C-APP-AI-001` v0.2.0 unchanged. Deployed `/api/grade` unchanged. No private AI repo changes. `LocalAIProvider` still **NOT AUTHORIZED**.
 
 ## 2. Evidence
 
-- Phase 19.5A: [PHASE-19.5A-sentence-practice.md](../plans/PHASE-19.5A-sentence-practice.md). Activation: `LG_ADAPTIVE_STUDY=1` + isolated `LG_DATA_DIR` + `LOCK_SCREEN=0`. Demo root `D:\EnglishApp\.local\19d5a-preview`. Focused tests: `tests/test_sentence_practice.py` (**26 passed**). Adjacent adaptive suite (**40 passed**). Combined **66 passed**.
-- Phase 19.4C: [PHASE-19.4C-adaptive-study-integration.md](../plans/PHASE-19.4C-adaptive-study-integration.md).
+- Phase 19.5B: [PHASE-19.5B-structured-feedback-sentence-skill.md](../plans/PHASE-19.5B-structured-feedback-sentence-skill.md). ADR: [ADR-027](../decisions/ADR-027-structured-sentence-feedback-and-skill.md).
+- Activation: `LG_ADAPTIVE_STUDY=1` + isolated `LG_DATA_DIR` + `LOCK_SCREEN=0`. Demo root `D:\EnglishApp\.local\19d5b-preview`.
+- Closeout verification **88 passed** (closeout 10 + feedback 14 + practice 26 + practice_records 8 + adaptive_integration 12 + adaptive_vocabulary 18).
+- Phase 19.5A: [PHASE-19.5A-sentence-practice.md](../plans/PHASE-19.5A-sentence-practice.md).
 
 ## 3. Next authorized action
 
-1. Wait for the Phase 19.5B Structured AI Feedback and Sentence Skill Architect brief. Do not start 19.5B from this checkpoint.
-2. Do not expose sentence practice or Adaptive Study on the installed Study button. Do not rebuild or publish an executable for 19.5A.
-3. Do not introduce persistent SentenceSkillRecord, schema migration, Cloud Sync sentence events, or a Grammar Library browser without a new brief.
+1. Wait for the Phase 19.6 Library, Progress and Settings Architect brief. Do not start 19.6 from this checkpoint.
+2. Do not expose sentence practice or Adaptive Study on the installed Study button. Do not rebuild or publish an executable for 19.5B.
+3. Do not sync SentenceSkillRecord, migrate `account_study.db`, change deployed `/api/grade`, or open a Grammar Library browser without a new brief.
 4. Do not install Taste Skill or AI Memory. Leave Phase 18 safety decisions closed.
 
 ## 4. STOP

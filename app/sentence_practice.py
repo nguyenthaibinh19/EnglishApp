@@ -1,9 +1,10 @@
-"""Progressive sentence practice engine (Phase 19.5A R1).
+"""Progressive sentence practice engine (Phase 19.5A / 19.5B).
 
 Four levels: word bank → fill blank → guided writing → independent writing.
 Success advances. Failure steps down one level within the exercise family.
-Session-memory results only — no vocabulary LearningAttempt, Progress, SRS,
-Mistake Book, or outbox writes.
+Session results stay in memory; optional SentenceSkillRecord appends go to a
+separate SQLite file. No vocabulary LearningAttempt, Progress, SRS,
+Mistake Book, PracticeRecord v1, or outbox writes.
 """
 
 from __future__ import annotations
@@ -40,6 +41,14 @@ from sentence_grading import (
     grade_locally,
     join_tokens,
 )
+from sentence_skill_persist import persist_sentence_skill
+from sentence_skill_policy import (
+    SentenceSelectionDecision,
+    pick_exercise_for_decision,
+    select_from_sentence_skill_history,
+    support_rank_for_kind,
+)
+from sentence_skill_store import SentenceSkillStore, SentenceSkillStoreError
 
 MAX_FAILURES_PER_LEVEL = 2
 
@@ -92,6 +101,7 @@ class SentenceSubmitResult:
     tone: str = "bad"
     submission_id: str = ""
     instance_id: str = ""
+    skill_persist_error: str = ""
 
 
 @dataclass
@@ -107,6 +117,9 @@ class SentencePracticeSession:
     abandoned: bool = False
     missing_content: bool = False
     results: List[SentenceSessionResult] = field(default_factory=list)
+    skill_store: Optional[SentenceSkillStore] = None
+    selection_decision: Optional[SentenceSelectionDecision] = None
+    skill_history: Sequence = field(default_factory=tuple)
 
     def __post_init__(self):
         self.session_id = self.session_id or uuid.uuid4().hex
@@ -116,16 +129,21 @@ class SentencePracticeSession:
         self._failures: Dict[str, int] = {kind: 0 for kind in LADDER}
         self._used_exercise_ids: Set[str] = set()
         self._achieved_levels: Set[int] = set()
+        # Session plan: levels that must be achieved this session. Skipped levels
+        # below the adaptive start are not claimed as demonstrated skill.
+        self._session_plan: Set[int] = set(range(self._level, len(LADDER)))
         self._active_family: str = ""
         self._card: Optional[SentenceCard] = None
         self._completion_taken = False
         self._open_submission_id: str = ""
         self._pending_instance_id: str = ""
+        self._last_skill_error = ""
         if not self.pack.exercises:
             self.missing_content = True
             self.finished = False
             self._card = None
             return
+        self._apply_cross_session_selection()
         self._rebuild_card()
         if self._card is None and not self.abandoned:
             self.missing_content = True
@@ -134,15 +152,52 @@ class SentencePracticeSession:
     def from_language(cls, language_code: str = "nl", cefr: str = "A1", **kwargs):
         return cls(load_pack(language_code, cefr), **kwargs)
 
+    def _apply_cross_session_selection(self) -> None:
+        decision = self.selection_decision
+        if decision is None and self.skill_history:
+            decision = select_from_sentence_skill_history(
+                self.skill_history,
+                self.pack.exercises,
+                study_language=self.language_code,
+                content_version=str(self.pack.content_version),
+            )
+            self.selection_decision = decision
+        if decision is None or not decision.family_id:
+            return
+        picked = pick_exercise_for_decision(self.pack.exercises, decision)
+        if picked is None:
+            return
+        self._active_family = decision.family_id
+        rank = support_rank_for_kind(picked.kind)
+        if decision.preferred_support_rank >= 0:
+            rank = decision.preferred_support_rank
+        self._level = max(0, min(rank, len(LADDER) - 1))
+        if decision.preferred_kind in LADDER:
+            self._level = LADDER.index(decision.preferred_kind)
+            self.start_kind = decision.preferred_kind
+        # Rebuild plan from the adaptive start; skipped lower levels stay out.
+        self._session_plan = set(range(self._level, len(LADDER)))
+
     def current_card(self) -> Optional[SentenceCard]:
         return None if self.finished or self.abandoned or self.missing_content else self._card
 
     def levels_achieved(self) -> int:
-        return len(self._achieved_levels)
+        return len(self._achieved_levels & self._session_plan)
+
+    def session_plan_levels(self) -> Tuple[int, ...]:
+        return tuple(sorted(self._session_plan))
+
+    def plan_complete(self) -> bool:
+        return bool(self._session_plan) and self._session_plan.issubset(self._achieved_levels)
 
     def progress_pair(self) -> Tuple[int, int]:
-        """Distinct achieved levels / ladder length. Never exceeds 4/4 via repeats."""
-        return min(self.levels_achieved(), len(LADDER)), len(LADDER)
+        """Achieved planned levels / session plan size. Skipped starts are not counted."""
+        total = max(len(self._session_plan), 1)
+        return min(self.levels_achieved(), total), total
+
+    def _include_level_in_plan(self, level: int) -> None:
+        if 0 <= level < len(LADDER):
+            self._session_plan.add(level)
 
     def rules_for(self, exercise: SentenceExercise) -> Tuple[GrammarRule, ...]:
         mapping = self.pack.rule_map()
@@ -226,7 +281,7 @@ class SentencePracticeSession:
             return False
         if not self.finished:
             return False
-        if self.levels_achieved() < len(LADDER):
+        if not self.plan_complete():
             return False
         self._completion_taken = True
         return True
@@ -292,6 +347,14 @@ class SentencePracticeSession:
             return SentenceSubmitResult(status="stale", tone="near")
         submitted = self._card.exercise
         if grade.status in (STATUS_UNAVAILABLE, STATUS_UNGRADED):
+            skill_error = ""
+            if grade.status == STATUS_UNAVAILABLE:
+                skill_error = self._persist_skill(
+                    exercise=submitted,
+                    grade=grade,
+                    exercise_instance_id=instance_id or self._card.instance_id,
+                    submission_id=submission_id or self._open_submission_id,
+                )
             self.clear_submission(submission_id)
             # Unavailable AI is not a learner failure — no failure count / step-down.
             note = grade.feedback or config.ui(
@@ -307,8 +370,15 @@ class SentencePracticeSession:
                 tone="near",
                 submission_id=submission_id,
                 instance_id=self._card.instance_id,
+                skill_persist_error=skill_error,
             )
         if grade.status == STATUS_PROVISIONAL_CORRECT:
+            skill_error = self._persist_skill(
+                exercise=submitted,
+                grade=grade,
+                exercise_instance_id=instance_id or self._card.instance_id,
+                submission_id=submission_id or self._open_submission_id,
+            )
             self.clear_submission(submission_id)
             return SentenceSubmitResult(
                 status="feedback",
@@ -319,6 +389,7 @@ class SentencePracticeSession:
                 tone="near",
                 submission_id=submission_id,
                 instance_id=self._card.instance_id,
+                skill_persist_error=skill_error,
             )
         if grade.status == STATUS_PROVISIONAL_ACCEPT:
             # May advance; remains provisional in session results (not reviewed_correct).
@@ -368,6 +439,12 @@ class SentencePracticeSession:
                 submission_id=submission_id,
             )
         )
+        skill_error = self._persist_skill(
+            exercise=exercise,
+            grade=grade,
+            exercise_instance_id=instance_id,
+            submission_id=submission_id,
+        )
         self.clear_submission(submission_id)
 
         if grade.status in _LEVEL_ACHIEVED:
@@ -378,23 +455,29 @@ class SentencePracticeSession:
                 self._active_family = exercise.family_id
             advanced = False
             finished = False
-            if self.levels_achieved() >= len(LADDER) and level_index >= len(LADDER) - 1:
+            if self.plan_complete():
                 self.finished = True
                 finished = True
                 self._card = None
-            elif level_index >= len(LADDER) - 1:
-                # Top level achieved — finish only when all levels achieved.
-                if self.levels_achieved() >= len(LADDER):
-                    self.finished = True
-                    finished = True
-                    self._card = None
-                else:
-                    # Should not happen if ladder is climbed sequentially.
-                    self._rebuild_card()
             else:
-                self._level += 1
-                advanced = True
-                self._rebuild_card()
+                # Advance toward the next planned level; never pretend skipped
+                # lower levels were demonstrated.
+                next_level = level_index + 1
+                if next_level < len(LADDER) and next_level in self._session_plan:
+                    self._level = next_level
+                    advanced = True
+                    self._rebuild_card()
+                else:
+                    # Find the lowest unachieved planned level (e.g. after step-down).
+                    remaining = sorted(self._session_plan - self._achieved_levels)
+                    if remaining:
+                        self._level = remaining[0]
+                        advanced = remaining[0] > level_index
+                        self._rebuild_card()
+                    else:
+                        self.finished = True
+                        finished = True
+                        self._card = None
             return SentenceSubmitResult(
                 status="feedback",
                 grade=grade,
@@ -406,6 +489,7 @@ class SentencePracticeSession:
                 tone="ok" if grade.status == STATUS_REVIEWED_CORRECT else "near",
                 submission_id=submission_id,
                 instance_id=instance_id,
+                skill_persist_error=skill_error,
             )
 
         # Incorrect: step down after repeated failure; prefer related family item.
@@ -415,6 +499,7 @@ class SentencePracticeSession:
         stepped = False
         if self._failures[kind] >= MAX_FAILURES_PER_LEVEL and self._level > 0:
             self._level -= 1
+            self._include_level_in_plan(self._level)
             self._failures[LADDER[self._level]] = 0
             stepped = True
             self._rebuild_card()
@@ -431,7 +516,31 @@ class SentencePracticeSession:
             tone="bad",
             submission_id=submission_id,
             instance_id=instance_id,
+            skill_persist_error=skill_error,
         )
+
+    def _persist_skill(
+        self,
+        *,
+        exercise: SentenceExercise,
+        grade: SentenceGrade,
+        exercise_instance_id: str,
+        submission_id: str,
+    ) -> str:
+        self._last_skill_error = ""
+        try:
+            persist_sentence_skill(
+                self.skill_store,
+                session_id=self.session_id,
+                exercise=exercise,
+                grade=grade,
+                exercise_instance_id=exercise_instance_id,
+                submission_id=submission_id,
+            )
+        except SentenceSkillStoreError as error:
+            self._last_skill_error = str(error) or "sentence skill record was not saved"
+            return self._last_skill_error
+        return ""
 
     def continue_after_feedback(self) -> SentenceSubmitResult:
         if self.finished:
@@ -470,6 +579,7 @@ class SentencePracticeSession:
         if current and current.family_id:
             self._active_family = current.family_id
         self._level -= 1
+        self._include_level_in_plan(self._level)
         self._failures[LADDER[self._level]] = 0
         self._rebuild_card()
         return SentenceSubmitResult(

@@ -211,30 +211,35 @@ def load_pack(language_code: str, cefr: str = "A1") -> SentencePack:
 
 
 def future_sentence_skill_record_contract() -> tuple[str, ...]:
-    """Documented before any persistent sentence history is introduced."""
+    """SentenceSkillRecord — implemented locally in Phase 19.5B; cloud sync still future."""
     return (
-        "SentenceSkillRecord is a separate append-only local skill file, not PracticeRecord v1.",
-        "Fields: skill_event_id, exercise_id, family_id, content_version, language_code, kind, "
-        "support_level, outcome, graded_by (local|ai|none), error_class, occurred_at, "
-        "policy_id, format_version.",
+        "SentenceSkillRecord is a separate append-only local skill file, not PracticeRecord v1 "
+        "(see sentence_skill_record.py / sentence_skill_store.py).",
+        "Fields: skill_event_id, session_id, exercise_instance_id, submission_id, exercise_id, "
+        "family_id, content_version, format_version, study_language, cefr_level, exercise_kind, "
+        "support_level, outcome, grading_source, error_classification, evidence_status, "
+        "grammar_skill_refs, occurred_at, selection_policy_id.",
         "It must never call Progress.record, change SRS, clear Mistake Book attention, "
         "or enqueue a vocabulary progress outbox event.",
         "AI-graded provisional results stay provisional until a future review workflow "
         "promotes an answer into reviewed content.",
         "Cloud Sync for sentence skill events requires an additive sync design and is "
-        "not authorized in Phase 19.5A.",
+        "not authorized in Phase 19.5B.",
     )
 
 
 def future_ai_feedback_contract_extensions() -> tuple[str, ...]:
-    """Structured feedback beyond the existing GradeResult score/flags."""
+    """Structured feedback — App-domain in 19.5B; wire extension still future."""
     return (
-        "Primary error class enum (spelling, vocabulary, conjugation, word_order, grammar).",
+        "App-domain StructuredSentenceFeedback v1 is validated in sentence_feedback.py.",
+        "Primary error class enum includes conjugation, word_order, article, vocabulary, "
+        "grammar, unknown, unclassified.",
         "Optional corrected_segment distinct from full corrected_sentence.",
         "Optional grammar_rule_id pointer into curated content (never a free-form invented rule).",
         "Confidence / provisional flag so unavailable or uncertain AI feedback is not a "
         "definitive wrong answer.",
-        "These require a versioned GradeResult extension; score alone must not invent classes.",
+        "Deployed GradeResult /api/grade stays unchanged until a shared-contract revision; "
+        "score alone must not invent classes.",
     )
 
 

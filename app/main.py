@@ -1186,9 +1186,50 @@ class StudyMasterApp:
         self._activate(code)
         generation = int(getattr(self, "_account_generation", 0) or 0)
         identity = capture_identity(code, account_generation=generation)
+        skill_store = None
+        skill_history = ()
+        skill_persist_status = "disabled"  # disabled | ok | unavailable
+        skill_persist_note = ""
         try:
-            session = SentencePracticeSession.from_language(code, "A1")
+            from adaptive_study import open_sentence_skill_store
+            from sentence_skill_store import SentenceSkillStoreError, load_sentence_skill_history
+
+            skill_store = open_sentence_skill_store(identity)
+            try:
+                skill_history = tuple(load_sentence_skill_history(skill_store, code))
+                skill_persist_status = "ok"
+            except SentenceSkillStoreError as error:
+                try:
+                    skill_store.close()
+                except Exception:
+                    pass
+                skill_store = None
+                skill_history = ()
+                skill_persist_status = "unavailable"
+                skill_persist_note = str(error) or "sentence skill history unavailable"
         except Exception as error:
+            if skill_store is not None:
+                try:
+                    skill_store.close()
+                except Exception:
+                    pass
+            skill_store = None
+            skill_history = ()
+            skill_persist_status = "unavailable"
+            skill_persist_note = str(error) or "sentence skill store unavailable"
+        try:
+            session = SentencePracticeSession.from_language(
+                code,
+                "A1",
+                skill_store=skill_store,
+                skill_history=skill_history,
+            )
+        except Exception as error:
+            if skill_store is not None:
+                try:
+                    skill_store.close()
+                except Exception:
+                    pass
             self.guard.show_info(
                 config.ui("Chưa có bài câu", "No sentence pack"),
                 config.ui(
@@ -1200,16 +1241,41 @@ class StudyMasterApp:
                 self._resume_study_after_sentence(code, generation)
             return
 
+        if skill_persist_status == "unavailable":
+            self.guard.show_info(
+                config.ui("Lịch sử kỹ năng câu", "Sentence skill history"),
+                config.ui(
+                    "Không mở được lưu lịch sử kỹ năng câu. Bạn vẫn luyện được, "
+                    "nhưng lịch sử không được lưu trong phiên này.\n"
+                    f"{skill_persist_note}",
+                    "Sentence skill history could not be opened. You can still practice, "
+                    "but history will not be saved in this session.\n"
+                    f"{skill_persist_note}",
+                ),
+            )
+
         self._suspend_for_activity()
         grade_service = build_demo_grade_service("accept_valid")
         if after_vocab:
             self._resume_after_sentence = (code, generation)
             self._sentence_resume_done = False
+        self._active_sentence_skill_store = skill_store
 
         def _still() -> bool:
             return identity.still_current(account_generation=self._account_generation)
 
+        def _close_sentence_skill_store() -> None:
+            store = getattr(self, "_active_sentence_skill_store", None)
+            self._active_sentence_skill_store = None
+            if store is None:
+                return
+            try:
+                store.close()
+            except Exception:
+                pass
+
         def _on_sentence_done() -> None:
+            _close_sentence_skill_store()
             if not _still():
                 return
             self._refresh_status()
@@ -1218,11 +1284,20 @@ class StudyMasterApp:
             )
 
         def _on_sentence_leave() -> None:
+            _close_sentence_skill_store()
             if not _still():
                 return
             self.root.after(
                 50, lambda c=code, g=generation: self._resume_study_after_sentence(c, g)
             )
+
+        def _on_standalone_done() -> None:
+            _close_sentence_skill_store()
+            if _still():
+                self._refresh_status()
+
+        def _on_standalone_leave() -> None:
+            _close_sentence_skill_store()
 
         def build(window):
             window.bind("<Destroy>", self._on_sentence_destroy, add="+")
@@ -1234,14 +1309,13 @@ class StudyMasterApp:
                     getattr(self, "_account_generation", 0) or 0
                 ),
                 grade_service=grade_service,
-                on_completed=_on_sentence_done if after_vocab else (
-                    lambda: None if not _still() else self._refresh_status()
-                ),
-                on_leave=_on_sentence_leave if after_vocab else (lambda: None),
+                on_completed=_on_sentence_done if after_vocab else _on_standalone_done,
+                on_leave=_on_sentence_leave if after_vocab else _on_standalone_leave,
                 locked=False,
             )
 
         def failed(error):
+            _close_sentence_skill_store()
             self._report_activity_launch_error("Sentence Practice", error)
             self._resume_after_activity()
             if after_vocab:
@@ -1296,6 +1370,13 @@ class StudyMasterApp:
     def _on_sentence_destroy(self, event):
         if event.widget is not self.sentence_window:
             return
+        store = getattr(self, "_active_sentence_skill_store", None)
+        self._active_sentence_skill_store = None
+        if store is not None:
+            try:
+                store.close()
+            except Exception:
+                pass
         code = str(getattr(self, "_sentence_binding_language", "") or "")
         generation = int(getattr(self, "_account_generation", 0) or 0)
         resume = self._resume_after_sentence

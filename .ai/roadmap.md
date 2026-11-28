@@ -5,28 +5,29 @@ Directional plan — **not** a rigid release commitment. Update when phases comp
 ## Latest operational checkpoint — 2026-11-28
 
 - **Phase 19.5A Progressive Sentence Practice is closed and merged, and it is unreleased.** Tag `APP_19D5A_CLOSED_SENTENCE_PRACTICE`. PR [#40](https://github.com/nguyenthaibinh19/EnglishApp/pull/40), merge `5812be03feb507e4656c78e5c157f80f12f42a96`. Notes: [PHASE-19.5A-sentence-practice.md](plans/PHASE-19.5A-sentence-practice.md). Dutch A1 author-curated / pending expert validation. Not in v1.5.0.
-- **Phase 19.5B Structured AI Feedback and Sentence Skill is the next learning priority.** It waits for a separate Architect brief.
+- **Phase 19.5B Structured AI Feedback and Sentence Skill is closed and merged, and it is unreleased.** Tag `APP_19D5B_CLOSED_STRUCTURED_FEEDBACK_SENTENCE_SKILL`. Notes: [PHASE-19.5B-structured-feedback-sentence-skill.md](plans/PHASE-19.5B-structured-feedback-sentence-skill.md). ADR-027 Accepted. Not in v1.5.0.
+- **Phase 19.6 Library, Progress and Settings is the next product priority.** It waits for a separate Architect brief.
 - **Phase 19.4C is closed and merged, and it is unreleased.** PR #38, merge `55a1efc9b6b9d76f621b2e4f7740c3470ac77192`. Opt-in isolated Adaptive Study on FreeHome/StudyMaster. Notes: [PHASE-19.4C-adaptive-study-integration.md](plans/PHASE-19.4C-adaptive-study-integration.md).
 - **Phase 19.4B is closed and merged, and it is unreleased.** PR #36, merge `91d3c60f59c5d26d321433a9334c6af31e09c1a5`. ADR-026 is Accepted. Notes: [PHASE-19.4B-practice-records.md](plans/PHASE-19.4B-practice-records.md).
 - **Phase 19.4A is closed and merged, and it is unreleased.** PR #34, merge `e33373110544a1ca4fca6905b8741d47e4932fc4`. Notes: [PHASE-19.4A-adaptive-vocabulary.md](plans/PHASE-19.4A-adaptive-vocabulary.md).
 - **Phase 19.3 is closed.** Merged by PR #32 at `7aedf7a423d2ef244ce37b5d3f348c7f75ed0241`. Local Windows speech is in source. Not in the public v1.5.0 download.
 - **Phase 19.2B UI is merged** (PR #31, `5f8f3c0`) and is also not in v1.5.0. The Tkinter fallback branch stays unmerged.
-- **Next review:** Phase 19.5B, after a separate Architect brief. Do not replace the legacy quiz on the installed Study button.
+- **Next review:** Phase 19.6, after a separate Architect brief. Do not replace the legacy quiz on the installed Study button.
 - 18C.1, 18C.2, and 18C.3B remain **CLOSED**. 18B.10A remains **AUDIT ACCEPTED, IMPLEMENTATION DEFERRED**. 18B.10B–E remain **NOT AUTHORIZED**.
 - **18B.9 PAUSED, NOT CLOSED.** Google Drive stays **NOT CONFIGURED**. Staging deployment **NOT STARTED**. The 2026-11-24 note that production Cloud Sync was ON for the pilot was not rechecked on 2026-11-27. The November 25 backup-timer elapse is historical.
 - Taste Skill and AI Memory are **PROPOSED — NOT AUDITED — NOT AUTHORIZED FOR INSTALLATION**. See [AI-TOOLCHAIN-SECURITY-AND-LOCAL-MEMORY.md](plans/AI-TOOLCHAIN-SECURITY-AND-LOCAL-MEMORY.md).
 
 ### Next learning work, from the accepted Phase 19.1 specification
 
-Phase 19.4A–C and 19.5A implement items 1–5 as merged, unreleased unlocked preview. Items 6–8 stay unauthorized. Structured AI feedback / persistent sentence skill wait for 19.5B.
+Phase 19.4A–C and 19.5A–B implement items 1–5 as merged, unreleased unlocked preview. Items 6–8 stay unauthorized pending Phase 19.6.
 
 1. Adaptive Vocabulary: introduction, multiple choice, missing letters, assisted recall, and independent typing. Merged at `e33373110544a1ca4fca6905b8741d47e4932fc4`. Not in the installed v1.5.0 download. The production study button still opens the legacy quiz.
 2. Assistance after repeated failures. Two failures at the same step move to an easier vocabulary exercise. This is a session policy, not an SRS formula.
 3. Separate exercise progress from verified SRS mastery. Phase 19.4B stores recognition and assisted events in `practice_records.db`. Merged at `91d3c60f59c5d26d321433a9334c6af31e09c1a5`. Those rows still do not write SRS. Only independent recall uses the existing attempt path. Not in the installed v1.5.0 download.
-4. Progressive sentence exercises: word bank, fill-in-the-blank, guided writing, and independent writing. **19.5A closed** — Dutch A1 author-curated pack; session-memory only.
-5. Expandable Grammar Companion with curated grammar rules and provisional simulated AI adapter outside reviewed answers. **19.5A closed** — no Grammar Library browser yet.
-6. Improved feedback and session completion presentation.
-7. Further Library, Progress, and Settings redesign.
+4. Progressive sentence exercises: word bank, fill-in-the-blank, guided writing, and independent writing. **19.5A/B closed** — Dutch A1 author-curated pack; local SentenceSkillRecord + cross-session scaffolding.
+5. Expandable Grammar Companion with curated grammar rules and provisional simulated AI adapter outside reviewed answers. **19.5A/B closed** — structured segments + validated rule references — no Grammar Library browser yet.
+6. Improved feedback and session completion presentation. **Partially addressed in 19.5B; further Library/Progress/Settings wait for 19.6.**
+7. Further Library, Progress, and Settings redesign. **Phase 19.6 — pending Architect brief.**
 8. Mascot and animation stay deferred.
 
 ## Historical operational checkpoint — 2026-11-24

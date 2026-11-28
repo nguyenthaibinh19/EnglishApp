@@ -431,7 +431,18 @@ class SentencePracticeApp:
                     error_hint=grade.error_hint,
                     diagnosis_certain=grade.diagnosis_certain,
                     allow_ai_suggestion=False,
+                    structured=getattr(grade, "structured", None),
                 )
+        if getattr(result, "skill_persist_error", ""):
+            # Honest storage failure — never silent.
+            note = config.ui(
+                "Không lưu được lịch sử kỹ năng câu. Bạn vẫn có thể tiếp tục.",
+                "Sentence skill history could not be saved. You can continue.",
+            )
+            feedback = f"{feedback}\n{note}" if feedback else note
+            self.shell.show_feedback(
+                feedback, tone, offer_sentence=False, offer_hear=plan.allowed
+            )
         if plan.allowed:
             self.slow_hear_button.pack(pady=(4, 0))
         else:
@@ -528,6 +539,37 @@ class SentencePracticeApp:
             justify="left",
             anchor="w",
         ).pack(fill=tk.X, padx=12, pady=(0, 8))
+        if view.original_segment or view.corrected_segment:
+            seg = ctk.CTkFrame(box, fg_color=ui_foundation.COLOR_SOFT_GREEN, corner_radius=0)
+            seg.pack(fill=tk.X, padx=12, pady=(0, 8))
+            if view.original_segment:
+                ctk.CTkLabel(
+                    seg,
+                    text=config.ui(
+                        f"Đoạn gốc: {view.original_segment}",
+                        f"Original: {view.original_segment}",
+                    ),
+                    font=ctk.CTkFont(family="Segoe UI", size=13, weight="bold"),
+                    text_color="#8B3A3A",
+                    fg_color="#F3E4E4",
+                    corner_radius=8,
+                    padx=8,
+                    pady=4,
+                ).pack(side=tk.LEFT, padx=(0, 6))
+            if view.corrected_segment:
+                ctk.CTkLabel(
+                    seg,
+                    text=config.ui(
+                        f"Sửa: {view.corrected_segment}",
+                        f"Correction: {view.corrected_segment}",
+                    ),
+                    font=ctk.CTkFont(family="Segoe UI", size=13, weight="bold"),
+                    text_color="#1F4E79",
+                    fg_color="#DCE8F5",
+                    corner_radius=8,
+                    padx=8,
+                    pady=4,
+                ).pack(side=tk.LEFT, padx=(0, 6))
         if view.components:
             row = ctk.CTkFrame(box, fg_color=ui_foundation.COLOR_SOFT_GREEN, corner_radius=0)
             row.pack(fill=tk.X, padx=12, pady=(0, 8))
@@ -544,25 +586,42 @@ class SentencePracticeApp:
                 )
                 chip.pack(side=tk.LEFT, padx=(0, 6))
         if view.corrected:
+            label = config.ui(f"Câu đúng: {view.corrected}", f"Corrected: {view.corrected}")
+            if view.model_suggestion:
+                label = config.ui(
+                    f"Gợi ý mô hình (chưa duyệt): {view.corrected}",
+                    f"Model suggestion (not reviewed): {view.corrected}",
+                )
             ctk.CTkLabel(
                 box,
-                text=config.ui(f"Câu đúng: {view.corrected}", f"Corrected: {view.corrected}"),
+                text=label,
                 font=ctk.CTkFont(family="Segoe UI", size=13, weight="bold"),
-                text_color=ui_foundation.COLOR_PRIMARY,
+                text_color=(
+                    "#6B4E16" if view.model_suggestion else ui_foundation.COLOR_PRIMARY
+                ),
                 fg_color=ui_foundation.COLOR_SOFT_GREEN,
                 wraplength=460,
                 justify="left",
                 anchor="w",
             ).pack(fill=tk.X, padx=12, pady=(0, 6))
-        for example in view.examples:
+        if view.examples:
             ctk.CTkLabel(
                 box,
-                text=f"• {example}",
-                font=ctk.CTkFont(family="Segoe UI", size=12),
-                text_color="#5C7268",
+                text=config.ui("Ví dụ đã duyệt:", "Reviewed examples:"),
+                font=ctk.CTkFont(family="Segoe UI", size=12, weight="bold"),
+                text_color="#2C654E",
                 fg_color=ui_foundation.COLOR_SOFT_GREEN,
                 anchor="w",
-            ).pack(fill=tk.X, padx=12, pady=(0, 2))
+            ).pack(fill=tk.X, padx=12, pady=(4, 2))
+            for example in view.examples:
+                ctk.CTkLabel(
+                    box,
+                    text=f"• {example}",
+                    font=ctk.CTkFont(family="Segoe UI", size=12),
+                    text_color="#5C7268",
+                    fg_color=ui_foundation.COLOR_SOFT_GREEN,
+                    anchor="w",
+                ).pack(fill=tk.X, padx=12, pady=(0, 2))
         self.grammar_host.pack(fill=tk.X, before=self.shell.continue_button)
         self.shell.continue_button.configure(state="normal")
 
@@ -729,11 +788,22 @@ class SentencePracticeApp:
             return
         self._completion_calls += 1
         self._phase = "closed"
+        self._close_skill_store()
         if callable(self.on_completed):
             self.on_completed()
         try:
             self.window.destroy()
         except tk.TclError:
+            pass
+
+    def _close_skill_store(self) -> None:
+        store = getattr(self.session, "skill_store", None)
+        if store is None:
+            return
+        self.session.skill_store = None
+        try:
+            store.close()
+        except Exception:
             pass
 
     def _force_leave(self) -> None:
@@ -744,6 +814,7 @@ class SentencePracticeApp:
         self._phase = "closed"
         if not self.session.abandoned:
             self.session.abandon()
+        self._close_skill_store()
         if callable(self.on_leave):
             self.on_leave()
         try:
@@ -766,6 +837,7 @@ class SentencePracticeApp:
     def _on_destroy(self, event=None) -> None:
         if event is not None and event.widget is not self.window:
             return
+        self._close_skill_store()
 
 
 def _stage_label(kind: str) -> str:
