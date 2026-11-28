@@ -42,9 +42,10 @@ Do not conflate “due now” with “requeued later in this session”. See [AD
 
 ## Practice records
 
-- Append-only recognition and assisted vocabulary events in a separate `practice_records.db`. See [ADR-026](decisions/ADR-026-practice-records.md).
+- Append-only recognition and assisted vocabulary events in a separate `practice_records.db`. ADR-026 is Accepted. See [ADR-026](decisions/ADR-026-practice-records.md).
 - Not a `LearningAttempt`, not an SRS review, and not a Cloud Sync progress event.
 - Guest and account files stay separate. The file is not `account_study.db`.
+- Observable error classes are `near_match` and `incorrect_answer`. Practice older than the latest independent attempt does not override that attempt.
 
 ## MistakeBook
 
