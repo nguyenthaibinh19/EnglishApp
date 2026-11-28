@@ -1,9 +1,17 @@
 """Conservative cross-session sentence exercise selection (Phase 19.5B).
 
-Deterministic. No numeric mastery formula. Provisional AI evidence does not
-drive family/support selection. Prefer related scaffolding for a demonstrated
-difficulty. Evidence precedence: reviewed/reliable local incorrect (most recent)
-over older correct; provisional ignored for selection.
+Deterministic initial policy (no mastery formula):
+
+1. Consider only selection-relevant, reviewed/reliable-local evidence within
+   RECENCY_DAYS, matching study language and content version.
+2. Exclude provisional AI, unsupported/invalid rows, and future-dated timestamps.
+3. For each family, the most recent reliable incorrect at support rank S motivates
+   scaffolding at max(0, S-1) unless a later reviewed correct at the same or
+   harder support rank (compatible family/skill) resolves that difficulty.
+4. An easier-level assisted/reviewed success does NOT clear harder-level difficulty.
+5. Fallback: empty family → default pack order.
+
+Provisional AI evidence never drives family/support selection.
 """
 
 from __future__ import annotations
@@ -25,6 +33,7 @@ from sentence_skill_record import (
     EVIDENCE_RELIABLE_LOCAL,
     EVIDENCE_REVIEWED,
     OUTCOME_INCORRECT,
+    OUTCOME_REVIEWED_CORRECT,
     POLICY_FAMILY_SUPPORT_V1,
     SentenceSkillRecord,
     outcome_affects_selection,
@@ -77,7 +86,44 @@ def _within_recency(record: SentenceSkillRecord, *, now: Optional[datetime] = No
         occurred = parse_utc(record.occurred_at)
     except Exception:
         return False
+    if occurred > moment + timedelta(minutes=5):
+        # Future-dated evidence is excluded from adaptation.
+        return False
     return occurred >= moment - timedelta(days=RECENCY_DAYS)
+
+
+def _skill_compatible(incorrect: SentenceSkillRecord, success: SentenceSkillRecord) -> bool:
+    if incorrect.family_id != success.family_id:
+        return False
+    left = set(incorrect.grammar_skill_refs)
+    right = set(success.grammar_skill_refs)
+    if left and right and left.isdisjoint(right):
+        return False
+    return True
+
+
+def _difficulty_resolved(
+    incorrect: SentenceSkillRecord,
+    history_newest_first: Sequence[SentenceSkillRecord],
+) -> bool:
+    """True when a later reviewed correct at same/harder support clears this incorrect."""
+    incorrect_time = parse_utc(incorrect.occurred_at)
+    for row in history_newest_first:
+        if row.skill_event_id == incorrect.skill_event_id:
+            continue
+        if row.outcome != OUTCOME_REVIEWED_CORRECT:
+            continue
+        if row.evidence_status != EVIDENCE_REVIEWED:
+            continue
+        if not _skill_compatible(incorrect, row):
+            continue
+        if parse_utc(row.occurred_at) <= incorrect_time:
+            continue
+        # Easier success must not clear harder difficulty.
+        if int(row.support_level) < int(incorrect.support_level):
+            continue
+        return True
+    return False
 
 
 def select_from_sentence_skill_history(
@@ -88,10 +134,7 @@ def select_from_sentence_skill_history(
     content_version: str = "",
     now: Optional[datetime] = None,
 ) -> SentenceSelectionDecision:
-    """Pick a related family and lower/equal ladder step for a recent reliable struggle.
-
-    Fallback: empty family → caller uses default pack order.
-    """
+    """Pick related family scaffolding for an unresolved reliable struggle."""
     code = str(study_language or "").strip().lower()
     usable = [
         row
@@ -103,14 +146,16 @@ def select_from_sentence_skill_history(
     ]
     usable.sort(key=lambda row: (parse_utc(row.occurred_at), row.skill_event_id), reverse=True)
 
-    # Most recent incorrect with a family wins; later correct on same family clears it.
     seen_families: set[str] = set()
     for row in usable:
         family = str(row.family_id or "").strip()
         if not family or family in seen_families:
             continue
-        seen_families.add(family)
         if row.outcome != OUTCOME_INCORRECT:
+            # Do not treat a recent easy success as "family cleared".
+            continue
+        seen_families.add(family)
+        if _difficulty_resolved(row, usable):
             continue
         preferred_rank = max(0, int(row.support_level) - 1)
         preferred_kind = kind_for_support_rank(preferred_rank)
@@ -140,6 +185,17 @@ def select_from_sentence_skill_history(
         preferred_kind="",
         preferred_support_rank=-1,
         reason="no selection-relevant evidence; default pack order",
+    )
+
+
+def deterministic_initial_policy_notes() -> tuple[str, ...]:
+    return (
+        "Policy id: sentence-skill-family-support-v1.",
+        "Recency window: 14 days; future-dated rows excluded.",
+        "Provisional AI and non-selection outcomes never drive adaptation.",
+        "Harder-level incorrect remains until same/harder reviewed correct resolves it.",
+        "Easier assisted/reviewed success does not clear harder difficulty.",
+        "No numeric mastery formula.",
     )
 
 

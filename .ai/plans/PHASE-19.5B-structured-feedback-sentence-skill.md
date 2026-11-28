@@ -1,11 +1,12 @@
 # Phase 19.5B — Structured AI Feedback and Persistent Sentence Skill
 
-**Status:** Ready for review (`APP_19D5B_STRUCTURED_FEEDBACK_SENTENCE_SKILL_READY_FOR_REVIEW`)  
+**Status:** Closed (`APP_19D5B_CLOSED_STRUCTURED_FEEDBACK_SENTENCE_SKILL`)  
 **Branch:** `phase19.5b/structured-feedback-sentence-skill`  
 **Base main:** `e37fea87cedb38466d804e2294d3eb1b0a4136c7`  
-**Review commit:** `036bc4ee963afb06a108142dc0cfbd722e842d68`  
-**Architect:** `APP_19D5A_ARCHITECT_ACCEPTED_CLOSED`  
-**ADR:** [ADR-027](../decisions/ADR-027-structured-sentence-feedback-and-skill.md)
+**Review checkpoint:** `b37afac6a7627e9f9d9191e59fe08fc9f6220a95`  
+**Architect:** `APP_19D5B_FOUNDATION_ACCEPTED_CLOSEOUT_CORRECTIONS_REQUIRED`  
+**ADR:** [ADR-027](../decisions/ADR-027-structured-sentence-feedback-and-skill.md) (Accepted)  
+**Merged, unreleased development functionality.** Not in v1.5.0.
 
 ## Objective
 
@@ -16,75 +17,63 @@ Make sentence feedback structured, evidence-aware, and reusable for future perso
 ### A. Structured feedback contract (App-domain)
 
 - `app/sentence_feedback.py` — `StructuredSentenceFeedback` format version **1**
-- Fields: format version, grading status, grading source/provenance, primary error class (incl. unknown/unclassified), original/corrected segments, corrected sentence, optional grammar rule id, learner-facing explanation, provisional + certainty
-- Distinguishes reviewed local matches, reliably detected local errors, AI-provisional acceptance/corrections, and ungraded/unavailable
+- Trust-boundary validation: exact types, enums, segment direction, correction context, source/status/provisional semantics
 - **Does not change** `GradeResult` meaning or required fields
-- Future `/api/grade` transport mapping documented only (`future_structured_feedback_transport_mapping`)
+- One GradeResult per submission; structured mapped for compatibility; contradictions discarded
+- Future `/api/grade` transport mapping documented only
 
-### B. Trust-boundary validation
+### B–C. Session plan + Grammar Companion
 
-- Schema/version, types, finite certainty in [0,1], supported error classes, bounded lengths
-- Original segment must correspond to the submitted answer
-- Grammar rule ids must be in the exercise/pack allow-list
-- No silent boolean/score coercion; no error class invented from score alone
-- Instruction-like payloads rejected; invalid/uncertain feedback degrades gracefully
-- AI output never mutates accepted answers, grammar packs, or vocabulary data
-
-### C. Grammar Companion integration
-
-- Segment highlights (original vs correction)
-- Curated rule when validated; general guidance otherwise
-- Provisional diagnosis labeled; model suggestions visually distinct from reviewed examples
-- Check / Continue / easier-related recovery preserved
+- Explicit session plan from adaptive start; skipped levels not claimed as demonstrated
+- Progress = achieved planned levels / plan size; finite completion from Fill Blank / Guided starts
+- Segment highlights; curated rule when validated; model suggestions distinct from reviewed examples
 - Dutch A1 remains pending expert validation
 
-### D–E. SentenceSkillRecord + SQLite
+### D–E. SentenceSkillRecord + selection
 
-- Separate append-only `sentence_skill_records.db` under guest/account data root
-- No raw learner sentences, raw AI responses, or corrected text
-- Idempotent submission insert; contradictory replay rejected; transactional writes; parsed UTC order
-- Account / guest / language isolation; refuse production AppData / RC / recovery
-- No automatic retention deletion; growth/retention/deletion documented in ADR
-- No guest→account import; no `account_study.db` migration
+- Append-only `sentence_skill_records.db`; no raw answers/AI text
+- Policy `sentence-skill-family-support-v1`: harder incorrect not cleared by easier success
+- Unavailable storage distinct from disabled; honest feedback; store closed on lifecycle events
 
-### F. Cross-session selection
+### F. AI compatibility
 
-- Policy `sentence-skill-family-support-v1`: recent reliable local incorrect → related family scaffolding (lower ladder kind)
-- Provisional AI evidence does not drive selection
-- At most one grammar skill ref recorded per incorrect event
-- No numeric mastery formula
+- Optional duck-typed structured capability; old providers need no new ABC method
+- No live AI; no LocalAIProvider; `C-APP-AI-001` v0.2.0 unchanged
 
-### G. AI compatibility
+## Closeout corrections
 
-- Optional duck-typed `supports_structured_feedback` / `structured_sentence_feedback` on Fake provider
-- Old providers need no new ABC method; unsupported capability degrades from `GradeResult`
-- No live AI; no LocalAIProvider; no hidden cloud fallback
-- `C-APP-AI-001` v0.2.0 and deployed `/api/grade` unchanged
+- Session completion for nonzero adaptive starts
+- Strict feedback field types and AI/local consistency
+- Selection resolution requires same/harder reviewed correct
+- Store init failure + resource cleanup
+- Grammar Companion rule correspondence
 
 ## Demo evidence
 
 Root: `D:\EnglishApp\.local\19d5b-preview`  
 Script: `scripts/sentence_skill_feedback_demo.py`  
-Evidence JSON: `sentence-skill-evidence.json`  
-Screenshots: conjugation structured feedback, grammar segments, restart scaffolding, provisional AI accept.
+Restart: conjugation miss → reopen selects `word_bank` / `nl-a1-family-lezen-boek`
 
-## Tests
+## Tests (closeout verification)
 
 | Suite | Count |
 | --- | ---: |
+| `tests/test_sentence_skill_closeout.py` | **10** |
 | `tests/test_sentence_skill_feedback.py` | **14** |
-| `tests/test_sentence_practice.py` (adjacent) | **26** |
-| `tests/test_practice_records.py` (adjacent) | **8** |
-| **Total this verification** | **48 passed** |
+| `tests/test_sentence_practice.py` | **26** |
+| `tests/test_practice_records.py` | **8** |
+| `tests/test_adaptive_study_integration.py` | **12** |
+| `tests/test_adaptive_vocabulary.py` | **18** |
+| **Total** | **88 passed** |
 
 ## Production AI requirements (future — not this phase)
 
 1. Shared-contract revision before any additive `structured_feedback` wire field on `/api/grade`.
 2. Server/provider must emit validated format_version + provisional flags; App remains the trust boundary.
 3. No automatic promotion of provisional AI into reviewed answer keys without a content-review workflow.
-4. SentenceSkillRecord cloud sync requires a separate additive sync design (not PracticeRecord, not progress events).
+4. SentenceSkillRecord cloud sync requires a separate additive sync design.
 5. Do not implement LocalAIProvider or silent cloud fallback as part of structured feedback.
 
-## Restrictions honored
+## Next product priority
 
-No production access, no live AI, no deployed API/wire changes, no account_study migration, no server DB changes, no SentenceSkillRecord/PracticeRecord cloud sync, no mastery formula, no Grammar Library browser, no extra language packs, no installed Study-button activation, no locked adaptive activation, no EXE rebuild.
+Phase 19.6 Library, Progress and Settings — pending a separate Architect brief.

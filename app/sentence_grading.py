@@ -266,8 +266,8 @@ def _with_structured(grade: SentenceGrade, exercise: SentenceExercise, learner_a
     from sentence_feedback import feedback_from_local_grade
 
     rule_id = ""
-    if grade.diagnosis_certain and exercise.grammar_rule_ids:
-        # Prefer a single rule matching the error; never invent unrelated refs.
+    if grade.diagnosis_certain and grade.error_hint and exercise.grammar_rule_ids:
+        # Only assign a rule that matches the evidenced error — never the first available.
         from sentence_content import ERROR_RULE_PREFERENCE
 
         preferred = ERROR_RULE_PREFERENCE.get(grade.error_hint, ())
@@ -275,8 +275,9 @@ def _with_structured(grade: SentenceGrade, exercise: SentenceExercise, learner_a
             if any(token in rid for token in preferred):
                 rule_id = rid
                 break
-        if not rule_id and grade.error_hint:
-            rule_id = exercise.grammar_rule_ids[0] if len(exercise.grammar_rule_ids) == 1 else ""
+        if not rule_id and len(exercise.grammar_rule_ids) == 1:
+            # Sole linked rule only when the pack has exactly one and diagnosis is certain.
+            rule_id = exercise.grammar_rule_ids[0]
 
     structured = feedback_from_local_grade(
         status=grade.status,
@@ -498,8 +499,11 @@ class FakeSentenceGradeProvider:
             suggested_sentence="Zij leest een boek.",
         )
 
-    def structured_sentence_feedback(self, request, *, exercise=None):
-        """Optional capability. Not part of AIProvider ABC."""
+    def structured_sentence_feedback(self, request, *, exercise=None, grade_result=None):
+        """Optional capability. Not part of AIProvider ABC.
+
+        When ``grade_result`` is supplied, reuse it — do not issue a second grade call.
+        """
         from sentence_feedback import (
             ERROR_UNKNOWN,
             ERROR_UNCLASSIFIED,
@@ -543,8 +547,24 @@ class FakeSentenceGradeProvider:
                 "provisional": True,
                 "certainty": 0.4,
             }
+        if self.mode == "contradictory_structured":
+            # Intentionally disagrees with a successful GradeResult.
+            return {
+                "format_version": FEEDBACK_FORMAT_VERSION,
+                "grading_status": STATUS_PROVISIONAL_CORRECT,
+                "grading_source": SOURCE_AI,
+                "provenance": "fake-contradictory",
+                "primary_error_class": ERROR_UNKNOWN,
+                "original_segment": "",
+                "corrected_segment": "",
+                "corrected_sentence": "Zij leest een boek.",
+                "grammar_rule_id": "",
+                "explanation": "Contradicts GradeResult accept.",
+                "provisional": True,
+                "certainty": 0.2,
+            }
 
-        result = self.grade_answer(request)
+        result = grade_result if grade_result is not None else self.grade_answer(request)
         problem = _validate_grade_result(result)
         if problem:
             return {
@@ -615,45 +635,31 @@ def _validate_grade_result(result) -> Optional[str]:
     return None
 
 
+def _legacy_status_from_grade_result(result) -> str:
+    score = float(result.score)
+    if result.is_correct_usage and score >= 0.7:
+        return STATUS_PROVISIONAL_ACCEPT
+    return STATUS_PROVISIONAL_CORRECT
+
+
 def grade_with_ai_service(service, exercise: SentenceExercise, learner_answer: str) -> SentenceGrade:
     """Synchronous AI grade through the existing service. No account proxy by default.
 
-    Tries optional structured-feedback capability first; otherwise degrades from
-    GradeResult. Unsupported capability degrades gracefully. Never changes
-    GradeResult required fields or deployed /api/grade.
+    One GradeResult call per submission. Optional structured feedback is derived from
+    that same result (or rejected when contradictory/malformed). Unsupported
+    structured capability degrades from GradeResult. Never changes GradeResult
+    required fields or deployed /api/grade.
     """
     from ai.base import AIError, GradeRequest
     from languages import get_language
     from sentence_feedback import (
+        STATUS_PROVISIONAL_ACCEPT as FB_ACCEPT,
+        STATUS_PROVISIONAL_CORRECT as FB_CORRECT,
+        STATUS_UNGRADED as FB_UNGRADED,
         StructuredFeedbackError,
         feedback_from_grade_result,
         validate_structured_feedback,
     )
-
-    provider = getattr(service, "provider", None)
-    structured = None
-    if provider is not None and getattr(provider, "supports_structured_feedback", False):
-        builder = getattr(provider, "structured_sentence_feedback", None)
-        if callable(builder):
-            try:
-                request = GradeRequest(
-                    target_word=exercise.target_lemma or exercise.prompt,
-                    user_sentence=learner_answer,
-                    meaning=exercise.translation_en or exercise.prompt,
-                    study_language=get_language(exercise.language_code),
-                    level=exercise.cefr,
-                )
-                raw = builder(request, exercise=exercise)
-                structured = validate_structured_feedback(
-                    raw,
-                    learner_answer=learner_answer,
-                    exercise=exercise,
-                    allowed_rule_ids=exercise.grammar_rule_ids,
-                )
-            except StructuredFeedbackError:
-                structured = None  # degrade — never invent trusted explanations
-            except Exception:
-                structured = None
 
     try:
         result = service.grade_answer(
@@ -688,13 +694,77 @@ def grade_with_ai_service(service, exercise: SentenceExercise, learner_answer: s
             feedback="AI feedback was incomplete. This is not a definitive result.",
             corrected_sentence="",
             score=0.0,
-            structured=structured,
         )
 
+    legacy_status = _legacy_status_from_grade_result(result)
     score = float(result.score)
     corrected = str(getattr(result, "corrected_sentence", "") or "").strip()
     suggested = str(getattr(result, "suggested_sentence", "") or "").strip()
     note = str(getattr(result, "feedback_vi", "") or "").strip()
+
+    structured = None
+    provider = getattr(service, "provider", None)
+    if provider is not None and getattr(provider, "supports_structured_feedback", False):
+        builder = getattr(provider, "structured_sentence_feedback", None)
+        if callable(builder):
+            try:
+                request = GradeRequest(
+                    target_word=exercise.target_lemma or exercise.prompt,
+                    user_sentence=learner_answer,
+                    meaning=exercise.translation_en or exercise.prompt,
+                    study_language=get_language(exercise.language_code),
+                    level=exercise.cefr,
+                )
+                raw = builder(request, exercise=exercise, grade_result=result)
+                candidate = validate_structured_feedback(
+                    raw,
+                    learner_answer=learner_answer,
+                    exercise=exercise,
+                    allowed_rule_ids=exercise.grammar_rule_ids,
+                    expected_language=exercise.language_code,
+                    expected_content_version=exercise.content_version,
+                )
+                # Compatibility mapping: structured must agree with GradeResult outcome.
+                mapped = {
+                    FB_ACCEPT: STATUS_PROVISIONAL_ACCEPT,
+                    FB_CORRECT: STATUS_PROVISIONAL_CORRECT,
+                    FB_UNGRADED: STATUS_UNGRADED,
+                }.get(candidate.grading_status)
+                if mapped == legacy_status:
+                    structured = candidate
+                # Contradictory or unrelated structured payload is discarded.
+            except StructuredFeedbackError:
+                structured = None
+            except TypeError:
+                # Older duck-typed builder without grade_result kwarg.
+                try:
+                    request = GradeRequest(
+                        target_word=exercise.target_lemma or exercise.prompt,
+                        user_sentence=learner_answer,
+                        meaning=exercise.translation_en or exercise.prompt,
+                        study_language=get_language(exercise.language_code),
+                        level=exercise.cefr,
+                    )
+                    raw = builder(request, exercise=exercise)
+                    candidate = validate_structured_feedback(
+                        raw,
+                        learner_answer=learner_answer,
+                        exercise=exercise,
+                        allowed_rule_ids=exercise.grammar_rule_ids,
+                        expected_language=exercise.language_code,
+                        expected_content_version=exercise.content_version,
+                    )
+                    mapped = {
+                        FB_ACCEPT: STATUS_PROVISIONAL_ACCEPT,
+                        FB_CORRECT: STATUS_PROVISIONAL_CORRECT,
+                        FB_UNGRADED: STATUS_UNGRADED,
+                    }.get(candidate.grading_status)
+                    if mapped == legacy_status:
+                        structured = candidate
+                except Exception:
+                    structured = None
+            except Exception:
+                structured = None
 
     if structured is None:
         try:
@@ -707,7 +777,7 @@ def grade_with_ai_service(service, exercise: SentenceExercise, learner_answer: s
             structured = None
 
     # Never invent a grammar error class from score alone.
-    if result.is_correct_usage and score >= 0.7:
+    if legacy_status == STATUS_PROVISIONAL_ACCEPT:
         return SentenceGrade(
             status=STATUS_PROVISIONAL_ACCEPT,
             matched_local=False,

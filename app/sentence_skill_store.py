@@ -166,8 +166,17 @@ class SentenceSkillStore:
     def close(self) -> None:
         self._close_quietly()
 
+    @property
+    def is_open(self) -> bool:
+        return self._connection is not None
+
+    def _require_open(self) -> None:
+        if self._connection is None:
+            raise SentenceSkillStoreError("sentence skill store is closed")
+
     def append(self, record: SentenceSkillRecord) -> SentenceSkillRecord:
         """Insert one skill event. Same submission_id returns the stored row (idempotent)."""
+        self._require_open()
         try:
             validate_sentence_skill_record(record.as_dict())
         except SentenceSkillRecordError as error:
@@ -208,6 +217,7 @@ class SentenceSkillStore:
         return record
 
     def for_language(self, study_language: str) -> list[SentenceSkillRecord]:
+        self._require_open()
         code = str(study_language or "").strip().lower()
         try:
             rows = self._connection.execute(
@@ -234,6 +244,7 @@ class SentenceSkillStore:
         return found
 
     def count(self) -> int:
+        self._require_open()
         try:
             return int(self._connection.execute("SELECT COUNT(*) FROM sentence_skill_records").fetchone()[0])
         except sqlite3.Error as error:

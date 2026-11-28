@@ -200,6 +200,8 @@ def run() -> dict:
         grab(window, SHOTS / "03-grammar-segments-and-rule.png")
         evidence["screenshots"].append("03-grammar-segments-and-rule.png")
         app._toggle_grammar()
+        # Count before leave — leave/destroy closes the owned store.
+        evidence["skill_counts"]["after_first_session"] = store.count()
         app._leave()
         evidence["flow"].append("safe_early_exit_after_conjugation")
     finally:
@@ -211,10 +213,6 @@ def run() -> dict:
             root.destroy()
         except Exception:
             pass
-
-    evidence["skill_counts"]["after_first_session"] = store.count()
-    history = load_sentence_skill_history(store, "nl")
-    store.close()
 
     # Restart — cross-session support selection from persisted evidence.
     store2 = open_guest_sentence_skill_store(str(ROOT), "nl")
@@ -285,6 +283,7 @@ def run() -> dict:
         )
         grab(window, SHOTS / "06-provisional-ai-accept.png")
         evidence["screenshots"].append("06-provisional-ai-accept.png")
+        evidence["skill_counts"]["after_restart_session"] = store2.count()
         app._leave()
     finally:
         try:
@@ -295,9 +294,6 @@ def run() -> dict:
             root.destroy()
         except Exception:
             pass
-
-    evidence["skill_counts"]["after_restart_session"] = store2.count()
-    store2.close()
 
     # Malformed provider path (no UI requirement beyond graceful degrade).
     from sentence_content import load_pack

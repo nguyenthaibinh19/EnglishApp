@@ -66,22 +66,24 @@ def map_outcome(grade: SentenceGrade) -> Optional[str]:
 
 
 def grammar_refs_for_record(exercise: SentenceExercise, grade: SentenceGrade) -> tuple[str, ...]:
-    """At most one skill ref on incorrect to avoid multi-skill assignment."""
+    """At most one skill ref on incorrect — only when diagnosis is certain and matched."""
     structured = getattr(grade, "structured", None)
     rule_id = ""
     if structured is not None:
         rule_id = str(getattr(structured, "grammar_rule_id", "") or "").strip()
+        error_class = str(getattr(structured, "primary_error_class", "") or "")
+        if error_class in ("unclassified", "unknown", ""):
+            return ()
     if rule_id and rule_id in exercise.grammar_rule_ids:
         return (rule_id,)
-    if grade.status == STATUS_INCORRECT and grade.diagnosis_certain and exercise.grammar_rule_ids:
-        # Prefer a single matching rule; otherwise one exercise-linked rule.
+    if grade.status == STATUS_INCORRECT and grade.diagnosis_certain and grade.error_hint:
         from sentence_content import ERROR_RULE_PREFERENCE
 
         preferred = ERROR_RULE_PREFERENCE.get(grade.error_hint, ())
         for rid in exercise.grammar_rule_ids:
             if any(token in rid for token in preferred):
                 return (rid,)
-        return (exercise.grammar_rule_ids[0],)
+        # Do not assign the first available rule merely because it exists.
     return ()
 
 
@@ -106,10 +108,16 @@ def persist_sentence_skill(
     source = SOURCE_LOCAL if grade.graded_by == "local" else (
         SOURCE_AI if grade.graded_by == "ai" else SOURCE_NONE
     )
-    error_class = grade.error_hint or "none"
+    error_class = "none"
+    if grade.status == STATUS_INCORRECT:
+        error_class = grade.error_hint if grade.diagnosis_certain and grade.error_hint else "unclassified"
     structured = getattr(grade, "structured", None)
     if structured is not None:
-        error_class = str(getattr(structured, "primary_error_class", "") or error_class) or "none"
+        structured_class = str(getattr(structured, "primary_error_class", "") or "").strip()
+        if structured_class:
+            error_class = structured_class
+    if not error_class:
+        error_class = "none"
 
     record = build_sentence_skill_record(
         session_id=session_id,

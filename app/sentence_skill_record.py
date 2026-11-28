@@ -13,6 +13,31 @@ from uuid import uuid4
 
 RECORD_FORMAT_VERSION = 1
 POLICY_FAMILY_SUPPORT_V1 = "sentence-skill-family-support-v1"
+SUPPORTED_POLICIES = frozenset({POLICY_FAMILY_SUPPORT_V1})
+
+SUPPORTED_CEFR = frozenset({"A1", "A2", "B1", "B2", "C1", "C2"})
+SUPPORTED_KINDS = frozenset(
+    {"word_bank", "fill_blank", "guided_writing", "independent_writing"}
+)
+KIND_SUPPORT_RANK = {
+    "word_bank": 0,
+    "fill_blank": 1,
+    "guided_writing": 2,
+    "independent_writing": 3,
+}
+
+ERROR_CLASSIFICATIONS = frozenset(
+    {
+        "none",
+        "conjugation",
+        "word_order",
+        "article",
+        "vocabulary",
+        "grammar",
+        "unknown",
+        "unclassified",
+    }
+)
 
 OUTCOME_REVIEWED_CORRECT = "reviewed_correct"
 OUTCOME_INCORRECT = "incorrect"
@@ -129,10 +154,10 @@ def validate_sentence_skill_record(raw: Mapping[str, Any]) -> SentenceSkillRecor
     if not isinstance(raw, Mapping):
         raise SentenceSkillRecordError("record must be an object")
 
-    try:
-        format_version = int(raw.get("format_version"))
-    except (TypeError, ValueError):
-        raise SentenceSkillRecordError("format_version must be an integer") from None
+    version_raw = raw.get("format_version")
+    if isinstance(version_raw, bool) or not isinstance(version_raw, int):
+        raise SentenceSkillRecordError("format_version must be an exact integer")
+    format_version = version_raw
     if format_version != RECORD_FORMAT_VERSION:
         raise SentenceSkillRecordError(f"unsupported record format version {format_version}")
 
@@ -150,15 +175,21 @@ def validate_sentence_skill_record(raw: Mapping[str, Any]) -> SentenceSkillRecor
             raise SentenceSkillRecordError("provisional AI outcomes require provisional_ai/none evidence")
     if outcome == OUTCOME_REVIEWED_CORRECT and evidence == EVIDENCE_PROVISIONAL_AI:
         raise SentenceSkillRecordError("reviewed_correct cannot use provisional_ai evidence")
+    if outcome == OUTCOME_INCORRECT and evidence == EVIDENCE_PROVISIONAL_AI:
+        raise SentenceSkillRecordError("incorrect cannot use provisional_ai evidence")
 
     source = str(raw.get("grading_source") or "").strip()
     if source not in (SOURCE_LOCAL, SOURCE_AI, SOURCE_NONE):
         raise SentenceSkillRecordError(f"unsupported grading_source {source!r}")
+    if outcome == OUTCOME_REVIEWED_CORRECT and source != SOURCE_LOCAL:
+        raise SentenceSkillRecordError("reviewed_correct requires local grading_source")
+    if outcome in (OUTCOME_PROVISIONAL_ACCEPT, OUTCOME_PROVISIONAL_CORRECT) and source != SOURCE_AI:
+        raise SentenceSkillRecordError("provisional outcomes require ai grading_source")
 
-    try:
-        support = int(raw.get("support_level"))
-    except (TypeError, ValueError):
-        raise SentenceSkillRecordError("support_level must be an integer") from None
+    support_raw = raw.get("support_level")
+    if isinstance(support_raw, bool) or not isinstance(support_raw, int):
+        raise SentenceSkillRecordError("support_level must be an exact integer")
+    support = support_raw
     if support < 0 or support > 3:
         raise SentenceSkillRecordError("support_level out of range")
 
@@ -193,7 +224,41 @@ def validate_sentence_skill_record(raw: Mapping[str, Any]) -> SentenceSkillRecor
             raise SentenceSkillRecordError(f"{key} is required")
         values[key] = value
 
+    study_language = values["study_language"].lower()
+    try:
+        from languages import is_supported_language
+
+        if not is_supported_language(study_language):
+            raise SentenceSkillRecordError(f"unsupported study_language {study_language!r}")
+    except ImportError:
+        pass
+    values["study_language"] = study_language
+
+    cefr = values["cefr_level"].upper()
+    if cefr not in SUPPORTED_CEFR:
+        raise SentenceSkillRecordError(f"unsupported cefr_level {cefr!r}")
+    values["cefr_level"] = cefr
+
+    kind = values["exercise_kind"]
+    if kind not in SUPPORTED_KINDS:
+        raise SentenceSkillRecordError(f"unsupported exercise_kind {kind!r}")
+    if KIND_SUPPORT_RANK.get(kind) != support:
+        raise SentenceSkillRecordError("support_level does not match exercise_kind")
+
+    if values["selection_policy_id"] not in SUPPORTED_POLICIES:
+        raise SentenceSkillRecordError(
+            f"unsupported selection_policy_id {values['selection_policy_id']!r}"
+        )
+
     error_classification = str(raw.get("error_classification") or "none").strip() or "none"
+    if error_classification not in ERROR_CLASSIFICATIONS:
+        raise SentenceSkillRecordError(
+            f"unsupported error_classification {error_classification!r}"
+        )
+    # Unclassified local failure is not a confirmed specific grammar error — no rule refs.
+    if error_classification in ("unclassified", "none", "unknown") and refs and outcome == OUTCOME_INCORRECT:
+        if error_classification == "unclassified":
+            refs = ()
 
     return SentenceSkillRecord(
         skill_event_id=values["skill_event_id"],

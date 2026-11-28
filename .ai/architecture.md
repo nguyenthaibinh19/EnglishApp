@@ -106,7 +106,7 @@ ListeningSession → WindowsSpeechProvider
 
 ## Sentence practice (development)
 
-- Progressive sentence exercises are a **separate skill** from vocabulary recall. Phase 19.5A is merged unreleased source. Phase 19.5B (review branch) adds App-domain structured feedback and local SentenceSkillRecord persistence — still no `LearningAttempt`, Progress, SRS, Mistake Book, PracticeRecord v1, or sync outbox writes from sentence practice.
+- Progressive sentence exercises are a **separate skill** from vocabulary recall. Phase 19.5A/B are merged unreleased source. App-domain structured feedback and local SentenceSkillRecord persistence — still no `LearningAttempt`, Progress, SRS, Mistake Book, PracticeRecord v1, or sync outbox writes from sentence practice. Adaptive starts use an explicit session plan; skipped levels are not claimed as demonstrated skill.
 - Content contract: versioned `SentenceExercise` / `GrammarRule` / `SentencePack` in `sentence_content.py`, including `family_id` for related scaffolding. Reviewed `accepted_answers` are content; AI drafts are not answer keys. Dutch A1 remains author-curated / pending expert validation.
 - Ladder: word bank → fill blank → guided writing → independent writing (`sentence_practice.py`). Local grading for reviewed answers; simulated AIService adapter for unlisted open writing — provisional only. Progress = distinct achieved levels. Explicit easier-related recovery is available.
 - Structured feedback (`sentence_feedback.py`) is validated at the trust boundary. `GradeResult` / deployed `/api/grade` / `C-APP-AI-001` v0.2.0 stay unchanged; future transport mapping is documented only ([ADR-027](decisions/ADR-027-structured-sentence-feedback-and-skill.md)).

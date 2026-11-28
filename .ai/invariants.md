@@ -72,7 +72,7 @@ Near answers and hint-assisted exact answers are **non-mastered**. Do not casual
 - Introduction, multiple choice, and assisted practice do not write an attempt or SRS progress. Only a submitted independent recall uses the existing attempt path.
 - An incomplete missing-letter answer is not a failed exercise and does not move the session ladder. A completed assisted answer still does not write SRS.
 
-## Sentence practice (19.5A closed / 19.5B review)
+## Sentence practice (19.5A/B closed)
 
 - Sentence submissions must never create vocabulary `LearningAttempt` rows, call `Progress.record`, change SRS, clear Mistake Book attention, write PracticeRecord v1, or enqueue vocabulary progress outbox events.
 - Reviewed `accepted_answers` are curated content. Outcomes distinguish reviewed correct, definite incorrect, incomplete, unlisted, provisional accept/correct, unavailable, and ungraded.

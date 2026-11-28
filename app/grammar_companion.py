@@ -116,31 +116,44 @@ def build_companion(
             # Untrusted / unrelated reference — general guidance only.
             structured_rule_id = ""
             diagnosis_certain = False
-        elif structured_rule_id and not diagnosis_certain:
-            # Validated rule id may still be guidance-only when diagnosis uncertain.
-            pass
-        if primary_error_class and not error_hint and diagnosis_certain:
+        if primary_error_class and not error_hint and diagnosis_certain and not provisional:
             error_hint = primary_error_class
 
-    rule, claims = select_rule(
-        exercise,
-        rules,
-        error_hint=error_hint,
-        diagnosis_certain=diagnosis_certain and not provisional,
-    )
+    mapping = {rule.rule_id: rule for rule in rules}
+    rule = None
+    claims = False
+    if structured_rule_id and structured_rule_id in mapping and diagnosis_certain and not provisional:
+        # Selected rule must correspond to the validated feedback reference.
+        rule = mapping[structured_rule_id]
+        claims = True
+    else:
+        rule, claims = select_rule(
+            exercise,
+            rules,
+            error_hint=error_hint,
+            diagnosis_certain=diagnosis_certain and not provisional,
+        )
+        if structured_rule_id and rule is not None and rule.rule_id != structured_rule_id:
+            # Prefer the validated feedback reference when it exists in the pack.
+            if structured_rule_id in mapping:
+                rule = mapping[structured_rule_id]
+                claims = diagnosis_certain and not provisional
     if rule is None and not explanation and not original_segment:
         return None
 
     use_vi = (native or config.native_code() or "").strip().lower() == "vi"
     reviewed = exercise.primary_answer()
-    # Never substitute an AI suggestion for the reviewed corrected display here.
-    corrected = reviewed if not allow_ai_suggestion else (corrected_sentence or reviewed)
-    if corrected_sentence and corrected_sentence.strip() == reviewed.strip():
-        corrected = reviewed
-    elif not allow_ai_suggestion:
+    # Reviewed reference sentence stays reviewed; AI proposals are labeled separately.
+    if model_suggestion and allow_ai_suggestion:
+        corrected = corrected_sentence or ""
+    else:
         corrected = reviewed
 
-    if rule is not None:
+    # Do not present an arbitrary model correction beside unrelated reviewed components.
+    components = () if model_suggestion else exercise.components
+    examples = ()
+
+    if rule is not None and not model_suggestion:
         title = rule.title_vi if use_vi else rule.title_en
         beginner = rule.beginner_vi if use_vi else rule.beginner_en
         full = rule.full_vi if use_vi else rule.full_en
@@ -148,6 +161,17 @@ def build_companion(
         rule_id = rule.rule_id
         provenance = rule.provenance
         review_status = rule.review_status
+    elif rule is not None and model_suggestion:
+        # Curated rule text may still guide, but examples stay reviewed-only and
+        # the correction line is the model proposal.
+        title = rule.title_vi if use_vi else rule.title_en
+        beginner = rule.beginner_vi if use_vi else rule.beginner_en
+        full = rule.full_vi if use_vi else rule.full_en
+        examples = tuple(rule.examples[:2])
+        rule_id = rule.rule_id
+        provenance = rule.provenance
+        review_status = rule.review_status
+        claims = False
     else:
         title = config.ui("Gợi ý chung", "General guidance")
         beginner = explanation or config.ui(
@@ -155,13 +179,12 @@ def build_companion(
             "No matching validated rule. Try again with a reviewed pattern.",
         )
         full = ""
-        examples = ()
         rule_id = ""
         provenance = "general-guidance"
         review_status = ""
 
-    guidance_only = not claims or rule is None
-    if guidance_only and rule is not None:
+    guidance_only = not claims or rule is None or model_suggestion
+    if guidance_only and rule is not None and not model_suggestion:
         prefix = config.ui(
             "Gợi ý học (chưa chẩn đoán lỗi cụ thể): ",
             "Learning guidance (not a specific error diagnosis): ",
@@ -189,14 +212,14 @@ def build_companion(
         full=full,
         corrected=corrected,
         examples=examples,
-        components=exercise.components,
+        components=components,
         rule_id=rule_id,
         provenance=provenance,
         review_status=review_status,
-        diagnosis_certain=claims and not provisional,
+        diagnosis_certain=claims and not provisional and not model_suggestion,
         guidance_only=guidance_only,
         original_segment=original_segment,
-        corrected_segment=corrected_segment,
+        corrected_segment=corrected_segment if not model_suggestion else "",
         provisional=provisional,
         model_suggestion=model_suggestion,
         explanation=explanation,

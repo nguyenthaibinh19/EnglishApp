@@ -788,11 +788,22 @@ class SentencePracticeApp:
             return
         self._completion_calls += 1
         self._phase = "closed"
+        self._close_skill_store()
         if callable(self.on_completed):
             self.on_completed()
         try:
             self.window.destroy()
         except tk.TclError:
+            pass
+
+    def _close_skill_store(self) -> None:
+        store = getattr(self.session, "skill_store", None)
+        if store is None:
+            return
+        self.session.skill_store = None
+        try:
+            store.close()
+        except Exception:
             pass
 
     def _force_leave(self) -> None:
@@ -803,6 +814,7 @@ class SentencePracticeApp:
         self._phase = "closed"
         if not self.session.abandoned:
             self.session.abandon()
+        self._close_skill_store()
         if callable(self.on_leave):
             self.on_leave()
         try:
@@ -825,6 +837,7 @@ class SentencePracticeApp:
     def _on_destroy(self, event=None) -> None:
         if event is not None and event.widget is not self.window:
             return
+        self._close_skill_store()
 
 
 def _stage_label(kind: str) -> str:

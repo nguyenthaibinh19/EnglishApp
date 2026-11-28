@@ -129,6 +129,9 @@ class SentencePracticeSession:
         self._failures: Dict[str, int] = {kind: 0 for kind in LADDER}
         self._used_exercise_ids: Set[str] = set()
         self._achieved_levels: Set[int] = set()
+        # Session plan: levels that must be achieved this session. Skipped levels
+        # below the adaptive start are not claimed as demonstrated skill.
+        self._session_plan: Set[int] = set(range(self._level, len(LADDER)))
         self._active_family: str = ""
         self._card: Optional[SentenceCard] = None
         self._completion_taken = False
@@ -172,16 +175,29 @@ class SentencePracticeSession:
         if decision.preferred_kind in LADDER:
             self._level = LADDER.index(decision.preferred_kind)
             self.start_kind = decision.preferred_kind
+        # Rebuild plan from the adaptive start; skipped lower levels stay out.
+        self._session_plan = set(range(self._level, len(LADDER)))
 
     def current_card(self) -> Optional[SentenceCard]:
         return None if self.finished or self.abandoned or self.missing_content else self._card
 
     def levels_achieved(self) -> int:
-        return len(self._achieved_levels)
+        return len(self._achieved_levels & self._session_plan)
+
+    def session_plan_levels(self) -> Tuple[int, ...]:
+        return tuple(sorted(self._session_plan))
+
+    def plan_complete(self) -> bool:
+        return bool(self._session_plan) and self._session_plan.issubset(self._achieved_levels)
 
     def progress_pair(self) -> Tuple[int, int]:
-        """Distinct achieved levels / ladder length. Never exceeds 4/4 via repeats."""
-        return min(self.levels_achieved(), len(LADDER)), len(LADDER)
+        """Achieved planned levels / session plan size. Skipped starts are not counted."""
+        total = max(len(self._session_plan), 1)
+        return min(self.levels_achieved(), total), total
+
+    def _include_level_in_plan(self, level: int) -> None:
+        if 0 <= level < len(LADDER):
+            self._session_plan.add(level)
 
     def rules_for(self, exercise: SentenceExercise) -> Tuple[GrammarRule, ...]:
         mapping = self.pack.rule_map()
@@ -265,7 +281,7 @@ class SentencePracticeSession:
             return False
         if not self.finished:
             return False
-        if self.levels_achieved() < len(LADDER):
+        if not self.plan_complete():
             return False
         self._completion_taken = True
         return True
@@ -439,23 +455,29 @@ class SentencePracticeSession:
                 self._active_family = exercise.family_id
             advanced = False
             finished = False
-            if self.levels_achieved() >= len(LADDER) and level_index >= len(LADDER) - 1:
+            if self.plan_complete():
                 self.finished = True
                 finished = True
                 self._card = None
-            elif level_index >= len(LADDER) - 1:
-                # Top level achieved — finish only when all levels achieved.
-                if self.levels_achieved() >= len(LADDER):
-                    self.finished = True
-                    finished = True
-                    self._card = None
-                else:
-                    # Should not happen if ladder is climbed sequentially.
-                    self._rebuild_card()
             else:
-                self._level += 1
-                advanced = True
-                self._rebuild_card()
+                # Advance toward the next planned level; never pretend skipped
+                # lower levels were demonstrated.
+                next_level = level_index + 1
+                if next_level < len(LADDER) and next_level in self._session_plan:
+                    self._level = next_level
+                    advanced = True
+                    self._rebuild_card()
+                else:
+                    # Find the lowest unachieved planned level (e.g. after step-down).
+                    remaining = sorted(self._session_plan - self._achieved_levels)
+                    if remaining:
+                        self._level = remaining[0]
+                        advanced = remaining[0] > level_index
+                        self._rebuild_card()
+                    else:
+                        self.finished = True
+                        finished = True
+                        self._card = None
             return SentenceSubmitResult(
                 status="feedback",
                 grade=grade,
@@ -477,6 +499,7 @@ class SentencePracticeSession:
         stepped = False
         if self._failures[kind] >= MAX_FAILURES_PER_LEVEL and self._level > 0:
             self._level -= 1
+            self._include_level_in_plan(self._level)
             self._failures[LADDER[self._level]] = 0
             stepped = True
             self._rebuild_card()
@@ -556,6 +579,7 @@ class SentencePracticeSession:
         if current and current.family_id:
             self._active_family = current.family_id
         self._level -= 1
+        self._include_level_in_plan(self._level)
         self._failures[LADDER[self._level]] = 0
         self._rebuild_card()
         return SentenceSubmitResult(
