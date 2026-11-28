@@ -72,6 +72,15 @@ Near answers and hint-assisted exact answers are **non-mastered**. Do not casual
 - Introduction, multiple choice, and assisted practice do not write an attempt or SRS progress. Only a submitted independent recall uses the existing attempt path.
 - An incomplete missing-letter answer is not a failed exercise and does not move the session ladder. A completed assisted answer still does not write SRS.
 
+## Sentence practice (19.5A)
+
+- Sentence submissions must never create vocabulary `LearningAttempt` rows, call `Progress.record`, change SRS, clear Mistake Book attention, write PracticeRecord v1, or enqueue vocabulary progress outbox events.
+- Reviewed `accepted_answers` are curated content. AI grades are provisional and must not become answer keys or validated grammar rules.
+- Unavailable, malformed, or uncertain AI feedback is not a definitive wrong answer. Do not invent linguistic error classes from score alone.
+- Grammar Companion shows only curated rule references. No applicable rule → ordinary feedback only.
+- Activation matches Adaptive Study opt-in (`LG_ADAPTIVE_STUDY=1` + isolated `LG_DATA_DIR`). Not on the installed Study button. Not under locked ScreenGuard sessions. Not in frozen installs as a production path.
+- Only Dutch A1 ships a curated pack in 19.5A; do not claim complete multilingual grammar coverage.
+
 ## Adaptive Study integration (19.4C)
 
 - Adaptive Study requires `LG_ADAPTIVE_STUDY=1` and a validated isolated `LG_DATA_DIR`. Source alone is not enough. Locked ScreenGuard sessions and frozen installs keep `VocabQuizApp`.

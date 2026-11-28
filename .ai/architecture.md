@@ -104,6 +104,14 @@ ListeningSession → WindowsSpeechProvider
 - No Progress / SRS / AttemptHistory writes from Listening.
 - Playback goes through one shared slot in `speech_player`. Listening, Voice Settings, Vocabulary Library, Word Detail, and Study Feedback use that slot. A saved voice is device-local and is not an account preference. Discovery and synthesis stay off the Tk thread. A missing same-language voice uses the unavailable path. There is no wrong-language voice and no cloud speech fallback.
 
+## Sentence practice (development)
+
+- Progressive sentence exercises are a **separate skill** from vocabulary recall. Session-memory results only in Phase 19.5A — no `LearningAttempt`, Progress, SRS, Mistake Book, PracticeRecord, or sync outbox writes.
+- Content contract: versioned `SentenceExercise` / `GrammarRule` / `SentencePack` in `sentence_content.py`. Reviewed `accepted_answers` are content; AI drafts are not answer keys.
+- Ladder: word bank → fill blank → guided writing → independent writing (`sentence_practice.py`). Local grading for reviewed answers; AIService adapter (no account proxy by default) for independent writing outside the reviewed set — provisional only.
+- Grammar Companion is optional expandable feedback from curated rules (`grammar_companion.py`). No full Grammar Library browser yet. Never invent a rule when none is validated.
+- UI: unlocked `SentencePracticeApp` via StudyMaster **Sentence** and optional post-adaptive CTA under the same `LG_ADAPTIVE_STUDY` + isolated `LG_DATA_DIR` opt-in as Adaptive Study. See [PHASE-19.5A-sentence-practice.md](plans/PHASE-19.5A-sentence-practice.md).
+
 ## Adaptive Study integration (development)
 
 - Requires `LG_ADAPTIVE_STUDY=1` and a validated isolated `LG_DATA_DIR`. Frozen installs stay classic.

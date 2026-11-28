@@ -55,6 +55,7 @@ class StudyMasterApp:
         self.vocab_window = None
         self.reading_window = None
         self.listening_window = None
+        self.sentence_window = None
         self.reading_unavailable = False
         self.listening_unavailable = False
         # Lazy TTS: never discover Windows voices during StudyMaster construction.
@@ -333,6 +334,13 @@ class StudyMasterApp:
                     command=lambda c=code: self.open_adaptive_vocab_section(c),
                 )
                 adaptive_button.pack(side=tk.LEFT, padx=(0, 4))
+                sentence_button = ttk.Button(
+                    row,
+                    text=config.ui("Câu", "Sentence"),
+                    style="Small.TButton",
+                    command=lambda c=code: self.open_sentence_practice_section(c),
+                )
+                sentence_button.pack(side=tk.LEFT, padx=(0, 4))
             reading_button = ttk.Button(
                 row,
                 text=config.ui("Đọc", "Reading"),
@@ -695,6 +703,7 @@ class StudyMasterApp:
             "vocab_window",
             "reading_window",
             "listening_window",
+            "sentence_window",
             "mistake_window",
             "progress_window",
             "bank_window",
@@ -1068,6 +1077,9 @@ class StudyMasterApp:
                 ),
                 on_completed=_on_completed,
                 on_leave=_on_leave,
+                on_sentence_practice=lambda c=code: self._offer_sentence_after_vocab(
+                    c, generation
+                ),
                 locked=False,
             )
             if built.practice.unavailable:
@@ -1094,6 +1106,96 @@ class StudyMasterApp:
                 built.practice.store.close()
             except Exception:
                 pass
+
+    def _offer_sentence_after_vocab(self, code: str, generation: int) -> None:
+        """Optional sentence round after adaptive vocab — does not affect vocab completion."""
+        if int(getattr(self, "_account_generation", 0) or 0) != int(generation):
+            return
+        self.root.after(
+            100, lambda: self.open_sentence_practice_section(code, after_vocab=True)
+        )
+
+    def open_sentence_practice_section(self, code=None, *, after_vocab: bool = False):
+        """Optional sentence practice. Never required for StudySession vocabulary completion."""
+        from adaptive_study import adaptive_unlocked_allowed, capture_identity
+        from sentence_practice import SentencePracticeSession
+        from sentence_practice_app import SentencePracticeApp, build_demo_grade_service
+
+        if not adaptive_unlocked_allowed(self.guard):
+            self.guard.show_info(
+                config.ui("Sentence Practice khóa", "Sentence Practice locked"),
+                config.ui(
+                    "Luyện câu chỉ mở với LG_ADAPTIVE_STUDY=1 và LG_DATA_DIR cô lập.",
+                    "Sentence practice only opens with LG_ADAPTIVE_STUDY=1 and an isolated LG_DATA_DIR.",
+                ),
+            )
+            return
+        code = config.active_code() if code is None else code
+        if (
+            self.sentence_window is not None
+            and self.sentence_window.winfo_exists()
+            and str(getattr(self, "_sentence_binding_language", "") or "") == str(code)
+        ):
+            try:
+                self.sentence_window.lift()
+            except tk.TclError:
+                pass
+            return
+        self._activate(code)
+        generation = int(getattr(self, "_account_generation", 0) or 0)
+        identity = capture_identity(code, account_generation=generation)
+        try:
+            session = SentencePracticeSession.from_language(code, "A1")
+        except Exception as error:
+            self.guard.show_info(
+                config.ui("Chưa có bài câu", "No sentence pack"),
+                config.ui(
+                    f"Chưa có gói luyện câu cho ngôn ngữ này.\n{error}",
+                    f"No sentence pack for this language yet.\n{error}",
+                ),
+            )
+            return
+
+        self._suspend_for_activity()
+        grade_service = build_demo_grade_service("accept_valid")
+
+        def _still() -> bool:
+            return identity.still_current(account_generation=self._account_generation)
+
+        def build(window):
+            window.bind("<Destroy>", self._on_sentence_destroy, add="+")
+            SentencePracticeApp(
+                window,
+                session,
+                identity=identity,
+                account_generation_reader=lambda: int(
+                    getattr(self, "_account_generation", 0) or 0
+                ),
+                grade_service=grade_service,
+                on_completed=lambda: None if not _still() else self._refresh_status(),
+                on_leave=lambda: None,
+                locked=False,
+            )
+
+        def failed(error):
+            self._report_activity_launch_error("Sentence Practice", error)
+            self._resume_after_activity()
+
+        self.sentence_window = ui_common.launch_toplevel_app(
+            self.root, build, on_error=failed
+        )
+        if self.sentence_window is not None:
+            self._sentence_binding_language = str(code).strip().lower()
+        # after_vocab is informational only — vocabulary already completed separately.
+        _ = after_vocab
+
+    def _on_sentence_destroy(self, event):
+        if event.widget is not self.sentence_window:
+            return
+        self.sentence_window = None
+        self._sentence_binding_language = None
+        self.root.after(50, self._show_menu)
+        self.root.after(50, self._refresh_status)
 
     def open_reading_section(self, code=None):
         if not config.activity_enabled("reading"):
@@ -1378,7 +1480,12 @@ class StudyMasterApp:
         self.guard.pause_enforcement()
 
     def _child_open(self) -> bool:
-        for window in (self.vocab_window, self.reading_window, self.listening_window):
+        for window in (
+            self.vocab_window,
+            self.reading_window,
+            self.listening_window,
+            self.sentence_window,
+        ):
             try:
                 if window is not None and window.winfo_exists():
                     return True
